@@ -7,6 +7,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
+import duckdb
 import pytest
 
 from portal.modules.security.core.hunt.notables import scoreboard as board
@@ -111,9 +112,35 @@ def _run(
     return run
 
 
-def _family(tmp_path: Path, **kwargs: Any) -> dict[str, Any]:
+def _family(
+    tmp_path: Path, *, causes: dict[str, str] | None = None, **kwargs: Any
+) -> dict[str, Any]:
     run = _run(tmp_path, **kwargs)
-    return score(run, [str(run / "keys.jsonl")])["families"][0]
+    extra = []
+    if causes is not None:
+        path = run / "causes.json"
+        path.write_text(json.dumps(causes), encoding="utf-8")
+        extra.append(f"{run.name}={path}")
+    return score(run, [str(run / "keys.jsonl")], causes=extra)["families"][0]
+
+
+def _store(
+    run: Path,
+    *,
+    events: tuple[str, ...] = (),
+    misfits: tuple[str, ...] = (),
+) -> None:
+    con = duckdb.connect(str(run / "behaviours.duckdb"))
+    con.execute(
+        "CREATE TABLE events (source_id VARCHAR, host VARCHAR, ts DOUBLE, actor VARCHAR,"
+        " action VARCHAR, object VARCHAR, raw VARCHAR, query VARCHAR)"
+    )
+    for raw in events:
+        con.execute("INSERT INTO events VALUES ('botsv2:st', 'h', 0, '', '', '', ?, '')", [raw])
+    con.execute("CREATE TABLE misfits (source_id VARCHAR, shape VARCHAR, examples VARCHAR)")
+    for shape in misfits:
+        con.execute("INSERT INTO misfits VALUES ('botsv2:st', ?, '')", [shape])
+    con.close()
 
 
 def test_artefact_in_evidence_covers_its_step_and_scenario_with_cuts(tmp_path: Path) -> None:
@@ -543,3 +570,75 @@ def test_untagged_keys_leave_class_recall_empty(tmp_path: Path) -> None:
     keys = [_key("fruitfly", "c2_beacon", "eidk.hopto.org", entity="domain")]
     family = _family(tmp_path, notables=[_notable("alerts", "quiet day")], keys=keys)
     assert family["class_recall"] == {}
+
+
+def test_ceiling_marks_a_read_artefact_reachable_and_charges_not_surfaced(tmp_path: Path) -> None:
+    keys = [_key("fruitfly", "c2_beacon", "eidk.duckdns.org", count=12, klass="B")]
+    run = _run(tmp_path, notables=[_notable("deviation", "quiet day")], keys=keys)
+    _store(run, events=("query eidk.duckdns.org from 10.0.0.9",))
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    ceiling = family["ceiling"]
+    assert ceiling["keys_reachable"] == 1
+    assert ceiling["loose"]["reachable"] == 1
+    assert ceiling["loose"]["covered"]["50"] == 0
+    assert ceiling["loose"]["recall"]["50"] == 0.0
+    assert ceiling["per_step"][0]["reachable"] is True
+    assert ceiling["per_step"][0]["stores"] == ["events"]
+    assert ceiling["per_step"][0]["cause"] == "not_surfaced"
+
+
+def test_a_key_in_no_read_store_is_unreached(tmp_path: Path) -> None:
+    keys = [_key("fruitfly", "c2_beacon", "eidk.hopto.org", count=8, klass="B")]
+    run = _run(tmp_path, notables=[_notable("deviation", "quiet day")], keys=keys)
+    _store(run)
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    assert family["ceiling"]["keys_reachable"] == 0
+    assert family["ceiling"]["per_step"][0]["cause"] == "unreached"
+
+
+def test_the_inventory_value_list_is_a_reachable_store(tmp_path: Path) -> None:
+    keys = [_key("taedonggang_phish", "spearphish_attachment", "invoice.zip", klass="P")]
+    run = _run(tmp_path, notables=[_notable("alerts", "quiet day")], keys=keys)
+    (run / "inventory.json").write_text(
+        json.dumps(
+            {
+                "fields": [
+                    {
+                        "field": "attach_filename",
+                        "status": "complete",
+                        "values": [{"value": "invoice.zip", "events": 9}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    assert family["ceiling"]["per_step"][0]["reachable"] is True
+    assert family["ceiling"]["per_step"][0]["stores"] == ["inventory"]
+
+
+def test_audit_cause_overrides_the_derived_one(tmp_path: Path) -> None:
+    keys = [_key("fruitfly", "c2_beacon", "eidk.hopto.org", count=8, klass="B")]
+    family = _family(
+        tmp_path,
+        notables=[_notable("deviation", "quiet day")],
+        keys=keys,
+        causes={"fruitfly/c2_beacon": "design_limit"},
+    )
+    row = family["ceiling"]["per_step"][0]
+    assert row["cause"] == "design_limit"
+    assert row["cause_source"] == "audit"
+
+
+def test_an_artefact_only_in_an_evidence_line_is_an_instrument_cause(tmp_path: Path) -> None:
+    keys = [_key("fruitfly", "c2_beacon", "eidk.duckdns.org", count=12, klass="B")]
+    hit = _notable("deviation", "quiet")
+    hit["what"] = "dns beacon on one host"
+    hit["evidence"][0]["line"] = "query eidk.duckdns.org from 10.0.0.9"
+    run = _run(tmp_path, notables=[hit], keys=keys)
+    _store(run, events=("query eidk.duckdns.org",))
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    assert family["strict_recall"]["overall"]["50"] == 0
+    assert family["recall"]["overall"]["50"] == 1
+    assert family["ceiling"]["per_step"][0]["cause"] == "instrument"

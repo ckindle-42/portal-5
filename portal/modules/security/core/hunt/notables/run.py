@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -73,6 +74,22 @@ NOTABLES_FILE = "notables.jsonl"
 
 def default_search() -> SplunkWindowSource:
     return SplunkWindowSource()
+
+
+def merge_weights_from_env() -> dict[str, int] | None:
+    """A per-run weight vector (``PORTAL_HUNT_MERGE_WEIGHTS``); absent leaves DEFAULT_WEIGHTS."""
+    raw = os.environ.get("PORTAL_HUNT_MERGE_WEIGHTS")
+    if not raw:
+        return None
+    stored = json.loads(raw)
+    if not isinstance(stored, Mapping):
+        raise ValueError("PORTAL_HUNT_MERGE_WEIGHTS must be a JSON object of generator: weight")
+    weights: dict[str, int] = {}
+    for name, value in stored.items():
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"PORTAL_HUNT_MERGE_WEIGHTS[{name!r}] is not a non-negative integer")
+        weights[str(name)] = value
+    return weights
 
 
 def _sources_payload(
@@ -473,7 +490,9 @@ def notables_stage(
         notables = [*similar, *notables]
         receipt[SIMILAR_GENERATOR] = detail
         receipt["seconds"][SIMILAR_GENERATOR] = detail["seconds"]
-    merged, merge_receipt = merge_notables(notables, MERGE_PRIORITY, DEFAULT_MERGE)
+    merged, merge_receipt = merge_notables(
+        notables, MERGE_PRIORITY, DEFAULT_MERGE, weights=merge_weights_from_env()
+    )
     if "deviation" in enabled:
         receipt["source_windows"] = resolve_source_windows(merged, executor, cards, source_facts)
     receipt.update(inventory=inventory_receipt, merge=merge_receipt)

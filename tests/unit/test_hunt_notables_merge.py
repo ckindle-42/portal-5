@@ -5,6 +5,8 @@ from portal.modules.security.core.hunt.notables.merge import (
     DEFAULT_MERGE,
     DEFAULT_WEIGHTS,
     RRF_K,
+    UNMEASURED_WEIGHT,
+    conditional_weights,
     duplicate_key,
     group_by_generator,
     merge_notables,
@@ -184,3 +186,43 @@ def test_a_generator_outside_the_priority_sorts_last_deterministically() -> None
     assert [item.generator for item in merged] == ["alerts", "zebra"]
     groups = group_by_generator(notables, ("alerts",))
     assert [group[0].generator for group in groups] == ["alerts", "zebra"]
+
+
+def _evidence(family: str, steps: int, **generators: tuple[int, int]) -> dict[str, object]:
+    return {
+        "family": family,
+        "steps": steps,
+        "generators": {
+            name: {"existed": existed, "covered": covered}
+            for name, (existed, covered) in generators.items()
+        },
+    }
+
+
+def test_conditional_weights_skip_families_where_a_generator_had_no_candidates() -> None:
+    families = [
+        _evidence("a", 10, alerts=(0, 0), deviation=(10, 4)),
+        _evidence("b", 10, alerts=(5, 2), deviation=(10, 1)),
+    ]
+    weights = conditional_weights(families)
+    # alerts is measured only on b (2/10), never on a's zero-candidate run.
+    assert weights["alerts"] == 20
+    assert weights["deviation"] == 25  # mean(0.4, 0.1) x 100
+    assert weights["misfit"] == UNMEASURED_WEIGHT  # absent from every family
+
+
+def test_conditional_weights_keep_a_unit_weight_for_a_never_exercised_generator() -> None:
+    families = [_evidence("a", 10, alerts=(0, 0))]
+    weights = conditional_weights(families)
+    assert weights["alerts"] == UNMEASURED_WEIGHT
+    assert DEFAULT_WEIGHTS["alerts"] == 0
+
+
+def test_conditional_weights_fall_back_without_any_evidence() -> None:
+    assert conditional_weights([]) == DEFAULT_WEIGHTS
+    assert conditional_weights([], {"deviation": 7}) == {"deviation": 7}
+
+
+def test_an_exercised_generator_that_covered_nothing_keeps_zero_weight() -> None:
+    weights = conditional_weights([_evidence("a", 10, peer_rare=(100, 0))])
+    assert weights["peer_rare"] == 0

@@ -11,17 +11,21 @@ import calendar
 import hashlib
 import json
 import re
+import statistics
 import sys
 import time
 import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+import duckdb
+
 from .cards import CARD_KIND_CONSUMERS, card_consumers
 from .knowledge import PROOF_INDEXES
+from .merge import DEFAULT_WEIGHTS, conditional_weights
 from .receipt import read_json
 from .relate import RELATE_FILE
 from .run import GENERATORS, NOTABLES_FILE, SOURCES_FILE, card_from_dict
@@ -70,6 +74,29 @@ LINE_RULE = (
     "by its evidence window. A step is covered when one of its keyed events is."
 )
 
+REACH_RULE = (
+    "a key is reachable when its value (NFC/NFD, casefolded) is a substring of a read store "
+    "row (events raw/actor/action/object/query/host, behaviour row fields, misfit shape or "
+    "example), or an exact cell in the C1 inventory value lists; a step is reachable when one "
+    "of its creditable artefacts is. The ceiling is the reachable step count; recall of "
+    "reachable is covered reachable steps over reachable steps, at the same cut."
+)
+
+CAUSE_RULE = (
+    "an audit-declared cause (keys row or --causes) is reported as written; without one the "
+    "scoreboard derives it: covered = strict mode is about the artefact; instrument = it "
+    "surfaces only when evidence lines count; not_surfaced = the run read it and surfaced no "
+    "notable; unreached = no creditable artefact value is in a read store."
+)
+STORE_FILE = "behaviours.duckdb"
+INVENTORY_FILE = "inventory.json"
+STORE_COLUMNS = {
+    "events": ("raw", "actor", "action", "object", "query", "host"),
+    "behaviour": ("actor", "action", "object", "example_raw", "example_query"),
+    "misfit": ("shape", "examples"),
+}
+STORE_TABLE = {"events": "events", "behaviour": "behaviours", "misfit": "misfits"}
+
 _TERM = re.compile(r'TERM\("((?:[^"\\]|\\.)*)"\)')
 _PLAIN_TERM = re.compile(r'(?<![=\w])"((?:[^"\\]|\\.)*)"')
 _SOURCE = re.compile(r'source="([^"]+)"')
@@ -111,6 +138,7 @@ class EntityKey:
     klass: str = ""
     credit: bool = True
     requires: tuple[str, ...] = ()
+    cause: str = ""
 
 
 @dataclass(frozen=True)
@@ -141,6 +169,7 @@ class Step:
     first_rank: int | None = None
     by_generator: dict[str, int] = field(default_factory=dict)
     klass: str = ""
+    cause: str = ""
 
     @property
     def quiet(self) -> bool:
@@ -309,6 +338,7 @@ def _read_entity_keys(path: Path) -> list[EntityKey]:
                 str(stored.get("class") or ""),
                 True if credit is None else bool(credit),
                 tuple(str(name) for name in stored.get("requires") or ()),
+                str(stored.get("cause") or ""),
             )
         )
     if not rows:
@@ -510,6 +540,69 @@ def _coverage(
             _scan(path, lines, active, steps, year)
 
 
+def _line_read_lines(directory: Path) -> set[str]:
+    """Exact read lines from the behaviour sample, for the per-line families' ceiling."""
+    store = directory / STORE_FILE
+    if not store.is_file():
+        return set()
+    con = duckdb.connect(str(store), read_only=True)
+    try:
+        tables = {str(row[0]) for row in con.execute("SHOW TABLES").fetchall()}
+        if "events" not in tables:
+            return set()
+        rows = con.execute("SELECT raw FROM events").fetchall()
+    finally:
+        con.close()
+    return {str(row[0]).rstrip("\r\n") for row in rows if row[0] is not None}
+
+
+def _line_reachability(
+    keys: Sequence[KeyLine], logs: Path, read: set[str]
+) -> tuple[dict[str, bool], int, int]:
+    """Per step, whether one of its labelled lines was read verbatim; lines read of labelled."""
+    reached: dict[str, bool] = {label: False for line in keys for label in line.labels}
+    wanted: dict[tuple[str, str], dict[int, tuple[str, ...]]] = defaultdict(dict)
+    for line in keys:
+        wanted[(line.host, line.source)][line.number] = line.labels
+    found = 0
+    seen = 0
+    for (host, source), lines in sorted(wanted.items()):
+        path = logs / host / "logs" / source.lstrip("/")
+        if not path.is_file():
+            continue
+        with path.open(encoding="utf-8", errors="replace") as handle:
+            for number, raw in enumerate(handle, 1):
+                labels = lines.get(number)
+                if labels is None:
+                    continue
+                seen += 1
+                if raw.rstrip("\r\n") in read:
+                    found += 1
+                    for label in labels:
+                        reached[label] = True
+    return reached, found, seen
+
+
+def _reach_recall(steps: Mapping[str, Step], reached: Mapping[str, bool]) -> dict[str, Any]:
+    """Coverage restricted to steps whose evidence the run actually read."""
+    reachable = [step for step in steps.values() if reached.get(step.label)]
+
+    def block(selected: Sequence[Step]) -> dict[str, Any]:
+        return {str(limit): _count(selected, lambda step: step.first_rank, limit) for limit in CUTS}
+
+    return {
+        "steps": len(steps),
+        "reachable": len(reachable),
+        "covered": block(reachable),
+        "recall": {
+            str(limit): round(block(reachable)[str(limit)] / len(reachable), 6)
+            if reachable
+            else None
+            for limit in CUTS
+        },
+    }
+
+
 def _auc(bad: Sequence[float], good: Sequence[float]) -> float | None:
     if not bad or not good:
         return None
@@ -637,6 +730,12 @@ def _generator_rank(name: str) -> Callable[[Step], int | None]:
     return rank_of
 
 
+def _median_rank(steps: Sequence[Step]) -> float | None:
+    """The typical rank of the first notable covering a step: a cut-free sensitivity measure."""
+    ranks = [step.first_rank for step in steps if step.first_rank is not None]
+    return round(statistics.median(ranks), 1) if ranks else None
+
+
 def _read_count(limit: int | None, total: int) -> int:
     return total if limit is None else min(limit, total)
 
@@ -653,6 +752,7 @@ def _recall(steps: Sequence[Step]) -> dict[str, Any]:
         "overall": {
             str(limit): _count(steps, lambda step: step.first_rank, limit) for limit in CUTS
         },
+        "median_first_rank": _median_rank(steps),
         "by_generator": {
             name: {str(limit): _count(steps, _generator_rank(name), limit) for limit in CUTS}
             for name in RECALL_GENERATORS
@@ -689,6 +789,31 @@ def _step_row(step: Step) -> dict[str, Any]:
             for name in RECALL_GENERATORS
         },
     }
+
+
+def _line_ceiling(
+    directory: Path, keys: Sequence[KeyLine], steps: Mapping[str, Step], logs: Path
+) -> dict[str, Any]:
+    reached, found, seen = _line_reachability(keys, logs, _line_read_lines(directory))
+    block = _reach_recall(steps, reached)
+    block.update(
+        {
+            "rule": REACH_RULE,
+            "lines_read": found,
+            "labelled_lines": seen,
+            "per_step": [
+                {
+                    "step": step.label,
+                    "class": step.klass,
+                    "cause": step.cause,
+                    "reachable": bool(reached.get(step.label)),
+                    "first_rank": step.first_rank,
+                }
+                for step in steps.values()
+            ],
+        }
+    )
+    return block
 
 
 def _family(
@@ -742,6 +867,7 @@ def _family(
         },
         "steps": [_step_row(step) for step in ordered],
         "recall": _recall(ordered),
+        "ceiling": _line_ceiling(directory, keys, steps, resolved),
         "judge": _judge_block(notables, read_json(directory / JUDGE_CACHE)),
         "cost": _cost(progress),
         "honesty": _honesty(progress, family),
@@ -902,6 +1028,98 @@ def _entity_ownership(artefacts: Sequence[EntityKey]) -> dict[str, str]:
     return owners
 
 
+def _fold_forms(value: str) -> tuple[str, ...]:
+    """The value in both Unicode normal forms, so an index that stores NFD still matches."""
+    forms = {value, unicodedata.normalize("NFC", value), unicodedata.normalize("NFD", value)}
+    return tuple(sorted(form for form in forms if form))
+
+
+def _table_hits(
+    con: duckdb.DuckDBPyConnection, table: str, columns: Sequence[str], forms: Sequence[str]
+) -> int:
+    clauses: list[str] = []
+    params: list[str] = []
+    for form in forms:
+        for column in columns:
+            clauses.append(f"contains(lower({column}), lower(?))")
+            params.append(form)
+    if not clauses:
+        return 0
+    row = con.execute(
+        f"SELECT count(*) FROM {table} WHERE " + " OR ".join(clauses), params
+    ).fetchone()
+    return int(row[0]) if row else 0
+
+
+def _inventory_cells(directory: Path) -> set[str]:
+    payload = read_json(directory / INVENTORY_FILE)
+    cells: set[str] = set()
+    for item in payload.get("fields") or ():
+        if isinstance(item, Mapping):
+            for value in item.get("values") or ():
+                if isinstance(value, Mapping):
+                    cells.update(_fold_forms(str(value.get("value") or "")))
+    for joint in payload.get("joints") or ():
+        if not isinstance(joint, Mapping):
+            continue
+        for row in joint.get("rows") or ():
+            if isinstance(row, Mapping):
+                for value in (row.get("values") or {}).values():
+                    cells.update(_fold_forms(str(value)))
+    for flow in payload.get("flows") or ():
+        if isinstance(flow, Mapping):
+            cells.update(_fold_forms(str(flow.get("value") or "")))
+    return {cell for cell in cells if cell}
+
+
+def _reachable_stores(directory: Path, values: Sequence[str]) -> dict[str, tuple[str, ...]]:
+    """For each key value, the read stores (events, behaviour, misfit, inventory) holding it."""
+    found: dict[str, list[str]] = {value: [] for value in values}
+    store = directory / STORE_FILE
+    if store.is_file():
+        con = duckdb.connect(str(store), read_only=True)
+        try:
+            tables = {str(row[0]) for row in con.execute("SHOW TABLES").fetchall()}
+            for value in dict.fromkeys(values):
+                forms = _fold_forms(value)
+                for label, columns in STORE_COLUMNS.items():
+                    if STORE_TABLE[label] not in tables:
+                        continue
+                    if _table_hits(con, STORE_TABLE[label], columns, forms):
+                        found[value].append(label)
+        finally:
+            con.close()
+    cells = _inventory_cells(directory)
+    for value in dict.fromkeys(values):
+        if any(form in cells for form in _fold_forms(value)):
+            found[value].append("inventory")
+    return {value: tuple(stores) for value, stores in found.items()}
+
+
+def _entity_reachability(
+    artefacts: Sequence[EntityKey], owners: Mapping[str, str], stores: Mapping[str, tuple[str, ...]]
+) -> dict[str, dict[str, Any]]:
+    """Per owning step: the creditable artefacts that are in a read store."""
+    reached: dict[str, dict[str, Any]] = {}
+    for key in artefacts:
+        if not key.credit or owners.get(key.value) != f"{key.scenario}/{key.step}":
+            continue
+        label = f"{key.scenario}/{key.step}"
+        entry = reached.setdefault(label, {"reachable": False, "stores": set(), "values": []})
+        if stores.get(key.value):
+            entry["reachable"] = True
+            entry["stores"].update(stores[key.value])
+            entry["values"].append(key.value)
+    return {
+        label: {
+            "reachable": bool(entry["reachable"]),
+            "stores": sorted(entry["stores"]),
+            "values": entry["values"],
+        }
+        for label, entry in reached.items()
+    }
+
+
 def _entity_groups(
     artefacts: Sequence[EntityKey], owners: Mapping[str, str]
 ) -> tuple[dict[str, Step], dict[str, Step]]:
@@ -916,6 +1134,8 @@ def _entity_groups(
         step = steps.setdefault(label, Step(label, klass=key.klass))
         if key.klass and not step.klass:
             step.klass = key.klass
+        if key.cause and not step.cause:
+            step.cause = key.cause
         if not key.credit:
             continue
         step.lines += key.audit_count or 0
@@ -1011,6 +1231,7 @@ def _artefact_rows(
                 "admitted": key.admitted,
                 "class": key.klass,
                 "credit": key.credit,
+                "cause": key.cause,
                 "requires": list(key.requires),
                 "shared_step": None if owner == f"{key.scenario}/{key.step}" else owner,
                 "first_rank": firsts[position],
@@ -1044,6 +1265,126 @@ def _class_recall(steps: Sequence[Step]) -> dict[str, Any]:
     if both:
         out["B+P"] = block(both)
     return out
+
+
+def _cause_row(
+    step: Step,
+    reachable: bool,
+    strict_steps: Mapping[str, Step],
+    line_steps: Mapping[str, Step] | None,
+) -> tuple[str, str]:
+    """The audit's cause when declared, else one derived from what the run actually did."""
+    if step.cause:
+        return step.cause, "audit"
+    strict = strict_steps.get(step.label)
+    strict_rank = strict.first_rank if strict is not None else None
+    line = (line_steps or {}).get(step.label)
+    line_rank = line.first_rank if line is not None else None
+    if _cut(strict_rank, 50):
+        return "covered", "derived"
+    if _cut(line_rank, 50) or _cut(step.first_rank, 50):
+        return "instrument", "derived"
+    if reachable:
+        return "not_surfaced", "derived"
+    return "unreached", "derived"
+
+
+def _reach_block(
+    steps: Sequence[Step], reached: Mapping[str, Any], rank_of: Callable[[str], int | None]
+) -> dict[str, Any]:
+    reachable = [step for step in steps if (reached.get(step.label) or {}).get("reachable")]
+    ranks = [rank_of(step.label) for step in reachable]
+    covered_ranks = [rank for rank in ranks if rank is not None]
+    return {
+        "steps": len(steps),
+        "reachable": len(reachable),
+        "covered": {
+            str(limit): _count(reachable, lambda step: rank_of(step.label), limit) for limit in CUTS
+        },
+        "median_first_rank": round(statistics.median(covered_ranks), 1) if covered_ranks else None,
+        "recall": {
+            str(limit): round(
+                _count(reachable, lambda step: rank_of(step.label), limit) / len(reachable), 6
+            )
+            if reachable
+            else None
+            for limit in CUTS
+        },
+    }
+
+
+def _entity_ceiling(
+    steps: Sequence[Step],
+    strict_steps: Mapping[str, Step],
+    reached: Mapping[str, Any],
+    stores: Mapping[str, tuple[str, ...]],
+    artefacts: Sequence[EntityKey],
+    line_steps: Mapping[str, Step] | None,
+) -> dict[str, Any]:
+    loose = _reach_block(steps, reached, lambda label: _rank(steps, label))
+    strict = _reach_block(steps, reached, lambda label: _rank_of(strict_steps, label))
+    line = (
+        None
+        if line_steps is None
+        else _reach_block(
+            list(line_steps.values()), reached, lambda label: _rank_of(line_steps, label)
+        )
+    )
+    by_class: dict[str, dict[str, Any]] = {}
+    for klass in ("B", "P", "T"):
+        chosen = [step for step in steps if step.klass == klass]
+        if chosen:
+            block = _reach_block(chosen, reached, lambda label: _rank(steps, label))
+            by_class[klass] = {"steps": len(chosen), "reachable": block["reachable"]}
+    behavioural = [step for step in steps if step.klass in ("B", "P")]
+    if behavioural:
+        by_class["B+P"] = {
+            "steps": len(behavioural),
+            "reachable": sum(
+                1 for step in behavioural if (reached.get(step.label) or {}).get("reachable")
+            ),
+        }
+    per_step = []
+    for step in steps:
+        entry = reached.get(step.label) or {}
+        cause, source = _cause_row(step, bool(entry.get("reachable")), strict_steps, line_steps)
+        per_step.append(
+            {
+                "step": step.label,
+                "class": step.klass,
+                "cause": cause,
+                "cause_source": source,
+                "reachable": bool(entry.get("reachable")),
+                "stores": list(entry.get("stores") or ()),
+                "values": list(entry.get("values") or ()),
+                "first_rank": step.first_rank,
+            }
+        )
+    store_counts = Counter(store for value in stores.values() for store in value)
+    return {
+        "rule": REACH_RULE,
+        "cause_rule": CAUSE_RULE,
+        "keys": len(artefacts),
+        "keys_reachable": sum(1 for value in stores.values() if value),
+        "stores": dict(sorted(store_counts.items())),
+        "loose": loose,
+        "strict": strict,
+        "line": line,
+        "by_class": by_class,
+        "per_step": per_step,
+    }
+
+
+def _rank(steps: Sequence[Step], label: str) -> int | None:
+    for step in steps:
+        if step.label == label:
+            return step.first_rank
+    return None
+
+
+def _rank_of(steps: Mapping[str, Step], label: str) -> int | None:
+    step = steps.get(label)
+    return step.first_rank if step is not None else None
 
 
 def _asset_rows(
@@ -1107,6 +1448,7 @@ def _entity_line_mode(
     owners: Mapping[str, str],
     events: Sequence[KeyedEvent],
     rows: Sequence[dict[str, Any]],
+    keep: dict[str, Step] | None = None,
 ) -> dict[str, Any]:
     """The family rule over the keyed events: which notables' queries select them."""
     by_value: dict[str, EntityKey] = {}
@@ -1148,6 +1490,8 @@ def _entity_line_mode(
             if _covers(claim, text, event.time):
                 _mark_hit(steps[label], notable.rank, notable.generator)
     ordered = sorted(steps.values(), key=lambda step: (not step.quiet, step.lines, step.label))
+    if keep is not None:
+        keep.update(steps)
     return {
         "rule": LINE_RULE,
         "events": len(folded),
@@ -1192,14 +1536,39 @@ def _entity_relation(
     }
 
 
+def _apply_causes(keys: Sequence[EntityKey], causes: Mapping[str, str] | None) -> list[EntityKey]:
+    if not causes:
+        return list(keys)
+    return [replace(key, cause=causes.get(f"{key.scenario}/{key.step}", key.cause)) for key in keys]
+
+
+def _ceiling_for(
+    directory: Path,
+    artefacts: Sequence[EntityKey],
+    owners: Mapping[str, str],
+    steps: Mapping[str, Step],
+    strict_steps: Mapping[str, Step],
+    line_steps: Mapping[str, Step] | None,
+) -> dict[str, Any]:
+    stores = _reachable_stores(directory, [key.value for key in artefacts])
+    reached = _entity_reachability(artefacts, owners, stores)
+    return _entity_ceiling(
+        list(steps.values()), strict_steps, reached, stores, artefacts, line_steps
+    )
+
+
 def _entity_family(
-    family: str, directory: Path, keys_path: Path, events_path: Path | None = None
+    family: str,
+    directory: Path,
+    keys_path: Path,
+    events_path: Path | None = None,
+    causes: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     rows = _read_notables(directory)
     progress = read_json(directory / PROGRESS_FILE)
     if not progress:
         raise ScoreboardError(f"{directory / PROGRESS_FILE} is missing; this run is not scored")
-    keys = _read_entity_keys(keys_path)
+    keys = _apply_causes(_read_entity_keys(keys_path), causes)
     index, _run_sources = _run_index(directory)
     _check_entity_family(index, keys)
     artefacts, assets, rejected = _entity_split(keys)
@@ -1212,6 +1581,12 @@ def _entity_family(
     )
     ordered, ordered_scenarios = _entity_order(steps), _entity_order(scenarios)
     events = None if events_path is None else _read_keyed_events(events_path, index)
+    line_steps: dict[str, Step] = {}
+    line = (
+        None
+        if events is None
+        else _entity_line_mode(artefacts, owners, events, rows, keep=line_steps)
+    )
     report = {
         "family": family,
         "index": index,
@@ -1257,7 +1632,10 @@ def _entity_family(
         "strict_recall": _recall(_entity_order(strict_steps)),
         "strict_scenario_recall": _recall(_entity_order(strict_scenarios)),
         "class_recall": _class_recall(ordered),
-        "line_mode": None if events is None else _entity_line_mode(artefacts, owners, events, rows),
+        "ceiling": _ceiling_for(
+            directory, artefacts, owners, steps, strict_steps, line_steps or None
+        ),
+        "line_mode": line,
         "judge": _judge_block(notables, read_json(directory / JUDGE_CACHE)),
         "cost": _cost(progress),
         "honesty": _honesty(progress, family),
@@ -1604,6 +1982,7 @@ def _render_entity(report: Mapping[str, Any]) -> str:
     lines += ["", *_entity_recall_lines(report)]
     lines += _entity_mode_lines(report)
     lines += _entity_line_lines(report)
+    lines += _ceiling_lines(report)
     relation_lines = _entity_relate_lines(report)
     if relation_lines:
         lines += ["", *relation_lines]
@@ -1611,6 +1990,64 @@ def _render_entity(report: Mapping[str, Any]) -> str:
     lines += _cost_lines(report)
     lines += _honesty_lines(report)
     return "\n".join(lines)
+
+
+def _reach_text(block: Mapping[str, Any]) -> str:
+    return "  ".join(
+        f"{'all' if cut == 'None' else '@' + cut} {block['covered'][cut]}/{block['reachable']}"
+        for cut in ("50", "100", "None")
+    )
+
+
+def _ceiling_lines(report: Mapping[str, Any]) -> list[str]:
+    ceiling = report.get("ceiling")
+    if not isinstance(ceiling, Mapping):
+        return []
+    if report.get("mode") != "entity":
+        overall = report["recall"]["overall"]
+        steps = report["recall"]["steps"]
+        return [
+            f"C0 ceiling  steps {ceiling['reachable']}/{ceiling['steps']} reachable  "
+            f"labelled lines read verbatim {ceiling['lines_read']}/"
+            f"{ceiling['labelled_lines']}",
+            f"C0 recall-of-reachable  line {_reach_text(ceiling)}",
+            f"C0 modes  line {overall['50']}/{steps} @50  {overall['100']}/{steps} @100  "
+            f"{overall['None']}/{steps} all   strict n/a for per-line keys",
+        ]
+    loose, strict, line = ceiling["loose"], ceiling["strict"], ceiling["line"]
+    both = ceiling["by_class"].get("B+P") or {"reachable": 0, "steps": loose["steps"]}
+    counts = Counter(row["cause"] for row in ceiling["per_step"])
+    declared = sum(1 for row in ceiling["per_step"] if row["cause_source"] == "audit")
+    causes = ", ".join(f"{name} {count}" for name, count in sorted(counts.items()))
+    if declared:
+        causes += f"  (audit-declared {declared})"
+    line_reach = "n/a (no keyed-events export)" if line is None else _reach_text(line)
+    overall = report["recall"]["overall"]
+    strict_overall = report["strict_recall"]["overall"]
+    line_overall = (
+        None if report.get("line_mode") is None else report["line_mode"]["recall"]["overall"]
+    )
+    steps = report["recall"]["steps"]
+    line_modes = (
+        "n/a"
+        if line_overall is None
+        else f"{line_overall['50']}/{steps} @50  {line_overall['100']}/{steps} @100  "
+        f"{line_overall['None']}/{steps} all"
+    )
+    return [
+        f"C0 ceiling  keys {ceiling['keys_reachable']}/{ceiling['keys']} reachable  "
+        f"steps {loose['reachable']}/{loose['steps']} (B+P {both['reachable']}/"
+        f"{both['steps']})  stores {ceiling['stores'] or 'none'}",
+        f"C0 recall-of-reachable  loose {_reach_text(loose)}   strict {_reach_text(strict)}"
+        f"   line {line_reach}",
+        f"C0 modes  loose {overall['50']}/{steps} @50  {overall['100']}/{steps} @100  "
+        f"{overall['None']}/{steps} all   strict {strict_overall['50']}/{steps} @50  "
+        f"{strict_overall['100']}/{steps} @100  {strict_overall['None']}/{steps} all   "
+        f"line {line_modes}",
+        f"C0 causes  {causes}",
+        "C0 cause rule: " + str(ceiling["cause_rule"]),
+        "C0 reach rule: " + str(ceiling["rule"]),
+    ]
 
 
 def render(report: Mapping[str, Any]) -> str:
@@ -1621,6 +2058,7 @@ def render(report: Mapping[str, Any]) -> str:
     lines += ["", f"LOUD steps (> {QUIET_MAX_LINES} lines)"]
     lines += _step_table(report["steps"], False) or ["  none"]
     lines += ["", *_recall_lines(report)]
+    lines += _ceiling_lines(report)
     relation_lines = _relate_lines(report)
     if relation_lines:
         lines += ["", *relation_lines]
@@ -1630,6 +2068,62 @@ def render(report: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _read_causes(path: Path) -> dict[str, str]:
+    stored = read_json(path)
+    if not stored:
+        raise ScoreboardError(f"causes file is missing or empty: {path}")
+    if isinstance(stored.get("causes"), Mapping):
+        stored = stored["causes"]
+    return {str(step): str(cause) for step, cause in stored.items() if isinstance(cause, str)}
+
+
+def _cause_paths(values: Sequence[str], families: Sequence[str]) -> dict[str, Path]:
+    found: dict[str, Path] = {}
+    for value in values:
+        family, _, path = value.partition("=")
+        if not family or not path:
+            raise ScoreboardError(f"--causes {value!r} is not family=path")
+        found[family.strip()] = Path(path)
+    missing = [family for family in families if family in found and not found[family].is_file()]
+    if missing:
+        raise ScoreboardError(f"causes file not found for {', '.join(missing)}")
+    return found
+
+
+def _weight_evidence(report: Mapping[str, Any], directory: Path) -> dict[str, Any]:
+    progress = read_json(directory / PROGRESS_FILE)
+    stages = progress.get("stages") if isinstance(progress.get("stages"), Mapping) else {}
+    notables = stages.get("notables") if isinstance(stages, Mapping) else None
+    stored = notables if isinstance(notables, Mapping) else {}
+    generators: dict[str, dict[str, int]] = {}
+    for name, detail in (report["recall"].get("by_generator") or {}).items():
+        receipt = stored.get(name)
+        existed = int(receipt.get("existed") or 0) if isinstance(receipt, Mapping) else 0
+        generators[name] = {"existed": existed, "covered": int(detail.get("50") or 0)}
+    return {
+        "family": report["family"],
+        "steps": report["recall"]["steps"],
+        "generators": generators,
+    }
+
+
+def _weights_block(evidence: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    folds = [{"held_out": None, "weights": conditional_weights(evidence)}]
+    for family in evidence:
+        rest = [item for item in evidence if item["family"] != family["family"]]
+        folds.append({"held_out": family["family"], "weights": conditional_weights(rest)})
+    return {
+        "rule": (
+            "weight = 100 x mean coverage at @50 over the families where the generator had "
+            "candidates (existed > 0); a generator never exercised keeps a unit weight; no "
+            "evidence at all keeps DEFAULT_WEIGHTS"
+        ),
+        "default": dict(DEFAULT_WEIGHTS),
+        "evidence": list(evidence),
+        "folds": folds,
+    }
+
+
 def score(
     out: Path,
     key_args: Sequence[str],
@@ -1637,18 +2131,31 @@ def score(
     logs: Path | None = None,
     year: int | None = None,
     keyed_events: Sequence[str] | None = None,
+    causes: Sequence[str] | None = None,
+    weights: bool = False,
 ) -> dict[str, Any]:
     targets = _targets(out)
-    keys = _key_paths(key_args, [family for family, _directory in targets])
+    families = [family for family, _directory in targets]
+    keys = _key_paths(key_args, families)
     events = _optional_paths(keyed_events or ())
-    return {
-        "families": [
-            _entity_family(family, directory, keys[family], events.get(family))
-            if _keys_are_entity(keys[family])
-            else _family(family, directory, keys[family], logs, year)
-            for family, directory in targets
+    cause_paths = _cause_paths(causes or (), families)
+    reports = []
+    for family, directory in targets:
+        if _keys_are_entity(keys[family]):
+            declared = _read_causes(cause_paths[family]) if family in cause_paths else None
+            reports.append(
+                _entity_family(family, directory, keys[family], events.get(family), declared)
+            )
+        else:
+            reports.append(_family(family, directory, keys[family], logs, year))
+    result: dict[str, Any] = {"families": reports}
+    if weights:
+        evidence = [
+            _weight_evidence(report, directory)
+            for report, (_family_name, directory) in zip(reports, targets, strict=True)
         ]
-    }
+        result["weights"] = _weights_block(evidence)
+    return result
 
 
 def _optional_paths(values: Sequence[str]) -> dict[str, Path]:
@@ -1676,10 +2183,40 @@ def _parser() -> argparse.ArgumentParser:
         help="family=path to that family's keyed-event export; entity families only, "
         "adds line mode beside entity mode (repeat per family)",
     )
+    parser.add_argument(
+        "--causes",
+        action="append",
+        help="family=path to that family's audit cause map (JSON step -> cause); entity "
+        "families only (repeat per family)",
+    )
+    parser.add_argument(
+        "--weights",
+        action="store_true",
+        help="report the C4 conditional generator weights and their leave-one-family-out folds",
+    )
     parser.add_argument("--logs", type=Path, help="raw log tree holding the labelled lines")
     parser.add_argument("--year", type=int, help="year for a timestamp that carries none")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     return parser
+
+
+def _weights_lines(report: Mapping[str, Any]) -> list[str]:
+    weights = report.get("weights")
+    if not isinstance(weights, Mapping):
+        return []
+    folds = weights["folds"]
+    original_names = list(weights["default"])
+    extras = sorted(
+        {name for fold in folds for name in fold["weights"] if name not in original_names}
+    )
+    names = [*original_names, *extras]
+    lines = ["C4 conditional generator weights  (" + str(weights["rule"]) + ")"]
+    lines.append("  held out   " + "  ".join(f"{name:<16}" for name in names))
+    for fold in folds:
+        label = "all" if fold["held_out"] is None else str(fold["held_out"])
+        cells = "  ".join(f"{fold['weights'].get(name, 0):<16}" for name in names)
+        lines.append(f"  {label:<10} {cells}")
+    return lines
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1692,6 +2229,8 @@ def main(argv: list[str] | None = None) -> int:
             logs=args.logs,
             year=args.year,
             keyed_events=args.keyed_events,
+            causes=args.causes,
+            weights=args.weights,
         )
     except ScoreboardError as error:
         print(f"scoreboard: {error}", file=sys.stderr)
@@ -1699,10 +2238,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(report, indent=1, sort_keys=False))
     else:
-        print(
-            "\n\n".join(render(family) for family in report["families"])
-            + f"\n\nscored in {time.monotonic() - started:.1f}s"
-        )
+        text = "\n\n".join(render(family) for family in report["families"])
+        weight_lines = _weights_lines(report)
+        if weight_lines:
+            text += "\n\n" + "\n".join(weight_lines)
+        print(text + f"\n\nscored in {time.monotonic() - started:.1f}s")
     return 0
 
 

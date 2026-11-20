@@ -20,6 +20,35 @@ UNMEASURED_WEIGHT = 1  # a generator the weights were never measured for keeps a
 RRF_K = 60  # reciprocal-rank fusion constant (Cormack et al. 2009); never per-corpus
 
 
+def conditional_weights(
+    families: Sequence[Mapping[str, Any]], fallback: Mapping[str, int] | None = None
+) -> dict[str, int]:
+    """Coverage where a generator had candidates; unit when it was never exercised.
+
+    Each family carries ``steps`` and one ``{"existed", "covered"}`` row per generator;
+    a family where ``existed`` is zero does not enter that generator's denominator.
+    """
+    base = dict(DEFAULT_WEIGHTS if fallback is None else fallback)
+    if not families:
+        return base
+    names = set(base)
+    for family in families:
+        names.update(str(name) for name in family.get("generators") or {})
+    weights: dict[str, int] = {}
+    for name in sorted(names):
+        rates: list[float] = []
+        for family in families:
+            detail = (family.get("generators") or {}).get(name)
+            steps = int(family.get("steps") or 0)
+            if not isinstance(detail, Mapping) or steps <= 0:
+                continue
+            if int(detail.get("existed") or 0) <= 0:
+                continue
+            rates.append(int(detail.get("covered") or 0) / steps)
+        weights[name] = max(0, round(100 * sum(rates) / len(rates))) if rates else UNMEASURED_WEIGHT
+    return weights
+
+
 def _weighted(groups: Sequence[Sequence[Notable]], weights: Sequence[int]) -> list[Notable]:
     """Deficit round-robin: each group's share of the merged head follows its measured weight."""
     taken = [0] * len(groups)
@@ -117,4 +146,5 @@ def merge_notables(
     }
     if chosen:
         receipt["weights"] = dict(sorted(chosen.items()))
+        receipt["weights_source"] = "default" if weights is None else "override"
     return merged, receipt

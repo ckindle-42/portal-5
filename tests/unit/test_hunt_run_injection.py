@@ -299,3 +299,17 @@ def test_main_hunts_an_unseen_index_against_every_store_family(
     for row in similar:
         assert all(item["index"] != "runidx" for item in row["nearest_known"])
     assert "excluded families: none — index unseen by the store" in capsys.readouterr().out
+
+
+def test_merge_weights_env_parses_a_vector_and_refuses_a_non_integer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from portal.modules.security.core.hunt.notables.run import merge_weights_from_env
+
+    monkeypatch.delenv("PORTAL_HUNT_MERGE_WEIGHTS", raising=False)
+    assert merge_weights_from_env() is None
+    monkeypatch.setenv("PORTAL_HUNT_MERGE_WEIGHTS", '{"deviation": 26, "alerts": 0}')
+    assert merge_weights_from_env() == {"deviation": 26, "alerts": 0}
+    monkeypatch.setenv("PORTAL_HUNT_MERGE_WEIGHTS", '{"deviation": 1.5}')
+    with pytest.raises(ValueError, match="non-negative integer"):
+        merge_weights_from_env()
