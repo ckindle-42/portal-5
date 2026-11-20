@@ -169,18 +169,10 @@ case "${1:-up}" in
         docker compose run --rm openwebui-init >/dev/null 2>&1 &
     fi
 
-    # Prune dangling images left behind by image pulls (untagged build layers).
-    # Safe: only removes images with no tag and no running container referencing them.
-    # Does NOT remove images used by other projects on this machine.
-    _PRUNED=$(docker image prune -f 2>/dev/null | grep "Total reclaimed" || true)
-    if [ -n "$_PRUNED" ] && ! echo "$_PRUNED" | grep -qE "0 ?B$"; then
-        echo "[portal-5] 🧹 $_PRUNED"
-    fi
-
-    # Gate: before `up` reports done, wait for every enabled host job and
-    # container in config/portal.yaml (mcp_fleet + host_jobs) to answer /health.
-    # Exits non-zero with a per-service table if any never come up.
+    # Pruning is one step: _disk_hygiene after the health gate below (a failed
+    # start keeps the old images for rollback).
     _wait_up_health
+    _disk_hygiene
 
     echo "[portal-5] Stack started."
     if [ "${ENABLE_REMOTE_ACCESS:-false}" = "true" ]; then
@@ -372,6 +364,10 @@ case "${1:-up}" in
         || echo "[portal-5] WARNING: snapshot re-pin refused — Jarvis jobs would run stale code" >&2
     (cd "$PORTAL_ROOT" && uv run portal arm archive-canaries) \
         || echo "[portal-5] WARNING: canary archive refused — a running job still owns the baselines" >&2
+    # Disk hygiene: prune superseded/dangling images + build cache (host and
+    # dind), return freed space to the host, report the savings — only after
+    # the rebuilt stack is up.
+    _disk_hygiene
     echo "[portal-5] Done. Check status: ./launch.sh status"
     ;;
 
