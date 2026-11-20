@@ -376,6 +376,10 @@ async def _warm_preferred_resident(
         return "resident"
     if plan.get("busy") or guard.has_activity():
         return "waiting for in-flight work"
+    if plan.get("omlx_live"):
+        # Residency yields to the engine serving live work: warming 23.8 GiB on
+        # Ollama evicts the oMLX seat the next request needs (2026-11-20).
+        return "waiting for the oMLX engine serving live work"
     if state is not None and now < state.quiet_until:
         return "waiting: resident evicted; respecting measured load quiet period"
     if headroom is None:
@@ -463,7 +467,8 @@ async def _keep_preferred_residents(registry: BackendRegistry) -> None:
                 last[model] = status
                 if status in ("resident", "loaded"):
                     logger.info(
-                        "Preferred resident %s on %s (%s): %s — kept warm, yields to a seat",
+                        "Preferred resident %s on %s (%s): %s — kept warm, yields to a seat "
+                        "(declared in config/backends.yaml defaults.preferred_residents)",
                         model,
                         backend.id,
                         backend.url,

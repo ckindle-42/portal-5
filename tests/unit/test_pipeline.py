@@ -1226,6 +1226,29 @@ class TestPreferredResident:
         guard.admit.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_residency_yields_to_a_live_omlx_engine(self, monkeypatch):
+        """2026-11-20: the 23.8 GiB Nemotron reload evicted a loaded oMLX seat."""
+        plan = {
+            "busy": False,
+            "omlx_live": True,
+            "need_gib": 23.7,
+            "headroom_gib": 37.2,
+            "models": [{"resident": False}],
+        }
+        lifespan_mod, registry, guard, client, hint = self._harness(monkeypatch, plan)
+        status = await lifespan_mod._warm_preferred_resident(
+            registry.list_backends()[0],
+            "ollama",
+            hint,
+            {"num_predict": 1},
+            guard,
+            "http://fake:11434",
+        )
+        assert status == "waiting for the oMLX engine serving live work"
+        client.post.assert_not_awaited()
+        guard.admit.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_a_model_that_does_not_fit_the_headroom_is_left_for_later(self, monkeypatch):
         plan = {
             "busy": False,

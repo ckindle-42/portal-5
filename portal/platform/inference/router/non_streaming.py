@@ -741,6 +741,26 @@ def _visible_answer(message: dict[str, Any]) -> str:
     return drop_unparsed_markup(strip_think(content)).strip()
 
 
+def _empty_completion(data: dict[str, Any]) -> bool:
+    """No visible answer and no tool call: the engine produced nothing to send."""
+    for choice in data.get("choices") or []:
+        message = choice.get("message") or {}
+        if message.get("tool_calls") or _visible_answer(message):
+            return False
+    return True
+
+
+def _empty_reply_reason(data: dict[str, Any]) -> str:
+    """Why an empty reply is empty, from the finish reason and its reasoning channel."""
+    choice = (data.get("choices") or [{}])[0] or {}
+    message = choice.get("message") or {}
+    reasoning = any(
+        isinstance(message.get(name), str) and message.get(name)
+        for name in ("reasoning", "reasoning_content", "thinking")
+    )
+    return f"content empty, no tool_calls, finish_reason={choice.get('finish_reason')!r}, reasoning={reasoning}"
+
+
 def _strip_emitted_tool_markup(data: dict[str, Any]) -> None:
     """Drop structured calls and textual ``<tool_call>`` wrappers from a toolless reply."""
     _strip_tool_calls(data)
@@ -1250,6 +1270,25 @@ async def _try_non_streaming(
             _ns_tool_calls: list[dict[str, Any]] = []
             for _c in data.get("choices") or []:
                 _ns_tool_calls.extend((_c.get("message") or {}).get("tool_calls") or [])
+
+            if not _ns_tool_calls and _empty_completion(data):
+                # 200 with no content and no call is not an answer (2026-11-20: a
+                # one-token thinking warm-up was logged as success, then the seat's
+                # fallback copy was loaded and the oMLX copy evicted).
+                reason = _empty_reply_reason(data)
+                _record_error(workspace_id, "empty_completion")
+                if tried is not None:
+                    tried[(backend.chat_url, target_model)] = (
+                        f"{target_model}: empty completion ({reason})"
+                    )
+                logger.warning(
+                    "Non-stream: workspace=%s model=%s returned an empty completion (%s); "
+                    "treating it as a failed hop",
+                    workspace_id,
+                    target_model,
+                    reason,
+                )
+                return None
 
             # Only auto-dispatch when every requested call belongs to the
             # workspace's own whitelist. A client-injected tool (e.g. bench

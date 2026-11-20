@@ -923,14 +923,25 @@ def _set_client(monkeypatch, *responses: httpx.Response) -> _NSClient:
 
 
 @pytest.mark.anyio
-async def test_null_content_reply_is_not_a_failure(monkeypatch, ns_env) -> None:
-    _set_client(
+async def test_empty_null_content_reply_is_a_failed_hop(monkeypatch, ns_env) -> None:
+    """2026-11-20: an empty 200 was logged "succeeded" and the empty seat stayed hot."""
+    client = _set_client(
         monkeypatch,
         httpx.Response(
-            200, json={"choices": [{"message": {"role": "assistant", "content": None}}]}
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "length",
+                        "message": {"role": "assistant", "content": None},
+                    }
+                ]
+            },
         ),
     )
-    assert await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_env, 0.0) is not None
+    result = await ns._try_non_streaming(_backend("b"), {"messages": []}, ns_env, 0.0)
+    assert result is None
+    assert len(client.posts) == 1
 
 
 @pytest.mark.anyio
