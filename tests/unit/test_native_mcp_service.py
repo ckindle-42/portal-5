@@ -17,6 +17,7 @@ def _run_pipeline_mcp(tmp_path, env_lines: str) -> list[str]:
     (root / "scripts" / "lib").mkdir(parents=True)
     shutil.copy(repo / "scripts/native-mcp-service.sh", root / "scripts/native-mcp-service.sh")
     shutil.copy(repo / "scripts/lib/venv_preflight.sh", root / "scripts/lib/venv_preflight.sh")
+    shutil.copy(repo / "scripts/lib/host_dotenv.sh", root / "scripts/lib/host_dotenv.sh")
     py = root / ".venv" / "bin" / "python3"
     py.parent.mkdir(parents=True)
     py.write_text('#!/bin/sh\necho "PIPELINE_URL=$PIPELINE_URL"\necho "OLLAMA_URL=$OLLAMA_URL"\n')
@@ -25,7 +26,16 @@ def _run_pipeline_mcp(tmp_path, env_lines: str) -> list[str]:
     env = {
         k: v
         for k, v in os.environ.items()
-        if k not in ("AI_OUTPUT_DIR", "DATA_MCP_ROOT", "PORTAL_ROOT", "PIPELINE_URL", "OLLAMA_URL")
+        if k
+        not in (
+            "AI_OUTPUT_DIR",
+            "DATA_MCP_ROOT",
+            "PORTAL_ROOT",
+            "PIPELINE_URL",
+            "OLLAMA_URL",
+            "PROMETHEUS_MULTIPROC_DIR",
+            "PIPELINE_API_KEY",
+        )
     }
     env["HOME"] = str(tmp_path / "home")
     r = subprocess.run(
@@ -45,4 +55,19 @@ def test_container_urls_from_env_are_rewritten_to_loopback_for_host_services(tmp
         tmp_path,
         "PIPELINE_URL=http://portal-pipeline:9099\nOLLAMA_URL=http://host.docker.internal:11434\n",
     )
+    assert lines == ["PIPELINE_URL=http://localhost:9099", "OLLAMA_URL=http://localhost:11434"]
+
+
+def test_pipeline_mcp_does_not_inherit_container_metrics_dir(tmp_path):
+    lines = _run_pipeline_mcp(
+        tmp_path,
+        "PIPELINE_URL=http://portal-pipeline:9099\n"
+        "OLLAMA_URL=http://localhost:11434\n"
+        "PROMETHEUS_MULTIPROC_DIR=/dev/shm/portal_metrics\n"
+        "PIPELINE_API_KEY=host-key\n",
+    )
+    wrapper = Path(__file__).resolve().parents[2].joinpath("scripts/native-mcp-service.sh")
+    text = wrapper.read_text(encoding="utf-8")
+    assert 'source "$ENV_FILE"' not in text
+    assert "PROMETHEUS_MULTIPROC_DIR" not in text
     assert lines == ["PIPELINE_URL=http://localhost:9099", "OLLAMA_URL=http://localhost:11434"]

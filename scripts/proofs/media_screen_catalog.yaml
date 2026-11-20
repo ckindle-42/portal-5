@@ -11,6 +11,7 @@ paths:
   weights_root: /Volumes/data01/media-screen
   hf_cache: /Volumes/data01/hf-cache
   ace_root: ~/.portal5/music/ACE-Step-1.5
+  video_venv: ~/.portal5/video-mlx/ltx-2-mlx/.venv
 media:
   image:
     canvas: 1024x1024, seed 42, the candidate's distilled default steps
@@ -157,12 +158,9 @@ media:
         role: incumbent
         ext: mp4
         expected_peak_gb: 9.0
-        expected_note: live this host 2026-11-19 — worker ~9 GB RSS, system free >=52%, clip has audio; uvx re-resolves the pin per run (accept LTX/Gemma terms once if the pull 401s)
+        expected_note: live this host 2026-11-19 — worker ~9 GB RSS, system free >=52%, clip has audio; run the Portal-installed pinned tree (accept LTX/Gemma terms once if a model pull returns 401)
         argv:
-          - uvx
-          - --from
-          - git+https://github.com/dgrauet/ltx-2-mlx@747b30ef10e9
-          - ltx-2-mlx
+          - "{video_venv}/bin/ltx-2-mlx"
           - generate
           - --distilled
           - --low-ram

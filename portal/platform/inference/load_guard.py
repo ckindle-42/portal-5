@@ -841,10 +841,22 @@ class LoadGuard:
             return None
         try:
             r = await client.get(f"{url.rstrip('/')}/v1/models/status", auth=OmlxKeyAuth())
-            return r.json() if r.status_code == 200 else None
+            if r.status_code != 200:
+                return None
+            data = r.json()
         except Exception as e:
             logger.debug("load_guard: oMLX status read failed: %s", type(e).__name__)
             return None
+        if isinstance(data, dict) and isinstance(data.get("models"), list):
+            from portal.platform.inference.router.placement import sync_omlx_loaded
+
+            loaded = {
+                str(m["id"])
+                for m in data["models"]
+                if isinstance(m, dict) and m.get("loaded") and m.get("id")
+            }
+            sync_omlx_loaded(url, loaded)
+        return data if isinstance(data, dict) else None
 
     async def _headroom(self, client: httpx.AsyncClient) -> tuple[float, float] | None:
         """Current oMLX headroom, without waiting for transition state."""
@@ -879,20 +891,46 @@ class LoadGuard:
         self._host_free_read_at = time.monotonic()
         return reading
 
+    def _omlx_idle_bytes(self, status: dict[str, Any]) -> float:
+        """Evictable idle oMLX resident bytes reported by ``/v1/models/status``."""
+        models = status.get("models")
+        if not isinstance(models, list):
+            return 0.0
+        failover_protected = self.failover_protected(OMLX)
+        idle = 0.0
+        for m in models:
+            if (
+                not isinstance(m, dict)
+                or not m.get("loaded")
+                or m.get("pinned")
+                or m.get("is_loading")
+            ):
+                continue
+            mid = str(m.get("id") or "")
+            if not mid or mid in failover_protected:
+                continue
+            if self.busy(OMLX, mid) or self._active_elsewhere(OMLX, mid):
+                continue
+            idle += float(m.get("actual_size") or m.get("estimated_size") or 0)
+        return min(idle, float(status.get("current_model_memory") or 0))
+
     async def host_free_bytes(self, base: str) -> float | None:
         """Memory a new load could use without waiting: oMLX's headroom plus idle
-        Ollama residents. A failed status read keeps the last reading for
-        ``_HOST_FREE_STALE_S``; None after that. Feeds the admission gate."""
+        evictable oMLX and Ollama residents. A failed status read keeps the last
+        reading for ``_HOST_FREE_STALE_S``; None after that. Feeds the admission gate."""
         async with self._client() as client:
             st = await self._omlx_status(client)
             if st is None or st.get("final_ceiling") is None:
                 return self._cached_host_free()
             headroom = _budget_bytes(st) - float(st.get("current_model_memory") or 0)
+            omlx_idle = self._omlx_idle_bytes(st)
+            if omlx_idle > 0 and await self._omlx_foreign_active(client):
+                omlx_idle = 0.0
             try:
                 resident = await self._resident(client, base)
             except Exception:
                 resident = {}
-            return self._remember_host_free(headroom + self._ollama_idle(resident))
+            return self._remember_host_free(headroom + omlx_idle + self._ollama_idle(resident))
 
     def _ollama_hold_reason(self, name: str, include_protected: bool = False) -> str | None:
         """Return why an Ollama resident is unavailable for eviction, if anything."""
@@ -1121,6 +1159,9 @@ class LoadGuard:
                     )
                     unloads.append({"engine": OMLX, "model": str(m["id"]), "status": "failed"})
                     continue
+                from portal.platform.inference.router.placement import clear_omlx_activity
+
+                clear_omlx_activity(url, str(m["id"]))
                 logger.info(
                     "load_guard: evicted %s on %s, %.1f GiB freed (reason=%s)",
                     m["id"],

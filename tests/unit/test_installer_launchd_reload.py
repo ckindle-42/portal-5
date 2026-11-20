@@ -6,9 +6,13 @@ was issued inside the previous bootout's teardown window. All three now reload
 through the shared _launchd_reload_job, driven here by a stubbed launchctl.
 """
 
+import platform
 import re
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
 _UTIL = _ROOT / "scripts/lib/util.sh"
@@ -185,3 +189,69 @@ def test_all_three_installers_reload_through_the_shared_helper_with_health():
         "com.portal5.mflux": "http://127.0.0.1:${MX_PORT}/health",
         "com.portal5.video-mlx": "http://127.0.0.1:${VX_PORT}/health",
     }
+
+
+_CALENDAR_PLIST = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.portal5.engine-update</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-lc</string>
+    <string>cd __PORTAL_ROOT__ &amp;&amp; echo calendar</string>
+  </array>
+</dict></plist>
+"""
+
+
+def test_scheduled_agent_reloads_a_changed_calendar_job_once(tmp_path: Path):
+    """Calendar jobs never reach state=running. A changed plist still bootstraps."""
+    if platform.system() != "Darwin" or shutil.which("plutil") is None:
+        pytest.skip("installer lints plists with plutil on Darwin")
+    portal = tmp_path / "portal"
+    src = portal / "deploy" / "launchd" / "com.portal5.engine-update.plist"
+    src.parent.mkdir(parents=True)
+    src.write_text(_CALENDAR_PLIST, encoding="utf-8")
+    home = tmp_path / "home"
+    dst = home / "Library" / "LaunchAgents" / "com.portal5.engine-update.plist"
+    dst.parent.mkdir(parents=True)
+    dst.write_text(_CALENDAR_PLIST.replace("echo calendar", "set -a && . ./.env"), encoding="utf-8")
+    stubs = tmp_path / "stubs"
+    state = tmp_path / "state"
+    stubs.mkdir()
+    state.mkdir()
+    (stubs / "launchctl").write_text(_LAUNCHCTL_STUB)
+    (stubs / "launchctl").chmod(0o755)
+    (stubs / "sleep").write_text("#!/bin/sh\nexit 0\n")
+    (stubs / "sleep").chmod(0o755)
+    script = (
+        f'source "{_UTIL}"\n'
+        '_install_scheduled_agent com.portal5.engine-update "ENABLED"\n'
+        'echo "rc=$?"\n'
+        '_install_scheduled_agent com.portal5.engine-update "ENABLED-AGAIN"\n'
+        'echo "rc2=$?"\n'
+    )
+    proc = subprocess.run(
+        ["bash", "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env={
+            "PATH": f"{stubs}:/usr/bin:/bin:/usr/sbin:/sbin",
+            "HOME": str(home),
+            "TMPDIR": str(tmp_path),
+            "PORTAL_ROOT": str(portal),
+            "PORTAL5_TEST_STATE": str(state),
+        },
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "rc=0" in proc.stdout
+    assert "rc2=0" in proc.stdout
+    assert proc.stdout.count("ENABLED") == 1
+    assert "ENABLED-AGAIN" not in proc.stdout
+    assert _bootstrap_calls(tmp_path) == 1
+    installed = dst.read_text(encoding="utf-8")
+    assert ". ./.env" not in installed
+    assert "__PORTAL_ROOT__" not in installed
+    assert f"cd {portal} &amp;&amp; echo calendar" in installed

@@ -153,8 +153,8 @@ Incumbent: `dgrauet/ltx-2.5-mlx-q4`, `--distilled --low-ram`, 512×320, 97 frame
 
 ```bash
 mkdir -p /tmp/media-variant-screen/video
-# incumbent, current ltx-2-mlx pin. Accept the LTX and Gemma terms once if the pull 401s.
-/usr/bin/time -l uvx --from "git+https://github.com/dgrauet/ltx-2-mlx@747b30ef10e9" \
+# incumbent, Portal-installed ltx-2-mlx tree at the screen pin. Accept the LTX and Gemma terms once if a model pull returns 401.
+/usr/bin/time -l "$HOME/.portal5/video-mlx/ltx-2-mlx/.venv/bin/ltx-2-mlx" \
   ltx-2-mlx generate --distilled --low-ram \
   --model dgrauet/ltx-2.5-mlx-q4 \
   --prompt "Ocean waves hit dark basalt rocks at sunset. Water crashes and pulls back. The soundtrack is waves and wind, no music." \

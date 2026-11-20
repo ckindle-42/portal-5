@@ -75,7 +75,10 @@ _latest_sweep_report() {
 _engine_dep_plan() {
     local service="$1" py="$2" mode="${3:-apply}" project="${4:-}" extra_dependency="${5:-}"
     local portal_py="$PORTAL_ROOT/.venv/bin/python"
-    [ -x "$portal_py" ] || portal_py="$(command -v python3)"
+    if [ ! -x "$portal_py" ]; then
+        echo "  ❌ project interpreter missing: $portal_py" >&2
+        return 1
+    fi
     local report="" work_dir="" candidate status upstream_requirements="" sweep_status=0
     if [ "$mode" = "apply" ] || [ -n "$project" ]; then
         work_dir="$(mktemp -d "${TMPDIR:-/tmp}/portal5-engine-sweep.XXXXXX")" || return 1
@@ -237,7 +240,13 @@ _launch_install_music() {
 #!/bin/bash
 PORTAL_ROOT="${PORTAL_ROOT}"
 [ -d "\$PORTAL_ROOT/portal/modules" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-music" >&2; exit 1; }
-set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
+# Keys music_mcp.py, workspace.py and owui_files.py read. Do not source .env.
+. "\$PORTAL_ROOT/scripts/lib/host_dotenv.sh"
+portal_export_dotenv_keys "\$PORTAL_ROOT/.env" \
+    OWUI_API_KEY PORTAL_PUBLIC_URL OPENWEBUI_URL AI_OUTPUT_DIR WORKSPACE_DIR \
+    HF_HOME HF_HUB_CACHE HUGGINGFACE_HUB_CACHE \
+    MUSIC_ACE_DIT MUSIC_ACE_LM MUSIC_MINIMAX_MODEL MUSIC_MINIMAX_PORT \
+    MUSIC_JOB_TIMEOUT_S MUSIC_IDLE_TIMEOUT_S MAX_MUSIC_FILES
 export PYTHONPATH="\$PORTAL_ROOT"
 export MUSIC_ACE_ROOT="${ACE_DIR}"
 export MUSIC_PYTHON="${PY}"
@@ -316,9 +325,14 @@ _launch_install_mflux() {
 #!/bin/bash
 PORTAL_ROOT="${PORTAL_ROOT}"
 [ -d "\$PORTAL_ROOT/portal" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-mflux" >&2; exit 1; }
-# launchd gives us no shell env and no .env — source it so OWUI_API_KEY /
-# PORTAL_PUBLIC_URL reach publish_file (host-native, unlike the Docker MCPs).
-set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
+# Keys mflux_mcp.py, workspace.py and owui_files.py read. Do not source .env.
+. "\$PORTAL_ROOT/scripts/lib/host_dotenv.sh"
+portal_export_dotenv_keys "\$PORTAL_ROOT/.env" \
+    OWUI_API_KEY PORTAL_PUBLIC_URL OPENWEBUI_URL AI_OUTPUT_DIR WORKSPACE_DIR \
+    HF_HOME HF_HUB_CACHE HUGGINGFACE_HUB_CACHE \
+    MFLUX_DEFAULT_MODEL MFLUX_TIMEOUT MFLUX_QUANTIZE MFLUX_LOW_RAM MFLUX_COMPUTE_PRECISION \
+    MFLUX_FLUX2_BIN MFLUX_FLUX3_BIN MFLUX_QWEN21_BIN MFLUX_ZIMAGE_BIN \
+    MFLUX_FLUX2_KLEIN_TAG MFLUX_FLUX3_KLEIN_TAG MFLUX_QWEN21_TAG MFLUX_ZIMAGE_TAG
 export PYTHONPATH="\$PORTAL_ROOT"
 export MFLUX_BIN="$MX_VENV/bin/mflux-generate"
 export MFLUX_FLUX2_BIN="$MX_VENV/bin/mflux-generate-flux2"
@@ -473,7 +487,13 @@ _launch_install_video_mlx() {
 #!/bin/bash
 PORTAL_ROOT="${PORTAL_ROOT}"
 [ -d "\$PORTAL_ROOT/portal" ] || { echo "ERROR: PORTAL_ROOT invalid; re-run install-video-mlx" >&2; exit 1; }
-set -a; [ -f "\$PORTAL_ROOT/.env" ] && . "\$PORTAL_ROOT/.env"; set +a
+# Keys video_mlx_mcp.py, workspace.py and owui_files.py read. Do not source .env.
+. "\$PORTAL_ROOT/scripts/lib/host_dotenv.sh"
+portal_export_dotenv_keys "\$PORTAL_ROOT/.env" \
+    OWUI_API_KEY PORTAL_PUBLIC_URL OPENWEBUI_URL AI_OUTPUT_DIR WORKSPACE_DIR \
+    HF_HOME HF_HUB_CACHE HUGGINGFACE_HUB_CACHE \
+    VIDEO_MLX_WAN_BIN VIDEO_MLX_DEFAULT_MODEL VIDEO_MLX_TIMEOUT VIDEO_MLX_LOW_RAM \
+    VIDEO_MLX_QUALITY VIDEO_MLX_Q4_TAG VIDEO_MLX_WAN_MODEL_DIR
 export PYTHONPATH="\$PORTAL_ROOT"
 # launchd hands a bare PATH — ltx-2-mlx shells out to ffmpeg for muxing.
 export PATH="/opt/homebrew/bin:/usr/local/bin:\$PATH"
