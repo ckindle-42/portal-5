@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
-"""Inventory host dependencies and report OSV findings without changing installed packages."""
+"""Inventory host dependencies and report OSV findings without changing installed packages.
+
+Exit-code contract (consumers must gate on the report, not on this exit status):
+
+* ``0`` — the scan completed and recorded no scan errors.
+* ``1`` — the scan completed but recorded scan errors (inventory/API/image/brew/
+  npx problems). ``--skip-images`` always records one by design
+  (``Docker image scan intentionally skipped``), so that mode exits 1 even on a
+  perfect run.
+* Findings — including MAL advisories and CRITICAL severities — never change the
+  exit status. They are printed as ``SECURITY ALERT: ...`` and, unless
+  ``--no-alert``, pushed outbound; ``--no-alert`` suppresses only the outbound
+  push, not the print and not the exit status.
+
+The report at ``<output-dir>/security_sweep_YYYYMMDD.md`` is written before the
+exit status is decided, so a non-zero exit with a report on disk means "the scan
+ran and reported findings/errors", while a missing report means the scan did not
+finish (or died before writing). Callers should gate on report presence.
+"""
 
 from __future__ import annotations
 
@@ -1483,6 +1501,8 @@ def _run(args: argparse.Namespace) -> int:
         print("SECURITY ALERT: MAL advisory or CRITICAL severity found")
         if not args.no_alert:
             send_alert(result.findings)
+    # Exit contract (see module docstring): findings never set the exit status,
+    # only scan errors do — and --skip-images always records one by design.
     return 1 if result.errors else 0
 
 

@@ -8,6 +8,8 @@ kept were pillow 13.0.0, certifi 2026.10.23, anyio 4.16.0, and brotli 1.2.1.
 
 from __future__ import annotations
 
+import pytest
+
 from scripts.engine_install_plan import build_plan, is_core_stack
 
 _INSTALLED = {
@@ -217,7 +219,7 @@ def test_apply_refreshes_sweep_before_building_the_engine_plan(tmp_path):
         "    shift\n"
         "  done\n"
         '  mkdir -p "$out"\n'
-        '  touch "$out/security_sweep_20990101.md"\n'
+        '  printf "# Security sweep — 2099-01-01\\n" > "$out/security_sweep_20990101.md"\n'
         "fi\n",
         encoding="utf-8",
     )
@@ -257,6 +259,91 @@ def test_apply_refreshes_sweep_before_building_the_engine_plan(tmp_path):
     assert not Path(report).exists()
 
 
+def _plan_sweep_stub(tmp_path, sweep_body: str) -> tuple[dict[str, str], str]:
+    """Fake .venv python: runs security_sweep.py the way the stub body says."""
+    from pathlib import Path
+
+    portal_root = tmp_path / "portal"
+    python = portal_root / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True, exist_ok=True)
+    plan_args = tmp_path / "plan-args.txt"
+    python.write_text("#!/bin/sh\n" + sweep_body, encoding="utf-8")
+    python.chmod(0o755)
+    env = {
+        "HOME": str(tmp_path / "home"),
+        "PLAN_ARGS": str(plan_args),
+        "PORTAL_ROOT": str(portal_root),
+        "SERVICES_SH": str(Path(__file__).resolve().parents[2] / "scripts" / "lib" / "services.sh"),
+        "TARGET_PY": str(tmp_path / "music" / ".venv" / "bin" / "python"),
+    }
+    return env, str(plan_args)
+
+
+def test_apply_proceeds_when_the_sweep_exits_nonzero_but_wrote_a_report(tmp_path):
+    # 2026-11-19: --skip-images makes the sweep exit 1 by design ("Docker image
+    # scan intentionally skipped" is a scan error) and MAL/CRITICAL findings only
+    # print an alert line. Neither means the scan failed — the report exists.
+    import os
+    import subprocess
+    from pathlib import Path
+
+    env, plan_args = _plan_sweep_stub(
+        tmp_path,
+        'if [ "${1##*/}" = security_sweep.py ]; then\n'
+        '  while [ "$#" -gt 0 ]; do\n'
+        '    if [ "$1" = --output-dir ]; then shift; out="$1"; break; fi\n'
+        "    shift\n"
+        "  done\n"
+        '  mkdir -p "$out"\n'
+        '  printf "# Security sweep — 2099-01-01\\n" > "$out/security_sweep_20990101.md"\n'
+        '  echo "SECURITY ALERT: MAL advisory or CRITICAL severity found"\n'
+        "  exit 1\n"
+        "fi\n"
+        'printf "%s\\n" "$@" > "$PLAN_ARGS"\n',
+    )
+    result = subprocess.run(
+        ["bash", "-c", 'source "$SERVICES_SH"; _engine_dep_plan music "$TARGET_PY" apply'],
+        capture_output=True,
+        text=True,
+        env=os.environ | env,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "produced no report" not in result.stderr
+    assert "exited 1" in result.stdout
+    args = Path(plan_args).read_text(encoding="utf-8").splitlines()
+    assert args[0].endswith("engine_install_plan.py")
+    report = args[args.index("--sweep-report") + 1]
+    assert "portal5-engine-sweep." in report
+
+
+@pytest.mark.parametrize("sweep_exit", [0, 1])
+def test_apply_refuses_when_the_sweep_wrote_no_report(tmp_path, sweep_exit):
+    import os
+    import subprocess
+    from pathlib import Path
+
+    env, plan_args = _plan_sweep_stub(
+        tmp_path,
+        'if [ "${1##*/}" = security_sweep.py ]; then\n'
+        '  echo "Traceback: sweep died before writing" >&2\n'
+        f"  exit {sweep_exit}\n"
+        "fi\n"
+        'printf "%s\\n" "$@" > "$PLAN_ARGS"\n',
+    )
+    result = subprocess.run(
+        ["bash", "-c", 'source "$SERVICES_SH"; _engine_dep_plan music "$TARGET_PY" apply'],
+        capture_output=True,
+        text=True,
+        env=os.environ | env,
+        check=False,
+    )
+    assert result.returncode == 1, result.stdout
+    assert "produced no report" in result.stderr
+    assert f"(exit {sweep_exit})" in result.stderr
+    assert not Path(plan_args).exists()
+
+
 def test_engine_plan_exports_upstream_lock_before_resolving(tmp_path):
     import os
     import subprocess
@@ -273,7 +360,7 @@ def test_engine_plan_exports_upstream_lock_before_resolving(tmp_path):
         '    if [ "$1" = --output-dir ]; then shift; out="$1"; break; fi\n'
         "    shift\n"
         "  done\n"
-        '  mkdir -p "$out"; touch "$out/security_sweep_20990101.md"\n'
+        '  mkdir -p "$out"; printf "# Security sweep — 2099-01-01\\n" > "$out/security_sweep_20990101.md"\n'
         'elif [ "${1##*/}" = engine_install_plan.py ]; then\n'
         '  printf "%s\\n" "$@" > "$PLAN_ARGS"\n'
         "fi\n",
