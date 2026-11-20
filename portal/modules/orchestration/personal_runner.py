@@ -29,6 +29,7 @@ from portal.modules.orchestration.personal_policy import (
     hidden_fleet_ids,
     parse_planner_json,
     planner_body,
+    refusal_reason,
     text_gate,
     validate_personal_plan,
     workspace_for,
@@ -842,7 +843,7 @@ def _run_planned(
 ) -> PersonalRun:
     hidden = _hidden_fleets()
     if text_gate(task.text, hidden) == "deny":
-        raise PermissionError("denied before any call")
+        raise PermissionError(_denial_text(task.text))
     memory = _recall_memory(task, checkin, recall)
     plan = _validated_plan(task, caller, root, hidden, memory)
     plan.payload["_memory_context"] = memory
@@ -850,6 +851,14 @@ def _run_planned(
         _request_confirm(store, task, plan, notices)
         return PersonalRun(task.id, "pending")
     return _execute_plan(root, store, task, plan, caller, notices, checkin)
+
+
+def _denial_text(text: str) -> str:
+    """The operator-facing reason a request never reached a tool."""
+    reason = refusal_reason(text)
+    if reason is not None:
+        return f"denied before any call: {reason}"
+    return "denied before any call: the request names a fleet the Pipeline does not expose"
 
 
 def _execute_plan(

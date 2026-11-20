@@ -120,8 +120,39 @@ def test_confirmed_validated_execute_bash_plan_runs(tmp_path: Path) -> None:
 
 
 def test_named_external_fleets_require_confirmation_instead_of_denial() -> None:
-    for name in ("proxmox", "unifi", "browser", "git"):
-        assert text_gate(f"use {name}", frozenset()) == "confirm"
+    assert text_gate("use unifi", frozenset()) == "confirm"
+    assert text_gate("use browser", frozenset()) == "confirm"
+    # 2026-11-20: a read-only proxmox question answers without a confirm prompt; a mutating
+    # proxmox tool in the plan still waits for one (see the two tests below).
+    assert text_gate("list the Proxmox VMs that are currently stopped", frozenset()) == "allow"
+    assert text_gate("git_status the worktree", frozenset()) == "allow"
+
+
+def test_read_only_proxmox_plan_runs_without_confirm(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 7, "list the Proxmox VMs that are currently stopped")
+    caller = _Caller(
+        [
+            Completion(_plan("proxmox_list_vms"), (), 0),
+            Completion("vm 100 is stopped.", (), 1, ("proxmox_list_vms",)),
+        ]
+    )
+    sink = _Sink(tmp_path / "telegram.sqlite3")
+
+    result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
+
+    assert result is not None and result.status == "done"
+    assert caller.bodies[1]["portal_bite_tools"] == ["proxmox_list_vms"]
+
+
+def test_a_mutating_proxmox_plan_waits_for_confirm(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 7, "snapshot the throwaway vm")
+    caller = _Caller([Completion(_plan("proxmox_create_snapshot"), (), 0)])
+    sink = _Sink(tmp_path / "telegram.sqlite3")
+
+    result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
+
+    assert result is not None and result.status == "pending"
+    assert len(caller.bodies) == 1, "no tool ran before the confirm"
 
 
 def test_read_only_git_plan_runs_without_confirm(tmp_path: Path) -> None:
