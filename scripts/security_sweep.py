@@ -48,6 +48,7 @@ class Inventory:
     packages: list[PackageRef]
     sources: dict[str, int]
     errors: list[str]
+    npx_skipped: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -379,6 +380,42 @@ def _pinned_version(spec: str) -> str:
     return spec.rpartition("@")[2] if "@" in spec else ""
 
 
+def _npx_cache_deps(cache: Path) -> dict[str, str]:
+    """Root package.json dependencies of an npx cache dir; empty when unreadable."""
+    try:
+        data = json.loads((cache / "package.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    deps = data.get("dependencies")
+    if not isinstance(deps, dict):
+        return {}
+    return {str(name): str(value) for name, value in deps.items()}
+
+
+def _npx_cache_in_use(deps: dict[str, str], pins: list[dict[str, str]]) -> bool:
+    """True when a portal npx pin can launch this cache: pinned version matches, or the pin floats."""
+    for pin in pins:
+        value = deps.get(pin["name"], "")
+        if value and (not pin["pinned"] or re.sub(r"^[~^>=<*]+", "", value) == pin["pinned"]):
+            return True
+    return False
+
+
+def _split_npx_caches(
+    caches: list[Path], pins: list[dict[str, str]]
+) -> tuple[list[Path], dict[str, str]]:
+    """(caches a pin can launch, {digest: root deps} for the rest — they stop being counted)."""
+    used: list[Path] = []
+    skipped: dict[str, str] = {}
+    for cache in caches:
+        deps = _npx_cache_deps(cache)
+        if _npx_cache_in_use(deps, pins):
+            used.append(cache)
+        else:
+            skipped[cache.name] = ", ".join(f"{name}@{deps[name]}" for name in sorted(deps))
+    return used, skipped
+
+
 def _npm_latest(package: str) -> str:
     url = f"https://registry.npmjs.org/{urllib.parse.quote(package, safe='@')}/latest"
     try:
@@ -424,13 +461,16 @@ def collect_inventory(repo_root: Path, home: Path) -> Inventory:
         packages.extend(found)
         if error:
             errors.append(error)
-    caches = _npm_cache_roots(home)
-    sources["npx caches"] = sum(
-        sum(child.is_dir() for child in cache.iterdir()) for cache in caches
-    )
-    for cache in caches:
+    caches = [
+        child for root in _npm_cache_roots(home) for child in root.iterdir() if child.is_dir()
+    ]
+    pins = _npx_packages(repo_root / "config" / "portal.yaml")
+    used, skipped = _split_npx_caches(caches, pins)
+    sources["npx caches"] = len(used)
+    sources["npx caches unused (skipped)"] = len(skipped)
+    for cache in used:
         packages.extend(_npm_packages(cache, home))
-    return Inventory(merge_packages(packages), sources, errors)
+    return Inventory(merge_packages(packages), sources, errors, skipped)
 
 
 def _post_json(url: str, body: dict[str, object]) -> dict[str, object]:
@@ -1202,6 +1242,7 @@ def write_report(
         "",
     ]
     lines.extend(f"- {name}: {count}" for name, count in inventory.sources.items())
+    lines.extend(f"  - {digest}: {deps}" for digest, deps in inventory.npx_skipped.items())
     lines.extend(
         [
             "",

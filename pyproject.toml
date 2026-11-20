@@ -8,7 +8,7 @@ version = "8.0.0"
 description = "Portal 5 v8.0.0 — Open WebUI Enhancement Layer"
 readme = "README.md"
 license = {file = "LICENSE"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -271,10 +271,9 @@ packages = ["portal_channels", "portal_mcp", "portal", "portal_wiki"]
 
 [tool.uv]
 # Docling caps Pillow below 13; override CVE-2026-112395, 112397, 112400, 112404, 112895-112897, 112899 (and JPEG CVE-2026-112403); remove when Docling lifts the cap.
-# Pillow 13 requires Python 3.11+, so keep a compatible unconstrained branch for 3.10.
+# No marker: requires-python retires the py<3.11 fork (pillow 13, the only fix for its CRITICALs, needs 3.11+).
 override-dependencies = [
-    "pillow>=13.0.0; python_version >= '3.11'",
-    "pillow>=0; python_version < '3.11'",
+    "pillow>=13.0.0",
 ]
 
 [tool.ruff]
