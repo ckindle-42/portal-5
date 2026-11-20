@@ -189,6 +189,8 @@ services:
       - MCP_MEMORY_URL=http://portal5-mcp-memory:8920
       - MCP_RAG_URL=http://portal5-mcp-rag:8921
       - MCP_CAD_RENDER_URL=http://portal5-mcp-cad-render:8926
+      - MCP_PROXMOX_URL=http://portal5-mcp-proxmox:8927
+      - MCP_BROWSER_URL=http://browser-mcp:8923
       - MCP_PIPELINE_URL=http://host.docker.internal:8928
       # Host-native security/knowledge MCPs — same host.docker.internal rule
       - MCP_MITRE_URL=http://host.docker.internal:8929

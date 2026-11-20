@@ -1021,6 +1021,11 @@ workspaces:
         - execute_python
         - remember
         - recall
+        # Read-only repository access for the Jarvis personal lane (J-R2): a code
+        # question must be answerable from the repo, never "does not exist".
+        - read_text_file
+        - search_files
+        - list_directory
         - browser_navigate
         - browser_snapshot
         - browser_click
