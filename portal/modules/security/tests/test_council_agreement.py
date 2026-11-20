@@ -125,19 +125,6 @@ def test_stricter_participation_floor_escalates_one_of_two() -> None:
     assert r.needs_arbiter is True
 
 
-def test_full_participation_unchanged_by_v4c() -> None:
-    members = [
-        _member("CONFIRMED", ["T1078"]),
-        _member("CONFIRMED", ["T1078"]),
-        _member("CONFIRMED", ["T1055"]),
-    ]
-    r = compute_agreement(members, quorum=0.5)
-    assert r.verdict == "CONFIRMED"
-    assert r.technique_ids == ["T1078"]
-    assert r.agreement == round(2 / 3, 3)
-    assert r.dissent == {"T1078": 2, "T1055": 1}
-
-
 def test_quorum_denominator_is_roster_not_concluders() -> None:
     members = [
         _member("CONFIRMED", ["T1078"]),

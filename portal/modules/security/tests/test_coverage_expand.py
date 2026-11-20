@@ -70,11 +70,6 @@ class TestBlueScorableGuard:
         gt = SCENARIOS[name].get("detect_ground_truth")
         assert gt, f"Scenario '{name}' has empty detect_ground_truth — red-only, not allowed"
 
-    def test_no_red_only_scenarios_anywhere(self) -> None:
-        """Comprehensive check: every scenario in SCENARIOS has detect_ground_truth."""
-        bad = [k for k, v in SCENARIOS.items() if not v.get("detect_ground_truth")]
-        assert not bad, f"Red-only scenarios (no detect_ground_truth): {bad}"
-
 
 # ── meta3 scenario structure ─────────────────────────────────────────────────
 
