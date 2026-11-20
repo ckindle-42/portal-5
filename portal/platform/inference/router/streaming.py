@@ -48,7 +48,7 @@ from portal.platform.inference.router.backend_introspect import (
     free_ollama_for_omlx,
     make_room_for_omlx,
 )
-from portal.platform.inference.router.context_budget import ContextOverflowError
+from portal.platform.inference.router.context_budget import REFUSAL_PREFIX, ContextOverflowError
 from portal.platform.inference.router.context_budget import fit_prompt as fit_context
 from portal.platform.inference.router.correlation import (
     get_correlation_id as _corr_id,
@@ -297,6 +297,17 @@ def _is_noncascadable_stream_error(status: int | None, buffer: bytes | None) -> 
     if status not in _REQUEST_ERROR_STATUSES:
         return False
     return not (status == 400 and buffer and _is_capacity_error(_stream_error_detail(buffer)))
+
+
+def _is_local_context_refusal(status: int | None, buffer: bytes | None) -> bool:
+    """Whether the stream failed on this pipeline's own pre-dispatch context refusal:
+    no backend saw the request, so the P-2 failover pin would punish a model that
+    never failed and block loads behind it (2026-11-20 bench cascade)."""
+    return (
+        status == 0
+        and buffer is not None
+        and _stream_error_detail(buffer).startswith(REFUSAL_PREFIX)
+    )
 
 
 async def _free_ollama_for_capacity_retry(
@@ -3247,7 +3258,8 @@ async def _stream_with_fallback(
         return
 
     if stream_failed:
-        protect_failover(getattr(backend, "type", ""), target_model)  # P-2: no eviction cascade
+        if not _is_local_context_refusal(_error_status, _error_buffer):
+            protect_failover(getattr(backend, "type", ""), target_model)  # P-2: no eviction cascade
         fallback_body = {**body, "stream": False}
         # The streamed (engine, model) pair already failed; several backend
         # groups front the same engine, so resending there is a repeat.

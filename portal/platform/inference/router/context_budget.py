@@ -47,6 +47,11 @@ _CUT_SLACK_CHARS = 512
 _MARKER = "\n\n[…truncated {removed:,} characters to fit the model's context window…]\n\n"
 
 
+#: Prefix of the local refusal message; fallback wrappers match it so a refusal
+#: that never reached a backend cannot pin that backend (P-2 exemption).
+REFUSAL_PREFIX = "⚠️ **The conversation exceeds this workspace's context**"
+
+
 class ContextOverflowError(Exception):
     """A prompt that cannot be shrunk into the seat's window, so it is never sent."""
 
@@ -56,7 +61,7 @@ class ContextOverflowError(Exception):
         self.estimated = estimated
         self.limit = limit
         super().__init__(
-            f"⚠️ **The conversation exceeds this workspace's context** "
+            f"{REFUSAL_PREFIX} "
             f"(about {estimated:,} tokens for a {limit:,}-token window), so it was not "
             "sent. Start a new chat, or send less material in one turn."
         )
