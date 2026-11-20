@@ -604,3 +604,16 @@ def test_dry_run_text_names_the_conflict_sources():
     assert "multidict>=6.9.1" in text
     assert "mlx==0.30.6" in text
     assert "engine bump required" in text
+
+
+def test_heartlib_plan_has_no_service_deps_and_holds_the_core():
+    plan = build_plan("heartlib", _INSTALLED, _SWEEP)
+    assert plan.service_deps == ()
+    assert plan.upgrades == (
+        "anyio>=4.16.0",
+        "brotli>=1.2.1",
+        "certifi>=2026.10.23",
+        "pillow>=13.0.0",
+    )
+    assert "mlx==0.29.0" in plan.holds and "numpy==2.3.5" in plan.holds
+    assert "mlx" in plan.requirements()

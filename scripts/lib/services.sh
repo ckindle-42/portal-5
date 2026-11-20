@@ -274,6 +274,97 @@ PLIST
     _launchd_reload_or_fail com.portal5.music "$PLIST" "http://127.0.0.1:${MUSIC_PORT}/health"
 }
 
+# HeartMuLa is a media-screen arm, not an MCP service: no launchd job, no port.
+_launch_install_heartmula() {
+    echo "=== Installing HeartMuLa screen arm (heartlib-mlx, MLX-native, Apple Silicon) ==="
+    ARCH=$(uname -m)
+    HEART_DIR="$HOME/.portal5/music/heartlib-mlx"
+    HEART_SHA="02dd2e22f6a1bf1a2f769a13f8af952a7a4e9cee"
+    HEART_WEIGHTS="${HEARTMULA_WEIGHTS_ROOT:-/Volumes/data01/media-screen/heartlib}"
+    PY="$HEART_DIR/.venv/bin/python"
+
+    local dry=0
+    [ "${1:-}" = "--dry-run" ] && dry=1
+    if [ "$ARCH" != "arm64" ]; then
+        echo "  ❌ HeartMuLa MLX requires Apple Silicon (arm64). Detected: $ARCH."
+        exit 1
+    fi
+    if [ ! -d /Volumes/data01 ]; then
+        echo "  ❌ /Volumes/data01 is not mounted — HeartMuLa weights live on data01, never the main drive."
+        exit 1
+    fi
+    if [ "$dry" -eq 1 ]; then
+        _engine_dep_plan heartlib "$PY" dry-run "$HEART_DIR"
+        echo "  Downloads: HeartMuLa/HeartMuLa-oss-3B-happy-new-year ~15.8GB + HeartMuLa/HeartCodec-oss-20260123 ~6.6GB"
+        echo "    + HeartMuLa/HeartMuLaGen tokenizer (~9MB); the bf16 MLX conversion adds ~11GB under $HEART_WEIGHTS."
+        echo "  dry-run: no clone, no pip apply, no downloads, no conversion"
+        return 0
+    fi
+    command -v git >/dev/null || { echo "  ❌ git not found"; exit 1; }
+    command -v uv >/dev/null || { echo "  ❌ uv not found"; exit 1; }
+    mkdir -p "$HEART_DIR" "$HEART_WEIGHTS"
+    echo "  Pins: heartlib-mlx @ ${HEART_SHA:0:12} (uv.lock, Python 3.12); weights happy-new-year + HeartCodec-oss-20260123 (Apache-2.0)."
+    echo "  Code+venv: $HEART_DIR; weights+conversion: $HEART_WEIGHTS (data01)."
+
+    if [ ! -d "$HEART_DIR/.git" ]; then
+        git clone https://github.com/Acelogic/heartlib-mlx.git "$HEART_DIR"
+    fi
+    git -C "$HEART_DIR" fetch --depth 1 origin "$HEART_SHA"
+    git -C "$HEART_DIR" checkout --detach "$HEART_SHA"
+    if [ -d "$HEART_DIR/.venv" ]; then
+        [ -x "$PY" ] || { echo "  ❌ Existing heartlib-mlx venv has no usable Python: $PY" >&2; exit 1; }
+        echo "  Preserving the existing heartlib-mlx venv; the upstream lock seeds new installs only."
+    else
+        ( cd "$HEART_DIR" && uv python install 3.12 && uv sync --python 3.12 --frozen )
+    fi
+    _engine_dep_plan heartlib "$PY" apply "$HEART_DIR" || {
+        echo "  ❌ security dependency upgrade failed" >&2; exit 1;
+    }
+
+    # HF_HOME on data01 keeps any hub/xet cache off the main drive; weights land in local_dir.
+    _heart_snap() {
+        local repo="$1" dest="$2"
+        if [ -f "$dest/.portal5-downloaded" ]; then
+            echo "  present: $dest"
+        else
+            echo "  downloading $repo ..."
+            mkdir -p "$dest"
+            env HF_HOME="$HEART_WEIGHTS/hf-home" HF_HUB_DISABLE_XET=1 "$PY" -c \
+                "from huggingface_hub import snapshot_download; snapshot_download(repo_id='${repo}', local_dir='${dest}')"
+            touch "$dest/.portal5-downloaded"
+        fi
+    }
+    _heart_snap "HeartMuLa/HeartMuLa-oss-3B-happy-new-year" "$HEART_WEIGHTS/ckpt/HeartMuLa-oss-3B-happy-new-year"
+    _heart_snap "HeartMuLa/HeartCodec-oss-20260123" "$HEART_WEIGHTS/ckpt/HeartCodec-oss-20260123"
+    if [ ! -f "$HEART_WEIGHTS/ckpt/tokenizer.json" ]; then
+        echo "  downloading HeartMuLa/HeartMuLaGen tokenizer ..."
+        env HF_HOME="$HEART_WEIGHTS/hf-home" HF_HUB_DISABLE_XET=1 "$PY" -c \
+            "from huggingface_hub import snapshot_download; snapshot_download(repo_id='HeartMuLa/HeartMuLaGen', allow_patterns=['tokenizer.json', 'gen_config.json'], local_dir='$HEART_WEIGHTS/ckpt')"
+    fi
+
+    if [ ! -f "$HEART_WEIGHTS/ckpt-mlx/heartmula/model.safetensors" ]; then
+        echo "  converting HeartMuLa to MLX bf16 (one-off; reads ~16GB of fp32 weights into RAM)..."
+        ( cd "$HEART_DIR" && "$PY" -m heartlib_mlx.utils.convert \
+            --src "$HEART_WEIGHTS/ckpt/HeartMuLa-oss-3B-happy-new-year" \
+            --dst "$HEART_WEIGHTS/ckpt-mlx/heartmula" --model-type heartmula )
+    fi
+    if [ ! -f "$HEART_WEIGHTS/ckpt-mlx/heartcodec/model.safetensors" ]; then
+        echo "  converting HeartCodec to MLX bf16 (one-off)..."
+        ( cd "$HEART_DIR" && "$PY" -m heartlib_mlx.utils.convert \
+            --src "$HEART_WEIGHTS/ckpt/HeartCodec-oss-20260123" \
+            --dst "$HEART_WEIGHTS/ckpt-mlx/heartcodec" --model-type heartcodec )
+    fi
+
+    echo "  verifying arm64 imports (no audio generation)..."
+    "$PY" -c 'import platform; assert platform.machine()=="arm64", platform.machine(); import mlx.core as mx; assert mx.metal.is_available(); import heartlib_mlx; print("verify-ok", platform.machine())'
+    test -f "$HEART_WEIGHTS/ckpt/tokenizer.json"
+    test -f "$HEART_WEIGHTS/ckpt-mlx/heartmula/model.safetensors"
+    test -f "$HEART_WEIGHTS/ckpt-mlx/heartcodec/model.safetensors"
+    echo "  ✅ HeartMuLa screen arm ready (no service registered; the screen runs it per prompt)."
+    echo "  weights on data01: $(du -sg "$HEART_WEIGHTS" 2>/dev/null | cut -f1)GB at $HEART_WEIGHTS"
+    echo "  screen: uv run python scripts/proofs/media_variant_screen.py --medium music --listen mimo-v2.6-pro"
+}
+
 _launch_install_mflux() {
     echo "=== Installing MFLUX MCP natively (MLX-native image generation, Apple Silicon) ==="
     ARCH=$(uname -m)

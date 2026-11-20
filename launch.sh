@@ -526,6 +526,11 @@ PYEOF
     _launch_install_music "$@"
     ;;
 
+  install-heartmula)
+    shift
+    _launch_install_heartmula "$@"
+    ;;
+
   install-mflux)
     shift
     _launch_install_mflux "$@"
@@ -641,12 +646,13 @@ PYEOF
 
 
     *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-omlx|install-music|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
+    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-omlx|install-music|install-heartmula|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
     echo ""
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-omlx          Re-render + reload the oMLX LaunchAgent (fixed venv, :8085)"
     echo "  install-music         Install music MCP (ACE-Step 1.5 XL-Turbo + MiniMax fallback, port 8912)"
+    echo "  install-heartmula     Install HeartMuLa music screen arm (heartlib-mlx MLX; weights on data01; no service)"
     echo "  install-mflux         Install MFLUX MCP — MLX-native image generation (Apple Silicon), port 8933"
     echo "  start-mflux           Start (or install) the MFLUX MCP launchd service"
     echo "  stop-mflux            Stop the MFLUX MCP launchd service"
