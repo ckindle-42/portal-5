@@ -17,10 +17,10 @@ What is wrong, in one paragraph each:
 
 - **The read model is a census, not a search.** Every source gets the same slice
   (`400k / sources / 12`, newest events per equal window), so the estate is never asked where the
-  rare thing is. On botsv2 the run read 0.118 % of 226.3M events; 8 of 24 graded keys were in
-  anything it read. A 12-event artefact is seen 1.4 % of the time by construction. Meanwhile the
-  families it can nearly read whole score **11/11, 14/15, 11/12 of their reachable steps** — the
-  ranker is not the loss.
+  rare thing is. On botsv2 the run read 0.118 % of 226.3M events; in my live probe 8 of 24 graded
+  keys were in anything it read (5 of 24 on the pre-F stored run). A 12-event artefact is seen
+  1.4 % of the time by construction. Meanwhile the families it can nearly read whole score
+  **11/11, 14/15, 11/12 of their reachable steps** — the ranker is not the loss.
 - **The unit of evidence is a vocabulary item.** `(source, actor, action, object)` aggregated
   over a read has no sequence, no objects list, no transition, and cannot key a singleton. A
   hunter's unit is an episode: one entity, ordered events, a bounded window.
@@ -90,10 +90,10 @@ are *reviewable*, one aggregation returning `value, count, first, last, dc(host)
 - Field choice: from card roles (actor/action/object/from/to/outcome) plus parse fields with
   structural meaning (path, image, cmdline, parent, user, src, dest, query, url, registry). Not
   "all fields"; the fields that can carry an artefact.
-- Reviewability: the aggregation is run when the *sample* suggests ≤ 2,000 distinct values
-  (cheap to list) and the list is *complete* only when the aggregation returned ≤ 5,000 rows.
-  Above that it is a **capped** list: keep per-host top-k and the rarest values, never pretend
-  it is exhaustive.
+- Reviewability: the aggregation is run when the *sample* suggests ≤ 5,000 distinct values (one
+  effort budget, `LIST_MAX`), and the list is *complete* only when the aggregation returned
+  ≤ `LIST_MAX` rows. Above that it is a **capped** list: keep per-host top-k and the rarest
+  values, never pretend it is exhaustive.
 - **Mechanism (the hard requirement):** the query must return the value column. On this Splunk,
   role fields are search-time, so the default is `stats` over the source route, not `tstats`:
   `index=… sourcetype=… | stats count min(_time) as first max(_time) as last dc(host) as hosts
@@ -142,7 +142,7 @@ Keep the read receipts and the `events` table. Add an **episode** builder:
   ±4 h (`prev_source`, `next_source`, `delta`). That neighbour list is the raw material for
   ingress→execute adjacency without needing a shared value.
 - Read policy: a source whose full event count fits the allocated row budget is read **whole**
-  (`read_wholetier`); otherwise reads are anchored to localised candidates — the entity's own
+  (a whole-read tier); otherwise reads are anchored to localised candidates — the entity's own
   activity span and its burst windows from the ladder — never "newest per equal slice".
 - The behaviour table stays as a *summary* for compatibility, not as the unit.
 
@@ -249,8 +249,9 @@ Nothing in §4 is accepted on the old metric. Define C0.2 precisely:
    inflate a score invisibly.
 5. `cause` per step: `covered | instrument | not_surfaced | unreached | censored`, derived and
    overridable by an audit file.
-6. `generator` table: `candidates (existed)`, `kept`, `covered@50`, `covered/existed` (the
-   conditional weight), and the LOFO fold values.
+6. `generator` table: `candidates (existed)`, `kept`, `attribution@50` (exclusive first-cover
+   share), `marginal@50` (steps lost from the head when this generator is re-merged without it),
+   and the LOFO fold values. The merge weight is the marginal, floored at `UNMEASURED_WEIGHT`.
 7. `cost`: searches, requests, seconds, events read, read fraction, per stage.
 
 **Baseline to beat (measured 2026-11-20, stored `snap_neon_02cc2e3`, C0.1)** — reproduce these
@@ -264,14 +265,17 @@ first, then improve:
 | russell | line | 15/22 | 15/22 | 14/15 |
 
 C4 fold table (C0.1, same run): deviation 41–56, similar 42–70, **misfit 0, alerts 0,
-peer_rare 0** in every fold. C0.2 must show a non-zero weight for any generator with
-`existed > 0`.
+peer_rare 0** in every fold, because the denominator is all steps and the cut is 50. C0.2 must
+report the marginal (re-merge) weight and may report 0 only when removing the generator changes
+no step in the head.
 
 **Acceptance for the instrument itself**
 - The stored-run numbers above reproduce exactly (for the fields that already exist).
 - A promoted raw `relate` row cannot increase `strict` recall or `case_recall` (test with a
   synthetic promoted row naming an artefact).
-- A generator with candidates but a 51st-place hit gets a non-zero conditional weight.
+- A generator that adds a step at @50 gets a non-zero marginal weight in the fold where it does;
+  a generator whose only hit is at 51 is reported with `marginal@50 = 0` and a non-zero
+  `marginal@100`, not silently zeroed from all steps.
 - The ledger can distinguish "source never read" from "read and censored" for one graded step of
   each kind (test fixture + one live family).
 
@@ -352,16 +356,20 @@ condition, and the live proof is what the orchestrator runs.
   action but with `signature` + `src` → notable.
 - **Parallel:** with S1.
 
-### S5 — Conditional weights (**P1, zero cost**)
+### S5 — Weights by marginal contribution (**P1, zero cost**)
 
-- **Build:** `merge.conditional_weights` denominator = the generator's own candidates
-  (`covered / existed`), a floor of `UNMEASURED_WEIGHT` when `existed == 0`, and LOFO folds per
-  family; merge receipt records the denominator; `PORTAL_HUNT_MERGE_WEIGHTS` unchanged.
+- **Build:** replace `merge.conditional_weights` with a measured marginal: for each family and
+  each generator, re-merge the stored per-generator lists without that generator (same method,
+  weights renormalised) and count the steps that leave the @50 head; LOFO across families; the
+  weight is the mean marginal, floored at `UNMEASURED_WEIGHT`. Record `attribution@50` beside it.
+  Keep `PORTAL_HUNT_MERGE_WEIGHTS` as the delivery mechanism.
 - **Files:** `notables/merge.py`, `notables/scoreboard.py`, tests.
-- **Acceptance:** no `existed > 0` generator gets 0 unless it covered 0 *of its own candidates*;
-  the fold table is reported; a generator whose first hit is at 51 keeps a non-zero weight.
-- **Test:** pure function fixtures (candidates 100, covered 1 → weight 1 not 0; candidates 0 →
-  unit).
+- **Acceptance:** weights are derived from a re-merge, not from a global denominator; the fold
+  table is reported; a generator whose hit is at 51 is reported `marginal@50 = 0`,
+  `marginal@100 > 0` and is not zeroed on absence; a generator with `existed == 0` keeps a unit
+  weight.
+- **Test:** pure function fixtures on a synthetic three-generator ranking (removing one drops a
+  known step → positive weight; removing one changes nothing → 0 but not negative).
 - **Parallel:** anywhere after S0.
 
 ### S6 — Localise-then-read (**P0, the coverage win**)
@@ -371,8 +379,8 @@ condition, and the live proof is what the orchestrator runs.
   kept whole; raw prefix for unstructured only).
 - **Files:** `notables/sample.py`, `notables/behaviours.py`, tests.
 - **Acceptance (live, botsv2):** `keys_reachable` ≥ 12/24 and `steps_reachable` ≥ 10/14 (from
-  8/24 and 8/14), with the read fraction reported and not more than a declared multiple of today's
-  budget; no build-family regression.
+  8/24 and 8/14 with F active; 5/24 and 5/14 on the pre-F stored run), with the read fraction
+  reported and not more than a declared multiple of today's budget; no build-family regression.
 - **Test:** the same source with 47k vs 55M events gets whole vs anchored; a 20-minute burst is
   selected by the 5 m width and missed by the 4 h width (fixture).
 - **Parallel:** after S2 (same files); S5 can run alongside.
@@ -424,8 +432,9 @@ the proof sets. Pass bar, all four:
    reported even if recall is flat.
 3. **Cases:** ≥ 3 of 4 botsv2 scenarios have a case in the top 50 that contains a B/P member
    naming an artefact (strict rule), with `promotion_effect` reported separately.
-4. **Honesty:** every generator with `existed > 0` has a non-zero conditional weight; `alerts
-   existed > 0`; no number rises when promoted rows are removed.
+4. **Honesty:** every weight is a measured marginal, not a global denominator; `alerts existed
+   > 0`; no number rises when promoted rows are removed; each generator's `attribution@50` and
+   `marginal@50` are reported beside its weight.
 
 A pass on 1–3 is a real result. A ceiling that does **not** rise from 8/24 to ≥ 12/24 is a finding
 about enumeration/read policy, not a reason to raise the budget.

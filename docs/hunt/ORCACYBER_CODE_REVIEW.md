@@ -29,8 +29,9 @@ row from a held-out index was read; no constant or decision below uses those cou
 new C0 instrument, the build families score **11/11, 14/15 and 11/12 of their *reachable* steps at
 @50** — the ranker is at 91–100 % of what the run actually read [live]. What they miss is the
 step whose evidence was never read. On the wide corpus, only **8 of 24 graded keys and 8 of 14
-steps were in anything the run read**, and the deck is stacked further by a sampler that reads
-0.118 % of 226.3M events, per source rather than by evidentiary value.
+steps were in anything the run read** in my live probe (5/24 and 5/14 on the pre-F stored run),
+and the deck is stacked further by a sampler that reads 0.118 % of 226.3M events, per source
+rather than by evidentiary value.
 
 **C1 does not exist as delivered.** On the real `botsv2` index it ran 32 searches and returned
 **0 values, 0 joints, 0 flows**; downstream it replaced **0** first-seen values and produced **0**
@@ -359,9 +360,12 @@ Three generators go to zero for reasons that are not "it found nothing": misfit 
 @100 on russell and 0 at @50; alerts has a discovery defect (§1.3); peer_rare's notables mostly
 carry no index term in their evidence query (the report's own caveat). The fold variance is
 small (41–56 / 42–70), which means this formula is mostly measuring *global rank position*, not
-leave-one-family-out generality. The conditional denominator must be `covered / min(existed,
-…)` — a generator's own opportunity — or the weight is a cut artefact. This is a P1 fix, and it
-is cheap.
+leave-one-family-out generality. The honest currency is **marginal contribution to the head**:
+re-merge the stored per-generator lists with one generator removed and measure the steps that
+leave the @50 head; LOFO that across families. A generator that adds nothing is then 0 *by
+measurement*, and one whose hit lands at 51 is reported as adding nothing at @50 beside its @100
+marginal, instead of being zeroed by a denominator it never had a chance to fill. This is a P1
+fix, and it is cheap (five re-merges per fold, no Splunk).
 
 ### 5.3 The instrument still has blind spots
 
