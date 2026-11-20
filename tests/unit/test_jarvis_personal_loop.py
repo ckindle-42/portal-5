@@ -180,6 +180,23 @@ def test_genuinely_invalid_plan_blocks_after_two_attempts_without_cloud(
     assert receipt["error"] in notices.messages[-1][2]
 
 
+def test_a_pipeline_tool_handed_back_to_the_runner_is_a_retryable_fault(tmp_path: Path) -> None:
+    """The seat's MCP tools belong to the Pipeline; a call returned to us is a fault, not a denial."""
+    telegram_do_reply(tmp_path, 1, "what is the Portal pipeline status")
+    call = {
+        "id": "c1",
+        "type": "function",
+        "function": {"name": "get_pipeline_status", "arguments": "{}"},
+    }
+    caller = _Caller([Completion(_plan("get_pipeline_status"), (), 0), Completion("", (call,), 0)])
+
+    result = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+
+    assert result is not None and result.status == "retrying"
+    receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert "instead of dispatching" in str(receipt["error"])
+
+
 def test_an_ambiguous_request_asks_one_question_and_calls_no_tool(tmp_path: Path) -> None:
     """2026-11-20 scenario: "clean things up" must ask, never guess a destructive action."""
     telegram_do_reply(tmp_path, 1, "clean things up")

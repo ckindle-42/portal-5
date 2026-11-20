@@ -1330,8 +1330,12 @@ def _hop_loop(
             if hops >= HOP_CAP:
                 break
             name = str((call.get("function") or {}).get("name") or "")
-            if name not in tool_names or name not in LOCAL_TOOLS:
+            if name not in tool_names:
                 raise PermissionError(f"tool outside the personal allowlist: {name}")
+            if name not in LOCAL_TOOLS:
+                raise RuntimeError(
+                    f"the Pipeline returned {name} to the runner instead of dispatching it"
+                )
             output = run_read_tool(name, _call_arguments(call), root)
             called.append(name)
             hops += 1
