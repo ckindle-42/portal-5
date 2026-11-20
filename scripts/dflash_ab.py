@@ -21,6 +21,7 @@ import re
 import shutil
 import signal
 import statistics
+import subprocess
 import sys
 import time
 import urllib.error
@@ -233,8 +234,6 @@ def _http_error(exc: urllib.error.HTTPError) -> str:
 
 def _default_host_quiet() -> dict[str, Any]:
     """Run ``scripts/host_quiet.py``; non-zero means the host is not quiet."""
-    import subprocess
-
     proc = subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "host_quiet.py")],
         cwd=str(ROOT),
@@ -248,10 +247,6 @@ def _default_host_quiet() -> dict[str, Any]:
         "stdout": proc.stdout.strip(),
         "stderr": proc.stderr.strip()[-2000:],
     }
-
-
-def _fast(seconds: float) -> None:
-    time.sleep(seconds)
 
 
 @dataclass
@@ -269,7 +264,7 @@ class DflashCtx:
     sizes: tuple[int, ...] = DEFAULT_SIZES
     reps: int = DEFAULT_REPS
     http: Http = field(default_factory=Http)
-    sleep: Callable[[float], None] = _fast
+    sleep: Callable[[float], None] = time.sleep
     monotonic: Callable[[], float] = time.monotonic
     host_quiet: Callable[[], dict[str, Any]] = _default_host_quiet
     speed: Callable[..., int] | None = None
