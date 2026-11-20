@@ -43,7 +43,7 @@ something ran for real, while the synthetic path stayed green.
 
 ## Tech Stack
 
-`uv` (not pip); `uv pip install -e ".[dev]"`; `uv run ruff check . --fix` / `uv run ruff format .`; `uv run mypy portal/` (strict); `uv run pytest tests/ -v --tb=short`; Python 3.10+; FastAPI + Pydantic v2, async; `./launch.sh up`; operator CLI `portal config show`.
+`uv` (not pip); `uv pip install -e ".[dev]"`; `uv run ruff check . --fix` / `uv run ruff format .`; `uv run mypy portal/` (strict); `uv run pytest tests/ -v --tb=short`; Python 3.11+; FastAPI + Pydantic v2, async; `./launch.sh up`; operator CLI `portal config show`.
 
 **Always prefix `pytest`/`ruff`/`mypy` with `uv run` (or activate `.venv` in the SAME shell command, not a prior one).** A bare `pytest` on PATH can resolve to an unrelated Homebrew/global install (`/opt/homebrew/bin/pytest` on this machine) instead of the project's `.venv`, silently running against the wrong Python/site-packages and producing bogus collection errors. `source .venv/bin/activate` does not persist across separate tool-call shell invocations — each is a fresh shell — so activation-then-run in two steps is unreliable here; `uv run <cmd>` is the one form that's always correct.
 

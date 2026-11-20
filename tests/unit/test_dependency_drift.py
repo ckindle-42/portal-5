@@ -82,3 +82,23 @@ def test_standalone_installers_require_safe_starlette():
     assert "starlette>=0.35.0" not in combined
     assert combined.count("starlette>=1.3.0") == 3
     assert combined.count("starlette>=1.3.1") == 2
+
+
+def test_lock_pillow_fork_retired_and_floor_holds():
+    """The py<3.11 resolution fork is retired: pillow 12.3.0 resolved only for it and
+    the fix (13.0.0, 2026-11-19 CRITICAL batch) needs 3.11+, so no fork could ever
+    reach the fix. Every locked pillow entry must satisfy the override floor."""
+    import re
+
+    def _key(version: str) -> tuple[int, ...]:
+        return tuple(int(part) for part in re.findall(r"\d+", version))
+
+    pyproject = (_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    lock = tomllib.loads((_ROOT / "uv.lock").read_text(encoding="utf-8"))
+
+    assert 'requires-python = ">=3.11"' in pyproject
+    assert lock["requires-python"] == ">=3.11"
+    pillows = [pkg for pkg in lock["package"] if pkg["name"] == "pillow"]
+    assert pillows, "no pillow entry in uv.lock"
+    offending = [pkg["version"] for pkg in pillows if _key(pkg["version"]) < (13, 0, 0)]
+    assert not offending, f"locked pillow below the >=13.0.0 override floor: {offending}"
