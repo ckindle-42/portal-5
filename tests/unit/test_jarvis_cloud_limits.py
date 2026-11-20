@@ -510,3 +510,65 @@ def test_escalation_kind_follows_the_request() -> None:
     assert personal_dispatch_kind(review) == "review"
     assert personal_dispatch_kind(action) == "code"
     assert personal_dispatch_kind(security) == "security"
+
+
+_FAKE_DISPATCH = """
+import json, sys
+from pathlib import Path
+
+args = sys.argv[1:]
+if args and args[0] == "status":
+    print("status: no running lanes")
+    sys.exit(0)
+repo = Path(args[args.index("--repo") + 1])
+if "result" in args:
+    print("## RESULT\\ndone - answered from the fake lane.")
+    sys.exit(0)
+role = args[args.index("--role") + 1]
+worktree = repo.parent / f"{repo.name}-{role}"
+registry = Path(__file__).resolve().parent.parent / "registry.json"
+data = json.loads(registry.read_text()) if registry.exists() else {"roles": {}}
+entry = data.setdefault("roles", {}).setdefault(
+    f"{worktree}::{role}", {"role": role, "runs": []}
+)
+entry["runs"].append({"exit": 0, "status": "completed", "model": "fake-model"})
+registry.write_text(json.dumps(data))
+"""
+
+
+def test_the_process_dispatcher_starts_a_lane_and_collects_it(tmp_path: Path) -> None:
+    """start/outcome/result against a stand-in dispatch.py: no live lane, no network."""
+    import time
+
+    from portal.modules.orchestration.escalate import ProcessDispatcher
+
+    binary = tmp_path / "orchestrate" / "bin" / "dispatch.py"
+    binary.parent.mkdir(parents=True)
+    binary.write_text(_FAKE_DISPATCH, encoding="utf-8")
+    repo = tmp_path / "portal-5" / "proj"
+    repo.mkdir(parents=True)
+    brief = tmp_path / "brief.md"
+    brief.write_text("do the thing", encoding="utf-8")
+    role = "jarvis-personal-pt-1-a1"
+    dispatcher = ProcessDispatcher(binary, timeout_s=30, poll_s=0.01)
+
+    started = dispatcher.start(
+        role=role,
+        tier="auto",
+        kind="research",
+        brief=brief,
+        repo=repo,
+        log_path=tmp_path / "cloud-1" / "dispatch.log",
+    )
+    assert started.role == role and started.runs_before == 0
+
+    record = None
+    for _ in range(100):
+        record = dispatcher.outcome(role=role, repo=repo, runs_before=started.runs_before)
+        if record is not None:
+            break
+        time.sleep(0.05)
+
+    assert record is not None and record["exit"] == 0 and record["model"] == "fake-model"
+    assert dispatcher.result(role=role, repo=repo).startswith("## RESULT")
+    assert dispatcher.alive(role=role) is False

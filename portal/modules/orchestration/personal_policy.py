@@ -70,8 +70,10 @@ CONFIRM_TOOL_PREFIXES = ("unifi_", "browser_")
 
 _HARD_TEXT = re.compile(r"\b(unifi|browser)\b", re.IGNORECASE)
 _CONFIRM_TEXT = re.compile(
-    r"\b(restart|reboot|shutdown|systemctl|launch\.sh|docker|execute_bash|execute_python|"
-    r"execute_nodejs|remember|forget|send mail|send an email|send a message)\b",
+    r"\b(restart|reboot|shutdown|systemctl|launch\.sh|execute_bash|execute_python|"
+    r"execute_nodejs|remember|forget|send mail|send an email|send a message|"
+    r"docker\s+(?:run|exec|rm|rmi|stop|start|restart|kill|build|pull|push|compose|system|"
+    r"volume|network))\b",
     re.IGNORECASE,
 )
 # Requests refused before any plan: they would tear down the stack or delete data, and no
@@ -100,8 +102,18 @@ _REFUSALS = (
 )
 
 
+# A question *about* a destructive command is a read-only request, not a request to run it.
+_EXPLAINING = re.compile(
+    r"^\s*(?:what\s+(?:does|is|are)|explain|why|how\s+(?:does|do|is)|describe|document|"
+    r"summari[sz]e|review|audit|critique)\b",
+    re.IGNORECASE,
+)
+
+
 def refusal_reason(text: str) -> str | None:
     """Why this request is refused outright, or None when it may be planned."""
+    if _EXPLAINING.match(text or ""):
+        return None
     for pattern, reason in _REFUSALS:
         if pattern.search(text or ""):
             return reason

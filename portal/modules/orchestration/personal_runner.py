@@ -611,10 +611,8 @@ def _collect_cloud_lane(
         "local_attempts": [str(path) for path in _local_attempt_paths(root / task.id)]
     }
     if not role:
-        outcome = _lost_lane("", record, "the cloud lane record names no role")
-        return _cloud_result(
-            root, store, task, notices, {**extra, "cloud": outcome}, outcome, attempt
-        )
+        lost = _lost_lane("", record, "the cloud lane record names no role")
+        return _cloud_result(root, store, task, notices, {**extra, "cloud": lost}, lost, attempt)
     outcome = _finished_lane(active, role, record)
     if outcome is None:
         if _lane_alive(active, role) or not _lane_stale(record):

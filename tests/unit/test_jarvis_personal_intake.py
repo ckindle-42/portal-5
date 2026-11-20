@@ -109,6 +109,15 @@ def test_the_owui_submit_reports_a_refusal(tmp_path: Path, monkeypatch: pytest.M
     assert PersonalStore(tmp_path).oldest_runnable() is None
 
 
+def test_a_question_about_a_destructive_command_is_not_refused(tmp_path: Path) -> None:
+    """A read-only question that names a dangerous command is still a question."""
+    from portal.modules.orchestration.personal_intake import telegram_do
+
+    reply, task_id = telegram_do(tmp_path, 7, "explain what docker compose down -v does")
+
+    assert task_id is not None and reply == f"queued {task_id}"
+
+
 def test_a_queued_task_reports_its_queue_position(tmp_path: Path) -> None:
     from portal.modules.orchestration.personal_intake import (
         personal_queue_note,
