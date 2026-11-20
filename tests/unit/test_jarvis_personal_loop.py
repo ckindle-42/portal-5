@@ -199,15 +199,17 @@ def test_a_pipeline_tool_handed_back_to_the_runner_is_a_retryable_fault(tmp_path
 
 def test_an_ambiguous_request_asks_one_question_and_calls_no_tool(tmp_path: Path) -> None:
     """2026-11-20 scenario: "clean things up" must ask, never guess a destructive action."""
+    from portal.modules.orchestration.personal_policy import concrete_work_question
+
     telegram_do_reply(tmp_path, 1, "clean things up")
-    question = "Which directory should I clean, and may I delete files there?"
-    caller = _Caller([Completion(json.dumps({"action": "ask", "question": question}), (), 0)])
+    caller = _Caller([])
     notices = _Notices()
 
     result = poll_personal_tasks(tmp_path, notices, caller, recall=_no_memory)
 
+    question = concrete_work_question("clean things up")
     assert result is not None and result.status == "done"
-    assert len(caller.bodies) == 1, "no tool-seat turn: the question is the answer"
+    assert caller.bodies == [], "the model is not asked to guess a cleanup"
     receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["final_text"] == question
     assert receipt["tool_calls"] == []
@@ -215,7 +217,7 @@ def test_an_ambiguous_request_asks_one_question_and_calls_no_tool(tmp_path: Path
 
 
 def test_an_ask_plan_without_a_question_is_rejected(tmp_path: Path) -> None:
-    telegram_do_reply(tmp_path, 1, "clean things up")
+    telegram_do_reply(tmp_path, 1, "what is the queue status")
     caller = _Caller(
         [Completion('{"action": "ask"}', (), 0), Completion('{"action": "ask"}', (), 0)]
     )
@@ -542,6 +544,35 @@ def test_acceptance_check_flags_the_three_real_failures() -> None:
     assert unsatisfied is not None and "not satisfied" in unsatisfied
     clean_output = acceptance_failure(plan, "Ok.", ["queue_status"], ['{"counts": {}}'])
     assert clean_output is None
+    listing = {"steps": [{"id": "s0", "tools": ["workspace_files"], "paths": [], "budget": {}}]}
+    word = (
+        "write a one-page Word document summarising tonight's security sweep: "
+        "MAL count, critical count, and what is still open"
+    )
+    fabricated = acceptance_failure(
+        listing,
+        "I cannot fulfill the request. MAL Count: [Insert MAL Count]",
+        ["workspace_files"],
+        ['{"files": []}'],
+        request=word,
+    )
+    assert fabricated == "acceptance: word document was not created"
+    review = acceptance_failure(
+        listing,
+        "The file does not exist in the workspace.",
+        ["workspace_files"],
+        ['{"files": [{"path": "generated/music/a.wav", "size": 1}]}'],
+        request="review scripts/engine_install_plan.py and report every code path",
+    )
+    assert review is not None and "scripts/engine_install_plan.py" in review
+    omitted = acceptance_failure(
+        listing,
+        "music_a.wav is 5760078 bytes",
+        ["workspace_files"],
+        ['{"files": [{"path": "generated/tasks/a.db", "size": 159576064}]}'],
+        request="List the three largest files in /workspace/generated and report their sizes.",
+    )
+    assert omitted is not None and "largest file size" in omitted
 
 
 def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(

@@ -26,6 +26,7 @@ from portal.modules.orchestration.personal_policy import (
     KNOWN_TOOLS,
     PersonalPlan,
     acceptance_failure,
+    concrete_work_question,
     hidden_fleet_ids,
     parse_planner_json,
     planner_body,
@@ -909,7 +910,7 @@ def _execute_plan(
     content, hops, called, outputs = _hop_loop(
         caller, messages, root, plan.workspace, sorted(plan.tools), checkin
     )
-    reason = acceptance_failure(payload, content, called, outputs)
+    reason = acceptance_failure(payload, content, called, outputs, request=task.text)
     if reason is not None:
         raise AcceptanceError(reason)
     _finish(
@@ -952,6 +953,9 @@ def _validated_plan(
     hidden: frozenset[str],
     memory: str,
 ) -> PersonalPlan:
+    question = concrete_work_question(task.text)
+    if question is not None:
+        return _validate_question({"action": "ask", "question": question})
     available = _personal_available_tools()
     body = planner_body(task.text, KNOWN_TOOLS | available, memory)
     raw = _planner_json(caller, body, caller.complete(body))
@@ -1352,6 +1356,7 @@ def _hop_loop(
                 )
             output = run_read_tool(name, _call_arguments(call), root)
             called.append(name)
+            outputs.append(output)
             hops += 1
             checkin.update(1, [name])
             messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": output})

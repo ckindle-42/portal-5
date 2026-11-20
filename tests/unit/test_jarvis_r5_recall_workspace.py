@@ -160,6 +160,28 @@ def test_executor_answers_the_request_from_real_workspace_files(
     assert "workspace_files" in receipt["tool_calls"]
 
 
+def test_an_answer_that_omits_the_largest_size_is_not_done(tmp_path: Path, workspace: Path) -> None:
+    tasks = tmp_path / "tasks"
+    reply = telegram_do_reply(tasks, 1, REQUEST)
+    task_id = reply.removeprefix("queued ")
+    call = {
+        "id": "c1",
+        "type": "function",
+        "function": {"name": "workspace_files", "arguments": json.dumps({"path": "generated"})},
+    }
+    caller = _Caller(
+        [
+            Completion(_plan("workspace_files"), (), 0),
+            Completion("", (call,), 0),
+            Completion("The largest file is 1 byte.", (), 0),
+        ]
+    )
+    result = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda query: "")
+    assert result is not None and result.status == "retrying"
+    receipt = json.loads((tasks / task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert "largest file size" in str(receipt["error"])
+
+
 # ── workspace_files read tool ──────────────────────────────────────────────────
 
 
@@ -173,7 +195,43 @@ def test_workspace_files_is_an_allowlisted_read_not_a_confirm_tool() -> None:
 def test_workspace_files_lists_sizes_largest_first(workspace: Path) -> None:
     out = json.loads(run_read_tool("workspace_files", {"path": "generated"}, workspace / "tasks"))
     assert out["count"] == 3
+    assert out["scanned"] == 3
+    assert out["truncated"] is False
     assert [f["size"] for f in out["files"]] == [300, 200, 100]
+
+
+def test_workspace_files_keeps_the_largest_file_past_the_walk_cap(
+    workspace: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The live listing stopped at 200 files in walk order, then sorted that prefix."""
+    import os
+
+    from portal.modules.orchestration import personal_tools
+
+    early = workspace / "generated" / "aaa"
+    late = workspace / "generated" / "zzz"
+    early.mkdir()
+    late.mkdir()
+    for index in range(personal_tools.WORKSPACE_FILE_CAP):
+        (early / f"s{index:04d}.bin").write_bytes(b"x")
+    (late / "big.bin").write_bytes(b"x" * 5000)
+
+    def early_then_late(
+        top: str, topdown: bool = True, onerror: Any = None, followlinks: bool = False
+    ):
+        if Path(top) == workspace / "generated":
+            names = sorted(path.name for path in early.iterdir() if path.is_file())
+            yield str(early), [], names
+            yield str(late), [], ["big.bin"]
+            return
+        yield from os.walk(top, topdown=topdown, onerror=onerror, followlinks=followlinks)
+
+    monkeypatch.setattr(personal_tools.os, "walk", early_then_late)
+    out = json.loads(run_read_tool("workspace_files", {"path": "generated"}, workspace / "tasks"))
+    assert out["scanned"] == personal_tools.WORKSPACE_FILE_CAP + 1
+    assert out["truncated"] is True
+    assert out["count"] == personal_tools.WORKSPACE_FILE_CAP
+    assert out["files"][0] == {"path": "generated/zzz/big.bin", "size": 5000}
 
 
 def test_workspace_files_accepts_the_container_prefix(workspace: Path) -> None:

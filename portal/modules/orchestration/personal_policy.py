@@ -357,6 +357,31 @@ def parse_planner_json(content: str) -> dict[str, Any]:
 
 
 ACCEPTANCE_EMPTY = "acceptance: empty final answer"
+_NO_CONCRETE_WORK = re.compile(
+    r"^\s*(?:please\s+)?(?:just\s+)?"
+    r"(?:clean(?:\s+things)?\s+up|tidy(?:\s+this)?\s+up|sort this out|organize this)"
+    r"\s*[.!]?\s*$",
+    re.IGNORECASE,
+)
+_WORD_DOC_REQUEST = re.compile(r"\bword\s+documents?\b|\.docx\b", re.IGNORECASE)
+_FABRICATED_ANSWER = re.compile(
+    r"\[(?:insert|current|item|optional)\b[^\]]{0,80}\]"
+    r"|\b(?:cannot|can not|can't) fulfill\b"
+    r"|\bdoes not include any steps\b"
+    r"|\bnot included in the (?:current )?validated plan\b",
+    re.IGNORECASE,
+)
+_REPO_FILE = re.compile(
+    r"(?<![\w./-])((?:scripts|portal|portal_channels|tests|config|docs)/[\w./-]+\.[A-Za-z0-9]+)"
+)
+_LARGEST_REQUEST = re.compile(r"\blargest\b", re.IGNORECASE)
+
+
+def concrete_work_question(text: str) -> str | None:
+    """No named files or action: one question, never a guessed cleanup."""
+    if _NO_CONCRETE_WORK.match(text or ""):
+        return "Which files may I delete?"
+    return None
 
 
 def _json_object(text: str) -> dict[str, Any] | None:
@@ -368,12 +393,17 @@ def _json_object(text: str) -> dict[str, Any] | None:
 
 
 def acceptance_failure(
-    payload: dict[str, Any], content: str, called: list[str], tool_outputs: list[str]
+    payload: dict[str, Any],
+    content: str,
+    called: list[str],
+    tool_outputs: list[str],
+    *,
+    request: str = "",
 ) -> str | None:
     """J9: why one finished local attempt failed, or None when it passed.
 
-    A failed attempt is an empty answer, a dispatched tool that answered with
-    an error object, or a plan step whose named tool never ran.
+    A failed attempt is an empty answer, a tool error, a plan step that never
+    ran, or an answer the tool results do not support.
     """
     if not content.strip():
         return ACCEPTANCE_EMPTY
@@ -381,6 +411,13 @@ def acceptance_failure(
         parsed = _json_object(output)
         if parsed is not None and parsed.get("error"):
             return f"acceptance: tool error: {str(parsed['error'])[:200]}"
+    missing_step = _unsatisfied_step(payload, called)
+    if missing_step is not None:
+        return missing_step
+    return _ungrounded_answer(request, content, called, tool_outputs)
+
+
+def _unsatisfied_step(payload: dict[str, Any], called: list[str]) -> str | None:
     steps = payload.get("steps", payload.get("bites"))
     if not isinstance(steps, list):
         return None
@@ -393,3 +430,52 @@ def acceptance_failure(
         if missing:
             return f"acceptance: plan step {index} not satisfied: {', '.join(missing)}"
     return None
+
+
+def _ungrounded_answer(
+    request: str, content: str, called: list[str], tool_outputs: list[str]
+) -> str | None:
+    """Reject a done answer the live queue accepted with no supporting tool result."""
+    if _WORD_DOC_REQUEST.search(request) and "create_word_document" not in called:
+        return "acceptance: word document was not created"
+    missing = _repo_file_missing(request, tool_outputs)
+    if missing is not None:
+        return f"acceptance: repository file not in tool results: {missing}"
+    if _FABRICATED_ANSWER.search(content):
+        return "acceptance: answer is not a completed result"
+    return _omitted_largest_size(request, content, tool_outputs)
+
+
+def _repo_file_missing(request: str, tool_outputs: list[str]) -> str | None:
+    blob = "\n".join(tool_outputs)
+    for found in _REPO_FILE.findall(request):
+        path = str(found)
+        name = path.rsplit("/", 1)[-1]
+        if path not in blob and name not in blob:
+            return path
+    return None
+
+
+def _omitted_largest_size(request: str, content: str, tool_outputs: list[str]) -> str | None:
+    if _LARGEST_REQUEST.search(request) is None:
+        return None
+    sizes: list[int] = []
+    for output in tool_outputs:
+        for item in _file_rows(output):
+            size = item.get("size")
+            if isinstance(size, int) and not isinstance(size, bool):
+                sizes.append(size)
+    if not sizes:
+        return None
+    top = max(sizes)
+    if re.search(rf"(?<!\d)(?:{top}|{top:,})(?!\d)", content):
+        return None
+    return "acceptance: answer omits the largest file size from the tool result"
+
+
+def _file_rows(output: str) -> list[dict[str, Any]]:
+    parsed = _json_object(output)
+    files = parsed.get("files") if isinstance(parsed, dict) else None
+    if not isinstance(files, list):
+        return []
+    return [item for item in files if isinstance(item, dict)]
