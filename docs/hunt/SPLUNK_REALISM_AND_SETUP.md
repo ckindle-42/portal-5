@@ -60,10 +60,12 @@ the file was never sourced. Every number below carries its command in §9.
      The stored cards on `botsv2` carry the *tstats* name (`wineventlog:security`,
      `snap_neon_02cc2e3/sources.json`), so a C1 fix that swaps `tstats` for `stats` while keeping
      the card's sourcetype **returns a silent zero** (§4.2).
-   - The hunt's REST read accumulates Splunk's **preview** rows (partial aggregates) alongside
-     the final rows, so one large aggregate can arrive 2–3× with partial values (§2.8). Measured
-     directly: a `| tstats count … by sourcetype` on botsv2 came back as 307 rows for 104
-     sourcetypes, and the row sums exceeded the index total by 3×.
+   - The **other** Splunk adapter (`siem/spl_backend.py`, used by Bully and the corpus benches)
+     accumulates Splunk's **preview** rows alongside the final rows, so one large aggregate can
+     arrive 2–3× with partial values (§2.8). Measured: a `| tstats count … by sourcetype` on
+     botsv2 came back as 307 rows for 104 sourcetypes, sums 331 M against the index's 226 M. The
+     hunt's own adapter (`review/window.py:167-170`) already filters them, **so the hunt's
+     receipts are clean on this axis** — checked in the code, not assumed.
    - **Both silent-zero modes cost a full scan to discover.** A group-by on a wrong *name* cost
      67.8 s and a 2.15 M-event scan; a group-by on a wrong *field* cost 57.6 s and a 2.18 M-event
      scan. Neither raises an error; both look like "no data" in a receipt (§4.2).
@@ -299,12 +301,13 @@ tags it into CIM, and nothing puts the result where `tstats` can see it".
   training sourcetype.
 - `AUTO_KV_JSON=1` on all 887 stanzas; `KV_MODE` mostly unset (`auto`), 89 `none`, 76 `json`.
 
-### 2.8 A read-path defect found while measuring (not fixed — out of scope this round)
+### 2.8 A read-path defect in the *other* Splunk adapter (found while measuring; the hunt is safe)
 
 Splunk's `search/jobs/export` streams **preview** rows (partial aggregates) before the final
 result set. `_iter_json_objects` + `_run_search`
 (`portal/modules/security/core/siem/spl_backend.py:38-124`) keep **every** object that has a
-`result` key, so a streaming aggregate is accumulated 2–3× with partial values. Measured:
+`result` key, so a streaming aggregate is accumulated 2–3× with partial values. Measured with my
+own reader before I filtered previews:
 
 ```
 | tstats count where index=botsv2 by sourcetype        -> 307 rows for 104 sourcetypes
@@ -312,13 +315,17 @@ result set. `_iter_json_objects` + `_run_search`
 # same query, keeping only {"preview": false} rows     -> 104 rows, sums to 226,317,740
 ```
 
-The same run-to-run instability (207 rows, then 307 rows) is the giveaway: preview count depends
-on timing. Any hunt number that came from an aggregate response — card `events`, `index_facts`,
-`| stats` value lists, `tstats` per-source counts — can be inflated and is not reproducible.
-`executor.py` does not filter previews either; the fix is one condition
-(`obj.get("preview") is False`) in the JSON-object iterator, plus a unit test with a recorded
-export body. **This is a correctness bug independent of the Splunk tuning and it should be fixed
-in S0, before any of the setup work is used as evidence.**
+Run-to-run instability (207 rows in one run, 307 in the next) is the giveaway: the preview count
+depends on timing.
+
+**Scope, checked rather than assumed.** The hunt's own reads do **not** go through this adapter:
+`run.default_search()` returns `SplunkWindowSource` (`notables/run.py:75-77`), and
+`review/window.py:167-170` already drops `preview is True` with an explicit comment. So C1/C2 and
+every hunt receipt are clean on this axis. The defect is in the *other* consumers of
+`spl_backend` — `bully/live_connect.py`, `benign_corpus_bench.py`, `corpus_replay_bench.py`, and
+any `SplunkBackend.query*` caller — where counts can be inflated 2–3× and are not reproducible.
+The fix is one condition (`obj.get("preview") is True: continue`) in that iterator, plus a unit
+test with a recorded export body; it is worth doing, but it is not on the hunt's critical path.
 
 ---
 
@@ -640,7 +647,8 @@ because its absence produced a measured silent zero this round.
 
 | slice | depends on Stage 1–3 (setup)? | can start now? | what changes with the setup |
 |---|---|---|---|
-| S0 truthful measurement + preview fix | no | **yes** | none; the preview fix is a prerequisite for every number (§2.8) |
+| S0 truthful measurement | no | **yes** | none |
+| `spl_backend` preview fix | no | **yes**, parallel | none for the hunt; Bully/bench correctness only (§2.8) |
 | S5 marginal weights | no | **yes** (stored runs) | none |
 | S4 estate detections | partly (TA enables Suricata/eve fields) | **yes** | on botsv2 `suricata` already has JSON fields; on the AIT families `eve.json` needs TA-suricata enabled or search-time `spath` |
 | S2 spine/episodes | no for building; Stage 4 for `tstats` joins | **yes** on stored stores | with Stage 4 the spine can be *derived* by aggregate instead of by scan |
@@ -671,8 +679,9 @@ search-time. Restate it as two tiers:
   4. mechanism chosen per field by the probe (`tstats` if `indexed`, else `stats`), with the
      events budget attached to the `stats` route;
   5. the receipt carries `events_scanned`, `mechanism`, `name_used`, `accel_window`.
-- **Regression test for §2.8:** the response parser drops `preview:true` objects; a recorded
-  307-line export body must yield 104 rows.
+- **Regression test for §2.8** (in `spl_backend`, parallel to S1 and not on the hunt's path):
+  the response parser drops `preview:true` objects; a recorded 207-object export body must yield
+  104 rows.
 
 ### 7.3 S6 — localise-then-read (revised)
 
@@ -711,7 +720,7 @@ recall target.
 ### 7.5 Revised slice order
 
 ```
-now:        S0 (preview fix + instrument)  →  S5 (marginal weights)  →  S4 (detections)
+now:        S0 (instrument)  →  S5 (marginal weights)  →  S4 (detections)   ‖ spl_backend preview fix
 parallel:   S2 on stored stores            →  S1 Tier A (family + cheap botsv2 lists)
                                              →  S3 cases on family output
 blocked on setup: S1 Tier B, S6 rung 1, the botsv2 12/24 acceptance
@@ -805,8 +814,9 @@ search index=botsv2 sourcetype=winregistry earliest=1501545600 latest=1501632000
 | eventcount summarize=false index=botsv2                                          -> 226,337,781 in 0.16 s
 
 # read-path preview duplication (§2.8)
-| tstats count where index=botsv2 by sourcetype   # export body: 205 preview + 104 final rows
-                                                  # naive accumulation -> 307 rows / 331 M events
+| tstats count where index=botsv2 by sourcetype   # one body = 207 result objects (103 preview:true
+                                                  # + 104 final); another run of the same query = 307.
+                                                  # naive accumulation -> 331 M events vs the index's 226 M
 ```
 
 ---
@@ -823,7 +833,8 @@ search index=botsv2 sourcetype=winregistry earliest=1501545600 latest=1501632000
   that creates the tsidx name (`botsv2_data_set` ships 813 `props` stanzas and the dataset was
   indexed off-cluster, so the ingest-time sourcetype is not visible in the current config).
 - **One timing per cell.** Each number is a single run on an idle VM; run-to-run variance was not
-  measured (the preview-row instability is a separate, client-side effect now filtered).
+  measured (the preview-row instability is a separate, client-side effect: filtered in my helper
+  and already filtered in the hunt's own adapter).
 - **`winregistry` (55.5 M) was priced per day and extrapolated**, not run whole; the extrapolation
   is labelled where used.
 - **The AIT families' 220 k events/s** is measured only on `eve.json` (3 buckets); a source spread
@@ -834,6 +845,6 @@ search index=botsv2 sourcetype=winregistry earliest=1501545600 latest=1501632000
 - **The hunt was not re-run** (no code changes this round); S1/S6 revisions are design, and their
   acceptance is unproven until a lane builds them.
 - **The two defects this document reports are not fixed**: the `preview:true` accumulation in
-  `siem/spl_backend.py` and the absence of a name probe in `inventory.py`. Code changes were out
-  of scope for this round; both are specified as S0/S1 work in `ORCACYBER_HUNT_PLAN.md`, and every
-  stored number that came from an aggregate stays suspect until the first is fixed.
+  `siem/spl_backend.py` (Bully/bench paths; the hunt's adapter already filters it) and the absence
+  of a name probe in `inventory.py` (the hunt's path). Code changes were out of scope for this
+  round; both are specified as S0/S1 work in `ORCACYBER_HUNT_PLAN.md`.

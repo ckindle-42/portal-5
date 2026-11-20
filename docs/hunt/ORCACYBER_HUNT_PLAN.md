@@ -335,14 +335,15 @@ condition, and the live proof is what the orchestrator runs.
   path matches `--stage all`; `judge_notables.py` — mark rows that were never judged;
   **`siem/spl_backend.py` — drop `preview:true` export rows** (measured defect: a 104-row
   `tstats … by sourcetype` arrives as 307 rows with partial values and sums to 3× the index
-  total, `SPLUNK_REALISM_AND_SETUP.md` §2.8; every stored number from an aggregate is suspect
-  until this is fixed).
+  total, `SPLUNK_REALISM_AND_SETUP.md` §2.8). Not on the hunt's path — `run.default_search()`
+  uses `SplunkWindowSource`, and `review/window.py:167-170` already filters previews — so this
+  fixes Bully / `benign_corpus_bench` / `corpus_replay_bench` rather than the hunt's receipts.
 - **Files:** `notables/scoreboard.py`, `notables/relate.py`, `notables/run.py`,
   `notables/sample.py`, `notables/judge_notables.py`, `product_jobs.py`,
   `siem/spl_backend.py`, tests.
 - **Acceptance:** stored-run baseline reproduces; the two synthetic tests above pass; `git grep`
-  shows one stage order for both entry points; a recorded export body with 205 preview + 104 final
-  rows yields exactly 104 rows.
+  shows one stage order for both entry points; a recorded export body with 103 preview + 104 final
+  rows yields exactly 104 rows from `spl_backend`.
 - **Test:** unit (`tests/unit/test_hunt_scoreboard.py`, `test_hunt_run_injection.py`,
   `test_hunt_notables_merge.py`, plus a preview-filter test with a recorded body), plus the live
   rescore command.
@@ -379,7 +380,8 @@ condition, and the live proof is what the orchestrator runs.
 - **Test:** fixture where `tstats` returns no value column (regression for today's bug); fixture
   where the tsidx name and the event name differ (must produce `unavailable:<name>`, not
   `empty`); fixture where the same field exists on two partitions (lists do not merge); fixture
-  proving a `preview:true` export row is dropped (see S0).
+  proving a `preview:true` export row is dropped by `spl_backend` (see S0; the hunt's own
+  adapter already drops them).
 - **Parallel:** with S4.
 
 ### S2 — Entity spine and episodes (**P0**)
@@ -487,7 +489,8 @@ which acceptance criteria are actually reachable before the setup lands.
 
 | slice | needs Splunk setup? | can start now | what the setup unlocks |
 |---|---|---|---|
-| S0 instrument + `preview` fix | no | **yes** | nothing — prerequisite for every other number |
+| S0 instrument | no | **yes** | nothing — prerequisite for every other number |
+| `spl_backend` preview fix | no | **yes**, parallel | nothing for the hunt (Bully/bench correctness only) |
 | S5 marginal weights | no (stored runs) | **yes** | nothing |
 | S4 estate detections | partly (Stage 2 enables `TA-suricata-4`, so the AIT `eve.json` gets detection fields; botsv2's `suricata` already has them) | **yes** | detection-shaped cards on the families |
 | S2 spine/episodes | no to build; Stage 4 to derive it by aggregate | **yes** on stored stores | spine from `tstats` instead of scans |
@@ -502,7 +505,7 @@ which acceptance criteria are actually reachable before the setup lands.
 Revised order:
 
 ```
-start now:  S0 (preview fix + instrument) → S5 → S4  ‖  S2 on stored stores
+start now:  S0 (instrument) → S5 → S4  ‖  S2 on stored stores  ‖  `spl_backend` preview fix
             → S1 Tier A (family + cheap botsv2 lists) → S3 on family output
 blocked:    S1 Tier B, S6 rung 1, the botsv2 12/24 acceptance   ← after Stage 1–3
 then:       S2 re-derivation by aggregate → S6 full ladder → S7
@@ -586,7 +589,7 @@ State explicitly which numbers are on learned data and which on the proof sets.
 | 7 | **Case promotion vs the metric.** Promotion can lift a member whose carrier is a raw line. | Without strict case credit, the scoreboard will report a win that is not one. | S0/S3 |
 | 8 | **Cost ceiling.** More lists and anchored reads raise searches and wall time; the hunt job has a 720 s deadline (~22 M events at the measured rate). | A design that cannot complete in the budget is not a design. | S1/S6 receipts |
 | 9 | **Two names per source.** botsv2 Windows events answer to `WinEventLog` (raw) and `wineventlog:security` (tsidx); a mechanism swap without a name probe returns 0 silently. | Any C1/S1/S6 read can be a paid-for zero. | S0/S1 |
-| 10 | **Preview rows inflate every aggregate** (`spl_backend.py` keeps `preview:true`). | Stored card events, `index_facts` and value lists can be 2–3× wrong and non-reproducible. | S0 |
+| 10 | **Preview rows inflate aggregates in `siem/spl_backend.py`** (it keeps `preview:true`). The hunt uses `review/window.py`, which filters them, so this affects Bully and the corpus benches. | Those paths' counts can be 2–3× wrong and non-reproducible; the hunt's are not. | S0 (parallel) |
 
 ### The decision that was open, and its answer (2026-11-20)
 
