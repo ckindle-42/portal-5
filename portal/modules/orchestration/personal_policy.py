@@ -47,6 +47,8 @@ PROXMOX_READ_TOOLS = frozenset(
         "proxmox_list_tasks",
     }
 )
+# Host-native Pipeline MCP tools: they read the repository and never write it.
+REPO_READ_TOOLS = frozenset({"read_text_file", "search_files", "list_directory"})
 READ_TOOLS = (
     frozenset(
         {
@@ -56,8 +58,10 @@ READ_TOOLS = (
             "queue_status",
             "read_receipt",
             "workspace_files",
+            "security_sweep",
         }
     )
+    | REPO_READ_TOOLS
     | GIT_READ_TOOLS
     | PROXMOX_READ_TOOLS
 )
@@ -298,6 +302,11 @@ PLANNER_PROMPT = (
     "Do not invent paths or tools. "
     "For questions about files in the shared workspace (/workspace/...), use the workspace_files "
     "read tool (its path is relative to the workspace root, e.g. 'generated'), not execute_bash. "
+    "For a path in the repository (scripts/..., portal/..., tests/..., config/..., docs/...), use "
+    "read_text_file (or search_files/list_directory): they read the repo read-only and workspace_files "
+    "cannot see it. Never answer that a repository file is missing without reading it first. "
+    "For tonight's security sweep, read security_sweep first — it returns the MAL/critical counts, "
+    "the new/carried/resolved delta and the CRITICAL rows. "
     "For Portal or engine status, use get_pipeline_status and get_loaded_models — they answer it "
     "directly; never invent a kb_id. "
     "Name every tool the request needs (a Word document needs create_word_document). "
@@ -447,13 +456,55 @@ def _ungrounded_answer(
 
 
 def _repo_file_missing(request: str, tool_outputs: list[str]) -> str | None:
-    blob = "\n".join(tool_outputs)
     for found in _REPO_FILE.findall(request):
         path = str(found)
-        name = path.rsplit("/", 1)[-1]
-        if path not in blob and name not in blob:
+        if not _repo_file_read(path, tool_outputs):
             return path
     return None
+
+
+def _repo_file_read(path: str, tool_outputs: list[str]) -> bool:
+    """A repo path is grounded only by a read of it — a listing that echoes the request is not."""
+    for output in tool_outputs:
+        parsed = _json_object(output)
+        if not isinstance(parsed, dict):
+            continue
+        content = parsed.get("content")
+        reported = str(parsed.get("path") or "")
+        if isinstance(content, str) and content.strip() and reported.endswith(path):
+            return True
+        matches = parsed.get("matches")
+        if isinstance(matches, list) and any(str(hit).startswith(f"{path}:") for hit in matches):
+            return True
+    return False
+
+
+def plan_gap(text: str, raw: dict[str, Any]) -> str | None:
+    """Why one planner object cannot satisfy the request, or None when it can."""
+    steps = raw.get("steps", raw.get("bites"))
+    if not isinstance(steps, list):
+        return None
+    tools = _plan_tool_names(raw)
+    if (
+        _WORD_DOC_REQUEST.search(text or "")
+        and "create_word_document" not in tools
+        and "read_word_document" not in tools
+    ):
+        return "The request needs a Word document, so the plan must call create_word_document"
+    return None
+
+
+def _plan_tool_names(raw: dict[str, Any]) -> set[str]:
+    steps = raw.get("steps", raw.get("bites"))
+    if not isinstance(steps, list):
+        return set()
+    return {
+        str(name)
+        for step in steps
+        if isinstance(step, dict)
+        for name in (step.get("tools") or [])
+        if isinstance(name, str)
+    }
 
 
 def _omitted_largest_size(request: str, content: str, tool_outputs: list[str]) -> str | None:

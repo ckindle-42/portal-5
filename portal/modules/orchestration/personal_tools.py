@@ -14,10 +14,20 @@ from pathlib import Path
 from typing import Any
 
 LOCAL_TOOLS = frozenset(
-    {"queue_status", "read_receipt", "wiki_search", "wiki_get_unit", "workspace_files"}
+    {
+        "queue_status",
+        "read_receipt",
+        "wiki_search",
+        "wiki_get_unit",
+        "workspace_files",
+        "security_sweep",
+    }
 )
 # Bound the listing so one read cannot exhaust the tool-caller window on a huge tree.
 WORKSPACE_FILE_CAP = 200
+# The weekly sweep job writes its report here (scripts/security_sweep.py default_output_dir).
+SWEEP_DIR = Path.home() / ".portal5" / "security"
+SWEEP_CRITICAL_CAP = 20
 
 
 def tool_schema(name: str) -> dict[str, Any]:
@@ -38,6 +48,11 @@ def tool_schema(name: str) -> dict[str, Any]:
             "'/workspace/uploads' -> 'uploads'. Read-only."
         )
         properties = {"path": {"type": "string"}}
+    elif name == "security_sweep":
+        description = (
+            "Read the newest security sweep report: MAL advisories, critical findings, the "
+            "new/carried/resolved delta and the CRITICAL rows, with the report path. Read-only."
+        )
     return {
         "type": "function",
         "function": {
@@ -58,6 +73,8 @@ def run_read_tool(name: str, arguments: dict[str, Any], tasks_root: Path) -> str
         return json.dumps(_newest_receipt(tasks_root), sort_keys=True)
     if name == "workspace_files":
         return json.dumps(_workspace_files(arguments), sort_keys=True)
+    if name == "security_sweep":
+        return json.dumps(_security_sweep(), sort_keys=True)
     if name == "wiki_search":
         from portal_wiki.mcp import wiki_search
 
@@ -169,3 +186,46 @@ def _file_listing(
         "truncated": scanned > len(files),
         "files": files,
     }
+
+
+def _security_sweep() -> dict[str, Any]:
+    """The newest sweep report's counts, delta line and CRITICAL rows (2026-11-20)."""
+    reports = sorted(SWEEP_DIR.glob("security_sweep_*.md"))
+    if not reports:
+        return {"error": f"no security sweep report in {SWEEP_DIR}"}
+    report = reports[-1]
+    try:
+        lines = report.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError as exc:
+        return {"error": f"could not read {report}: {exc}"}
+    sections = _sweep_sections(lines)
+    critical = [row for row in sections.get("OSV findings", []) if "| CRITICAL |" in row]
+    return {
+        "path": str(report),
+        "date": report.stem.removeprefix("security_sweep_"),
+        "summary": [line.strip() for line in sections.get("", []) if line.startswith("- ")],
+        "delta": _sweep_delta(sections),
+        "critical": critical[:SWEEP_CRITICAL_CAP],
+        "critical_truncated": len(critical) > SWEEP_CRITICAL_CAP,
+    }
+
+
+def _sweep_sections(lines: list[str]) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {}
+    heading = ""
+    for line in lines:
+        if line.startswith("## "):
+            heading = line[3:].strip()
+            sections.setdefault(heading, [])
+            continue
+        sections.setdefault(heading, []).append(line)
+    return sections
+
+
+def _sweep_delta(sections: dict[str, list[str]]) -> str:
+    for heading, body in sections.items():
+        if heading.startswith("Delta"):
+            for line in body:
+                if line.strip():
+                    return line.strip()
+    return ""

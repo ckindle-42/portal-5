@@ -29,6 +29,7 @@ from portal.modules.orchestration.personal_policy import (
     concrete_work_question,
     hidden_fleet_ids,
     parse_planner_json,
+    plan_gap,
     planner_body,
     refusal_reason,
     text_gate,
@@ -73,6 +74,12 @@ RECALL_MIN_SIMILARITY = 0.65
 RecallFn = Callable[[str], str]
 _HOLD_TEXT = re.compile(
     r"\b(?:restart\s+(?:the\s+)?pipeline|launch\.sh\s+(?:up|restart|rebuild))\b", re.I
+)
+# A memory recording a failed lookup or an unresolved template is tool scratch, not a
+# preference; injecting it steered the planner into a workspace search (pt-46b3e7c492af).
+_SCRATCH_MEMORY = re.compile(
+    r"\bunable to locate\b|\bcould not be determined\b|\boutput of previous execution\b",
+    re.IGNORECASE,
 )
 
 
@@ -517,8 +524,12 @@ def _cloud_result(
             f"Cloud attempt {attempt} failed; retrying tier {('auto' if attempt == 1 else 'escalate')}.",
         )
         return PersonalRun(task.id, "cloud-retry")
-    error = str(outcome.get("error") or outcome.get("result") or "cloud dispatch failed")
-    error = f"cloud attempt cap {cap} reached after {attempt} failed attempt(s): {error}"
+    detail = str(
+        outcome.get("error")
+        or user_answer(str(outcome.get("result") or ""))
+        or "cloud dispatch failed"
+    )
+    error = f"cloud attempt cap {cap} reached after {attempt} failed attempt(s): {detail}"
     _finish(
         root,
         store,
@@ -537,6 +548,42 @@ def _cloud_result(
 
 _RESULT_HEAD = re.compile(r"^## RESULT\b[:\s]*(.*)$", re.MULTILINE)
 _CLOUD_LIVE_STATUSES = frozenset({"running", "cloud-running", "handed-to-cloud"})
+_SECTION_HEAD = re.compile(r"^#{1,3}[ \t]+(.+?)[ \t]*$", re.MULTILINE)
+# The lane's own headings that carry the operator's answer; every other block is scaffolding.
+_ANSWER_SECTIONS = frozenset({"ANSWER", "RESULT", "SUMMARY", "DELIVERABLE", "WHAT CHANGED"})
+_VERDICT_LEAD = re.compile(r"^(?:done|partial|blocked)\b[\s:—–-]*", re.IGNORECASE)
+
+
+def user_answer(text: str) -> str:
+    """The lane's user-facing answer: its answer sections, never its worker scaffolding."""
+    body = text.strip()
+    if "## " not in body:
+        return body
+    answer: list[str] = []
+    for heading, chunk in _sections(body):
+        if heading and not _answer_section(heading):
+            continue
+        piece = _VERDICT_LEAD.sub("", chunk.strip()) if heading else chunk.strip()
+        if piece:
+            answer.append(piece)
+    return "\n\n".join(answer).strip()
+
+
+def _answer_section(heading: str) -> bool:
+    upper = heading.upper()
+    return upper in _ANSWER_SECTIONS or "ANSWER" in upper
+
+
+def _sections(text: str) -> list[tuple[str, str]]:
+    """``(heading, body)`` pairs; the text before the first heading has an empty heading."""
+    heads = list(_SECTION_HEAD.finditer(text))
+    if not heads:
+        return [("", text)]
+    parts: list[tuple[str, str]] = [("", text[: heads[0].start()])]
+    for index, match in enumerate(heads):
+        end = heads[index + 1].start() if index + 1 < len(heads) else len(text)
+        parts.append((match.group(1), text[match.end() : end]))
+    return parts
 
 
 def _cloud_verdict(text: str) -> str:
@@ -558,16 +605,26 @@ def _deliver_cloud_result(
 ) -> PersonalRun:
     """A finished lane's own ``## RESULT`` block becomes the task's answer and notice."""
     text = str(outcome.get("result") or "").strip()
-    done = bool(text) and _cloud_verdict(text) == "done"
+    verdict = _cloud_verdict(text)
+    done = bool(text) and verdict == "done"
     status = "done" if done else "blocked"
-    content = text or (
-        "cloud lane finished without a ## RESULT block "
-        f"(status {outcome.get('status') or 'unknown'})"
-    )
+    answer = user_answer(text)
+    if answer:
+        content = answer
+    elif text:
+        content = (
+            f"cloud lane finished ({verdict or outcome.get('status') or 'unknown'}) without a "
+            "user-facing answer; see the task receipt for its report"
+        )
+    else:
+        content = (
+            "cloud lane finished without a ## RESULT block "
+            f"(status {outcome.get('status') or 'unknown'})"
+        )
     if done:
         error = ""
     elif text:
-        error = f"cloud lane returned a {_cloud_verdict(text) or 'non-done'} verdict"
+        error = f"cloud lane returned a {verdict or 'non-done'} verdict"
     else:
         error = content
     _finish(
@@ -750,7 +807,17 @@ def _cloud_brief(task: PersonalTask, local_paths: list[Path]) -> str:
         failures.append(f"Local failure {len(failures) + 1}: {payload.get('error', '')}")
     receipts = "\n\n".join(path.read_text(encoding="utf-8") for path in local_paths)
     failure_tails = "\n".join(failures)
-    return f"# Personal task {task.id}\n\n## Request\n\n{task.text}\n\n" + (
+    return (
+        f"# Personal task {task.id}\n\n"
+        "## Who reads your reply\n"
+        "The operator reads it as a Telegram message. Write a user-facing answer, not a worker\n"
+        "report: put the answer itself — the content, plus the file path or download link — under\n"
+        "`## ANSWER`. `## RESULT`/`## EVIDENCE`/`## ORCHESTRATOR RUNS` blocks are stripped before\n"
+        "delivery, so an answer that lives only there reaches the operator as nothing.\n\n"
+        "## This is not a code task\n"
+        "Do not run the repository gates (pytest, ruff, mypy), do not edit or commit repository\n"
+        "files, and do not run git. The deliverable is the answer to the request below.\n\n"
+        f"## Request\n\n{task.text}\n\n"
         f"## Local failure tails\n\n{failure_tails}\n\n"
         f"## Personal receipts\n\n```json\n{receipts}\n```\n"
     )
@@ -958,7 +1025,7 @@ def _validated_plan(
         return _validate_question({"action": "ask", "question": question})
     available = _personal_available_tools()
     body = planner_body(task.text, KNOWN_TOOLS | available, memory)
-    raw = _planner_json(caller, body, caller.complete(body))
+    raw = _planner_json(caller, body, caller.complete(body), task.text)
     if raw.get("action") == "enqueue-template":
         return _validate_template_request(raw)
     if raw.get("action") == "ask":
@@ -977,38 +1044,47 @@ def _validate_question(raw: dict[str, Any]) -> PersonalPlan:
 
 
 def _planner_json(
-    caller: PipelineCaller, body: dict[str, Any], first: Completion
+    caller: PipelineCaller, body: dict[str, Any], first: Completion, request: str = ""
 ) -> dict[str, Any]:
     """The planner's JSON object, with one corrective retry inside the attempt."""
     try:
-        return _planner_parse(first)
-    except ValueError:
-        retry = caller.complete(_corrective_body(body, first.content))
+        return _planner_parse(first, request)
+    except ValueError as exc:
+        retry = caller.complete(_corrective_body(body, first.content, str(exc)))
         try:
-            return _planner_parse(retry)
-        except ValueError as exc:
-            raise ValueError(f"{exc}; planner tail: {retry.content[-500:]}") from exc
+            return _planner_parse(retry, request)
+        except ValueError as retry_exc:
+            raise ValueError(f"{retry_exc}; planner tail: {retry.content[-500:]}") from retry_exc
 
 
-def _planner_parse(result: Completion) -> dict[str, Any]:
+def _planner_parse(result: Completion, request: str = "") -> dict[str, Any]:
     if result.tool_calls:
         raise ValueError("planner returned a tool call")
-    return parse_planner_json(result.content)
+    raw = parse_planner_json(result.content)
+    gap = plan_gap(request, raw)
+    if gap is not None:
+        raise ValueError(gap)
+    return raw
 
 
-def _corrective_body(body: dict[str, Any], bad: str) -> dict[str, Any]:
+_JSON_ONLY = (
+    "Reply again with the one JSON object only: "
+    'either {"steps": [...]} or {"action": "enqueue-template", ...}. '
+    "No prose, no tool calls."
+)
+_PLANNER_REJECT = "That was not the JSON plan object."
+
+
+def _corrective_body(
+    body: dict[str, Any], bad: str, complaint: str = _PLANNER_REJECT
+) -> dict[str, Any]:
     """The planner conversation plus the rejected answer and a JSON-only ask."""
-    corrective = (
-        "That was not the JSON plan object. Reply again with the one JSON object only: "
-        'either {"steps": [...]} or {"action": "enqueue-template", ...}. '
-        "No prose, no tool calls."
-    )
     return {
         **body,
         "messages": [
             *body["messages"],
             {"role": "assistant", "content": bad[:2000]},
-            {"role": "user", "content": corrective},
+            {"role": "user", "content": f"{complaint} {_JSON_ONLY}"},
         ],
     }
 
@@ -1077,6 +1153,7 @@ def _memory_text(payload: Any) -> str:
         for item in memories
         if isinstance(item, dict)
         and str(item.get("text") or "").strip()
+        and not _SCRATCH_MEMORY.search(str(item["text"]))
         and _similarity(item) >= RECALL_MIN_SIMILARITY
     ]
     return "\n".join(f"- {text}" for text in texts[:RECALL_TOP_K])
