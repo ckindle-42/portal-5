@@ -103,6 +103,19 @@ class TestHotSeatTracker:
         tracker.touch(engine_key(OMLX_URL), CODER_NATIVE, now=200.0)
         assert tracker.hot_model(engine_key(OMLX_URL), 900, now=250.0) == CODER_NATIVE
 
+    def test_clear_and_sync_loaded(self) -> None:
+        key = engine_key(OMLX_URL)
+        tracker = _hot_tracker(now=100.0)
+        tracker.clear(key, "other-model")
+        assert tracker.hot_model(key, 900, now=200.0) == HOT_NATIVE
+        tracker.sync_loaded(key, {HOT_NATIVE})
+        assert tracker.hot_model(key, 900, now=200.0) == HOT_NATIVE
+        tracker.sync_loaded(key, set())
+        assert tracker.hot_model(key, 900, now=200.0) is None
+        tracker.touch(key, HOT_NATIVE, now=300.0)
+        tracker.clear(key, HOT_NATIVE)
+        assert tracker.hot_model(key, 900, now=350.0) is None
+
 
 class TestProtectHotSeat:
     def test_knob_off_keeps_order(self) -> None:

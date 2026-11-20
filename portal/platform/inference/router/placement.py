@@ -100,6 +100,24 @@ class HotSeatTracker:
             return None
         return state.model
 
+    def clear(self, key: str, model: str | None = None) -> None:
+        """Drop hot-seat state for ``key`` (or only when ``model`` matches)."""
+        if not key:
+            return
+        with self._lock:
+            state = self._seats.get(key)
+            if state is not None and (model is None or state.model == model):
+                self._seats.pop(key, None)
+
+    def sync_loaded(self, key: str, loaded_models: set[str]) -> None:
+        """Clear a tracked hot model that is no longer loaded on engine ``key``."""
+        if not key:
+            return
+        with self._lock:
+            state = self._seats.get(key)
+            if state is not None and state.model not in loaded_models:
+                self._seats.pop(key, None)
+
 
 #: Module-level tracker — one per pipeline process. See the module docstring for
 #: why non-persistence is acceptable (advisory reorder, self-healing).
@@ -115,6 +133,16 @@ def note_omlx_activity(base_url: str, model: str) -> None:
     single place the placement policy needs to observe the hot seat.
     """
     TRACKER.touch(engine_key(base_url), model)
+
+
+def clear_omlx_activity(base_url: str, model: str | None = None) -> None:
+    """Clear tracked hot-seat state after an oMLX eviction or unload."""
+    TRACKER.clear(engine_key(base_url), model)
+
+
+def sync_omlx_loaded(base_url: str, loaded_models: set[str]) -> None:
+    """Drop hot-seat protection when oMLX has already unloaded the tracked model."""
+    TRACKER.sync_loaded(engine_key(base_url), loaded_models)
 
 
 def _head_serving_model(head: Backend, workspace_id: str, model_hint: str) -> str | None:

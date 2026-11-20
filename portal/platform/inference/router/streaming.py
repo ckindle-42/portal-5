@@ -450,6 +450,28 @@ def _in_band_backend_error(line: str) -> str | None:
     return _error_text(obj["error"])
 
 
+_IN_BAND_TOOL_CALL_CODES = frozenset({"incomplete_tool_call", "invalid_tool_call"})
+
+
+def _in_band_tool_call_error(line: str) -> str | None:
+    """Return the error code when an in-band SSE error is an oMLX 0.8.0 tool-call failure."""
+    if '"error"' not in line:
+        return None
+    payload = line[5:].strip() if line.startswith("data:") else line.strip()
+    if not payload.startswith("{"):
+        return None
+    try:
+        obj = json.loads(payload)
+    except Exception:
+        return None
+    err = obj.get("error") if isinstance(obj, dict) and not obj.get("choices") else None
+    if isinstance(err, dict):
+        code = str(err.get("code") or "").strip()
+        if code in _IN_BAND_TOOL_CALL_CODES:
+            return code
+    return None
+
+
 #: True while a fallback driver (``_stream_with_fallback`` or a chain's hop loop) runs
 #: this stream: a Pipeline error is then an envelope it can cascade on, not the
 #: client's final framing.
@@ -1362,6 +1384,17 @@ async def _tool_loop_frames_impl(
                             continue
                         _in_band = _in_band_backend_error(line)
                         if _in_band is not None:
+                            if not _hop_output and (_tool_err := _in_band_tool_call_error(line)):
+                                logger.warning(
+                                    "Tool loop hop %d: backend reported %s before output; "
+                                    "falling through to hop recovery (workspace=%s model=%s)",
+                                    hop,
+                                    _tool_err,
+                                    workspace_id,
+                                    current_body.get("model", model),
+                                )
+                                _record_error(workspace_id, "unparsed_tool_call")
+                                break
                             if await _retry_after_omlx_abort(
                                 backend_url,
                                 _in_band,
