@@ -62,11 +62,54 @@ before and after. A variant hint that is only in an unreachable group would be
 caught by `tests/unit/test_variant_hints_resolve_in_routing.py`.
 
 Under the speed gate's oMLX-only view: **40 before → 39 after**. The remaining
-39 are Ollama-only seats by design (GGUF tags with no MLX conversion or no
-alias in their routed group: `auto-general-uncensored` base + throwaway
-variants, `auto-daily`/`::nemotron`, the `portal5/*` coding alternates,
-security/reasoning/vision variants, `task-router`, …). Aliasing those to MLX
-without conversion + A/B evidence would be a seat decision, not a routing fix.
+39 all resolve in the full catalog and are Ollama-only seats by design (GGUF
+tags with no MLX conversion or no alias in their routed group); aliasing them
+to MLX without conversion + A/B evidence would be a seat decision, not a
+routing fix. `auto-security::blueteam`'s `granite4.1:8b-ctx8k` is explicitly
+*not* aliased (the `omlx-general` alias block's `granite4.1:8b` note: the MLX
+conversion garbles tool calls), so the list is not a to-fix list:
+
+```
+auto-audio
+auto-audio::image
+auto-audio::music
+auto-audio::video
+auto-coding::devstral_coder
+auto-coding::fast-repair
+auto-coding::gemma4-heretic-coder
+auto-coding::glm-coder
+auto-coding::hauhaucs-coder
+auto-coding::lite
+auto-coding::northmini
+auto-coding::ornith
+auto-coding::ornith15-coder
+auto-coding::uncensored
+auto-daily
+auto-daily::nemotron
+auto-documents::extract-uncensored
+auto-general-uncensored
+auto-general-uncensored::throwaway
+auto-general-uncensored::throwaway-gemma4-heretic
+auto-general-uncensored::throwaway-ornith15
+auto-reasoning
+auto-reasoning::glm-thinker
+auto-reasoning::magistralstrategist
+auto-reasoning::math
+auto-research
+auto-security::blueteam
+auto-security::security-council-mistral-small32-24b
+auto-security::security-council-qwen36-27b
+auto-security::security-expert-foundation-sec-8b
+auto-security::security-tool-granite41-8b
+auto-security::uncensored
+auto-spl::nano
+auto-vision
+auto-vision::gemma4jangvision
+auto-vision::gemma_vision
+security-reviewer
+task-router
+tools-specialist::fast
+```
 
 ## Live check
 
