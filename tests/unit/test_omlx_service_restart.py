@@ -58,8 +58,9 @@ def test_restart_command_falls_back_to_brew(monkeypatch):
     assert omlx_restart_command() == ["brew", "services", "restart", OMLX_BREW_SERVICE]
 
 
-def test_seat_defaults_restart_targets_omlx_restart_command(monkeypatch, capsys):
+def test_seat_defaults_restart_targets_omlx_restart_command(tmp_path, monkeypatch, capsys):
     sent: list[list[str]] = []
+    monkeypatch.setattr(seat_defaults, "SETTINGS", tmp_path / "model_settings.json")
     monkeypatch.setattr(seat_defaults, "apply", lambda defaults, dry: True)
     monkeypatch.setattr(seat_defaults, "omlx_restart_command", lambda: ["echo", "restarted"])
     monkeypatch.setattr(seat_defaults.subprocess, "run", _fake_run(0, sent))
@@ -68,13 +69,24 @@ def test_seat_defaults_restart_targets_omlx_restart_command(monkeypatch, capsys)
     assert "oMLX restarted" in capsys.readouterr().out
 
 
-def test_seat_defaults_dry_run_does_not_restart(monkeypatch):
+def test_seat_defaults_dry_run_does_not_restart(tmp_path, monkeypatch, capsys):
     sent: list[list[str]] = []
+    monkeypatch.setattr(seat_defaults, "SETTINGS", tmp_path / "model_settings.json")
     monkeypatch.setattr(seat_defaults, "apply", lambda defaults, dry: True)
     monkeypatch.setattr(seat_defaults, "omlx_restart_command", lambda: ["echo", "restarted"])
     monkeypatch.setattr(seat_defaults.subprocess, "run", _fake_run(0, sent))
     assert seat_defaults.main(["--dry-run"]) == 0
     assert sent == []
+    assert "WOULD change (dry run)" in capsys.readouterr().out
+
+
+def test_seat_defaults_skips_when_omlx_not_installed(tmp_path, monkeypatch, capsys):
+    sent: list[list[str]] = []
+    monkeypatch.setattr(seat_defaults, "SETTINGS", tmp_path / "missing" / "model_settings.json")
+    monkeypatch.setattr(seat_defaults.subprocess, "run", _fake_run(0, sent))
+    assert seat_defaults.main([]) == 0
+    assert sent == []
+    assert "oMLX not installed" in capsys.readouterr().out
 
 
 def test_memory_tier_restart_targets_omlx_restart_command(tmp_path, monkeypatch):
