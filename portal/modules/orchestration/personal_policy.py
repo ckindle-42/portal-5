@@ -125,7 +125,7 @@ _MUTATING_TEXT = re.compile(
     r"provision|deploy|commit|push|migrate|resize|restore|rollback)\b",
     re.IGNORECASE,
 )
-# Requests refused before any plan: they would tear down the stack or delete data, and no
+# Requests refused before any routing: they would tear down the stack or delete data, and no
 # personal task can mean them. The reason reaches the operator's Telegram reply verbatim.
 _REFUSALS = (
     (
