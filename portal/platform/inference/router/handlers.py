@@ -334,7 +334,7 @@ async def admin_reclaim_idle_memory(
     if load_guard.GUARD is None or not ollama:
         raise HTTPException(status_code=503, detail="load guard not initialised")
     try:
-        unloads = await load_guard.GUARD.reclaim_idle_memory(
+        reclaim = await load_guard.GUARD.reclaim_idle_memory(
             ollama.rstrip("/"), float(need_gib) * 1024**3
         )
     except load_guard.LoadRefusedError as exc:
@@ -343,7 +343,7 @@ async def admin_reclaim_idle_memory(
         raise HTTPException(
             status_code=503, detail="load guard could not inspect model memory"
         ) from exc
-    return {"unloads": unloads}
+    return reclaim
 
 
 async def admin_refresh_tools(authorization: str | None = Header(None)) -> dict[str, Any]:

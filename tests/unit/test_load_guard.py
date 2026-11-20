@@ -340,6 +340,25 @@ def guard(
     )
 
 
+async def test_reclaim_idle_memory_reports_resident_models_that_still_hold_memory():
+    e = Engines(
+        ollama={"busy-qwen": 4 * GIB},
+        omlx={"busy-mlx": {"size": 5 * GIB, "loaded": True, "pinned": True}},
+    )
+    g = guard(e)
+    end = g.begin(OLLAMA, "busy-qwen")
+    try:
+        result = await g.reclaim_idle_memory(OLLAMA_URL, 100 * GIB)
+    finally:
+        end()
+
+    assert result["unloads"] == []
+    assert result["residents"] == [
+        {"engine": OLLAMA, "model": "busy-qwen", "reported_gib": 4.0},
+        {"engine": lg.OMLX, "model": "busy-mlx", "reported_gib": 5.0},
+    ]
+
+
 def test_has_activity_covers_cross_worker_admission_and_request_leases():
     g = lg.LoadGuard(omlx_url=lambda: None)
     admission = g._shared_process_lock("admissions.lock")
