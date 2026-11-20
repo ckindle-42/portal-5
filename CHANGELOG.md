@@ -20,8 +20,10 @@ All notable changes to Portal 5 will be documented in this file.
   (`portal5-pwsh`/`portal5-sandbox-data`/`portal5-attack`/`portal5-binresearch`) — none of them
   is a compose service, so a manual prune used to leave the sandbox pointing at an absent image.
   `up` now runs `_ensure_sandbox_images` before the prune: a missing image is rebuilt by its own
-  recipe and loaded into DinD (rebuild always rebuilds pwsh + sandbox-data, as before), and
-  `portal trace` gains a `dind sandbox images` hop that fails naming any role image DinD lacks.
+  recipe and loaded into DinD (rebuild always rebuilds pwsh + sandbox-data, as before; a failed
+  build of those two stops `up`, while a failed opt-in image build — attack/binresearch — warns
+  and continues), and `portal trace` gains a `dind sandbox images` hop that fails naming any role
+  image DinD lacks.
   Volumes and models are never touched and `docker compose down -v` is never run. Replaces the
   dangling-only `docker image prune` that used to run mid-`up`.
 - **The security sweep's image scan can no longer fill the main drive.** osv-scanner's image

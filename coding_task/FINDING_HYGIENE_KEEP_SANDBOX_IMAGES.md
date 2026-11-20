@@ -39,7 +39,9 @@ prune.
   - `_build_portal_image` / `_dind_has_image` / `_load_into_dind`: one definition of each
     recipe and of the save|load step, reused by `launch.sh` and `scripts/lib/lab.sh`.
   - `_ensure_sandbox_images [--rebuild]`: refuses to run with DinD down; rebuilds a missing
-    required image from its own recipe and loads it into DinD; `--rebuild` always rebuilds
+    required image from its own recipe and loads it into DinD — a failed build of the two
+    default images (pwsh, sandbox-data) stops `up`, a failed opt-in build (attack while
+    lab-exec is on, binresearch) warns and continues; `--rebuild` always rebuilds
     pwsh + sandbox-data and reloads them (a rebuilt image must not be shadowed by an older
     DinD copy).
   - `_disk_hygiene`: the keep set is `built ∪ all`, applied to the **host** prune as well as

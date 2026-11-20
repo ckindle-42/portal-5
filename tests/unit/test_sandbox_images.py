@@ -42,6 +42,10 @@ case "$1" in
       prev="$arg"
     done
     [ "$has_file" -eq 0 ] && cat >/dev/null
+    if grep -qx -- "$ref" "$state/fail_build" 2>/dev/null; then
+      echo "build failed: $ref" >&2
+      exit 1
+    fi
     echo "build:$ref" >> "$log"
     echo "$ref" >> "$state/host_present"
     exit 0 ;;
@@ -201,3 +205,22 @@ def test_ensure_warns_and_fails_when_dind_is_not_running(tmp_path):
     assert result.returncode != 0
     assert "portal5-dind is not running" in result.stdout + result.stderr
     assert _cmd_log(state) == []
+
+
+def test_a_failed_opt_in_image_build_warns_but_does_not_stop_up(tmp_path):
+    state = _state(tmp_path, host=["portal5-pwsh:latest"], dind=["portal5-pwsh:latest"])
+    (state / "fail_build").write_text("portal5-binresearch:latest\n")
+    result = _run(tmp_path, state, "_ensure_sandbox_images")
+
+    assert result.returncode == 0
+    assert "portal5-binresearch:latest is missing and could not be built" in result.stderr
+    assert "load:portal5-sandbox-data:latest" in _cmd_log(state)
+
+
+def test_a_failed_required_image_build_stops_up(tmp_path):
+    state = _state(tmp_path, host=["portal5-pwsh:latest"], dind=["portal5-pwsh:latest"])
+    (state / "fail_build").write_text("portal5-sandbox-data:latest\n")
+    result = _run(tmp_path, state, "_ensure_sandbox_images")
+
+    assert result.returncode != 0
+    assert "portal5-sandbox-data:latest is missing and could not be built" in result.stderr

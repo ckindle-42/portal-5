@@ -519,8 +519,10 @@ _load_into_dind() {
 }
 
 # Every image the sandbox or a tool MCP launches must exist in DinD before the
-# stack is used: build a missing one from its own recipe, then load it. With
-# --rebuild the two images `rebuild` owns are always rebuilt (and reloaded).
+# stack is used: build a missing one from its own recipe, then load it. The two
+# images `rebuild` owns are required (a failed build stops `up`); an opt-in
+# image (attack while lab-exec is on, binresearch) warns instead. With
+# --rebuild those two are always rebuilt and reloaded.
 _ensure_sandbox_images() {
     local rebuild="${1:-}" ref built
     if [ "$(docker inspect -f '{{.State.Running}}' portal5-dind 2>/dev/null)" != "true" ]; then
@@ -541,7 +543,15 @@ _ensure_sandbox_images() {
         if [ "$built" -eq 0 ] && ! docker image inspect "$ref" >/dev/null 2>&1; then
             echo "[portal-5] Sandbox image missing: $ref — rebuilding..."
             if ! _build_portal_image "$ref"; then
-                echo "[portal-5] ⚠️  $ref is missing and launch.sh has no recipe for it" >&2
+                case "$ref" in
+                    portal5-pwsh:latest|portal5-sandbox-data:latest)
+                        echo "[portal-5] ❌ $ref is missing and could not be built" >&2
+                        return 1
+                        ;;
+                    portal5-*)
+                        echo "[portal-5] ⚠️  $ref is missing and could not be built" >&2
+                        ;;
+                esac
                 continue
             fi
             built=1
