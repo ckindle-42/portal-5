@@ -1,4 +1,4 @@
-"""Stage orchestration: cards, behaviours, notables and the judge, one receipt per stage."""
+"""Stage orchestration: cards, behaviours, notables, relate and the judge."""
 
 from __future__ import annotations
 
@@ -34,6 +34,13 @@ from .cards import (
 )
 from .generators import GENERATORS as BASE_GENERATORS
 from .generators import SERIES_SPAN_SECONDS, generate
+from .inventory import (
+    INVENTORY_FILE,
+    apply_inventory,
+    collect_inventory,
+    inventory_summary,
+    load_inventory,
+)
 from .judge_notables import judge_all
 from .merge import DEFAULT_MERGE, merge_notables
 from .misfit import MISFIT_GENERATOR, generate_misfit
@@ -55,7 +62,7 @@ from .window_activity import resolve_source_windows
 HTTP_ERROR_THRESHOLD = 0.20
 JUDGE_STAGE_DEADLINE_SECONDS = 720.0  # effort budget: the hunt job wall time (executor job_seconds)
 
-STAGES = ("cards", "behaviours", "notables", "judge")
+STAGES = ("cards", "behaviours", "notables", "relate", "judge")
 GENERATORS = (*BASE_GENERATORS, MISFIT_GENERATOR, SIMILAR_GENERATOR)
 DEFAULT_GENERATORS = (*BASE_GENERATORS, MISFIT_GENERATOR)
 MERGE_PRIORITY = (SIMILAR_GENERATOR, *BASE_GENERATORS, MISFIT_GENERATOR)
@@ -370,15 +377,35 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
     """Count distinct behaviours for every activity source on DuckDB, declaring coverage."""
     cards = load_cards(out)
     began = time.monotonic()
-    behaves, receipt = collect_behaviours(
-        executor_for(search), cards, facts_by_source(cards), out / STORE_FILE
+    sources = read_json(out / SOURCES_FILE)
+    executor = executor_for(search)
+    inventory = collect_inventory(
+        executor,
+        cards,
+        str(sources.get("index") or ""),
+        float(sources.get("start") or 0.0),
+        float(sources.get("end") or 0.0),
     )
+    write_json(out / INVENTORY_FILE, inventory)
+    behaves, receipt = collect_behaviours(executor, cards, facts_by_source(cards), out / STORE_FILE)
+    receipt["inventory"] = inventory_summary(inventory)
     _write_role_overrides(out, receipt.get("identity_overrides") or {})
     receipt.pop("identity_overrides", None)
     receipt["seconds_total"] = round(time.monotonic() - began, 3)
     receipt["peak_memory_mb"] = peak_memory_mb()
     progress_update(out, "behaviours", receipt)
     return behaves, receipt
+
+
+def _stored_inventory(
+    out: Path, cards: Sequence[SourceCard], behaviours: Sequence[Behaviour]
+) -> tuple[list[Behaviour], dict[str, SourceFacts], dict[str, Any]]:
+    """Apply the stored value lists in memory. The behaviour table stays sample-based."""
+    source_facts = facts_by_source(cards)
+    updated, receipt = apply_inventory(
+        behaviours, load_inventory(out / INVENTORY_FILE), source_facts
+    )
+    return updated, source_facts, receipt
 
 
 def notables_stage(
@@ -405,7 +432,7 @@ def notables_stage(
         name for name in enabled if name not in (SIMILAR_GENERATOR, MISFIT_GENERATOR)
     ]
     executor = executor_for(search)
-    source_facts = facts_by_source(cards)
+    behaviours, source_facts, inventory_receipt = _stored_inventory(out, cards, behaviours)
     notables, receipt = generate(
         executor,
         index,
@@ -449,7 +476,7 @@ def notables_stage(
     merged, merge_receipt = merge_notables(notables, MERGE_PRIORITY, DEFAULT_MERGE)
     if "deviation" in enabled:
         receipt["source_windows"] = resolve_source_windows(merged, executor, cards, source_facts)
-    receipt["merge"] = merge_receipt
+    receipt.update(inventory=inventory_receipt, merge=merge_receipt)
     receipt["enabled"] = list(enabled)
     receipt["total"] = len(merged)
     receipt["seconds"]["total"] = round(time.monotonic() - began, 3)

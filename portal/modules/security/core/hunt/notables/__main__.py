@@ -1,4 +1,4 @@
-"""python -m portal.modules.security.core.hunt.notables — cards, behaviours, notables, judge."""
+"""python -m portal.modules.security.core.hunt.notables — cards through relate and judge."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from ..engine import Search
 from .behaviours import Behaviour
 from .embedding import embedding_from_env, embedding_requirement
 from .pipeline import model_from_env, model_requirement, preflight
+from .relate import relate_stage
 from .run import (
     DEFAULT_GENERATORS,
     GENERATORS,
@@ -150,6 +151,14 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
             f"unparsed_share={item.get('unparsed_share')} "
             f"seconds={item.get('seconds')}"
         )
+    inventory = receipt.get("inventory")
+    if isinstance(inventory, dict):
+        print(
+            f"  inventory searches={inventory.get('searches', 0)} "
+            f"seconds={inventory.get('seconds')} fields={inventory.get('fields')} "
+            f"values={inventory.get('values', 0)} joints={inventory.get('joints', 0)} "
+            f"flows={inventory.get('flows', 0)}"
+        )
     for item in receipt.get("misfits", []):
         if item.get("misfit_lines"):
             print(
@@ -265,6 +274,22 @@ def _print_cards(receipt: dict[str, Any]) -> None:
     )
 
 
+def _run_relate(out: Path, search: Search) -> int:
+    try:
+        receipt = relate_stage(out=out, search=search)
+    except (FileNotFoundError, ValueError) as error:
+        print(f"relate: {error}", file=sys.stderr)
+        return 2
+    promotion = _mapping(receipt.get("promotion"))
+    print(
+        f"relate: seeds={receipt.get('seeds')} requests={receipt.get('requests')} "
+        f"related_events={receipt.get('related_events')} cases={receipt.get('cases')} "
+        f"flows={receipt.get('flows')} promoted={promotion.get('lifted', 0)} "
+        f"coverage_complete={receipt.get('coverage_complete')} wall={receipt.get('seconds')}s"
+    )
+    return 0
+
+
 def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
     args = _parser().parse_args(argv)
     out = Path(args.out)
@@ -328,6 +353,10 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
             if embedder is not None:
                 embedder.close()
         _print_notables(receipt)
+    if "relate" in stages:
+        code = _run_relate(out, search)
+        if code:
+            return code
     if "judge" in stages:
         assert target is not None
         client, model = target
