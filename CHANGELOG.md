@@ -8,14 +8,22 @@ All notable changes to Portal 5 will be documented in this file.
 - **`./launch.sh up`/`rebuild` prune what the started stack no longer use and report the disk
   savings.** After a successful build/start (a failed start keeps the old images for rollback,
   the rule `weekly_rebuild.py` already pruned by), `_disk_hygiene` in `scripts/lib/util.sh`
-  removes superseded Portal images (Portal-owned tags no compose service declares and no
-  container references — the retired `portal-5-mcp-reranker` class), dangling images, dangling
-  build cache, and inside `portal5-dind` the same except images its compose-declared sandbox
-  services need; then fstrim in the Docker Desktop VM (`/dev/vda1`, ext4 discard at
-  `/var/lib/docker`, run through the VM namespaces via the stack's own dind image) returns the
-  freed blocks to the host, and the report prints before/after main-drive free space and
-  Docker.raw allocated size. Volumes and models are never touched and `docker compose down -v`
-  is never run. Replaces the dangling-only `docker image prune` that used to run mid-`up`.
+  removes superseded Portal images (Portal-owned tags no compose service declares, no container
+  references and no sandbox role names — the retired `portal-5-mcp-reranker` class), dangling
+  images, dangling build cache, and inside `portal5-dind` the same except the images its
+  services and sandbox roles need; then fstrim in the Docker Desktop VM (`/dev/vda1`, ext4
+  discard at `/var/lib/docker`, run through the VM namespaces via the stack's own dind image)
+  returns the freed blocks to the host, and the report prints before/after main-drive free space
+  and Docker.raw allocated size. The sandbox keep set is resolved the way the sandbox resolves
+  it (`SANDBOX_DOCKER_IMAGE`/`SANDBOX_PS_IMAGE`, the lab image while `SANDBOX_LAB_EXEC=true`,
+  `BINRESEARCH_IMAGE`) plus every image launch.sh builds and loads into DinD
+  (`portal5-pwsh`/`portal5-sandbox-data`/`portal5-attack`/`portal5-binresearch`) — none of them
+  is a compose service, so a manual prune used to leave the sandbox pointing at an absent image.
+  `up` now runs `_ensure_sandbox_images` before the prune: a missing image is rebuilt by its own
+  recipe and loaded into DinD (rebuild always rebuilds pwsh + sandbox-data, as before), and
+  `portal trace` gains a `dind sandbox images` hop that fails naming any role image DinD lacks.
+  Volumes and models are never touched and `docker compose down -v` is never run. Replaces the
+  dangling-only `docker image prune` that used to run mid-`up`.
 - **The security sweep's image scan can no longer fill the main drive.** osv-scanner's image
   exports (`docker-image-*.tar`, `image-blob-*`) now land in a per-image temp dir under
   `/Volumes/data01/portal5_sweep_scratch/osv-image-scan` (`PORTAL5_SWEEP_IMAGE_SCRATCH_DIR`
