@@ -356,7 +356,9 @@ def _row_env(catalog: dict, row: dict) -> dict[str, str]:
 
 
 def _materialize_plan(plan: Plan) -> None:
-    """Write the music runner and this prompt's spec (no-op for cli rows)."""
+    """Create the row's output parent; music rows also get the runner and spec written."""
+    if plan.output is not None:
+        plan.output.parent.mkdir(parents=True, exist_ok=True)
     if plan.spec is None:
         return
     spec_dir = Path(plan.spec["save_dir"])

@@ -230,6 +230,34 @@ def _receipt(row, role, **kw):
     return base
 
 
+@pytest.mark.parametrize("medium", ["image", "video"])
+def test_run_row_creates_outputs_parent_before_running(tmp_path, monkeypatch, medium):
+    """Regression (ltx25-q4): each row's output parent must exist before its command runs."""
+    cli_row = {"id": "v", "role": "incumbent", "argv": ["x", "{prompt}", "--output", "{output}"]}
+    catalog = _tiny_catalog([cli_row])
+    seen = {}
+
+    def fake_run_plan(plan, log_path, timeout_s):
+        seen["parent"] = plan.output.parent
+        return _receipt(plan.row["id"], plan.row.get("role")), False
+
+    monkeypatch.setattr(screen, "_run_plan", fake_run_plan)
+    screen._run_row(
+        catalog, medium, catalog["media"][medium]["rows"][0], tmp_path, tmp_path / medium, 0
+    )
+    assert seen["parent"] == tmp_path / medium
+    assert (tmp_path / medium).is_dir()
+
+
+def test_materialize_creates_video_incumbent_output_dir(tmp_path):
+    """ltx-2-mlx's ffmpeg cannot create run_dir/video/ itself; the screen must."""
+    row = next(r for r in CATALOG["media"]["video"]["rows"] if r["id"] == "ltx25-q4")
+    plan = screen._plan_prompt(CATALOG, "video", row, 1, tmp_path, tmp_path / "video")
+    assert not plan.output.parent.exists()
+    screen._materialize_plan(plan)
+    assert plan.output.parent.is_dir()
+
+
 def test_render_table_lists_rows_and_columns(tmp_path, monkeypatch):
     monkeypatch.setattr(screen, "_host_line", lambda: "test-host")
     results = [_receipt("klein4b-q8", "incumbent"), _receipt("iris-q8", "candidate")]
