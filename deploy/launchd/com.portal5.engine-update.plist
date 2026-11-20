@@ -9,8 +9,10 @@
     <array>
         <string>/bin/bash</string>
         <string>-lc</string>
-        <string>cd __PORTAL_ROOT__ &amp;&amp; set -a &amp;&amp; . ./.env 2&gt;/dev/null; set +a; exec .venv/bin/python scripts/engine_autoupdate.py</string>
+        <string>cd __PORTAL_ROOT__ &amp;&amp; . scripts/lib/host_dotenv.sh &amp;&amp; portal_export_dotenv_keys .env PUSHOVER_API_TOKEN PUSHOVER_USER_KEY ENGINE_CONTRACT_OLLAMA_URL ENGINE_CONTRACT_OMLX_URL OMLX_VENV_PATH &amp;&amp; exec .venv/bin/python scripts/engine_autoupdate.py</string>
     </array>
+    <!-- Only keys engine_autoupdate.py / engine_contract_check.py read. Sourcing
+         .env imports PROMETHEUS_MULTIPROC_DIR and the contract import crashes. -->
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

@@ -271,7 +271,8 @@ _install_log_rotation_agent() {
 _portal_module_services() {
     local py="$PORTAL_ROOT/.venv/bin/python"
     if [ ! -x "$py" ]; then
-        py="$(command -v python3)"
+        echo "[portal-5]   ❌ project interpreter missing: $py" >&2
+        return 1
     fi
     PYTHONPATH="$PORTAL_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
         "$py" -m portal.platform.inference.cli module services "$@"
@@ -871,6 +872,45 @@ _warn_omlx_plist_drift() {
     echo "[portal-5]      repair: ./launch.sh install-omlx"
 }
 
+# Install one calendar LaunchAgent. Reload when the rendered plist differs:
+# launchd keeps the program it bootstrapped, so rewriting the file alone leaves
+# the previous command (a full .env source) loaded. Calendar jobs are not
+# required to be in state=running. Failures are warnings; `up` continues.
+_install_scheduled_agent() {  # label, success message
+    local label="$1" ok_msg="$2"
+    local src="$PORTAL_ROOT/deploy/launchd/${label}.plist"
+    local dst="$HOME/Library/LaunchAgents/${label}.plist"
+    local domain="gui/$(id -u)"
+    local previous=""
+    [ -f "$src" ] && [ "$(uname -s)" = "Darwin" ] || return 0
+    mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
+    if _launchd_plist_matches "$label" "$dst" && _launchd_job_loaded "$domain" "$label"; then
+        return 0
+    fi
+    if [ -f "$dst" ]; then
+        previous="$(mktemp "${TMPDIR:-/tmp}/portal5-plist-previous.XXXXXX")"
+        cp -f "$dst" "$previous"
+    fi
+    if ! _render_launchd_plist "$src" "$dst" || ! plutil -lint "$dst" >/dev/null; then
+        [ -n "$previous" ] && cp -f "$previous" "$dst"
+        rm -f "$previous"
+        echo "[portal-5]   ⚠️  ${label}: rendered plist failed lint"
+        return 0
+    fi
+    _launchd_ctl "$domain" bootout "$domain/$label" 2>/dev/null || true
+    if _launchd_wait_gone "$domain" "$label" 30 \
+        && _launchd_bootstrap "$domain" "$dst" \
+        && _launchd_job_loaded "$domain" "$label"; then
+        rm -f "$previous"
+        echo "$ok_msg"
+        return 0
+    fi
+    echo "[portal-5]   ⚠️  ${label}: launchd registration failed"
+    _launchd_restore "$label" "$dst" "$domain" "$previous" || true
+    rm -f "$previous"
+    return 0
+}
+
 # ── Auto-start native services if installed but not running ─────────────────
 _ensure_native_services() {
     local ARCH
@@ -1045,112 +1085,23 @@ PY
         fi
     fi
 
-    # ── Engine auto-update + contract gate (daily launchd job) ─────────────
-    # Keeps Ollama/oMLX current and re-proves that the sampling/think values
-    # Portal sends actually reach the model (scripts/engine_autoupdate.py).
-    local _eu_label="com.portal5.engine-update"
-    local _eu_src="$PORTAL_ROOT/deploy/launchd/${_eu_label}.plist"
-    local _eu_dst="$HOME/Library/LaunchAgents/${_eu_label}.plist"
-    if [ -f "$_eu_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            "$_eu_src" > "$_eu_dst"
-        if ! launchctl print "gui/$(id -u)/${_eu_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_eu_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ engine auto-update: daily contract-gated job enabled" \
-                || echo "[portal-5]   ⚠️  engine auto-update: launchd registration failed"
-        fi
-    fi
-
-    # ── Image security re-pull (daily launchd job) ─────────────────────────
-    # Applies a bumped Open WebUI release pin behind a data backup + health gate
-    # + rollback, and re-pulls SearXNG when an advisory is newer than the local
-    # build (scripts/image_security_update.py).
-    local _iu_label="com.portal5.image-update"
-    local _iu_src="$PORTAL_ROOT/deploy/launchd/${_iu_label}.plist"
-    local _iu_dst="$HOME/Library/LaunchAgents/${_iu_label}.plist"
-    if [ -f "$_iu_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            "$_iu_src" > "$_iu_dst"
-        if ! launchctl print "gui/$(id -u)/${_iu_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_iu_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ image security update: daily job enabled" \
-                || echo "[portal-5]   ⚠️  image security update: launchd registration failed"
-        fi
-    fi
-
-    # ── Weekly security upgrades: vulnerable locked deps + pinned image patches ──
-    # (scripts/security_autoupdate.py; commits uv.lock / compose, never pushes)
-    local _su_label="com.portal5.security-update"
-    local _su_src="$PORTAL_ROOT/deploy/launchd/${_su_label}.plist"
-    local _su_dst="$HOME/Library/LaunchAgents/${_su_label}.plist"
-    if [ -f "$_su_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            -e "s#__HOME__#${HOME}#g" \
-            "$_su_src" > "$_su_dst"
-        if ! launchctl print "gui/$(id -u)/${_su_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_su_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ security upgrades: weekly job enabled" \
-                || echo "[portal-5]   ⚠️  security upgrades: launchd registration failed"
-        fi
-    fi
-
-    # ── Weekly security inventory: host dependencies, npx caches, and containers ──
-    local _ss_label="com.portal5.security-sweep"
-    local _ss_src="$PORTAL_ROOT/deploy/launchd/${_ss_label}.plist"
-    local _ss_dst="$HOME/Library/LaunchAgents/${_ss_label}.plist"
-    if [ -f "$_ss_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            -e "s#__HOME__#${HOME}#g" \
-            "$_ss_src" > "$_ss_dst"
-        if ! launchctl print "gui/$(id -u)/${_ss_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_ss_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ weekly security sweep: launchd job enabled" \
-                || echo "[portal-5]   ⚠️  weekly security sweep: launchd registration failed"
-        fi
-    fi
-
-    # ── Weekly model replace: same tag, upstream file only (scripts/model_autoupdate.py)
-    local _mu_label="com.portal5.model-update"
-    local _mu_src="$PORTAL_ROOT/deploy/launchd/${_mu_label}.plist"
-    local _mu_dst="$HOME/Library/LaunchAgents/${_mu_label}.plist"
-    if [ -f "$_mu_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            -e "s#__HOME__#${HOME}#g" \
-            "$_mu_src" > "$_mu_dst"
-        if ! launchctl print "gui/$(id -u)/${_mu_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_mu_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ model refresh: weekly replace job enabled" \
-                || echo "[portal-5]   ⚠️  model refresh: launchd registration failed"
-        fi
-    fi
-
-    # ── Weekly full rebuild: fresh bases, no-cache build, stack down/up ──────
-    # (scripts/weekly_rebuild.py; runs after the Sunday security-update job)
-    local _wr_label="com.portal5.weekly-rebuild"
-    local _wr_src="$PORTAL_ROOT/deploy/launchd/${_wr_label}.plist"
-    local _wr_dst="$HOME/Library/LaunchAgents/${_wr_label}.plist"
-    if [ -f "$_wr_src" ] && [ "$(uname -s)" = "Darwin" ]; then
-        mkdir -p "$HOME/.portal5/logs" "$HOME/Library/LaunchAgents"
-        sed -e "s#__PORTAL_ROOT__#${PORTAL_ROOT}#g" \
-            -e "s#__LOG_DIR__#${HOME}/.portal5/logs#g" \
-            -e "s#__HOME__#${HOME}#g" \
-            "$_wr_src" > "$_wr_dst"
-        if ! launchctl print "gui/$(id -u)/${_wr_label}" &>/dev/null 2>&1; then
-            launchctl bootstrap "gui/$(id -u)" "$_wr_dst" &>/dev/null \
-                && echo "[portal-5]   ✅ weekly rebuild: Sunday down/up job enabled" \
-                || echo "[portal-5]   ⚠️  weekly rebuild: launchd registration failed"
-        fi
-    fi
+    # Calendar jobs reload when the rendered plist differs. A loaded job keeps
+    # the program launchd bootstrapped, so a rewritten file alone does not drop
+    # a `.env` source. See scripts/engine_autoupdate.py and the sibling jobs.
+    _install_scheduled_agent com.portal5.engine-update \
+        "[portal-5]   ✅ engine auto-update: daily contract-gated job enabled"
+    _install_scheduled_agent com.portal5.image-update \
+        "[portal-5]   ✅ image security update: daily job enabled"
+    _install_scheduled_agent com.portal5.security-update \
+        "[portal-5]   ✅ security upgrades: weekly job enabled"
+    _install_scheduled_agent com.portal5.security-sweep \
+        "[portal-5]   ✅ weekly security sweep: launchd job enabled"
+    _install_scheduled_agent com.portal5.model-update \
+        "[portal-5]   ✅ model refresh: weekly replace job enabled"
+    _install_scheduled_agent com.portal5.weekly-rebuild \
+        "[portal-5]   ✅ weekly rebuild: Sunday down/up job enabled"
+    _install_scheduled_agent com.portal5.update-check \
+        "[portal-5]   ✅ update check: weekly upstream report enabled"
 
     _install_log_rotation_agent
 
