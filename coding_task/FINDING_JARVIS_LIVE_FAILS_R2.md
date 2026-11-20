@@ -30,6 +30,15 @@ requires a *read*: a tool result with non-empty `content` whose `path` ends with
 requested path, or a `search_files` hit line starting with it. A listing that echoes the
 path no longer grounds anything.
 
+Offline proof of the old and new verdicts on the identical tool output
+(`run_read_tool("workspace_files", {"path": "scripts/engine_install_plan.py"}, root)`):
+
+```
+tool output: {"count": 0, "files": [], "path": "scripts/engine_install_plan.py", "root": "/Users/chris/AI_Output", ...}
+old guard sees the path in the blob: True   → old verdict: done
+new verdict: acceptance: repository file not in tool results: scripts/engine_install_plan.py
+```
+
 **Tests.** `test_a_workspace_listing_that_echoes_the_path_does_not_ground_it`,
 `test_a_repository_read_grounds_the_answer`, `test_a_failed_repository_read_is_not_grounding`,
 `test_a_search_hit_grounds_the_file_it_names`,
@@ -50,12 +59,21 @@ Telegram notice. `_cloud_brief` said nothing about who reads the reply, so the l
 other block; a scaffold-only report delivers an honest "no user-facing answer" line instead.
 `_cloud_brief` now states that the operator reads the reply in Telegram, that the answer
 (plus file path or download link) belongs under `## ANSWER`, and that a personal task runs
-no repository gates and touches no repo files.
+no repository gates and touches no repo files. The cap-reached branch (a lane that exits
+non-zero after writing a report) uses the same extraction, so the failure notice does not
+paste the report either.
+
+On the live receipt the operator would now receive exactly:
+
+```
+- Created `/Users/chris/AI_Output/generated/security_sweep_summary.docx` — one-page Word document summarizing the 2026-11-19 security sweep
+```
 
 **Tests.** `test_the_operator_gets_the_answer_and_the_file_path_only` (the live report text),
 `test_an_answer_section_is_preferred_when_the_lane_writes_one`,
 `test_a_lane_that_writes_no_scaffolding_still_reaches_the_operator`,
-`test_a_personal_cloud_brief_forbids_the_repository_gates`.
+`test_a_personal_cloud_brief_forbids_the_repository_gates`,
+`test_a_blocked_cloud_lane_does_not_paste_its_report_at_the_cap`.
 
 ## 3. `pt-b540a922c5c3` — no `proxmox_list_vms` call, handed to the cloud lane
 
@@ -115,7 +133,14 @@ steered the planner.
 
 **Fix.** A memory that records a failed lookup or an unresolved template is tool scratch,
 not a preference: `_memory_text` drops "unable to locate", "could not be determined" and
-"output of previous execution" before injection. Real preferences still pass.
+"output of previous execution" before injection. Real preferences still pass. On the
+receipt's own two lines the rendered memory is now empty:
+
+```
+- row count is <output of previous execution>
+- line_count: Unable to locate /workspace/report.txt; line count could not be determined.
+→ kept after the veto: ''
+```
 
 **Tests.** `test_recalled_tool_scratch_is_dropped_and_a_preference_is_kept` (the two exact
 strings), `test_the_planner_never_sees_the_scratch_it_used_to`.
