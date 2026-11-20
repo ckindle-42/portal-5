@@ -761,10 +761,22 @@ def _screen_medium(
     (run_dir / f"judge_sheet_{medium}_{date}.md").write_text(
         _render_judge(catalog, medium, results, run_dir)
     )
+    if args.listen and medium == "music":
+        _listen_step(run_dir, args.listen)
     print(table_path.read_text(), flush=True)
     print(
         f"table: {table_path}\njudge sheet: {run_dir / f'judge_sheet_{medium}_{date}.md'}\nreceipts: {run_dir / 'rows.jsonl'}"
     )
+
+
+def _listen_step(run_dir: Path, listener: str) -> None:
+    """Run the blind A/B listener as the music judge step, in its own process."""
+    script = Path(__file__).with_name("media_screen_listen.py")
+    proc = subprocess.run(
+        [sys.executable, str(script), "--run-dir", str(run_dir), "--listener", listener],
+        check=False,
+    )
+    print(f"listener step: {script.name} --run-dir {run_dir} (exit {proc.returncode})", flush=True)
 
 
 def _screen(args: argparse.Namespace) -> int:
@@ -797,6 +809,12 @@ def main() -> int:
     parser.add_argument("--out-root", type=Path, default=None, help="override the screens root")
     parser.add_argument(
         "--timeout-sec", type=int, default=0, help="kill a row after this many seconds; 0 = no cap"
+    )
+    parser.add_argument(
+        "--listen",
+        metavar="MODEL",
+        default="",
+        help="after a music run, judge every pair with this audio model (scripts/proofs/media_screen_listen.py)",
     )
     args = parser.parse_args()
     try:
