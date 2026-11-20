@@ -194,11 +194,20 @@ def _group_catalog(
 
 
 def resolve_seats(portal: dict[str, Any], backends: dict[str, Any]) -> dict[str, str]:
-    """Map every seat whose routed model_hint resolves onto an oMLX model."""
+    """Map every seat whose routed model_hint resolves onto an oMLX model.
+
+    Seats in a module the config disables (``security_redteam`` by default) are
+    omitted: the Pipeline answers them with 404 by design, so measuring them is
+    not a seat result.
+    """
     models, aliases = omlx_catalog(backends)
     routing = backends.get("workspace_routing") or {}
+    enabled = _enabled_modules(portal)
     resolved: dict[str, str] = {}
     for seat, workspace in _seats(portal):
+        module = str(workspace.get("module") or "")
+        if enabled is not None and module and module not in enabled:
+            continue
         hint = str(workspace.get("model_hint") or "").strip()
         if not hint:
             continue
@@ -207,6 +216,31 @@ def resolve_seats(portal: dict[str, Any], backends: dict[str, Any]) -> dict[str,
         if target:
             resolved[seat] = target
     return resolved
+
+
+def _enabled_modules(portal: dict[str, Any]) -> set[str] | None:
+    """Enabled module names from the config's ``modules:`` block; None when it has none."""
+    modules = portal.get("modules") or {}
+    if not modules:
+        return None
+    return {
+        str(name)
+        for name, entry in modules.items()
+        if not isinstance(entry, dict) or entry.get("enabled", True)
+    }
+
+
+def disabled_seats(portal: dict[str, Any]) -> list[str]:
+    """Variant seats omitted because their module is disabled in the config."""
+    enabled = _enabled_modules(portal)
+    if enabled is None:
+        return []
+    skipped = []
+    for seat, workspace in _seats(portal):
+        module = str(workspace.get("module") or "")
+        if "::" in seat and module and module not in enabled:
+            skipped.append(seat)
+    return sorted(skipped)
 
 
 def build_roster(backends: dict[str, Any], portal: dict[str, Any]) -> dict[str, Any]:
@@ -220,6 +254,7 @@ def build_roster(backends: dict[str, Any], portal: dict[str, Any]) -> dict[str, 
         "b1_models": sorted(set(seats.values())),
         "b2_workspaces": workspaces,
         "b3_seats": sorted(seat for seat in seats if "::" in seat),
+        "skipped_seats": disabled_seats(portal),
         "seats": seats,
     }
 
@@ -365,7 +400,15 @@ def _engine_problems(
         problems.extend(_b2_engine_problems(model, payload, after, returncode))
     else:
         for row in _payload_rows(payload):
-            if row.get("engine_ok") is False:
+            status = row.get("seat_status")
+            if status in ("skipped_context", "multi_hop"):
+                problems.append(
+                    {
+                        "kind": "note",
+                        "detail": f"size {row.get('size_tokens')} {status}",
+                    }
+                )
+            elif row.get("engine_ok") is False:
                 problems.append(
                     {
                         "kind": "engine",
@@ -429,7 +472,7 @@ def _b2_engine_problems(
 
 
 def _status(problems: list[dict[str, str]]) -> str:
-    kinds = {problem["kind"] for problem in problems}
+    kinds = {problem["kind"] for problem in problems} - {"note"}
     if "setup" in kinds:
         return "invalid_setup"
     if "engine" in kinds:
@@ -611,7 +654,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         "out_dir": str(out_dir),
         "sizes": ctx.sizes,
         "runs": ctx.runs,
-        "roster": {key: roster[key] for key in ("b1_models", "b2_workspaces", "b3_seats")},
+        "roster": {
+            key: roster[key] for key in ("b1_models", "b2_workspaces", "b3_seats", "skipped_seats")
+        },
         "cells": [],
     }
     _write_json(out_dir / "run.json", run)
@@ -625,6 +670,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"ABORT {args.tag}: {'; '.join(run['precondition']['problems'])}", file=sys.stderr)
         return 3
     for phase, targets in _phase_targets(roster):
+        if phase not in args.phases:
+            continue
         for target in targets:
             model = target if phase == "B1" else roster["seats"].get(target)
             cell = run_cell(ctx, phase, target, model)
@@ -666,6 +713,9 @@ def _cell_rows(cell: dict[str, Any]) -> dict[str, dict[str, Any]]:
     keyed: dict[str, dict[str, Any]] = {}
     for row in rows or []:
         if not isinstance(row, dict):
+            continue
+        # Refused/no-answer/hop rows are not a measurement of this seat's model.
+        if row.get("seat_status") not in (None, "ok"):
             continue
         key = str(row.get("size_tokens", ""))
         if cell.get("phase") == "B2":
@@ -846,6 +896,12 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("tag")
     run.add_argument("--out-dir", type=Path, default=None, help=f"default {DEFAULT_OUT_ROOT}")
     run.add_argument("--sizes", type=_sizes, default=list(DEFAULT_SIZES))
+    run.add_argument(
+        "--phases",
+        type=_phases,
+        default=list(PHASES),
+        help="comma-separated phases to run (default all: B1,B2,B3)",
+    )
     run.add_argument("--runs", type=int, default=DEFAULT_RUNS)
     run.add_argument("--cooldown", type=float, default=DEFAULT_COOLDOWN_S)
     run.set_defaults(func=cmd_run)
@@ -872,6 +928,16 @@ def _tags(spec: str) -> list[str]:
     if not tags:
         raise argparse.ArgumentTypeError("--against needs at least one tag")
     return tags
+
+
+def _phases(spec: str) -> list[str]:
+    phases = [part.strip().upper() for part in spec.split(",") if part.strip()]
+    unknown = [phase for phase in phases if phase not in PHASES]
+    if not phases or unknown:
+        raise argparse.ArgumentTypeError(
+            f"--phases must be a comma-separated subset of {','.join(PHASES)}, got {spec!r}"
+        )
+    return phases
 
 
 def main(argv: list[str] | None = None) -> int:
