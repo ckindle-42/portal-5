@@ -68,13 +68,13 @@ preferred resident rather than refusing the load.
   `~/.omlx/settings.json` (`memory.memory_guard_tier`). `None` when unreadable.
 - `:532` — `_omlx_ollama_load_cap()`: the cap above; `None` when there is no kept seat, no
   prefill zone, or no reclaim share.
-- `:2023` — `_omlx_kept_seats()` / `:2052` `_hold_seat_prefill_room()`: hold headroom back and
+- `:2023` — `_omlx_kept_seats()` / `:2056` `_hold_seat_prefill_room()`: hold headroom back and
   log it (`load_guard: <model> may add X GiB of ollama headroom; Y GiB is held so the loaded
   oMLX seat (<id>, Z GiB) keeps a 80% prefill share`).
-- `:2139` — `_admit_ollama_locked` caps `available` at that number, so the existing
+- `:2143` — `_admit_ollama_locked` caps `available` at that number, so the existing
   free-idle → wait → refuse machinery runs against it; `:1328` names the reserve in the
   `projected-exceeds` refusal.
-- `:2129` — unreadable oMLX status logs `load_guard: oMLX status unreadable for <model>;
+- `:2133` — unreadable oMLX status logs `load_guard: oMLX status unreadable for <model>;
   admitting on the fail-open path` and admits (property 3).
 - Property 2 was already enforced through the live ceiling (`_check_omlx_ollama_capacity` →
   `_advance_omlx_ollama_capacity`); two tests now pin both halves (pinned resident ⇒ refuse;
