@@ -1,7 +1,10 @@
 import json
 import plistlib
+import signal
 import subprocess
 from pathlib import Path
+
+import pytest
 
 from scripts import security_sweep as s
 from scripts.security_sweep import (
@@ -248,7 +251,7 @@ SCANNER_JSON = {
 
 
 def _docker_fake_run(calls):
-    def fake_run(argv, capture_output=True, text=True, timeout=None, check=None):
+    def fake_run(argv, capture_output=True, text=True, timeout=None, check=None, env=None):
         calls.append(argv)
         if "ls" in argv:
             return subprocess.CompletedProcess(argv, 0, stdout="alpine:3.20\tid1\n")
@@ -272,8 +275,11 @@ def test_scan_docker_images_caches_by_digest_and_skips_unchanged(tmp_path, monke
     monkeypatch.setattr(s, "_scanner_version", lambda scanner: "osv-scanner 2.7.1")
     monkeypatch.setattr(s, "latest_upstream_tags", lambda ref: "3.21.3")
     cache = tmp_path / "cache.json"
+    scratch = tmp_path / "scratch"
 
-    findings, stats, errors, triage = s.scan_docker_images("/usr/bin/docker", cache)
+    findings, stats, errors, triage = s.scan_docker_images(
+        "/usr/bin/docker", cache, scratch_dir=scratch
+    )
 
     assert errors == []
     assert calls.count([c for c in calls if c[0] == "scanner"][0]) == 1
@@ -282,7 +288,9 @@ def test_scan_docker_images_caches_by_digest_and_skips_unchanged(tmp_path, monke
     assert findings[0]["source"] == "docker image alpine:3.20"
     assert triage[0]["ownership"] == "upstream"
 
-    findings2, stats2, errors2, _ = s.scan_docker_images("/usr/bin/docker", cache)
+    findings2, stats2, errors2, _ = s.scan_docker_images(
+        "/usr/bin/docker", cache, scratch_dir=scratch
+    )
 
     assert calls.count([c for c in calls if c[0] == "scanner"][0]) == 1
     assert stats2 == {"images": 1, "scanned": 0, "cached": 1, "packages": 1}
@@ -291,7 +299,7 @@ def test_scan_docker_images_caches_by_digest_and_skips_unchanged(tmp_path, monke
 
 
 def test_scan_docker_images_timeout_records_error_and_does_not_cache(tmp_path, monkeypatch):
-    def fake_run(argv, capture_output=True, text=True, timeout=None, check=None):
+    def fake_run(argv, capture_output=True, text=True, timeout=None, check=None, env=None):
         if "ls" in argv:
             return subprocess.CompletedProcess(argv, 0, stdout="alpine:3.20\tid1\n")
         if "inspect" in argv:
@@ -306,8 +314,11 @@ def test_scan_docker_images_timeout_records_error_and_does_not_cache(tmp_path, m
     )
     monkeypatch.setattr(s, "_scanner_version", lambda scanner: "osv-scanner 2.7.1")
     cache = tmp_path / "cache.json"
+    scratch = tmp_path / "scratch"
 
-    findings, stats, errors, triage = s.scan_docker_images("/usr/bin/docker", cache, 60)
+    findings, stats, errors, triage = s.scan_docker_images(
+        "/usr/bin/docker", cache, 60, scratch_dir=scratch
+    )
 
     assert findings == [] and triage == []
     assert stats["scanned"] == 0 and stats["images"] == 1
@@ -536,3 +547,122 @@ def test_npx_cache_in_use_matches_pin_name_and_version():
     assert not s._npx_cache_in_use({"pkg": "^1.2.3"}, [{"name": "pkg", "pinned": "2.0.0"}])
     assert not s._npx_cache_in_use({"other": "^1.0.0"}, [{"name": "pkg", "pinned": "1.0.0"}])
     assert not s._npx_cache_in_use({}, [{"name": "pkg", "pinned": "1.0.0"}])
+
+
+# ── Image-scan exports: data01 scratch, not the main drive's $TMPDIR ─────────
+
+
+def _scan_harness(tmp_path, monkeypatch, run):
+    monkeypatch.setattr(s.subprocess, "run", run)
+    monkeypatch.setattr(
+        s.shutil, "which", lambda name: "scanner" if name == "osv-scanner" else "/usr/bin/docker"
+    )
+    monkeypatch.setattr(s, "_scanner_version", lambda scanner: "osv-scanner 2.7.1")
+    monkeypatch.setattr(s, "latest_upstream_tags", lambda ref: "3.21.3")
+    return tmp_path / "cache.json", tmp_path / "scratch"
+
+
+def test_scan_routes_scanner_tmpdir_into_scratch_and_cleans_up(tmp_path, monkeypatch):
+    calls: list[tuple[list[str], dict[str, str]]] = []
+
+    def run(argv, capture_output=True, text=True, timeout=None, check=None, env=None):
+        calls.append((argv, env or {}))
+        if "ls" in argv:
+            return subprocess.CompletedProcess(argv, 0, stdout="alpine:3.20\tid1\n")
+        if "inspect" in argv:
+            return subprocess.CompletedProcess(
+                argv, 0, stdout='id1\t["alpine@sha256:d1"]\talpine:3.20 \n'
+            )
+        output = Path(argv[argv.index("--output-file") + 1])
+        output.write_text(json.dumps(SCANNER_JSON))
+        return subprocess.CompletedProcess(argv, 1, stdout="", stderr="")
+
+    cache, scratch = _scan_harness(tmp_path, monkeypatch, run)
+
+    findings, stats, errors, _ = s.scan_docker_images("/usr/bin/docker", cache, scratch_dir=scratch)
+
+    assert errors == [] and stats["scanned"] == 1
+    scanner_env = next(env for argv, env in calls if argv[0] == "scanner")
+    assert scanner_env["TMPDIR"].startswith(str(scratch))
+    assert scanner_env["TMPDIR"] != str(scratch)
+    assert list(scratch.iterdir()) == []
+
+
+def test_scan_removes_stale_exports_at_startup(tmp_path, monkeypatch):
+    scratch = tmp_path / "scratch"
+    scratch.mkdir()
+    (scratch / "docker-image-stale.tar").write_bytes(b"x")
+    (scratch / "image-blob-stale").write_bytes(b"x")
+    killed = scratch / "portal-osv-image-killedrun"
+    killed.mkdir()
+    (killed / "docker-image-stale2.tar").write_bytes(b"x")
+    (scratch / "keepme.txt").write_bytes(b"x")
+    cache, _ = _scan_harness(tmp_path, monkeypatch, _docker_fake_run([]))
+
+    _, stats, errors, _ = s.scan_docker_images("/usr/bin/docker", cache, scratch_dir=scratch)
+
+    assert errors == [] and stats["scanned"] == 1
+    assert not (scratch / "docker-image-stale.tar").exists()
+    assert not killed.exists()
+    assert (scratch / "keepme.txt").exists()
+    assert {p.name for p in scratch.iterdir()} == {"keepme.txt"}
+
+
+def test_scan_interrupt_leaves_nothing_in_scratch(tmp_path, monkeypatch):
+    def run(argv, capture_output=True, text=True, timeout=None, check=None, env=None):
+        if "ls" in argv:
+            return subprocess.CompletedProcess(argv, 0, stdout="alpine:3.20\tid1\n")
+        if "inspect" in argv:
+            return subprocess.CompletedProcess(
+                argv, 0, stdout='id1\t["alpine@sha256:d1"]\talpine:3.20 \n'
+            )
+        raise KeyboardInterrupt("simulated SIGTERM")
+
+    cache, scratch = _scan_harness(tmp_path, monkeypatch, run)
+
+    with pytest.raises(KeyboardInterrupt):
+        s.scan_docker_images("/usr/bin/docker", cache, scratch_dir=scratch)
+
+    assert list(scratch.iterdir()) == []
+
+
+def test_sigterm_handler_raises_so_unwinding_removes_exports():
+    with pytest.raises(KeyboardInterrupt):
+        s._interrupt_scan(signal.SIGTERM, None)
+
+
+def test_image_scan_scratch_env_override_wins(tmp_path, monkeypatch):
+    target = tmp_path / "data01" / "sweep-scratch"
+    monkeypatch.setenv("PORTAL5_SWEEP_IMAGE_SCRATCH_DIR", str(target))
+
+    assert s.image_scan_scratch_dir() == target
+    assert target.is_dir()
+
+
+def test_image_scan_scratch_unusable_returns_none(tmp_path, monkeypatch):
+    blocked = tmp_path / "blocked"
+    blocked.write_text("a file, not a directory")
+    monkeypatch.setenv("PORTAL5_SWEEP_IMAGE_SCRATCH_DIR", str(blocked / "sub"))
+
+    assert s.image_scan_scratch_dir() is None
+
+
+def test_image_scan_scratch_default_is_data01_not_tmpdir(tmp_path, monkeypatch):
+    monkeypatch.delenv("PORTAL5_SWEEP_IMAGE_SCRATCH_DIR", raising=False)
+    default = tmp_path / "data01" / "portal5_sweep_scratch" / "osv-image-scan"
+    monkeypatch.setattr(s, "IMAGE_SCAN_SCRATCH_DEFAULT", str(default))
+
+    assert s.image_scan_scratch_dir() == default
+
+
+def test_scan_skipped_with_error_when_scratch_unavailable(tmp_path, monkeypatch):
+    blocked = tmp_path / "blocked"
+    blocked.write_text("a file, not a directory")
+    monkeypatch.setenv("PORTAL5_SWEEP_IMAGE_SCRATCH_DIR", str(blocked / "sub"))
+    cache, _ = _scan_harness(tmp_path, monkeypatch, _docker_fake_run([]))
+
+    findings, stats, errors, triage = s.scan_docker_images("/usr/bin/docker", cache)
+
+    assert findings == [] and triage == []
+    assert stats == {"images": 0, "scanned": 0, "cached": 0, "packages": 0}
+    assert len(errors) == 1 and "scratch" in errors[0]

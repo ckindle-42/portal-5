@@ -466,6 +466,92 @@ _check_image_freshness() {
     fi
 }
 
+# ── Disk hygiene: prune what the started stack no longer uses, report savings ─
+# Runs at the end of `up`/`rebuild` (a failed start keeps the old images for
+# rollback — the same rule weekly_rebuild.py prunes by). Removes superseded
+# Portal images (Portal-owned tags no compose service declares and no container
+# references — e.g. a retired MCP image), dangling images and dangling build
+# cache on the host, and inside portal5-dind the same, except images its
+# compose-declared sandbox services need. Then fstrim in the Docker Desktop VM
+# returns the freed blocks to the host. Never touches volumes or models, never
+# `docker compose down -v`; `docker rmi`/`prune` refuse anything a container
+# still references. The emergency levers stay manual: `docker system prune -af`
+# and `docker exec portal5-dind docker system prune -af`.
+_disk_hygiene() {
+    local raw_path free_before free_after raw_before raw_after declared in_use keep ref repo removed _img
+    raw_path="$HOME/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw"
+    free_before=0; raw_before=0
+    free_before="$(df -k / 2>/dev/null | awk 'NR==2 {print $4}')"
+    [ -f "$raw_path" ] && raw_before="$(du -k "$raw_path" 2>/dev/null | awk '{print $1}')"
+
+    # Superseded Portal images: compose decides what is current; the declared set
+    # is name-only for build: services, so compare repositories. Both channel
+    # profiles are passed (the `_do_down` precedent) so a disabled channel's
+    # image is still declared — never pruned. An empty set (compose could not
+    # render) skips removal — fail safe.
+    declared="$(cd "$COMPOSE_DIR" && docker compose --profile telegram --profile slack \
+        config --images 2>/dev/null | sed 's/:.*//' | sort -u)"
+    in_use="$(docker ps -a --format '{{.Image}}' 2>/dev/null | sort -u)"
+    if [ -n "$declared" ]; then
+        removed=0
+        while IFS=$'\t' read -r ref size; do
+            [ -n "$ref" ] || continue
+            case "$ref" in portal5-*|portal-5-*) ;; *) continue ;; esac
+            repo="${ref%%:*}"
+            printf '%s\n' "$declared" | grep -qx -- "$repo" && continue
+            printf '%s\n' "$in_use" | grep -qx -- "$ref" && continue
+            printf '%s\n' "$in_use" | grep -qx -- "$repo" && continue
+            echo "[portal-5] 🧹 superseded image: $ref ($size)"
+            docker rmi "$ref" >/dev/null 2>&1 && removed=$((removed + 1)) || true
+        done < <(docker image ls --format '{{.Repository}}:{{.Tag}}\t{{.Size}}' 2>/dev/null | grep -v '<none>')
+        [ "$removed" -gt 0 ] && echo "[portal-5] 🧹 superseded Portal images removed: $removed"
+    fi
+
+    docker image prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+        | sed 's/^Total reclaimed space: /[portal-5] 🧹 host dangling images: /' || true
+    docker builder prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+        | sed 's/^Total reclaimed space: /[portal-5] 🧹 host build cache: /' || true
+
+    # Inside portal5-dind: dangling generations + build cache, then tagged images
+    # nothing uses except those the compose-declared sandbox services need (the
+    # compose env defaults name them; pwsh is built and loaded by this script;
+    # .env overrides of those image vars are kept as well).
+    if [ "$(docker inspect -f '{{.State.Running}}' portal5-dind 2>/dev/null)" = "true" ]; then
+        keep="$(grep -ohE 'portal5-[a-zA-Z0-9._/-]+:[a-zA-Z0-9._-]+' \
+            "$PORTAL_ROOT/deploy/portal-5/docker-compose.yml" 2>/dev/null | sort -u | tr '\n' ' ')"
+        keep="$keep portal5-pwsh:latest"
+        for _img in "${SANDBOX_DOCKER_IMAGE:-}" "${BINRESEARCH_IMAGE:-}" "${SANDBOX_PS_IMAGE:-}" "${SANDBOX_LAB_IMAGE:-}"; do
+            [ -n "$_img" ] && keep="$keep $_img"
+        done
+        docker exec portal5-dind docker image prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+            | sed 's/^Total reclaimed space: /[portal-5] 🧹 dind dangling images: /' || true
+        docker exec portal5-dind docker builder prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+            | sed 's/^Total reclaimed space: /[portal-5] 🧹 dind build cache: /' || true
+        while IFS= read -r ref; do
+            [ -n "$ref" ] || continue
+            case " $keep " in *" $ref "*) continue ;; esac
+            docker exec portal5-dind docker rmi "$ref" >/dev/null 2>&1 || true
+        done < <(docker exec portal5-dind docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -v '<none>')
+    fi
+
+    # Hand the freed blocks back to the host: trim the VM's data disk
+    # (/dev/vda1, ext4 with discard mounted at /var/lib/docker) through the
+    # VM's own namespaces. Uses the stack's dind image — no third-party pull.
+    if [ -f "$raw_path" ] \
+        && [ "$(docker inspect -f '{{.State.Running}}' portal5-dind 2>/dev/null)" = "true" ]; then
+        docker run --rm --privileged --pid=host --entrypoint /usr/bin/nsenter portal5-dind:latest \
+            -t 1 -m -u -n -i -- fstrim -av 2>/dev/null | sed 's/^/[portal-5] 🧹 fstrim: /' || true
+    fi
+
+    free_after=0; raw_after=0
+    free_after="$(df -k / 2>/dev/null | awk 'NR==2 {print $4}')"
+    [ -f "$raw_path" ] && raw_after="$(du -k "$raw_path" 2>/dev/null | awk '{print $1}')"
+    echo "[portal-5] 🧹 $(awk -v a="${free_before:-0}" -v b="${free_after:-0}" \
+        'BEGIN{printf "main drive free: %.1f → %.1f GB (Δ%+.1f GB);", a/1048576, b/1048576, (b-a)/1048576}') \
+$(awk -v a="${raw_before:-0}" -v b="${raw_after:-0}" \
+        'BEGIN{printf "Docker.raw allocated: %.1f → %.1f GB (Δ%+.1f GB)", a/1048576, b/1048576, (b-a)/1048576}')"
+}
+
 # ── launchd plists: render the repo template, compare the installed copy ─────
 # The venv the oMLX LaunchAgent runs: environment, then repo .env, then the fixed
 # default — the same order scripts/omlx-watchdog.sh uses.
