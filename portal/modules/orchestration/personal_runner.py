@@ -7,7 +7,10 @@ import json
 import logging
 import os
 import re
+import signal
+import subprocess
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -58,6 +61,9 @@ class PersonalRun:
 
 
 PERSONAL_CHECKIN_SECONDS = 900
+# A lane whose dispatcher record never arrives is reported, not waited on forever.
+CLOUD_STALE_SECONDS = 7200
+_CLOUD_RUNNING = "cloud-running"
 RECALL_TIMEOUT_S = 10.0
 RECALL_TOP_K = 5
 # Client-side relevance floor, stricter than the memory MCP's RECALL_FLOOR (0.60); not calibrated live.
@@ -142,36 +148,40 @@ def poll_personal_tasks(
     now: datetime | None = None,
     recall: RecallFn | None = None,
 ) -> PersonalRun | None:
-    """Run the oldest due personal task. A Pipeline fault is stored, not raised."""
+    """Collect any finished cloud lane, then run the oldest due personal task."""
     store = PersonalStore(root)
+    collected = reconcile_cloud_lanes(root, store, notices, dispatcher)
     task = store.oldest_runnable(now)
     if task is None:
-        return None
+        return collected
     if task.status == "cloud_retry":
         claimed = store.update(task.id, status="running", expect=frozenset({"cloud_retry"}))
         if claimed is None:
-            return None
+            return collected
         checkin = _CheckIn(claimed.id, notices)
         checkin.start()
         try:
-            return _run_cloud_attempt(root, store, claimed, notices, dispatcher, checkin)
+            run = _run_cloud_attempt(root, store, claimed, notices, dispatcher, checkin)
         finally:
             checkin.finish()
+        return collected or run
     if task.status not in {"queued", "confirmed"}:
-        return None
+        return collected
     prior_status = task.status
     claimed = store.update(task.id, status="running", expect=frozenset({prior_status}))
     if claimed is None:
-        return None
+        return collected
     checkin = _CheckIn(claimed.id, notices)
     checkin.start()
     try:
         active_caller = _caller(caller)
         if prior_status == "confirmed":
-            return _run_confirmed(root, store, claimed, active_caller, notices, checkin)
-        return _run_planned(
+            run = _run_confirmed(root, store, claimed, active_caller, notices, checkin)
+            return collected or run
+        run = _run_planned(
             root, store, claimed, active_caller, notices, checkin, recall or _memory_recall
         )
+        return collected or run
     except Exception as exc:  # noqa: BLE001 — one personal task must not kill queue-run
         if not _retryable_failure(exc):
             _finish(
@@ -305,18 +315,36 @@ def _run_cloud_attempt(
         )
         return PersonalRun(task.id, "blocked")
 
-    from portal.modules.orchestration.escalate import ProcessDispatcher, dispatch_kind
+    from portal.modules.orchestration.escalate import personal_dispatch_kind
 
     task_dir = root / task.id
     local_paths = local_paths or _local_attempt_paths(task_dir)
     attempt = len(list((task_dir / "attempts").glob("cloud-*/receipt.json"))) + 1
     tier = "auto" if attempt <= 2 else "escalate"
-    kind = dispatch_kind({"id": task.id, "purpose": task.text})
+    kind = personal_dispatch_kind(task.text)
     brief = task_dir / f"cloud-brief-{attempt}.md"
     brief.write_text(_cloud_brief(task, local_paths), encoding="utf-8")
     checkin.update(0, ["dispatch.py"])
-    active_dispatcher = dispatcher or ProcessDispatcher()
+    active_dispatcher = _cloud_dispatcher(dispatcher)
     role = f"jarvis-personal-{task.id}-a{attempt}"
+    cloud_dir = task_dir / "attempts" / f"cloud-{attempt}"
+    cloud_path = cloud_dir / "receipt.json"
+    if callable(getattr(active_dispatcher, "start", None)):
+        return _start_cloud_lane(
+            root,
+            store,
+            task,
+            notices,
+            active_dispatcher,
+            role=role,
+            tier=tier,
+            kind=kind,
+            brief=brief,
+            attempt=attempt,
+            cloud_path=cloud_path,
+            cloud_dir=cloud_dir,
+            local_paths=local_paths,
+        )
     outcome = _dispatch_lane(
         active_dispatcher,
         role=role,
@@ -325,10 +353,67 @@ def _run_cloud_attempt(
         brief=brief,
         cancel_check=lambda: _cloud_stop_requested(store, task.id),
     )
-    cloud_path = task_dir / "attempts" / f"cloud-{attempt}" / "receipt.json"
     _write_receipt(cloud_path, {"status": "cloud-attempt", **outcome})
     extra = {"local_attempts": [str(path) for path in local_paths], "cloud": outcome}
     return _cloud_result(root, store, task, notices, extra, outcome, attempt)
+
+
+def _start_cloud_lane(
+    root: Path,
+    store: PersonalStore,
+    task: PersonalTask,
+    notices: Any,
+    active_dispatcher: Any,
+    *,
+    role: str,
+    tier: str,
+    kind: str,
+    brief: Path,
+    attempt: int,
+    cloud_path: Path,
+    cloud_dir: Path,
+    local_paths: list[Path],
+) -> PersonalRun:
+    """Hand the task to a lane and return: the poll collects the result, not this call."""
+    extra = {"local_attempts": [str(path) for path in local_paths]}
+    try:
+        lane = active_dispatcher.start(
+            role=role,
+            tier=tier,
+            kind=kind,
+            brief=brief,
+            repo=_repo_root(),
+            new=True,
+            log_path=cloud_dir / "dispatch.log",
+        )
+    except Exception as exc:  # noqa: BLE001 — a start fault is a failed attempt, not a stall
+        outcome = {"role": role, "tier": tier, "kind": kind, "exit_code": 1, "error": str(exc)}
+        return _cloud_result(
+            root, store, task, notices, {**extra, "cloud": outcome}, outcome, attempt
+        )
+    record = {
+        "status": _CLOUD_RUNNING,
+        "role": role,
+        "tier": tier,
+        "kind": kind,
+        "attempt": attempt,
+        "pid": int(getattr(lane, "pid", 0)),
+        "runs_before": int(getattr(lane, "runs_before", 0)),
+        "started": time.time(),
+        "log": str(getattr(lane, "log_path", None) or cloud_dir / "dispatch.log"),
+        **extra,
+    }
+    _write_receipt(cloud_path, record)
+    store.update(
+        task.id, status=_CLOUD_RUNNING, receipt_path=str(cloud_path), expect=frozenset({"running"})
+    )
+    _send_notice(
+        notices,
+        task.id,
+        f"{task.id}: local attempts failed; handed to the cloud lane ({kind}, tier {tier}). "
+        "The queue keeps running and the result comes back here.",
+    )
+    return PersonalRun(task.id, _CLOUD_RUNNING)
 
 
 def _dispatch_lane(
@@ -346,7 +431,7 @@ def _dispatch_lane(
             tier=tier,
             kind=kind,
             brief=brief,
-            repo=Path(__file__).resolve().parents[3],
+            repo=_repo_root(),
             new=True,
             cancel_check=cancel_check,
         )
@@ -372,21 +457,9 @@ def _cloud_result(
     outcome: dict[str, Any],
     attempt: int,
 ) -> PersonalRun:
-    """Success hands off; operator cancel and killed lanes are terminal; else the cap rules."""
+    """Deliver a finished lane; operator cancel and killed lanes are terminal; else the cap."""
     if int(outcome.get("exit_code", 1)) == 0:
-        _finish(
-            root,
-            store,
-            task,
-            "handed-to-cloud",
-            "Dispatched to the personal cloud lane.",
-            FAST_WORKSPACE,
-            0,
-            [],
-            notices,
-            extra=extra,
-        )
-        return PersonalRun(task.id, "handed-to-cloud")
+        return _deliver_cloud_result(root, store, task, notices, extra, outcome)
     if _cloud_stop_requested(store, task.id):
         error = f"cancelled by operator; cloud lane stopped (exit {outcome.get('exit_code')})"
         _finish(
@@ -434,7 +507,7 @@ def _cloud_result(
             task.id,
             status="cloud_retry",
             receipt_path=str(receipt_path),
-            expect=frozenset({"running"}),
+            expect=_CLOUD_LIVE_STATUSES,
         )
         _send_notice(
             notices,
@@ -458,6 +531,216 @@ def _cloud_result(
         extra=extra,
     )
     return PersonalRun(task.id, "blocked")
+
+
+_RESULT_HEAD = re.compile(r"^## RESULT\b[:\s]*(.*)$", re.MULTILINE)
+_CLOUD_LIVE_STATUSES = frozenset({"running", "cloud-running", "handed-to-cloud"})
+
+
+def _cloud_verdict(text: str) -> str:
+    """The word under the lane's last ``## RESULT`` heading (the worker contract's verdict)."""
+    heads = [match.group(1).strip() for match in _RESULT_HEAD.finditer(text or "")]
+    if not heads:
+        return ""
+    word = re.search(r"[A-Za-z]+", heads[-1])
+    return word.group(0).lower() if word else ""
+
+
+def _deliver_cloud_result(
+    root: Path,
+    store: PersonalStore,
+    task: PersonalTask,
+    notices: Any,
+    extra: dict[str, Any],
+    outcome: dict[str, Any],
+) -> PersonalRun:
+    """A finished lane's own ``## RESULT`` block becomes the task's answer and notice."""
+    text = str(outcome.get("result") or "").strip()
+    done = bool(text) and _cloud_verdict(text) == "done"
+    status = "done" if done else "blocked"
+    content = text or (
+        "cloud lane finished without a ## RESULT block "
+        f"(status {outcome.get('status') or 'unknown'})"
+    )
+    if done:
+        error = ""
+    elif text:
+        error = f"cloud lane returned a {_cloud_verdict(text) or 'non-done'} verdict"
+    else:
+        error = content
+    _finish(
+        root,
+        store,
+        task,
+        status,
+        content,
+        FAST_WORKSPACE,
+        0,
+        [],
+        notices,
+        error=error,
+        extra=extra,
+    )
+    return PersonalRun(task.id, status)
+
+
+def reconcile_cloud_lanes(
+    root: Path, store: PersonalStore, notices: Any, dispatcher: Any = None
+) -> PersonalRun | None:
+    """Collect every cloud lane that has finished into its task row. Never blocks."""
+    tasks = store.in_flight_cloud()
+    if not tasks:
+        return None
+    active = _cloud_dispatcher(dispatcher)
+    collected: PersonalRun | None = None
+    for task in tasks:
+        run = _collect_cloud_lane(root, store, task, notices, active)
+        if run is not None and collected is None:
+            collected = run
+    return collected
+
+
+def _collect_cloud_lane(
+    root: Path, store: PersonalStore, task: PersonalTask, notices: Any, active: Any
+) -> PersonalRun | None:
+    record = _cloud_attempt_record(root, task)
+    attempt = int(record.get("attempt") or 1)
+    role = str(record.get("role") or "")
+    extra: dict[str, Any] = {
+        "local_attempts": [str(path) for path in _local_attempt_paths(root / task.id)]
+    }
+    if not role:
+        outcome = _lost_lane("", record, "the cloud lane record names no role")
+        return _cloud_result(
+            root, store, task, notices, {**extra, "cloud": outcome}, outcome, attempt
+        )
+    outcome = _finished_lane(active, role, record)
+    if outcome is None:
+        if _lane_alive(active, role) or not _lane_stale(record):
+            return None
+        outcome = _lost_lane(role, record, "the cloud lane stopped without writing a run record")
+    return _cloud_result(root, store, task, notices, {**extra, "cloud": outcome}, outcome, attempt)
+
+
+def _lost_lane(role: str, record: dict[str, Any], reason: str) -> dict[str, Any]:
+    return {
+        "role": role,
+        "tier": str(record.get("tier") or ""),
+        "kind": str(record.get("kind") or ""),
+        "exit_code": 1,
+        "status": "lost",
+        "result": "",
+        "error": reason,
+    }
+
+
+def _finished_lane(active: Any, role: str, record: dict[str, Any]) -> dict[str, Any] | None:
+    fetch = getattr(active, "outcome", None)
+    if not callable(fetch):
+        return None
+    try:
+        found = fetch(role=role, repo=_repo_root(), runs_before=int(record.get("runs_before") or 0))
+    except Exception:  # noqa: BLE001 — an unreadable registry is not proof the lane stopped
+        return None
+    if not isinstance(found, dict):
+        return None
+    text = _lane_result_text(active, role, record)
+    return {
+        "role": role,
+        "tier": str(record.get("tier") or found.get("tier") or ""),
+        "kind": str(record.get("kind") or found.get("kind") or ""),
+        "model": str(found.get("model") or ""),
+        "exit_code": _exit_code(found.get("exit")),
+        "status": str(found.get("status") or ""),
+        "result": text,
+        "error": str(found.get("error") or ""),
+    }
+
+
+def _exit_code(raw: Any) -> int:
+    try:
+        return 1 if raw is None else int(raw)
+    except (TypeError, ValueError):
+        return 1
+
+
+def _lane_result_text(active: Any, role: str, record: dict[str, Any]) -> str:
+    """The lane's RESULT block through the dispatcher's reader, or its own log tail."""
+    reader = getattr(active, "result", None)
+    if callable(reader):
+        try:
+            text = str(reader(role=role, repo=_repo_root()) or "").strip()
+        except Exception:  # noqa: BLE001 — fall back to the captured dispatch log
+            text = ""
+        if text:
+            return text
+    return _result_block_from_log(record.get("log"))
+
+
+def _result_block_from_log(raw_log: Any) -> str:
+    if not raw_log:
+        return ""
+    try:
+        body = Path(str(raw_log)).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    index = body.rfind("## RESULT")
+    return body[index:].strip() if index >= 0 else ""
+
+
+def _lane_alive(active: Any, role: str) -> bool:
+    probe = getattr(active, "alive", None)
+    if not callable(probe):
+        return True  # cannot tell: keep waiting rather than invent a failure
+    try:
+        return bool(probe(role=role))
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def _lane_stale(record: dict[str, Any]) -> bool:
+    try:
+        started = float(record.get("started") or 0)
+    except (TypeError, ValueError):
+        started = 0.0
+    if started <= 0:
+        path = record.get("path")
+        try:
+            started = Path(str(path)).stat().st_mtime if path else 0.0
+        except OSError:
+            started = 0.0
+    return started > 0 and (time.time() - started) > CLOUD_STALE_SECONDS
+
+
+def _cloud_attempt_record(root: Path, task: PersonalTask) -> dict[str, Any]:
+    """The newest cloud attempt receipt for one task, with its attempt number."""
+    attempts = root / task.id / "attempts"
+    candidates = sorted(
+        attempts.glob("cloud-*/receipt.json"),
+        key=lambda path: int(path.parent.name.removeprefix("cloud-") or 0),
+    )
+    for path in reversed(candidates):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        number = path.parent.name.removeprefix("cloud-")
+        return {**payload, "attempt": int(number) if number.isdigit() else 1, "path": str(path)}
+    return {}
+
+
+def _cloud_dispatcher(dispatcher: Any) -> Any:
+    if dispatcher is not None:
+        return dispatcher
+    from portal.modules.orchestration.escalate import ProcessDispatcher
+
+    return ProcessDispatcher()
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
 
 
 def _cloud_brief(task: PersonalTask, local_paths: list[Path]) -> str:
@@ -922,30 +1205,58 @@ def _cloud_stop_requested(store: PersonalStore, task_id: str) -> bool:
     from portal.modules.orchestration.control import personal_cancel_queued
 
     task = store.get(task_id)
-    if task is not None and task.status != "running":
+    if task is not None and task.status not in _CLOUD_LIVE_STATUSES:
         return True
     return personal_cancel_queued(task_id)
 
 
-_PERSONAL_LIVE_STATUSES = frozenset({"queued", "confirmed", "pending", "running", "cloud_retry"})
+_PERSONAL_LIVE_STATUSES = frozenset(
+    {"queued", "confirmed", "pending", "running", "cloud_retry", "cloud-running", "handed-to-cloud"}
+)
 _PERSONAL_TERMINAL_STATUSES = frozenset(
-    {"done", "blocked", "rejected", "held", "cancelled", "handed-to-arm", "handed-to-cloud"}
+    {"done", "blocked", "rejected", "held", "cancelled", "handed-to-arm"}
 )
 
 
 def cancel_personal_task(root: Path, task_id: str) -> str:
-    """Operator cancel: the row stops being runnable, and the dispatch watch of a running
-    cloud lane sees the flip and kills the lane (terminal, never re-dispatched)."""
+    """Operator cancel: the row stops being runnable, and a cloud lane already running
+    for it is signalled (the result is never collected — cancelling is terminal)."""
     store = PersonalStore(root)
     task = store.get(task_id)
     if task is None:
         return f"no personal task: {task_id}"
     if task.status in _PERSONAL_TERMINAL_STATUSES:
         return f"{task_id} is already {task.status}"
+    record = _cloud_attempt_record(root, task)
     updated = store.update(task_id, status="cancelled", expect=frozenset(_PERSONAL_LIVE_STATUSES))
     if updated is None:
         return f"refused: {task_id} changed state during cancel"
-    return f"cancelled {task_id}"
+    signalled = _signal_cloud_lane(record)
+    return f"cancelled {task_id}" + (" (cloud lane signalled)" if signalled else "")
+
+
+def _signal_cloud_lane(record: dict[str, Any]) -> bool:
+    """SIGTERM the lane's dispatch process, only when ``ps`` still shows that role."""
+    try:
+        pid = int(record.get("pid") or 0)
+        role = str(record.get("role") or "")
+    except (TypeError, ValueError):
+        return False
+    if pid <= 0 or not role:
+        return False
+    try:
+        probe = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "command="], capture_output=True, text=True, check=False
+        )
+    except OSError:
+        return False
+    if role not in probe.stdout:
+        return False
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        return False
+    return True
 
 
 class AcceptanceError(RuntimeError):
@@ -1046,7 +1357,8 @@ def _finish(
         plan_json=None if plan is None else json.dumps(plan, sort_keys=True),
         receipt_path=str(path),
         tool_log=json.dumps(called),
-        expect=frozenset({"running", "queued", "confirmed", "pending", "cloud_retry"}),
+        expect=frozenset({"running", "queued", "confirmed", "pending", "cloud_retry"})
+        | _CLOUD_LIVE_STATUSES,
     )
     notice_text = content or (f"{status} {task.id}: {error}" if error else "")
     if notices is not None and notice_text:

@@ -439,7 +439,10 @@ def test_a_broken_recall_still_escalates_a_task_that_fails_on_its_own(
         def run(self, **kwargs: Any) -> SimpleNamespace:
             self.calls.append(kwargs)
             return SimpleNamespace(
-                exit_code=0, status="complete", model="mock", result_text="Cloud lane ran."
+                exit_code=0,
+                status="complete",
+                model="mock",
+                result_text="## RESULT\ndone — cloud lane ran.",
             )
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True)
@@ -457,13 +460,15 @@ def test_a_broken_recall_still_escalates_a_task_that_fails_on_its_own(
     )
 
     assert first is not None and first.status == "retrying"
-    assert second is not None and second.status == "handed-to-cloud"
+    # The lane's own ## RESULT comes back into the task: no "handed-to-cloud" dead end.
+    assert second is not None and second.status == "done"
     assert len(dispatcher.calls) == 1
     local = json.loads(
         (tmp_path / task_id / "attempts" / "local-1" / "receipt.json").read_text(encoding="utf-8")
     )
     assert "memory MCP unreachable" in local["recall_error"]
     assert "planner" in local["error"] or "JSON" in local["error"]
+    assert "cloud lane ran" in _receipt(tmp_path, task_id)["final_text"]
 
 
 # ── J9 acceptance check ────────────────────────────────────────────────────────
@@ -501,7 +506,10 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
         def run(self, **kwargs: object) -> SimpleNamespace:
             self.calls.append(kwargs)
             return SimpleNamespace(
-                exit_code=0, status="complete", model="mock", result_text="Cloud lane ran."
+                exit_code=0,
+                status="complete",
+                model="mock",
+                result_text="## RESULT\ndone — cloud lane ran.",
             )
 
     telegram_do_reply(tmp_path, 1, "what is the queue status in one paragraph")
@@ -525,7 +533,7 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
     )
 
     assert first is not None and first.status == "retrying"
-    assert second is not None and second.status == "handed-to-cloud"
+    assert second is not None and second.status == "done"
     attempt = json.loads(
         (tmp_path / task_id.id / "attempts" / "local-1" / "receipt.json").read_text(
             encoding="utf-8"

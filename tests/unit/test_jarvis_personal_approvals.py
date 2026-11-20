@@ -235,7 +235,10 @@ def test_personal_cloud_handoff_follows_two_local_failure_receipts(
         def run(self, **kwargs: object) -> SimpleNamespace:
             self.calls.append(kwargs)
             return SimpleNamespace(
-                exit_code=0, status="complete", model="mock", result_text="Cloud lane ran."
+                exit_code=0,
+                status="complete",
+                model="mock",
+                result_text="## RESULT\ndone — cloud lane ran.",
             )
 
     telegram_do_reply(tmp_path, 7, "help with an invalid local plan")
@@ -248,7 +251,7 @@ def test_personal_cloud_handoff_follows_two_local_failure_receipts(
     second = poll_personal_tasks(tmp_path, sink, caller, dispatcher=dispatcher)
 
     assert first is not None and first.status == "retrying"
-    assert second is not None and second.status == "handed-to-cloud"
+    assert second is not None and second.status == "done"
     assert len(dispatcher.calls) == 1
     assert dispatcher.calls[0]["tier"] == "auto"
     receipt = json.loads((tmp_path / second.task_id / "receipt.json").read_text(encoding="utf-8"))

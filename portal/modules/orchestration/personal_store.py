@@ -14,6 +14,12 @@ from pathlib import Path
 
 _SOURCES = frozenset({"telegram", "owui"})
 _RUNNABLE = frozenset({"queued", "confirmed", "cloud_retry"})
+# A cloud lane that has not reported yet. ``handed-to-cloud`` is the same state as
+# written by the blocking dispatcher before the poll-based handoff existed.
+_IN_FLIGHT_CLOUD = ("cloud-running", "handed-to-cloud")
+_COLUMNS = (
+    "id, source, user_id, text, status, plan_json, receipt_path, created, tool_log, not_before"
+)
 
 
 @dataclass(frozen=True)
@@ -63,19 +69,28 @@ class PersonalStore:
     def get(self, task_id: str) -> PersonalTask | None:
         with self._db() as db:
             row = db.execute(
-                "SELECT id, source, user_id, text, status, plan_json, receipt_path, created, "
-                "tool_log, not_before FROM personal_tasks WHERE id = ?",
+                f"SELECT {_COLUMNS} FROM personal_tasks WHERE id = ?",
                 (task_id,),
             ).fetchone()
         return _task(row) if row is not None else None
+
+    def in_flight_cloud(self) -> list[PersonalTask]:
+        """Rows whose cloud lane has not reported a result yet, oldest first."""
+        query = (
+            f"SELECT {_COLUMNS} FROM personal_tasks "
+            f"WHERE status IN ({', '.join('?' for _ in _IN_FLIGHT_CLOUD)}) "
+            "ORDER BY created, rowid"
+        )
+        with self._db() as db:
+            rows = db.execute(query, _IN_FLIGHT_CLOUD).fetchall()
+        return [_task(row) for row in rows]
 
     def oldest_runnable(self, now: datetime | None = None) -> PersonalTask | None:
         """Oldest due queued or operator-confirmed row. Pending rows stay put."""
         stamp = _utc_stamp(now or datetime.now(UTC))
         with self._db() as db:
             row = db.execute(
-                "SELECT id, source, user_id, text, status, plan_json, receipt_path, created, "
-                "tool_log, not_before FROM personal_tasks "
+                f"SELECT {_COLUMNS} FROM personal_tasks "
                 "WHERE status IN ('queued', 'confirmed', 'cloud_retry') "
                 "AND (not_before IS NULL OR not_before <= ?) "
                 "ORDER BY CASE status WHEN 'confirmed' THEN 0 WHEN 'queued' THEN 1 ELSE 2 END, "
