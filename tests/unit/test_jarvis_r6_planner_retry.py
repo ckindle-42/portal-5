@@ -179,3 +179,41 @@ def test_parse_planner_json_rejects_the_captured_markup(bad: str) -> None:
 
     with pytest.raises(ValueError, match="JSON object"):
         parse_planner_json(bad)
+
+
+# pt-762f21e03768 (the task the brief names): the IFM seat answered a toolless planner
+# turn with prose plus a `remember` call in its own markup.
+CAPTURED_TAIL_REMEMBER = (
+    "I'll store this memory for you.\n"
+    "<ifm|tool_calls>\n<ifm|tool_call>remember\n"
+    "<ifm|arg_key>key</ifm|arg_key>\n"
+    "<ifm|arg_value>portal_trace_jarvis_write_task</ifm|arg_value>\n"
+    "<ifm|arg_key>value</ifm|arg_key>\n"
+    "<ifm|arg_value>The portal trace jarvis section held a write task for confirmation today."
+    "</ifm|arg_value>\n</ifm|tool_call>\n</ifm|tool_calls>"
+)
+
+
+def test_the_named_live_planner_tail_is_retried_then_reported(tmp_path: Path) -> None:
+    """pt-762f21e03768: markup twice is one corrective retry, then a stored failure."""
+    tasks, task_id = _queued(tmp_path)
+    caller = _Caller([Completion(CAPTURED_TAIL_REMEMBER), Completion(CAPTURED_TAIL_REMEMBER)])
+
+    result = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda _q: "")
+
+    assert result is not None and result.status == "retrying"
+    assert len(caller.bodies) == 2
+    assert "remember" in caller.bodies[1]["messages"][2]["content"]
+    receipt = json.loads((tasks / task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert "planner response must be a JSON object" in str(receipt["error"])
+
+
+def test_the_planner_sees_the_live_status_tools() -> None:
+    """The pipeline's own status tools are in the catalogue the planner is given."""
+    from portal.modules.orchestration.personal_policy import PLANNER_PROMPT
+    from portal.modules.orchestration.personal_runner import _personal_available_tools
+
+    available = _personal_available_tools()
+    assert {"get_pipeline_status", "get_loaded_models"} <= available
+    assert "get_pipeline_status" in json.dumps(sorted(available))
+    assert "never invent a kb_id" in PLANNER_PROMPT

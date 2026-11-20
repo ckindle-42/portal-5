@@ -116,9 +116,7 @@ async def handle_jarvis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await message.reply_text(HELP_TEXT)
         return
     if verb == "do":
-        from portal.modules.orchestration.personal_intake import telegram_do_reply
-
-        await message.reply_text(telegram_do_reply(_tasks_root(), user.id, args))
+        await _reply_personal_do(message, user.id, args)
         return
     store = _store()
     if verb not in VERB_NAMES:
@@ -146,6 +144,19 @@ async def handle_jarvis(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await message.reply_text(
         f"Queued {verb}" + (f" {args}" if args else "") + " — the runner answers between job steps"
     )
+
+
+async def _reply_personal_do(message: Any, user_id: int, args: str) -> None:
+    """The /jarvis do reply: acceptance, and where the task sits in the queue."""
+    from portal.modules.orchestration.personal_intake import personal_queue_note, telegram_do
+
+    root = _tasks_root()
+    reply, task_id = telegram_do(root, user_id, args)
+    if task_id is not None:
+        note = personal_queue_note(root, task_id)
+        if note:
+            reply = f"{reply}\n{note}"
+    await message.reply_text(reply)
 
 
 async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
