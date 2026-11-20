@@ -1421,3 +1421,17 @@ from repeating it.
 
 Deletion is the one store operation that cannot be undone quietly: the file that goes missing is the weights blob behind a tag the operator still runs. 0.40 split the manifest store without changing the walk that every existing cleaner had hard-coded, so a v1-era reference set is silently half-sized, and the hidden llamacpp builds are a second blind spot on top of it. Deriving the safe set from `ollama show` plus both stores is the only union that names every live byte; anything smaller eventually deletes something live, as the 2026-10-28 deletion showed.
 <!-- /WIKI:GENERATED -->
+
+---
+
+<!-- WIKI:GENERATED unit=unit-known-limitations-engine-core-stack-holds -->
+- **ID**: P5-ENGINE-CORE-001
+- **Status**: OPEN. Recorded 2026-11-19 from the round-3 installer run and a resolve reproduction against scratch copies of the three engine venvs.
+- **Description**: The music, mflux and video-mlx installers hold each engine's core stack (torch, transformers, diffusers, huggingface-hub, numpy, mlx*) at the versions `uv pip freeze` reports for that venv, and apply sweep fixes only where the flagged version is the one installed there. The advisories the sweep flags against the held core therefore remain open until an operator deliberately bumps the engine: music holds `torch==2.10.0` (`GHSA-rrmf-rvhw-rf47` / `PYSEC-2026-139`, fixed 2.13.0) and `transformers==4.57.6` (`GHSA-xrqw-3rrv-vx5w` / `PYSEC-2026-3929`, fixed 5.10.0; an OSV query on 2026-11-19 returned 11 advisories for that version); video-mlx holds `transformers==5.3.0` (same advisories, fix 5.10.0; 5 advisories per OSV). mflux holds nothing vulnerable (torch 2.13.0 and transformers 5.16.1 already satisfy the fixes). Music additionally holds `mlx==0.30.6` from the ACE-Step lock, which contradicts the `mlx-audio==0.6.6` MiniMax fallback (requires `mlx>=0.32.4`): the installer refuses it loudly and leaves the fallback uninstalled.
+- **Used by Portal**: yes. `scripts/engine_install_plan.py` builds each installer's pip plan; `scripts/lib/services.sh` applies it for `install-music`, `install-mflux` and `install-video-mlx`.
+- **Mitigation**: an operator picks a maintenance window, checks the ACE-Step/ltx-2/mflux engine locks, and bumps the core stack as a deliberate engine change (not a sweep remediation), then re-runs the installer. Until then the music MiniMax fallback errors at job time (the worker catches the ImportError) and the torch/transformers advisories stay open in the held versions.
+
+#### Why
+
+Round 3 proved the hold discipline works — services stayed loaded and core upgrades were refused — but its refusal list mixed advisories from other environments into each engine. Anchoring the plan in the installed venv makes the refusal list per-engine and truthful; the cost is that the remaining core advisories are now explicitly held rather than silently fixed, which is the deliberate tradeoff of not taking a live service down.
+<!-- /WIKI:GENERATED -->
