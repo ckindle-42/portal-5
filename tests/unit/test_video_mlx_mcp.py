@@ -393,9 +393,11 @@ class TestInstallerContract:
         helper = text[
             text.index("_launchd_reload_or_fail() {") : text.index("_launch_install_music() {")
         ]
-        assert 'launchctl bootstrap "gui/$(id -u)" "$plist"' in helper
-        assert "state = running" in helper
-        assert "|| true" not in helper.split("bootstrap", 1)[1]
+        # The reload shares _launchd_reload_job; the bespoke bootout→bootstrap
+        # raced launchd's teardown ("Bootstrap failed: 5", services unloaded).
+        assert "_launchd_reload_job" in helper
+        assert "launchctl bootstrap" not in helper
+        assert '"http://127.0.0.1:${VX_PORT}/health"' in installer
         assert "pip install --upgrade" not in installer
 
     def test_the_pack_pull_uses_the_same_env_file_as_the_service(self):

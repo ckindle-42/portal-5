@@ -559,12 +559,14 @@ _launchd_wait_gone() {  # domain, label, budget_s
     return 0
 }
 
-# The bootout/bootstrapping window: launchctl reports exit 5 / "Input/output error".
+# The bootout/bootstrapping window: launchctl reports exit 5 (EIO) or 37 (EALREADY,
+# "Operation already in progress") while the previous job is still tearing down.
 _launchd_is_race() {  # exit_code, message
     case "$2" in
         *"error 5"*|*"failed: 5"*|*"Input/output error"*) return 0 ;;
+        *"error 37"*|*"failed: 37"*|*"Operation already in progress"*) return 0 ;;
     esac
-    [ "$1" -eq 5 ]
+    [ "$1" -eq 5 ] || [ "$1" -eq 37 ]
 }
 
 # Bootstrap, retrying only the teardown race ("5: Input/output error"), with backoff.
