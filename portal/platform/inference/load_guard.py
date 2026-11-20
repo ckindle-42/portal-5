@@ -2668,10 +2668,10 @@ class LoadGuard:
             ),
         }
 
-    async def reclaim_idle_memory(self, ollama_base: str, need: float) -> list[dict[str, str]]:
+    async def reclaim_idle_memory(self, ollama_base: str, need: float) -> dict[str, Any]:
         """Unload idle residents through the same path used for cold-load admission."""
         if need <= 0:
-            return []
+            return {"unloads": [], "residents": []}
         deadline = time.monotonic() + load_wait_s()
         release = await self._acquire(OLLAMA, deadline, "job memory reclaim")
         try:
@@ -2681,17 +2681,41 @@ class LoadGuard:
                 idle = self._ollama_idle(resident)
                 if capacity is None:
                     requested = await self._free_ollama(client, ollama_base, resident)
-                    return [
+                    unloads = [
                         {"engine": OLLAMA, "model": name, "status": "requested"}
                         for name in requested
                     ]
-                _, used = capacity
-                _, _, _, _, _, unloads, _ = await self._free_idle_memory(
-                    client, ollama_base, resident, idle, used, need
-                )
-                return unloads
+                else:
+                    _, used = capacity
+                    _, _, _, _, _, unloads, _ = await self._free_idle_memory(
+                        client, ollama_base, resident, idle, used, need
+                    )
+                return {
+                    "unloads": unloads,
+                    "residents": await self._memory_residents(client, ollama_base),
+                }
         finally:
             release()
+
+    async def _memory_residents(
+        self, client: httpx.AsyncClient, ollama_base: str
+    ) -> list[dict[str, Any]]:
+        holders = [
+            {"engine": OLLAMA, "model": name, "reported_gib": round(size / _GIB, 1)}
+            for name, size in (await self._resident(client, ollama_base)).items()
+            if size > 0
+        ]
+        status = await self._omlx_status(client)
+        holders.extend(
+            {
+                "engine": OMLX,
+                "model": str(model.get("id") or ""),
+                "reported_gib": round(float(model.get("estimated_size") or 0) / _GIB, 1),
+            }
+            for model in (status or {}).get("models") or []
+            if model.get("loaded") and model.get("id")
+        )
+        return holders
 
 
 class _Release:

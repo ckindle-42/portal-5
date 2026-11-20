@@ -87,10 +87,10 @@ class TestMemoryCoordination:
         async def fake_free() -> float:
             return 40.0
 
-        async def fake_reclaim(_need: float) -> list[dict[str, str]]:
+        async def fake_reclaim(_need: float) -> dict[str, object]:
             nonlocal called
             called = True
-            return []
+            return {"unloads": [], "residents": []}
 
         monkeypatch.setattr(_admission, "free_unified_gb", fake_free)
         monkeypatch.setattr(_admission, "request_pipeline_reclaim", fake_reclaim)
@@ -142,8 +142,11 @@ class TestMemoryCoordination:
         async def fake_free() -> float:
             return 8.0
 
-        async def fake_reclaim(_need: float) -> list[dict[str, str]]:
-            return []
+        async def fake_reclaim(_need: float) -> dict[str, object]:
+            return {
+                "unloads": [],
+                "residents": [{"engine": "ollama", "model": "busy-qwen", "reported_gib": 22.0}],
+            }
 
         monkeypatch.setattr(_admission, "free_unified_gb", fake_free)
         monkeypatch.setattr(_admission, "request_pipeline_reclaim", fake_reclaim)
@@ -151,6 +154,21 @@ class TestMemoryCoordination:
         assert refusal is not None
         assert refusal["success"] is False
         assert refusal["retryable"] is True
+        assert "busy-qwen" in refusal["error"]
+
+    async def test_admit_rechecks_memory_when_pipeline_reclaim_response_fails(self, monkeypatch):
+        samples = iter([10.0, 28.0])
+
+        async def fake_free() -> float:
+            return next(samples)
+
+        async def failed_reclaim(_need: float) -> None:
+            return None
+
+        monkeypatch.setattr(_admission, "free_unified_gb", fake_free)
+        monkeypatch.setattr(_admission, "request_pipeline_reclaim", failed_reclaim)
+
+        assert await _admission.admit("mflux:schnell") is None
 
     def test_music_release_idle_is_true_when_no_weights_are_resident(self):
         import portal.modules.media.tools.music_mcp as music_mcp

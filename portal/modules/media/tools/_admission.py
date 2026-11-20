@@ -88,10 +88,10 @@ def _pipeline_api_key() -> str:
     return (os.environ.get("PIPELINE_API_KEY") or os.environ.get("PORTAL_API_KEY") or "").strip()
 
 
-async def request_pipeline_reclaim(need_gib: float) -> list[dict[str, Any]] | None:
+async def request_pipeline_reclaim(need_gib: float) -> dict[str, list[dict[str, Any]]] | None:
     """Ask Pipeline's load guard to evict idle LLM residents covering ``need_gib``."""
     if need_gib <= 0:
-        return []
+        return {"unloads": [], "residents": []}
     api_key = _pipeline_api_key()
     if not api_key:
         logger.debug("Skipping pipeline reclaim: PIPELINE_API_KEY not set")
@@ -108,8 +108,14 @@ async def request_pipeline_reclaim(need_gib: float) -> list[dict[str, Any]] | No
             )
             return None
         data = resp.json()
-        unloads = data.get("unloads", []) if isinstance(data, dict) else []
-        return unloads if isinstance(unloads, list) else []
+        if not isinstance(data, dict):
+            return None
+        unloads = data.get("unloads")
+        residents = data.get("residents")
+        return {
+            "unloads": unloads if isinstance(unloads, list) else [],
+            "residents": residents if isinstance(residents, list) else [],
+        }
     except (httpx.HTTPError, ValueError) as exc:
         logger.warning("Pipeline reclaim %s failed: %s", url, exc)
         return None
@@ -180,6 +186,24 @@ def estimate_job_gb(model_key: str) -> tuple[float, bool]:
     return MEMORY_UNKNOWN_DEFAULT_GB, False
 
 
+def _reclaim_holder_note(reclaim: dict[str, list[dict[str, Any]]] | None) -> str:
+    if reclaim is None:
+        return "Pipeline could not provide a resident inventory; check its URL and API key."
+    residents = reclaim.get("residents", [])
+    if not residents:
+        return "Pipeline reports no resident LLM models; other processes or system allocations hold the remaining memory."
+    holders = []
+    for resident in residents:
+        engine = str(resident.get("engine") or "LLM")
+        model = str(resident.get("model") or "unknown model")
+        size = resident.get("reported_gib")
+        label = f"{engine} {model}"
+        if isinstance(size, (int, float)):
+            label += f" (reported {size:.1f} GiB)"
+        holders.append(label)
+    return f"Pipeline still reports resident models: {', '.join(holders)}."
+
+
 async def admit(model_key: str) -> dict[str, Any] | None:
     """Returns None if the job is admitted, or a structured error dict if refused.
 
@@ -198,22 +222,20 @@ async def admit(model_key: str) -> dict[str, Any] | None:
     if needed_gb <= free_gb:
         return None
 
-    unloads = await request_pipeline_reclaim(needed_gb - free_gb)
-    if unloads is not None:
-        free_gb = await free_unified_gb()
-        if free_gb is None or needed_gb <= free_gb:
-            return None
-        if unloads and RECLAIM_SETTLE_TIMEOUT_S > 0:
-            deadline = time.monotonic() + RECLAIM_SETTLE_TIMEOUT_S
-            while time.monotonic() < deadline:
-                await asyncio.sleep(
-                    min(RECLAIM_POLL_INTERVAL_S, max(0.0, deadline - time.monotonic()))
-                )
-                free_gb = await free_unified_gb()
-                if free_gb is None or needed_gb <= free_gb:
-                    return None
+    reclaim = await request_pipeline_reclaim(needed_gb - free_gb)
+    free_gb = await free_unified_gb()
+    if free_gb is None or needed_gb <= free_gb:
+        return None
+    if (reclaim is None or reclaim["unloads"]) and RECLAIM_SETTLE_TIMEOUT_S > 0:
+        deadline = time.monotonic() + RECLAIM_SETTLE_TIMEOUT_S
+        while time.monotonic() < deadline:
+            await asyncio.sleep(min(RECLAIM_POLL_INTERVAL_S, max(0.0, deadline - time.monotonic())))
+            free_gb = await free_unified_gb()
+            if free_gb is None or needed_gb <= free_gb:
+                return None
 
     known_note = "" if is_known else " (unknown model — using a conservative default estimate)"
+    holder_note = _reclaim_holder_note(reclaim)
     return {
         "success": False,
         "retryable": True,
@@ -221,8 +243,7 @@ async def admit(model_key: str) -> dict[str, Any] | None:
             f"Not enough free memory right now: this job needs about "
             f"{estimated_gb:.0f}GB{known_note} plus {MEMORY_HEADROOM_GB:.0f}GB headroom, "
             f"but only {free_gb:.1f}GB is free. This is temporary — free up memory and "
-            "try again. Close other running models or large chats, or wait a few minutes "
-            "for background models to unload."
+            f"try again. {holder_note}"
         ),
         "operator_hint": (
             "Unload a loaded Ollama model (curl localhost:11434/api/ps to check, "
