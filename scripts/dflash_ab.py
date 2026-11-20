@@ -286,7 +286,11 @@ class Plan:
 
 
 def _host_url(name: str, default: str) -> str:
-    return (_env_value(name) or default).replace("host.docker.internal", "localhost").rstrip("/")
+    # Host-side runner: only the process environment may override. The repo .env carries
+    # container hostnames (e.g. portal5-pipeline) that do not resolve on the host.
+    return (
+        (os.environ.get(name) or default).replace("host.docker.internal", "localhost").rstrip("/")
+    )
 
 
 def context(out_dir: Path, args: argparse.Namespace) -> DflashCtx:
