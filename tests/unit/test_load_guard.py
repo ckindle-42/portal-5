@@ -789,6 +789,93 @@ def test_cross_engine_copy_resolves_configured_aliases_both_ways():
     }
 
 
+async def test_a_sibling_workers_omlx_request_is_not_foreign_traffic():
+    """2026-11-19: PIPELINE_WORKERS=2, so oMLX serving one request on the other worker made
+    every idle resident look untouchable ("serves requests the pipeline did not send")."""
+    e = Engines(
+        tags={"target": int(12 * GIB)},
+        omlx={
+            "serving": {"size": 8 * GIB, "loaded": True, "last": 9},
+            "idle": {"size": 8 * GIB, "loaded": True, "last": 1},
+        },
+        ceiling=28 * GIB,
+        omlx_active=1,
+    )
+    g = guard(e)
+    sibling = g._activity_lock(lg.OMLX, "serving")  # the other worker's in-flight request
+    assert sibling is not None
+    release = await g.admit(OLLAMA_URL, "target")
+    assert release is not None
+    assert e.unload_calls == {"idle": 1}  # the idle resident, never the one being served
+    assert e.omlx["serving"]["loaded"]
+    release()
+    g._release_activity_lock(sibling)
+
+
+async def test_a_resident_omlx_seat_frees_idle_ollama_that_ate_its_prefill_share():
+    """2026-11-19 auto-coding: the seat was already resident, so admission never measured;
+    oMLX then aborted mid-prefill inside the room Ollama's idle residents had taken."""
+    e = Engines(
+        ollama={"nemotron": int(22 * GIB)},
+        omlx={"seat": {"size": int(24 * GIB), "loaded": True}},
+        ceiling=int(30 * GIB),
+        omlx_memory=int(24 * GIB),
+    )
+    e.hidden["nemotron"] = int(6 * GIB)  # its release raises oMLX's host-derived ceiling
+    g = guard(e)
+
+    assert await g.admit_omlx("seat") is None
+
+    assert e.unload_calls == {"nemotron": 1}
+    assert e.omlx["seat"]["loaded"]  # never the seat the request is going to
+
+
+async def test_a_resident_omlx_seat_leaves_memory_alone_inside_its_prefill_share():
+    e = Engines(
+        ollama={"idle": int(4 * GIB)},
+        omlx={"seat": {"size": int(14 * GIB), "loaded": True}},
+        ceiling=int(24 * GIB),
+        omlx_memory=int(14 * GIB),
+    )
+    g = guard(e)
+
+    assert await g.admit_omlx("seat") is None
+
+    assert e.unload_calls == {}
+
+
+async def test_a_resident_omlx_seat_spares_an_ollama_model_a_sibling_is_serving():
+    e = Engines(
+        ollama={"busy": int(20 * GIB), "idle": int(20 * GIB)},
+        omlx={"seat": {"size": int(24 * GIB), "loaded": True}},
+        ceiling=int(30 * GIB),
+        omlx_memory=int(24 * GIB),
+    )
+    e.hidden["idle"] = int(8 * GIB)
+    g = guard(e)
+    sibling = g._activity_lock(lg.OLLAMA, "busy")
+    assert sibling is not None
+
+    assert await g.admit_omlx("seat") is None
+
+    assert e.unload_calls == {"idle": 1}
+    assert "busy" in e.ollama
+    g._release_activity_lock(sibling)
+
+
+async def test_a_resident_omlx_seat_with_nothing_idle_still_dispatches():
+    e = Engines(
+        omlx={"seat": {"size": int(24 * GIB), "loaded": True}},
+        ceiling=int(25 * GIB),
+        omlx_memory=int(24 * GIB),
+    )
+    g = guard(e)
+
+    assert await g.admit_omlx("seat") is None  # fail open: the engine gets its chance
+
+    assert e.unload_calls == {}
+
+
 async def test_wait_header_is_clamped_and_parsed():
     lg.set_load_wait("999999")
     assert lg.load_wait_s() == lg._MAX_WAIT_S

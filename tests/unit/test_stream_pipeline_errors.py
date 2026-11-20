@@ -885,3 +885,107 @@ async def test_tool_loop_reasoning_only_turn_reports_the_engines_usage(
 
     assert [u["completion_tokens"] for u in _usages(chunks)] == [24]
     assert chunks[-1] == DONE and chunks.count(DONE) == 1
+
+
+# ── oMLX aborts mid-prefill: free the idle residents and retry once ──
+# 2026-11-19: the 2026-10-07 incident's exact failure — oMLX admitted the request
+# (or had the seat resident), then the process-memory watermark killed it after
+# the stream started, and the user got "[Pipeline stream error … aborted …]".
+
+OMLX_ABORT = 'data: {"error": "oMLX memory guard aborted this request mid-prefill"}'
+SERVED = json.dumps({"choices": [{"index": 0, "delta": {"content": "served"}}]})
+
+
+def _freed_once(monkeypatch: pytest.MonkeyPatch, names: list[str] | None = None) -> list[int]:
+    calls: list[int] = []
+
+    async def fake_free() -> list[str]:
+        calls.append(1)
+        return ["nemotron"] if names is None else names
+
+    monkeypatch.setattr(st, "free_ollama_for_omlx", fake_free)
+    return calls
+
+
+@pytest.mark.anyio
+async def test_omlx_memory_abort_mid_prefill_frees_ollama_and_retries(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(st, "_backend_type_for_url", lambda _url: "omlx")
+    freed = _freed_once(monkeypatch)
+    _serve(stream_client, _Resp([OMLX_ABORT]), _Resp([f"data: {SERVED}", "data: [DONE]"]))
+
+    chunks = await _drain(
+        st._stream_from_backend_guarded(
+            "http://omlx/v1/chat/completions", {"messages": []}, "ws", "m"
+        )
+    )
+
+    assert freed == [1]
+    assert stream_client.stream.call_count == 2
+    assert _content(chunks) == "served"
+    assert all(b'"error"' not in chunk for chunk in chunks)
+    _assert_well_formed(chunks)
+
+
+@pytest.mark.anyio
+async def test_omlx_memory_abort_with_nothing_idle_still_ends_well_formed(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(st, "_backend_type_for_url", lambda _url: "omlx")
+    freed = _freed_once(monkeypatch, names=[])
+    _serve(stream_client, _Resp([OMLX_ABORT]))
+
+    chunks = await _drain(
+        st._stream_from_backend_guarded(
+            "http://omlx/v1/chat/completions", {"messages": []}, "ws", "m"
+        )
+    )
+
+    assert freed == [1]  # one attempt, then the error reaches the client
+    assert stream_client.stream.call_count == 1
+    _assert_terminal(chunks, "aborted this request mid-prefill")
+
+
+@pytest.mark.anyio
+async def test_omlx_memory_abort_after_output_is_never_retried(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(st, "_backend_type_for_url", lambda _url: "omlx")
+    freed = _freed_once(monkeypatch)
+    _serve(stream_client, _Resp([f"data: {SERVED}", OMLX_ABORT]))
+
+    chunks = await _drain(
+        st._stream_from_backend_guarded(
+            "http://omlx/v1/chat/completions", {"messages": []}, "ws", "m"
+        )
+    )
+
+    assert freed == []
+    assert stream_client.stream.call_count == 1
+    assert "served" in _content(chunks) and "mid-prefill" in _content(chunks)
+
+
+@pytest.mark.anyio
+async def test_tool_loop_omlx_memory_abort_mid_prefill_frees_and_retries_the_hop(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(st, "_backend_type_for_url", lambda _url: "omlx")
+    freed = _freed_once(monkeypatch)
+    body = {"messages": [{"role": "user", "content": "edit"}], "tools": TOOLS}
+    _serve(
+        stream_client,
+        _Resp([OMLX_ABORT]),
+        _Resp([f"data: {SERVED}", "data: [DONE]"]),
+    )
+
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://omlx/v1/chat/completions", body, "ws", "m", "p", {"write"}
+        )
+    )
+
+    assert freed == [1]
+    assert stream_client.stream.call_count == 2
+    assert "served" in _content(chunks)
+    assert all(b'"error"' not in chunk for chunk in chunks)

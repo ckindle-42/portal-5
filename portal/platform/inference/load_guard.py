@@ -483,6 +483,12 @@ def _omlx_available(headroom: float) -> float:
     return budget - _MARGIN
 
 
+def _omlx_prefill_reserve(status: dict[str, Any], used: float) -> float:
+    """Room left above the resident models inside oMLX's prefill-safe share; negative means
+    the engine has no room to prefill in and aborts whatever it is sent."""
+    return _budget_bytes(status) * (_OMLX_PREFILL_ZONE or 1.0) - _MARGIN - used
+
+
 def _releasable_ollama_bytes(held: list[tuple[str, int, str]], freed: set[str]) -> float:
     """Bytes of busy or active-elsewhere residents that have not already been freed."""
     return float(
@@ -639,9 +645,10 @@ class LoadGuard:
 
     @staticmethod
     def _activity_path(engine: str, model: str) -> Path:
+        """One file per (engine, model): every worker's in-flight request holds it shared."""
         key = model_key(model) if engine == OLLAMA else model
         digest = hashlib.sha256(f"{engine}\0{key}".encode()).hexdigest()
-        return _PROCESS_LOCK_DIR / f"active-{digest}.lock"
+        return _PROCESS_LOCK_DIR / f"active-{engine}-{digest}.lock"
 
     def _activity_lock(self, engine: str, model: str) -> Any | None:
         handle = None
@@ -736,6 +743,25 @@ class LoadGuard:
             logger.warning("load_guard: could not inspect cross-worker activity: %s", e)
             return True
 
+    def _active_models(self, engine: str) -> int:
+        """Models a pipeline worker is serving right now, by held activity locks."""
+        try:
+            paths = list(_PROCESS_LOCK_DIR.glob(f"active-{engine}-*.lock"))
+        except OSError:
+            return 0
+        held = 0
+        for path in paths:
+            handle = self._try_reserve_process_lock(path)
+            if handle is None:
+                held += 1
+            else:
+                self._release_activity_lock(handle)
+        return held
+
+    def active(self, engine: str, model: str) -> bool:
+        """Whether any pipeline worker is serving this model right now."""
+        return bool(self.busy(engine, model)) or self._active_elsewhere(engine, model)
+
     def protect(
         self, engine: str, model: str, seconds: float | None = None, *, failover: bool = False
     ) -> None:
@@ -769,6 +795,12 @@ class LoadGuard:
         return sum(
             n for (e, name), n in self._busy.items() if e == engine and model_key(name) == key
         )
+
+    def _omlx_in_flight(self) -> int:
+        """oMLX requests in flight across the pipeline's workers, as a lower bound:
+        this worker counts requests, a sibling's show up as its held activity locks."""
+        local = sum(n for (engine, _), n in self._busy.items() if engine == OMLX)
+        return max(local, self._active_models(OMLX))
 
     async def _wait_change(self, timeout: float) -> None:
         _admit_waited.set(True)
@@ -928,8 +960,8 @@ class LoadGuard:
             )
             return url, []
         st = response.json()
-        tracked = sum(n for (engine, _), n in self._busy.items() if engine == OMLX)
-        if int(st.get("active_requests") or 0) + int(st.get("waiting_requests") or 0) > tracked:
+        served = int(st.get("active_requests") or 0) + int(st.get("waiting_requests") or 0)
+        if served > self._omlx_in_flight():
             logger.info("load_guard: oMLX serves requests the pipeline did not send; not freeing")
             return url, []
         login = await client.post(f"{url}/admin/api/login", json={"api_key": omlx_api_key()})
@@ -1027,7 +1059,7 @@ class LoadGuard:
                 return False
         except Exception:
             return False
-        tracked = sum(n for (engine, _), n in self._busy.items() if engine == OMLX)
+        tracked = self._omlx_in_flight()
         return int(st.get("active_requests") or 0) + int(st.get("waiting_requests") or 0) > tracked
 
     async def _free_omlx(
@@ -2372,7 +2404,10 @@ class LoadGuard:
             try:
                 async with self._client() as client:
                     entry = _omlx_entry(await self._omlx_status(client), model)
-                    if entry is None or entry.get("loaded"):
+                    if entry is None:
+                        return None
+                    if entry.get("loaded"):
+                        await self._free_for_resident_omlx(client, model, deadline)
                         return None
                     release = await self._acquire(OMLX, deadline, model)
                     entry = _omlx_entry(await self._omlx_status(client), model)
@@ -2397,6 +2432,56 @@ class LoadGuard:
         finally:
             if activity is not None:
                 self._release_activity_lock(activity)
+
+    async def _free_for_resident_omlx(
+        self, client: httpx.AsyncClient, model: str, deadline: float
+    ) -> None:
+        """Free idle memory when a resident seat is past oMLX's prefill-safe share.
+
+        A seat already loaded still prefills inside the engine's own room: once idle
+        residents of either engine have eaten that room (2026-11-19 auto-coding), oMLX
+        aborts the request mid-prefill. The seat itself and anything a worker is serving
+        are never freed, and nothing here refuses: the engine still gets its chance.
+        """
+        base = (self._ollama_url() or "").rstrip("/")
+        if not base:
+            return
+        settle = min(deadline, time.monotonic() + _FREE_SETTLE_EXPECTED_S)
+        attempted_omlx: set[str] = set()
+        requested_ollama: dict[str, _Free] = {}
+        first = True
+        try:
+            while True:
+                status = await self._omlx_status(client)
+                used = (status or {}).get("current_model_memory")
+                if status is None or used is None:
+                    return
+                shortage = -_omlx_prefill_reserve(status, float(used))
+                if shortage <= 0 or (not first and time.monotonic() >= settle):
+                    return
+                first = False
+                freed, queued, _, _, unloads = await self._free_omlx(
+                    client, shortage, float(used), exclude={model} | attempted_omlx
+                )
+                attempted_omlx.update(str(entry["model"]) for entry in unloads)
+                covered = freed + sum(free.size for free in queued.values())
+                progress = bool(freed or queued)
+                if covered < shortage:
+                    resident = await self._resident(client, base)
+                    newly = await self._free_ollama(
+                        client,
+                        base,
+                        {n: s for n, s in resident.items() if n not in requested_ollama},
+                        want=shortage - covered,
+                        last_models=self._counterpart_models(OMLX, model),
+                    )
+                    requested_ollama.update(newly)
+                    progress = progress or bool(newly)
+                if not progress:
+                    return
+                await asyncio.sleep(min(_POLL_S, max(0.0, settle - time.monotonic())))
+        except Exception as e:  # best effort: the request goes to the engine either way
+            logger.warning("load_guard: could not make prefill room for %s: %s", model, e)
 
     async def plan(self, ollama_base: str, models: list[tuple[str, str]]) -> dict[str, Any]:
         """Whether `models` ((engine, model) pairs) fit together right now.

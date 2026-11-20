@@ -312,6 +312,31 @@ async def _free_ollama_for_capacity_retry(
     return freed or None
 
 
+async def _free_for_omlx_memory_abort(engine: str, message: str) -> list[str] | None:
+    """Idle Ollama models freed for oMLX's mid-prefill abort, or None when this is not one.
+
+    The engine passed its own prefill guard and then crossed the process-memory
+    watermark inside the stream (2026-11-19): its ceiling is short of what Ollama holds,
+    which a free cures exactly as it cures the pre-dispatch refusal."""
+    if engine != "omlx" or not _is_capacity_error(message):
+        return None
+    freed = await free_ollama_for_omlx()
+    return freed or None
+
+
+async def _retry_after_omlx_abort(
+    backend_url: str, message: str, *, already_freed: bool, output_seen: bool, where: str
+) -> bool:
+    """Whether this mid-prefill abort may be re-issued: once, and only before any output."""
+    if already_freed or output_seen:
+        return False
+    freed = await _free_for_omlx_memory_abort(_backend_type_for_url(backend_url), message)
+    if not freed:
+        return False
+    logger.info("oMLX memory abort (%s); freed Ollama %s, retrying", where, freed)
+    return True
+
+
 def _chunk_has_output(chunk: bytes) -> bool:
     """Whether an SSE chunk puts model output in front of the client (content,
     reasoning or a tool call — not the role preamble or routing status line)."""
@@ -1292,7 +1317,10 @@ async def _tool_loop_frames_impl(
 
         _freed_for_hop = False
         _connect_retried = False
+        _hop_output = False
         for _attempt in range(3):
+            _hop_output = False
+            _retry_hop = False
             try:
                 trace_capture(backend_request=current_body)
                 async with _http_client.stream("POST", backend_url, json=current_body) as resp:  # type: ignore[union-attr]
@@ -1334,6 +1362,16 @@ async def _tool_loop_frames_impl(
                             continue
                         _in_band = _in_band_backend_error(line)
                         if _in_band is not None:
+                            if await _retry_after_omlx_abort(
+                                backend_url,
+                                _in_band,
+                                already_freed=_freed_for_hop,
+                                output_seen=_hop_output,
+                                where=f"workspace={workspace_id}, hop={hop}",
+                            ):
+                                _freed_for_hop = True
+                                _retry_hop = True
+                                break
                             for _f in _in_band_error_frames(
                                 request_id,
                                 workspace_id,
@@ -1364,6 +1402,11 @@ async def _tool_loop_frames_impl(
                             )
                         choice = (obj.get("choices") or [{}])[0]
                         delta = choice.get("delta", {})
+                        _hop_output = _hop_output or bool(
+                            delta.get("content")
+                            or delta.get("tool_calls")
+                            or _reasoning_text(delta)
+                        )
                         _reasoning_seen = _reasoning_seen or any(
                             delta.get(name)
                             for name in ("reasoning", "reasoning_content", "thinking")
@@ -1442,6 +1485,8 @@ async def _tool_loop_frames_impl(
                         if delta or not _frame_finish:
                             for _f in _route(_held_frames, (line + "\n\n").encode()):
                                 yield _f
+                if _retry_hop:
+                    continue
                 break
             except httpx.TimeoutException as _timeout:
                 if isinstance(_timeout, httpx.ConnectTimeout) and not _connect_retried:
@@ -2084,6 +2129,25 @@ async def _stream_from_backend_guarded_impl(
                     continue
                 _in_band = _in_band_backend_error(line)
                 if _in_band is not None:
+                    if await _retry_after_omlx_abort(
+                        url,
+                        _in_band,
+                        already_freed=_capacity_retried,
+                        output_seen=bool(_answer_emitted or _tool_calls_emitted or _reasoning_seen),
+                        where=f"workspace={workspace_id}",
+                    ):
+                        # Nothing reached the client: free what oMLX cannot reclaim and
+                        # re-issue this exact request once, as the prefill guard's 400 does.
+                        async for _f in _stream_from_backend_guarded(
+                            url,
+                            body,
+                            workspace_id=workspace_id,
+                            model=model,
+                            start_time=None,
+                            _capacity_retried=True,
+                        ):
+                            yield _f
+                        return
                     for _frame in _in_band_error_frames(
                         f"chatcmpl-{workspace_id}", workspace_id, model, _in_band
                     ):
