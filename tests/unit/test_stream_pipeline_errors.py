@@ -989,3 +989,52 @@ async def test_tool_loop_omlx_memory_abort_mid_prefill_frees_and_retries_the_hop
     assert stream_client.stream.call_count == 2
     assert "served" in _content(chunks)
     assert all(b'"error"' not in chunk for chunk in chunks)
+
+
+OMLX_INCOMPLETE_TOOL = (
+    'data: {"error": {"message": "Model output contains an unrecoverable tool call. '
+    'Previously delivered tool calls must not be executed again on retry.", '
+    '"type": "server_error", "code": "incomplete_tool_call"}}'
+)
+
+
+@pytest.mark.anyio
+async def test_tool_loop_omlx080_incomplete_tool_call_falls_through_to_rescue(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recorded = _record_errors(monkeypatch)
+    _serve(stream_client, _Resp([OMLX_INCOMPLETE_TOOL]))
+
+    async def _fake_rescue(*_args: object, **_kwargs: object) -> tuple[str, list[dict], str]:
+        return "rescued answer", [], ""
+
+    monkeypatch.setattr(st, "_rescue_empty_hop", _fake_rescue)
+    body = {"messages": [{"role": "user", "content": "edit"}], "tools": TOOLS}
+
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://omlx/v1/chat/completions", body, "ws", "m", "p", {"write"}
+        )
+    )
+
+    assert "rescued answer" in _content(chunks)
+    assert ("ws", "unparsed_tool_call") in recorded
+    assert ("ws", "backend_in_band_error") not in recorded
+
+
+@pytest.mark.anyio
+async def test_tool_loop_omlx080_incomplete_tool_call_after_output_still_aborts(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recorded = _record_errors(monkeypatch)
+    _serve(stream_client, _Resp([f"data: {SERVED}", OMLX_INCOMPLETE_TOOL]))
+    body = {"messages": [{"role": "user", "content": "edit"}], "tools": TOOLS}
+
+    chunks = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://omlx/v1/chat/completions", body, "ws", "m", "p", {"write"}
+        )
+    )
+
+    assert "unrecoverable tool call" in _content(chunks)
+    assert ("ws", "backend_in_band_error") in recorded

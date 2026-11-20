@@ -902,3 +902,55 @@ async def test_wait_header_is_clamped_and_parsed():
     assert lg.load_wait_s() == lg._WAIT_S
     lg.set_load_wait("12.5")
     assert lg.load_wait_s() == 12.5
+
+
+_REAL_HOST_FREE_BYTES = lg.LoadGuard.host_free_bytes
+
+
+async def test_host_free_bytes_includes_idle_omlx_residents():
+    e = Engines(
+        omlx={
+            "a": {"size": int(20 * GIB), "loaded": True},
+            "b": {"size": int(17 * GIB), "loaded": True},
+        },
+        ceiling=int(32 * GIB),
+        omlx_memory=int(37 * GIB),
+    )
+    g = guard(e)
+
+    free = await _REAL_HOST_FREE_BYTES(g, OLLAMA_URL)
+
+    assert free is not None
+    assert free == pytest.approx(32 * GIB)
+
+
+async def test_host_free_bytes_excludes_omlx_when_foreign_active():
+    e = Engines(
+        omlx={"a": {"size": int(37 * GIB), "loaded": True}},
+        ceiling=int(32 * GIB),
+        omlx_memory=int(37 * GIB),
+        omlx_active=1,
+    )
+    g = guard(e)
+
+    free = await _REAL_HOST_FREE_BYTES(g, OLLAMA_URL)
+
+    assert free is not None
+    assert free == pytest.approx(-5 * GIB)
+
+
+async def test_omlx_status_syncs_unloaded_hot_seat():
+    from portal.platform.inference.router import placement
+
+    e = Engines(
+        omlx={"stale-model": {"size": int(16 * GIB), "loaded": False}},
+        ceiling=int(32 * GIB),
+        omlx_memory=0,
+    )
+    g = guard(e)
+    placement.note_omlx_activity(OMLX_URL, "stale-model")
+    assert placement.TRACKER.hot_model(placement.engine_key(OMLX_URL), 900) == "stale-model"
+
+    await _REAL_HOST_FREE_BYTES(g, OLLAMA_URL)
+
+    assert placement.TRACKER.hot_model(placement.engine_key(OMLX_URL), 900) is None

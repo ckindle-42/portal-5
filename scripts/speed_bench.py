@@ -152,11 +152,11 @@ def omlx_metrics(body: dict) -> dict:
     )
 
 
-def pipeline_metrics(timings: dict, usage: dict) -> dict:
+def pipeline_metrics(timings: dict, usage: dict, route: str = "") -> dict:
     """Map the Pipeline's ``portal_timings`` frame (plus usage) to a result row."""
     prompt_tokens = _count(usage.get("prompt_tokens"))
     prefill_s = _number(timings.get("prefill_s"))
-    return _row(
+    row = _row(
         prompt_tokens=prompt_tokens,
         prefill_tps=prompt_tokens / prefill_s if prompt_tokens and prefill_s else None,
         decode_tps=_number(timings.get("answer_tps")),
@@ -165,6 +165,12 @@ def pipeline_metrics(timings: dict, usage: dict) -> dict:
         total_s=_number(timings.get("total_s")),
         timing_source=str(timings.get("timing_source") or "measured"),
     )
+    if route:
+        parts = route.split(";")
+        if len(parts) >= 3:
+            row["backend"] = parts[1]
+            row["served_model"] = parts[2]
+    return row
 
 
 def stream_wall(lines: Iterable[bytes | str], clock: Any = time.monotonic) -> dict[str, Any]:
@@ -283,19 +289,29 @@ def request_omlx_streamed(
 
 
 def request_pipeline(
-    host: str, workspace: str, prompt: str, api_key: str = "", timeout: float = 600.0
-) -> tuple[dict, dict]:
-    """Stream one workspace reply through the Pipeline; return its timings and usage."""
-    payload = {
+    host: str,
+    workspace: str,
+    prompt: str,
+    api_key: str = "",
+    timeout: float = 600.0,
+    *,
+    no_tools: bool = False,
+) -> tuple[dict, dict, str]:
+    """Stream one workspace reply through the Pipeline; return timings, usage, and route."""
+    payload: dict[str, Any] = {
         "model": workspace,
         "messages": [{"role": "user", "content": prompt}],
         "stream": True,
         "stream_options": {"include_usage": True},
         "max_tokens": NUM_PREDICT,
     }
+    if no_tools:
+        payload["portal_no_tools"] = True
     headers = {**_bearer(api_key), "X-Portal-Client": "api"}
     with _post(host.rstrip("/") + "/v1/chat/completions", payload, timeout, headers) as resp:
-        return parse_sse_timings(resp)
+        route = str(resp.headers.get("x-portal-route") or "") if hasattr(resp, "headers") else ""
+        timings, usage = parse_sse_timings(resp)
+        return timings, usage, route
 
 
 def _measured_omlx(
@@ -320,7 +336,14 @@ def _measured_omlx(
 
 
 def _measure(
-    engine: str, host: str, target: str, prompt: str, api_key: str, timeout: float
+    engine: str,
+    host: str,
+    target: str,
+    prompt: str,
+    api_key: str,
+    timeout: float,
+    *,
+    no_tools: bool = False,
 ) -> dict[str, Any]:
     """Measure one prompt on ``engine`` and return a result row."""
     if engine == "ollama":
@@ -331,10 +354,12 @@ def _measure(
             return _measured_omlx(host, target, prompt, api_key, timeout)
         return row
     if engine == "pipeline":
-        timings, usage = request_pipeline(host, target, prompt, api_key, timeout)
+        timings, usage, route = request_pipeline(
+            host, target, prompt, api_key, timeout, no_tools=no_tools
+        )
         if not timings:
             raise ValueError("stream carried no portal_timings frame")
-        return pipeline_metrics(timings, usage)
+        return pipeline_metrics(timings, usage, route)
     raise ValueError(f"unknown engine {engine!r}")
 
 
@@ -373,6 +398,7 @@ def run_bench(
     out: str | None = None,
     api_key: str = "",
     timeout: float = 600.0,
+    no_tools: bool = False,
 ) -> int:
     """Benchmark every size; print the table; return 0 on success, 1 on any failure."""
     rows: list[dict] = []
@@ -380,7 +406,7 @@ def run_bench(
     for size in sizes:
         prompt = build_filler_prompt(size)
         try:
-            row = _measure(engine, host, target, prompt, api_key, timeout)
+            row = _measure(engine, host, target, prompt, api_key, timeout, no_tools=no_tools)
         except (OSError, ValueError) as exc:
             failures.append(f"FAILED size {size} tokens: {exc}")
             continue
@@ -477,6 +503,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--timeout", type=float, default=600.0, help="Per-request seconds")
     parser.add_argument("--out", default=None, help="Optional path to write the JSON results")
+    parser.add_argument(
+        "--no-tools",
+        action="store_true",
+        help="Send portal_no_tools=true on pipeline requests (measure raw seat speed)",
+    )
     return parser
 
 
@@ -499,6 +530,7 @@ def main(argv: list[str] | None = None) -> int:
         out=args.out,
         api_key=args.api_key if args.api_key is not None else engine_key(args.engine),
         timeout=args.timeout,
+        no_tools=args.no_tools,
     )
 
 
