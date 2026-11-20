@@ -46,9 +46,10 @@ weakened-test check, gates + canary in a throwaway worktree, oracle) and never m
 (`~/AI_Output/generated/tasks/personal_tasks.sqlite3`) and answers `queued pt-<id>` plus its queue
 position. The runner takes one per poll, between arm jobs:
 
-- A read-only request is planned and executed on `auto-daily::fast` (or `auto-coding` when the plan
-  needs a shell) with the tools that workspace actually offers; a Portal status question answers
-  through `get_pipeline_status` / `get_loaded_models`.
+- A read-only request is routed (no LLM planner) to a bounded tool bundle and executed on
+  `auto-daily::fast` (or `auto-coding` when the request needs a sandbox); the chosen bundle, seat
+  and offered tools are in the receipt's `route`. A Portal status question answers through
+  `get_pipeline_status` / `get_loaded_models`.
 - A risky step (shell, file write, `remember`, git write, a mutating proxmox or unifi/browser call)
   waits for a Confirm button. Read-only proxmox and git reads do not.
 - A destructive request (`docker compose down`, a docker prune, `rm -rf`, `launch.sh down`, a force

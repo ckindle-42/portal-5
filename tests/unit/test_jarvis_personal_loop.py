@@ -1,4 +1,4 @@
-"""Personal tool loop and planner. No network."""
+"""Personal tool loop and deterministic router. No network, no planner."""
 
 from __future__ import annotations
 
@@ -11,9 +11,13 @@ import pytest
 
 from portal.modules.orchestration.personal_intake import telegram_do_reply
 from portal.modules.orchestration.personal_policy import (
+    CODE_WORKSPACE,
+    CORE_TOOLS,
+    FAST_WORKSPACE,
     HOP_CAP,
-    PLANNER_WORKSPACE,
-    validate_personal_plan,
+    MAX_ROUTE_TOOLS,
+    concrete_work_question,
+    route_personal_task,
 )
 from portal.modules.orchestration.personal_runner import (
     Completion,
@@ -70,27 +74,153 @@ def _receipt(tmp_path: Path, task_id: str) -> dict[str, Any]:
     return payload
 
 
-def _plan(*tools: str) -> str:
-    return json.dumps(
-        {
-            "steps": [
-                {
-                    "id": "step",
-                    "tools": list(tools),
-                    "paths": [],
-                    "budget": {"context_tokens": 2048},
-                }
-            ]
-        }
+def _tool_call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": f"c-{name}",
+        "type": "function",
+        "function": {"name": name, "arguments": json.dumps(arguments)},
+    }
+
+
+# ── the route: seat + bounded bundle, no planner turn ─────────────────────────
+
+BENCHMARKS = [
+    (
+        "List the three largest files in /workspace/generated and report their sizes.",
+        "core",
+        Completion(
+            "a.bin 300 bytes, b.bin 200 bytes, c.bin 100 bytes.",
+            (),
+            1,
+            ("workspace_files",),
+            (json.dumps({"files": [{"path": "generated/a.bin", "size": 300}]}),),
+        ),
+    ),
+    (
+        "write a one-page Word document summarising tonight's security sweep: "
+        "MAL count, critical count, and what is still open",
+        "core+documents",
+        Completion(
+            "MAL 0, CRITICAL 2 — /workspace/generated/documents/sweep.docx",
+            (),
+            1,
+            ("security_sweep", "create_word_document"),
+            (json.dumps({"path": "/workspace/generated/documents/sweep.docx"}),),
+        ),
+    ),
+    (
+        "review scripts/engine_install_plan.py and report every code path that can "
+        "downgrade a package, with line numbers",
+        "core",
+        Completion(
+            "Line 13 downgrades when version < pinned; line 41 downgrades a batch.",
+            (),
+            1,
+            ("read_text_file",),
+            (
+                json.dumps(
+                    {
+                        "content": "12 if version < pinned:\n13     downgrade(version)",
+                        "path": "/repo/scripts/engine_install_plan.py",
+                    }
+                ),
+            ),
+        ),
+    ),
+    (
+        "list the Proxmox VMs that are currently stopped",
+        "core+proxmox",
+        Completion("VMs 101 and 102 are stopped.", (), 1, ("proxmox_list_vms",)),
+    ),
+    (
+        "what is the Portal pipeline status and which models are loaded right now",
+        "core",
+        Completion("Healthy; one model loaded.", (), 1, ("get_pipeline_status",)),
+    ),
+]
+
+
+@pytest.mark.parametrize(("text", "bundle", "answer"), BENCHMARKS)
+def test_a_benchmark_request_routes_to_a_bounded_bundle_with_no_planner_turn(
+    tmp_path: Path, text: str, bundle: str, answer: Completion
+) -> None:
+    reply = telegram_do_reply(tmp_path, 1, text)
+    task_id = reply.removeprefix("queued ")
+    caller = _Caller([answer])
+
+    result = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+
+    assert result is not None and result.status == "done"
+    assert [body["model"] for body in caller.bodies] == [FAST_WORKSPACE], "no planner call"
+    offered = caller.bodies[0]["portal_bite_tools"]
+    assert 0 < len(offered) <= MAX_ROUTE_TOOLS
+    receipt = _receipt(tmp_path, task_id)
+    assert receipt["route"] == {
+        "bundle": bundle,
+        "workspace": FAST_WORKSPACE,
+        "tools": sorted(offered),
+    }
+    assert receipt["workspace"] == FAST_WORKSPACE
+
+
+def test_a_failed_attempt_receipt_also_records_the_route(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 1, "list the Proxmox VMs that are currently stopped")
+    caller = _Caller([Completion("", (), 0), Completion("", (), 0)])
+
+    poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+
+    attempt = json.loads(
+        next(tmp_path.glob("*/attempts/local-1/receipt.json")).read_text(encoding="utf-8")
+    )
+    assert attempt["route"]["bundle"] == "core+proxmox"
+    assert "proxmox_list_vms" in attempt["route"]["tools"]
+    assert attempt["workspace"] == FAST_WORKSPACE
+
+
+def test_a_named_domain_bundle_is_added_without_exceeding_the_cap() -> None:
+    route = route_personal_task("write a word document about the proxmox vms")
+    assert route.bundle_name == "core+documents"
+    assert len(route.tools) <= MAX_ROUTE_TOOLS
+
+
+def test_the_tool_cap_holds_even_with_a_confirm_tool() -> None:
+    route = route_personal_task("remember this and write a word document")
+    assert route.needs_confirm is True
+    assert len(route.tools) <= MAX_ROUTE_TOOLS
+
+
+def test_a_code_request_routes_to_the_coding_seat_and_waits_for_confirm() -> None:
+    route = route_personal_task("run this python snippet over the task files")
+    assert route.workspace == CODE_WORKSPACE
+    assert "execute_python" in route.tools
+    assert route.needs_confirm is True
+
+
+def test_a_mutating_request_waits_for_confirm_and_names_the_request() -> None:
+    route = route_personal_task("snapshot the throwaway vm")
+    assert route.needs_confirm is True
+    assert "snapshot" in route.confirm_summary
+
+
+def test_remember_is_only_offered_by_the_confirm_route() -> None:
+    route = route_personal_task("remember that I prefer concise bullet points")
+    assert route.needs_confirm is True
+    assert "remember" in route.tools
+    assert "remember" not in route_personal_task("what is the queue status").tools
+
+
+def test_a_hidden_fleet_tool_is_never_offered() -> None:
+    route = route_personal_task("git status of the worktree", frozenset({"git"}))
+    assert not {name for name in route.tools if name.startswith("git_")}
+
+
+def test_the_router_asks_instead_of_guessing_a_cleanup() -> None:
+    assert route_personal_task("clean things up").ask_question == concrete_work_question(
+        "clean things up"
     )
 
 
-# The mocked tool-loop happy path (plan → tool call → done → receipt shape) is
-# exercised live by `portal trace --section jarvis`; the offline duplicate
-# (test_tool_loop_writes_receipt_and_outbox_within_eight_hops,
-# test_read_only_plan_without_budget_defaults_and_runs_from_receipt_shape,
-# test_code_tools_wait_for_confirm) was paid for that hop and its negative.
-# Confirm/safety/contract nets stay below.
+# ── the tool loop ─────────────────────────────────────────────────────────────
 
 
 def test_ninth_local_hop_is_not_executed(tmp_path: Path) -> None:
@@ -105,7 +235,6 @@ def test_ninth_local_hop_is_not_executed(tmp_path: Path) -> None:
     )
     caller = _Caller(
         [
-            Completion(_plan("queue_status"), (), 0),
             Completion("", calls, 6),
             Completion("stopped", (), 0),
         ]
@@ -113,7 +242,7 @@ def test_ninth_local_hop_is_not_executed(tmp_path: Path) -> None:
     result = poll_personal_tasks(tmp_path, _Notices(), caller)
     receipt_path = next((tmp_path).glob("*/receipt.json"))
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-    # Hop-cap exhaustion without a final answer is now a retryable J9 failure.
+    # Hop-cap exhaustion without a final answer is a retryable J9 failure.
     assert result is not None and result.status == "retrying"
     assert receipt["hops"] <= HOP_CAP
     assert receipt["tool_calls"].count("queue_status") <= 2
@@ -121,42 +250,17 @@ def test_ninth_local_hop_is_not_executed(tmp_path: Path) -> None:
 
 def test_tool_outside_the_allowlist_is_not_logged(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 1, "run the mystery command")
-    caller = _Caller([Completion(_plan("shell_exec"), (), 0), Completion("should not run", (), 0)])
+    caller = _Caller([Completion("should not run", (_tool_call("shell_exec", {}),), 0)])
     result = poll_personal_tasks(tmp_path, _Notices(), caller)
     assert result is not None and result.status == "rejected"
     assert len(caller.bodies) == 1
-    assert caller.bodies[0]["model"] == PLANNER_WORKSPACE
+    assert caller.bodies[0]["model"] == FAST_WORKSPACE
     stored = PersonalStore(tmp_path).get(result.task_id)
     assert stored is not None and stored.tool_log == "[]"
     assert stored.status == "rejected"
 
 
-def test_validator_rejects_mixed_steps_and_invented_paths(tmp_path: Path) -> None:
-    mixed = {
-        "steps": [
-            {
-                "tools": ["queue_status", "execute_bash"],
-                "paths": [],
-                "budget": {"context_tokens": 128},
-            }
-        ]
-    }
-    with pytest.raises(ValueError, match="separate"):
-        validate_personal_plan(mixed, tmp_path, frozenset())
-    invented = {
-        "steps": [
-            {
-                "tools": ["read_receipt"],
-                "paths": ["/etc/passwd"],
-                "budget": {"context_tokens": 128},
-            }
-        ]
-    }
-    with pytest.raises(ValueError, match="outside"):
-        validate_personal_plan(invented, tmp_path, frozenset())
-
-
-def test_genuinely_invalid_plan_blocks_after_two_attempts_without_cloud(
+def test_two_empty_local_attempts_block_without_cloud(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from portal.modules.orchestration import personal_runner
@@ -164,14 +268,14 @@ def test_genuinely_invalid_plan_blocks_after_two_attempts_without_cloud(
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: False)
     reply = telegram_do_reply(tmp_path, 5388311056, "what is the queue status in one paragraph")
     task_id = reply.removeprefix("queued ")
-    caller = _Caller([Completion("not json at all", (), 0), Completion("still not json", (), 0)])
+    caller = _Caller([Completion("", (), 0), Completion("", (), 0)])
     notices = _Notices()
     first = poll_personal_tasks(tmp_path, notices, caller)
     result = poll_personal_tasks(tmp_path, notices, caller)
     assert first is not None and first.status == "retrying"
     assert result is not None and result.status == "blocked"
-    receipt = json.loads((tmp_path / task_id / "receipt.json").read_text(encoding="utf-8"))
-    assert receipt["plan"] is None
+    receipt = _receipt(tmp_path, task_id)
+    assert receipt["route"] is not None
     assert receipt["status"] == "blocked"
     assert len(receipt["local_attempts"]) == 2
     assert receipt["hops"] == 0  # recall is a direct MCP call, not a model hop
@@ -183,12 +287,7 @@ def test_genuinely_invalid_plan_blocks_after_two_attempts_without_cloud(
 def test_a_pipeline_tool_handed_back_to_the_runner_is_a_retryable_fault(tmp_path: Path) -> None:
     """The seat's MCP tools belong to the Pipeline; a call returned to us is a fault, not a denial."""
     telegram_do_reply(tmp_path, 1, "what is the Portal pipeline status")
-    call = {
-        "id": "c1",
-        "type": "function",
-        "function": {"name": "get_pipeline_status", "arguments": "{}"},
-    }
-    caller = _Caller([Completion(_plan("get_pipeline_status"), (), 0), Completion("", (call,), 0)])
+    caller = _Caller([Completion("", (_tool_call("get_pipeline_status", {}),), 0)])
 
     result = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
 
@@ -199,8 +298,6 @@ def test_a_pipeline_tool_handed_back_to_the_runner_is_a_retryable_fault(tmp_path
 
 def test_an_ambiguous_request_asks_one_question_and_calls_no_tool(tmp_path: Path) -> None:
     """2026-11-20 scenario: "clean things up" must ask, never guess a destructive action."""
-    from portal.modules.orchestration.personal_policy import concrete_work_question
-
     telegram_do_reply(tmp_path, 1, "clean things up")
     caller = _Caller([])
     notices = _Notices()
@@ -213,35 +310,8 @@ def test_an_ambiguous_request_asks_one_question_and_calls_no_tool(tmp_path: Path
     receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["final_text"] == question
     assert receipt["tool_calls"] == []
+    assert receipt["route"]["bundle"] == "ask"
     assert notices.messages[-1][2] == question
-
-
-def test_an_ask_plan_without_a_question_is_rejected(tmp_path: Path) -> None:
-    telegram_do_reply(tmp_path, 1, "what is the queue status")
-    caller = _Caller(
-        [Completion('{"action": "ask"}', (), 0), Completion('{"action": "ask"}', (), 0)]
-    )
-
-    result = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
-
-    assert result is not None and result.status == "retrying"
-    receipt = json.loads((tmp_path / result.task_id / "receipt.json").read_text(encoding="utf-8"))
-    assert "question" in str(receipt["error"])
-
-
-def test_validator_rejects_bad_budget_types_and_bounds(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="budget"):
-        validate_personal_plan(
-            {"steps": [{"tools": ["queue_status"], "budget": "invalid"}]},
-            tmp_path,
-            frozenset(),
-        )
-    with pytest.raises(ValueError, match="exceeds"):
-        validate_personal_plan(
-            {"steps": [{"tools": ["queue_status"], "budget": {"context_tokens": 999_999}}]},
-            tmp_path,
-            frozenset(),
-        )
 
 
 def test_telegram_notice_sink_exposes_notify_for_personal_tasks(tmp_path: Path) -> None:
@@ -268,7 +338,7 @@ def test_long_personal_task_sends_one_checkin_before_completion(
 
     class SlowCaller(_Caller):
         def complete(self, body: dict[str, Any]) -> Completion:
-            if len(self.bodies) == 2:
+            if len(self.bodies) == 1:
                 assert checkin_sent.wait(timeout=5)
             return super().complete(body)
 
@@ -276,18 +346,7 @@ def test_long_personal_task_sends_one_checkin_before_completion(
     task_id = reply.removeprefix("queued ")
     caller = SlowCaller(
         [
-            Completion(_plan("read_receipt"), (), 0),
-            Completion(
-                "",
-                (
-                    {
-                        "id": "c1",
-                        "type": "function",
-                        "function": {"name": "read_receipt", "arguments": "{}"},
-                    },
-                ),
-                0,
-            ),
+            Completion("", (_tool_call("read_receipt", {}),), 0),
             Completion("Receipt read.", (), 0),
         ]
     )
@@ -303,15 +362,15 @@ def test_long_personal_task_sends_one_checkin_before_completion(
     assert notices.messages[1][2] == "Receipt read."
 
 
-def test_confirmed_template_request_hands_to_arm_and_rejects_external_path(
+def test_a_confirmed_template_row_hands_to_arm_and_rejects_external_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """A row queued by the old planner still finishes; the template path check stays."""
     from portal.modules.orchestration import owui_entry
     from portal.modules.orchestration.queue import QueueLedger
 
     repo = Path.cwd()
-    queue_root = tmp_path
-    monkeypatch.setattr(owui_entry, "tasks_root", lambda: queue_root)
+    monkeypatch.setattr(owui_entry, "tasks_root", lambda: tmp_path)
     monkeypatch.setattr(owui_entry, "_allow_roots", lambda: (repo, tmp_path))
     action = {
         "action": "enqueue-template",
@@ -320,36 +379,35 @@ def test_confirmed_template_request_hands_to_arm_and_rejects_external_path(
         "parameters": {
             "source_file": "portal/modules/orchestration/personal_runner.py",
             "test_file": "tests/unit/test_jarvis_personal_loop.py",
-            "expected_behavior": "preserve the planned behavior",
+            "expected_behavior": "preserve the routed behavior",
         },
+        "source_dir": str(repo),
     }
-    telegram_do_reply(tmp_path, 1, "queue a test_fixing repair")
-    caller = _Caller([Completion(json.dumps(action), (), 0)])
-    sink = _Notices()
+    store = PersonalStore(tmp_path)
+    task = store.add("telegram", "1", "queue a test_fixing repair")
+    store.update(task.id, status="pending", plan_json=json.dumps(action))
+    assert apply_personal_decision(tmp_path, task.id, "confirm") == "confirmed"
 
-    pending = poll_personal_tasks(tmp_path, sink, caller)
-    assert pending is not None and pending.status == "pending"
-    assert apply_personal_decision(tmp_path, pending.task_id, "confirm") == "confirmed"
-    handed = poll_personal_tasks(tmp_path, sink, caller)
+    handed = poll_personal_tasks(tmp_path, _Notices(), _Caller([]))
 
     assert handed is not None and handed.status == "handed-to-arm"
-    receipt = json.loads((tmp_path / pending.task_id / "receipt.json").read_text(encoding="utf-8"))
-    assert receipt["arm_task_id"] == f"jarvis-{pending.task_id}"
-    with QueueLedger(queue_root) as ledger:
+    receipt = json.loads((tmp_path / task.id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["arm_task_id"] == f"jarvis-{task.id}"
+    with QueueLedger(tmp_path) as ledger:
         assert len(ledger.items()) == 1
 
-    queue_root = tmp_path / "bad"
-    telegram_do_reply(queue_root, 1, "queue a test_fixing repair")
-    action["parameters"] = {
-        "source_file": "/etc/passwd",
-        "test_file": "tests/unit/test_jarvis_personal_loop.py",
-        "expected_behavior": "preserve the planned behavior",
-    }
-    bad_caller = _Caller([Completion(json.dumps(action), (), 0)])
-    rejected = poll_personal_tasks(queue_root, sink, bad_caller)
-    assert rejected is not None and rejected.status == "rejected"
-    with QueueLedger(queue_root) as ledger:
-        assert ledger.items() == []
+    bad = dict(action)
+    bad["parameters"] = {**action["parameters"], "source_file": "/etc/passwd"}
+    rejected = store.add("telegram", "1", "queue a test_fixing repair")
+    store.update(rejected.id, status="pending", plan_json=json.dumps(bad))
+    assert apply_personal_decision(tmp_path, rejected.id, "confirm") == "confirmed"
+    result = poll_personal_tasks(tmp_path, _Notices(), _Caller([]))
+    assert result is not None and result.status != "handed-to-arm"
+    with QueueLedger(tmp_path) as ledger:
+        assert len(ledger.items()) == 1, "the external path queued nothing"
+
+
+# ── recall plumbing (pull-only memory lands in slice S3) ─────────────────────
 
 
 def test_recall_fault_is_logged_and_the_task_still_runs(tmp_path: Path) -> None:
@@ -358,12 +416,7 @@ def test_recall_fault_is_logged_and_the_task_still_runs(tmp_path: Path) -> None:
         tmp_path, 1, "List the three largest files in /workspace/generated and report their sizes."
     )
     task_id = reply.removeprefix("queued ")
-    caller = _Caller(
-        [
-            Completion(_plan("queue_status"), (), 0),
-            Completion("Three files.", (), 1, ("queue_status",)),
-        ]
-    )
+    caller = _Caller([Completion("Three files.", (), 1, ("workspace_files",))])
 
     def broken_recall(query: str) -> str:
         raise RuntimeError("task memory recall did not dispatch exactly one recall tool")
@@ -373,10 +426,9 @@ def test_recall_fault_is_logged_and_the_task_still_runs(tmp_path: Path) -> None:
     assert result is not None and result.status == "done"
     receipt = _receipt(tmp_path, task_id)
     assert receipt["status"] == "done"
-    assert receipt["plan"] is not None
+    assert receipt["route"] is not None
     assert "task memory recall did not dispatch exactly one recall tool" in receipt["recall_error"]
-    assert caller.bodies[0]["model"] == PLANNER_WORKSPACE
-    assert "Recalled memory" not in caller.bodies[0]["messages"][-1]["content"]
+    assert caller.bodies[0]["model"] == FAST_WORKSPACE
 
 
 def test_recall_fault_alone_never_retries_or_escalates_to_cloud(
@@ -388,12 +440,7 @@ def test_recall_fault_alone_never_retries_or_escalates_to_cloud(
     reply = telegram_do_reply(tmp_path, 1, "what is the queue status in one paragraph")
     task_id = reply.removeprefix("queued ")
     dispatcher = _RecordingDispatcher()
-    caller = _Caller(
-        [
-            Completion(_plan("queue_status"), (), 0),
-            Completion("Queue is empty.", (), 1, ("queue_status",)),
-        ]
-    )
+    caller = _Caller([Completion("Queue is empty.", (), 1, ("queue_status",))])
 
     def unreachable(query: str) -> str:
         raise RuntimeError("memory MCP unreachable")
@@ -408,14 +455,9 @@ def test_recall_fault_alone_never_retries_or_escalates_to_cloud(
     assert "memory MCP unreachable" in _receipt(tmp_path, task_id)["recall_error"]
 
 
-def test_recalled_memory_reaches_the_planner(tmp_path: Path) -> None:
+def test_recalled_memory_reaches_the_executor(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 1, "what is the queue status in one paragraph")
-    caller = _Caller(
-        [
-            Completion(_plan("queue_status"), (), 0),
-            Completion("Queue is empty.", (), 1, ("queue_status",)),
-        ]
-    )
+    caller = _Caller([Completion("Queue is empty.", (), 1, ("queue_status",))])
 
     poll_personal_tasks(
         tmp_path, _Notices(), caller, recall=lambda query: "operator prefers terse answers"
@@ -501,9 +543,9 @@ def test_a_broken_recall_still_escalates_a_task_that_fails_on_its_own(
             )
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True)
-    reply = telegram_do_reply(tmp_path, 1, "help with an invalid local plan")
+    reply = telegram_do_reply(tmp_path, 1, "help with an empty answer")
     task_id = reply.removeprefix("queued ")
-    caller = _Caller([Completion("not JSON", (), 0), Completion("still not JSON", (), 0)])
+    caller = _Caller([Completion("", (), 0), Completion("", (), 0)])
     dispatcher = Dispatcher()
 
     def unreachable(query: str) -> str:
@@ -522,7 +564,7 @@ def test_a_broken_recall_still_escalates_a_task_that_fails_on_its_own(
         (tmp_path / task_id / "attempts" / "local-1" / "receipt.json").read_text(encoding="utf-8")
     )
     assert "memory MCP unreachable" in local["recall_error"]
-    assert "planner" in local["error"] or "JSON" in local["error"]
+    assert "empty final answer" in local["error"]
     assert "cloud lane ran" in _receipt(tmp_path, task_id)["final_text"]
 
 
@@ -532,25 +574,19 @@ def test_a_broken_recall_still_escalates_a_task_that_fails_on_its_own(
 def test_acceptance_check_flags_the_three_real_failures() -> None:
     from portal.modules.orchestration.personal_policy import acceptance_failure
 
-    plan = {"steps": [{"id": "s0", "tools": ["queue_status"], "paths": [], "budget": {}}]}
-    satisfied = acceptance_failure(plan, "Two jobs queued.", ["queue_status"], [])
-    assert satisfied is None
-    assert acceptance_failure(plan, "   ", [], []) is not None
+    assert acceptance_failure("Two jobs queued.", ["queue_status"], []) is None
+    assert acceptance_failure("   ", [], []) is not None
     tool_error = acceptance_failure(
-        plan, "Done.", ["queue_status"], ['{"error": "Tool \'x\' in backoff"}']
+        "Done.", ["queue_status"], ['{"error": "Tool \'x\' in backoff"}']
     )
     assert tool_error is not None and "tool error" in tool_error
-    unsatisfied = acceptance_failure(plan, "I could not check.", [], [])
-    assert unsatisfied is not None and "not satisfied" in unsatisfied
-    clean_output = acceptance_failure(plan, "Ok.", ["queue_status"], ['{"counts": {}}'])
+    clean_output = acceptance_failure("Ok.", ["queue_status"], ['{"counts": {}}'])
     assert clean_output is None
-    listing = {"steps": [{"id": "s0", "tools": ["workspace_files"], "paths": [], "budget": {}}]}
     word = (
         "write a one-page Word document summarising tonight's security sweep: "
         "MAL count, critical count, and what is still open"
     )
     fabricated = acceptance_failure(
-        listing,
         "I cannot fulfill the request. MAL Count: [Insert MAL Count]",
         ["workspace_files"],
         ['{"files": []}'],
@@ -558,7 +594,6 @@ def test_acceptance_check_flags_the_three_real_failures() -> None:
     )
     assert fabricated == "acceptance: word document was not created"
     review = acceptance_failure(
-        listing,
         "The file does not exist in the workspace.",
         ["workspace_files"],
         ['{"files": [{"path": "generated/music/a.wav", "size": 1}]}'],
@@ -566,7 +601,6 @@ def test_acceptance_check_flags_the_three_real_failures() -> None:
     )
     assert review is not None and "scripts/engine_install_plan.py" in review
     omitted = acceptance_failure(
-        listing,
         "music_a.wav is 5760078 bytes",
         ["workspace_files"],
         ['{"files": [{"path": "generated/tasks/a.db", "size": 159576064}]}'],
@@ -601,9 +635,7 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
     assert task_id is not None
     caller = _Caller(
         [
-            Completion(_plan("queue_status"), (), 0),
             Completion("", (), 0),
-            Completion(_plan("queue_status"), (), 0),
             Completion("", (), 0),
         ]
     )
@@ -632,20 +664,24 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
 
 def test_a_dispatched_tool_error_is_a_retryable_failure(tmp_path: Path) -> None:
     """J9: a tool that answered with an error object is a failed attempt."""
-    telegram_do_reply(tmp_path, 1, "summarize the repository state")
+    telegram_do_reply(tmp_path, 1, "summarize the git state of the repository")
     caller = _Caller(
         [
-            Completion(_plan("git_status"), (), 0),
             Completion(
                 "I could not read the repository.",
                 (),
                 1,
                 ("git_status",),
                 ('{"error": "Tool \'git_status\' not in registry — call ignored"}',),
-            ),
+            )
         ]
     )
     result = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
     assert result is not None and result.status == "retrying"
     receipt = json.loads(next(tmp_path.glob("*/receipt.json")).read_text(encoding="utf-8"))
     assert "acceptance: tool error" in receipt["error"]
+
+
+def test_the_core_bundle_is_the_documented_read_set() -> None:
+    assert route_personal_task("what is the queue status").tools >= CORE_TOOLS
+    assert "workspace_files" in CORE_TOOLS and "recall" in CORE_TOOLS

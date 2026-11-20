@@ -1,4 +1,4 @@
-"""J5: risky personal steps wait for confirm and do not call tools. No network."""
+"""J5: risky personal requests wait for confirm and call no tool first. No network."""
 
 from __future__ import annotations
 
@@ -47,20 +47,13 @@ class _Sink:
         self.messages.append(message)
 
 
-def _plan(tool: str) -> str:
-    return json.dumps(
-        {"steps": [{"id": "step", "tools": [tool], "paths": [], "budget": {"context_tokens": 512}}]}
-    )
-
-
 def test_restart_is_pending_and_abort_cancels(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 7, "restart the pipeline")
-    caller = _Caller([Completion(_plan("queue_status"), (), 0)])
+    caller = _Caller([])
     sink = _Sink(tmp_path / "telegram.sqlite3")
     result = poll_personal_tasks(tmp_path, sink, caller)
     assert result is not None and result.status == "pending"
-    assert len(caller.bodies) == 1
-    assert caller.bodies[0]["portal_no_tools"] is True
+    assert caller.bodies == [], "no model call before the operator confirms"
     task = PersonalStore(tmp_path).get(result.task_id)
     assert task is not None and task.status == "pending" and task.tool_log == "[]"
     pending = sink.store.pending_control_requests(result.task_id)
@@ -69,9 +62,17 @@ def test_restart_is_pending_and_abort_cancels(tmp_path: Path) -> None:
     assert PersonalStore(tmp_path).get(result.task_id).status == "cancelled"  # type: ignore[union-attr]
 
 
+def test_the_confirm_prompt_names_the_request(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 7, "restart the pipeline")
+    sink = _Sink(tmp_path / "telegram.sqlite3")
+    result = poll_personal_tasks(tmp_path, sink, _Caller([]))
+    assert result is not None
+    assert any("restart the pipeline" in message for message in sink.messages)
+
+
 def test_confirm_holds_without_a_tool_call(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 7, "restart the pipeline")
-    caller = _Caller([Completion(_plan("execute_bash"), (), 0)])
+    caller = _Caller([])
     sink = _Sink(tmp_path / "telegram.sqlite3")
     result = poll_personal_tasks(tmp_path, sink, caller)
     assert result is not None
@@ -82,10 +83,10 @@ def test_confirm_holds_without_a_tool_call(tmp_path: Path) -> None:
     assert receipt["final_text"] == HELD_TEXT
     assert receipt["tool_calls"] == []
     assert receipt["hops"] == 0
-    assert len(caller.bodies) == 1
+    assert caller.bodies == []
 
 
-def test_hidden_fleet_is_rejected_before_the_planner(tmp_path: Path) -> None:
+def test_hidden_fleet_is_rejected_before_any_model_call(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 7, "check binresearch for the vm")
     caller = _Caller([])
     result = poll_personal_tasks(tmp_path, _Sink(tmp_path / "telegram.sqlite3"), caller)
@@ -95,25 +96,20 @@ def test_hidden_fleet_is_rejected_before_the_planner(tmp_path: Path) -> None:
     assert stored is not None and stored.tool_log == "[]"
 
 
-def test_confirmed_validated_execute_bash_plan_runs(tmp_path: Path) -> None:
-    telegram_do_reply(tmp_path, 7, "list the three largest files in the task directory")
-    caller = _Caller(
-        [
-            Completion(_plan("execute_bash"), (), 0),
-            Completion("Found three files.", (), 1, ("execute_bash",)),
-        ]
-    )
+def test_a_code_request_waits_for_confirm_then_runs_on_the_coding_seat(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 7, "run this python snippet over the task files")
+    caller = _Caller([Completion("Found three files.", (), 1, ("execute_python",))])
     sink = _Sink(tmp_path / "telegram.sqlite3")
     pending = poll_personal_tasks(tmp_path, sink, caller)
     assert pending is not None and pending.status == "pending"
+    assert caller.bodies == [], "the sandbox never runs before the confirm"
     assert apply_personal_decision(tmp_path, pending.task_id, "confirm") == "confirmed"
 
     result = poll_personal_tasks(tmp_path, sink, caller)
 
     assert result is not None and result.status == "done"
-    assert len(caller.bodies) == 2
-    assert caller.bodies[1]["model"] == CODE_WORKSPACE
-    assert caller.bodies[1]["portal_bite_tools"] == ["execute_bash"]
+    assert caller.bodies[-1]["model"] == CODE_WORKSPACE
+    assert "execute_python" in caller.bodies[-1]["portal_bite_tools"]  # type: ignore[operator]
     receipt = json.loads((tmp_path / pending.task_id / "receipt.json").read_text(encoding="utf-8"))
     assert receipt["final_text"] == "Found three files."
     assert receipt["final_text"] != HELD_TEXT
@@ -123,95 +119,68 @@ def test_named_external_fleets_require_confirmation_instead_of_denial() -> None:
     assert text_gate("use unifi", frozenset()) == "confirm"
     assert text_gate("use browser", frozenset()) == "confirm"
     # 2026-11-20: a read-only proxmox question answers without a confirm prompt; a mutating
-    # proxmox tool in the plan still waits for one (see the two tests below).
+    # proxmox request still waits for one (see the tests below).
     assert text_gate("list the Proxmox VMs that are currently stopped", frozenset()) == "allow"
     assert text_gate("git_status the worktree", frozenset()) == "allow"
 
 
-def test_read_only_proxmox_plan_runs_without_confirm(tmp_path: Path) -> None:
+def test_read_only_proxmox_runs_without_confirm(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 7, "list the Proxmox VMs that are currently stopped")
-    caller = _Caller(
-        [
-            Completion(_plan("proxmox_list_vms"), (), 0),
-            Completion("vm 100 is stopped.", (), 1, ("proxmox_list_vms",)),
-        ]
-    )
+    caller = _Caller([Completion("vm 100 is stopped.", (), 1, ("proxmox_list_vms",))])
     sink = _Sink(tmp_path / "telegram.sqlite3")
 
     result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
 
     assert result is not None and result.status == "done"
-    assert caller.bodies[1]["portal_bite_tools"] == ["proxmox_list_vms"]
+    assert "proxmox_list_vms" in caller.bodies[0]["portal_bite_tools"]  # type: ignore[operator]
 
 
-def test_a_mutating_proxmox_plan_waits_for_confirm(tmp_path: Path) -> None:
+def test_a_mutating_proxmox_request_waits_for_confirm(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 7, "snapshot the throwaway vm")
-    caller = _Caller([Completion(_plan("proxmox_create_snapshot"), (), 0)])
+    caller = _Caller([])
     sink = _Sink(tmp_path / "telegram.sqlite3")
 
     result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
 
     assert result is not None and result.status == "pending"
-    assert len(caller.bodies) == 1, "no tool ran before the confirm"
+    assert caller.bodies == [], "no tool ran before the confirm"
 
 
-def test_read_only_git_plan_runs_without_confirm(tmp_path: Path) -> None:
+def test_read_only_git_runs_without_confirm(tmp_path: Path) -> None:
     """J-R2: git_status/git_log/git_diff are open; only mutations confirm."""
-    telegram_do_reply(tmp_path, 7, "summarize the worktree state in one paragraph")
+    telegram_do_reply(tmp_path, 7, "git status of the worktree in one paragraph")
     caller = _Caller(
-        [
-            Completion(_plan("git_status"), (), 0),
-            Completion("The worktree is clean on the lane branch.", (), 1, ("git_status",)),
-        ]
+        [Completion("The worktree is clean on the lane branch.", (), 1, ("git_status",))]
     )
     sink = _Sink(tmp_path / "telegram.sqlite3")
     result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
     assert result is not None and result.status == "done"
-    assert len(caller.bodies) == 2
     task = PersonalStore(tmp_path).get(result.task_id)
     assert task is not None and task.status == "done"
 
 
-def test_git_commit_and_push_plans_wait_for_confirm(tmp_path: Path) -> None:
-    telegram_do_reply(tmp_path, 7, "land the prepared change in the other repo")
-    two = json.dumps(
-        {
-            "steps": [
-                {
-                    "id": "step",
-                    "tools": ["git_commit", "git_push"],
-                    "paths": [],
-                    "budget": {"context_tokens": 512},
-                }
-            ]
-        }
-    )
-    caller = _Caller([Completion(two, (), 0)])
+def test_a_git_push_request_waits_for_confirm(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 7, "git commit and push the prepared change")
+    caller = _Caller([])
     sink = _Sink(tmp_path / "telegram.sqlite3")
     result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
     assert result is not None and result.status == "pending"
+    assert caller.bodies == []
     task = PersonalStore(tmp_path).get(result.task_id)
     assert task is not None and task.tool_log == "[]"
-    planned = set(json.loads(task.plan_json or "{}")["steps"][0]["tools"])
-    assert planned == {"git_commit", "git_push"}
+    stored = json.loads(task.plan_json or "{}")
+    assert stored["needs_confirm"] is True
+    assert "git_commit" not in stored["tools"], "a mutating tool is never offered"
 
 
-def test_unifi_plan_waits_for_confirm_then_runs_the_read(tmp_path: Path) -> None:
+def test_a_unifi_request_waits_for_confirm_before_any_tool_call(tmp_path: Path) -> None:
+    """No bundle lists unifi tools yet; the request still cannot act unconfirmed."""
     telegram_do_reply(tmp_path, 7, "read the unifi device list")
-    caller = _Caller(
-        [
-            Completion(_plan("unifi_list_devices"), (), 0),
-            Completion("Six devices online.", (), 1, ("unifi_list_devices",)),
-        ]
-    )
+    caller = _Caller([])
     sink = _Sink(tmp_path / "telegram.sqlite3")
-    pending = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
-    assert pending is not None and pending.status == "pending"
-    assert apply_personal_decision(tmp_path, pending.task_id, "confirm") == "confirmed"
     result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
-    assert result is not None and result.status == "done"
-    receipt = json.loads((tmp_path / pending.task_id / "receipt.json").read_text(encoding="utf-8"))
-    assert receipt["tool_calls"] == ["unifi_list_devices"]
+    assert result is not None and result.status == "pending"
+    assert caller.bodies == []
 
 
 def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(
@@ -227,12 +196,7 @@ def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(
 
     monkeypatch.setattr(personal_runner, "_memory_recall", recall)
     telegram_do_reply(tmp_path, 7, "remember that I want Telegram replies under 400 characters")
-    caller = _Caller(
-        [
-            Completion(_plan("remember"), (), 0),
-            Completion("Saved the preference.", (), 1, ("remember",)),
-        ]
-    )
+    caller = _Caller([Completion("Saved the preference.", (), 1, ("remember",))])
     sink = _Sink(tmp_path / "telegram.sqlite3")
 
     pending = poll_personal_tasks(tmp_path, sink, caller)
@@ -241,15 +205,17 @@ def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(
     assert len(queries) == 1
     assert "operator id 7" in queries[0]
     assert "Telegram replies under 400 characters" in queries[0]
-    assert "Recalled no matching preference." in caller.bodies[0]["messages"][-1]["content"]
-    assert all("remember" not in body.get("portal_bite_tools", []) for body in caller.bodies)
+    assert caller.bodies == [], "remember is not offered before the confirm"
 
     assert apply_personal_decision(tmp_path, pending.task_id, "confirm") == "confirmed"
     finished = poll_personal_tasks(tmp_path, sink, caller)
 
     assert finished is not None and finished.status == "done"
-    assert len(queries) == 1  # the confirmed path reuses the stored plan, it does not recall again
-    assert caller.bodies[-1]["portal_bite_tools"] == ["remember"]
+    assert (
+        len(queries) == 1
+    )  # the confirmed path reuses the stored memory, it does not recall again
+    assert "Recalled no matching preference." in caller.bodies[-1]["messages"][-1]["content"]  # type: ignore[index]
+    assert "remember" in caller.bodies[-1]["portal_bite_tools"]  # type: ignore[operator]
 
 
 def test_personal_cloud_handoff_follows_two_local_failure_receipts(
@@ -272,8 +238,8 @@ def test_personal_cloud_handoff_follows_two_local_failure_receipts(
                 result_text="## RESULT\ndone — cloud lane ran.",
             )
 
-    telegram_do_reply(tmp_path, 7, "help with an invalid local plan")
-    caller = _Caller([Completion("not JSON", (), 0), Completion("still not JSON", (), 0)])
+    telegram_do_reply(tmp_path, 7, "help with an empty answer")
+    caller = _Caller([Completion("", (), 0), Completion("", (), 0)])
     sink = _Sink(tmp_path / "telegram.sqlite3")
     dispatcher = Dispatcher()
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
@@ -288,8 +254,7 @@ def test_personal_cloud_handoff_follows_two_local_failure_receipts(
     receipt = json.loads((tmp_path / second.task_id / "receipt.json").read_text(encoding="utf-8"))
     assert len(receipt["local_attempts"]) == 2
     brief = Path(str(dispatcher.calls[0]["brief"]))
-    assert "not JSON" in brief.read_text(encoding="utf-8")
-    assert "still not JSON" in brief.read_text(encoding="utf-8")
+    assert "empty final answer" in brief.read_text(encoding="utf-8")
 
 
 def test_personal_cloud_retry_stops_if_flag_is_disabled(
@@ -307,8 +272,8 @@ def test_personal_cloud_retry_stops_if_flag_is_disabled(
             self.calls += 1
             return SimpleNamespace(exit_code=1, status="failed", model="mock", result_text="failed")
 
-    telegram_do_reply(tmp_path, 7, "help with an invalid local plan")
-    caller = _Caller([Completion("not JSON", (), 0), Completion("still not JSON", (), 0)])
+    telegram_do_reply(tmp_path, 7, "help with an empty answer")
+    caller = _Caller([Completion("", (), 0), Completion("", (), 0)])
     sink = _Sink(tmp_path / "telegram.sqlite3")
     dispatcher = Dispatcher()
     enabled = True
