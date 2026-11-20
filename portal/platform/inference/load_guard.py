@@ -2031,9 +2031,10 @@ class LoadGuard:
         failover = self.failover_protected(OMLX)
         copies = self._counterpart_models(OLLAMA, model) if model else set()
         kept = 0.0
+        loading = 0.0
         names: list[str] = []
         for entry in status.get("models") or []:
-            if not isinstance(entry, dict) or not entry.get("loaded"):
+            if not isinstance(entry, dict) or not (entry.get("loaded") or entry.get("is_loading")):
                 continue
             mid = str(entry.get("id") or "")
             if not (
@@ -2045,9 +2046,12 @@ class LoadGuard:
                 or self._active_elsewhere(OMLX, mid)
             ):
                 continue
-            kept += float(entry.get("actual_size") or entry.get("estimated_size") or 0)
+            size = float(entry.get("actual_size") or entry.get("estimated_size") or 0)
+            kept += size
+            if not entry.get("loaded"):
+                loading += size  # may not have reached the counter yet
             names.append(mid)
-        return min(kept, float(status.get("current_model_memory") or 0)), names
+        return min(kept, float(status.get("current_model_memory") or 0) + loading), names
 
     def _hold_seat_prefill_room(
         self, status: dict[str, Any] | None, model: str, available: float
