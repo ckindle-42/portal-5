@@ -88,23 +88,15 @@ _engine_dep_plan() {
 
 # bootout is optional (the label may be unloaded). bootstrap and a running
 # state are not: a swallowed failure left com.portal5.video-mlx unloaded.
-_launchd_reload_or_fail() {
-    local label="$1" plist="$2"
-    local target="gui/$(id -u)/${label}"
-    launchctl bootout "$target" 2>/dev/null || true
-    if ! launchctl bootstrap "gui/$(id -u)" "$plist"; then
-        echo "  ❌ launchctl bootstrap failed for ${label}; service is not loaded" >&2
+# Reloads share _launchd_reload_job — bootout → wait gone → bootstrap retry
+# → wait /health; a bespoke bootout/bootstrap raced launchd's teardown here
+# and left the media services unloaded (2026-11-20, "Bootstrap failed: 5").
+_launchd_reload_or_fail() {  # label, plist, health_url
+    if ! _launchd_reload_job "$1" "$2" "gui/$(id -u)" "$3"; then
+        echo "  ❌ $1 is not serving $3 after the install reload" >&2
         exit 1
     fi
-    if ! launchctl kickstart -k "$target"; then
-        echo "  ❌ launchctl kickstart failed for ${label}" >&2
-        exit 1
-    fi
-    if ! launchctl print "$target" 2>/dev/null | grep -q 'state = running'; then
-        echo "  ❌ ${label} is not running after install" >&2
-        exit 1
-    fi
-    echo "  ✅ ${label} loaded and running"
+    echo "  ✅ $1 loaded and running"
 }
 
 _launch_install_music() {
@@ -215,7 +207,7 @@ PLIST
     launchctl bootout "gui/$(id -u)/com.portal5.music-minimax" 2>/dev/null || true
     launchctl bootout "gui/$(id -u)/com.portal5.music-ace-mcp" 2>/dev/null || true
     launchctl bootout "gui/$(id -u)/com.portal5.acestep-server" 2>/dev/null || true
-    _launchd_reload_or_fail com.portal5.music "$PLIST"
+    _launchd_reload_or_fail com.portal5.music "$PLIST" "http://127.0.0.1:${MUSIC_PORT}/health"
 }
 
 _launch_install_mflux() {
@@ -299,7 +291,7 @@ MX_START
     <key>StandardErrorPath</key><string>$MX_LOG</string>
 </dict></plist>
 PLIST
-    _launchd_reload_or_fail com.portal5.mflux "$PLIST"
+    _launchd_reload_or_fail com.portal5.mflux "$PLIST" "http://127.0.0.1:${MX_PORT}/health"
     echo "  ✅ Registered launchd service: com.portal5.mflux (port $MX_PORT)"
 }
 
@@ -456,7 +448,7 @@ PLIST
     # `launchctl load` on an already-loaded label is a no-op, so a rewritten
     # start.sh kept the old process running. Re-bootstrap and fail if it is
     # not actually running.
-    _launchd_reload_or_fail com.portal5.video-mlx "$PLIST"
+    _launchd_reload_or_fail com.portal5.video-mlx "$PLIST" "http://127.0.0.1:${VX_PORT}/health"
     echo "  ✅ Registered launchd service: com.portal5.video-mlx (port $VX_PORT)"
 }
 
