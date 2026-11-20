@@ -1116,11 +1116,27 @@ def _precondition_lines(run: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+def _speed_failure_lines(run: Mapping[str, Any]) -> list[str]:
+    lines: list[str] = []
+    for arm in ("off", "on"):
+        for failure in ((run.get(arm) or {}).get("speed") or {}).get("failures") or []:
+            lines.append(f"- {arm} speed failure: {failure}")
+    return lines
+
+
 def _speed_lines(run: Mapping[str, Any]) -> list[str]:
     comparison = run.get("comparison") or {}
     rows = comparison.get("rows") or []
+    failures = _speed_failure_lines(run)
     if not rows:
-        return ["## Decode tok/s", "", "Not measured (run aborted before both arms completed).", ""]
+        return [
+            "## Decode tok/s",
+            "",
+            "Not measured (run aborted before both arms completed).",
+            "",
+            *failures,
+            "",
+        ]
     lines = [
         f"## Decode tok/s (median of {run.get('reps')}, spread = max − min; pass metric)",
         "",
@@ -1137,6 +1153,9 @@ def _speed_lines(run: Mapping[str, Any]) -> list[str]:
             f"| {_fmt(row.get('delta_pct'), '+.1f')} | {'yes' if row['beyond'] else 'no'} |"
         )
     lines.append("")
+    if failures:
+        lines.extend(failures)
+        lines.append("")
     return lines
 
 

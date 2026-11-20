@@ -543,6 +543,16 @@ def test_a_changed_tool_name_is_a_correctness_regression():
 # ------------------------------------------------------------------------------- receipt
 
 
+def test_receipt_lists_a_failed_speed_size():
+    run = {
+        "stamp": "x",
+        "sizes": [2000],
+        "off": {"speed": {"sizes": {}, "failures": ["FAILED size 2000 tokens: timeout"]}},
+        "on": {},
+    }
+    assert "off speed failure: FAILED size 2000 tokens: timeout" in ab.render_receipt(run)
+
+
 def test_an_aborted_run_still_renders_a_receipt():
     receipt = ab.render_receipt(
         {"stamp": "20261120T153000Z", "abort": "host not quiet", "sizes": [2000]}
