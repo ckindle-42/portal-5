@@ -183,6 +183,12 @@ def test_a_named_domain_bundle_is_added_without_exceeding_the_cap() -> None:
     assert len(route.tools) <= MAX_ROUTE_TOOLS
 
 
+def test_the_tool_cap_holds_even_with_a_confirm_tool() -> None:
+    route = route_personal_task("remember this and write a word document")
+    assert route.needs_confirm is True
+    assert len(route.tools) <= MAX_ROUTE_TOOLS
+
+
 def test_a_code_request_routes_to_the_coding_seat_and_waits_for_confirm() -> None:
     route = route_personal_task("run this python snippet over the task files")
     assert route.workspace == CODE_WORKSPACE

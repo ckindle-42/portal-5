@@ -274,7 +274,7 @@ def route_personal_task(text: str, hidden_fleets: frozenset[str] = frozenset()) 
     question = concrete_work_question(text)
     if question is not None:
         return PersonalRoute(FAST_WORKSPACE, frozenset(), "ask", ask_question=question)
-    tools = set(CORE_TOOLS)
+    tools = set(CORE_TOOLS) | _named_confirm_tools(text)
     bundles = ["core"]
     for name, patterns, bundle in _DOMAIN_BUNDLES:
         if not any(pattern.search(text or "") for pattern in patterns):
@@ -283,7 +283,6 @@ def route_personal_task(text: str, hidden_fleets: frozenset[str] = frozenset()) 
             continue
         tools |= bundle
         bundles.append(name)
-    tools |= _named_confirm_tools(text)
     tools = {name for name in tools if not _tool_is_hidden(name, hidden_fleets)}
     needs_confirm = (
         text_gate(text, hidden_fleets) != "allow"

@@ -83,7 +83,7 @@ class _CheckIn:
         self.notices = notices
         self.lock = threading.Lock()
         self.hops = 0
-        self.last_tool = "planning"
+        self.last_tool = "routing"
         self.called: list[str] = []
         self.recall_error = ""
         self.finished = False
