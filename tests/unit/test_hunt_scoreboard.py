@@ -731,6 +731,44 @@ def test_a_run_root_scores_every_family_with_its_own_keys(
     )
 
 
+def test_on_source_folds_the_case_of_splunk_source_matches(tmp_path: Path) -> None:
+    # botsv2 notable #33 vs the keyed osquery events: the query names osqueryd.WARNING,
+    # the index stores osqueryd.warning; Splunk source matching is case-insensitive.
+    source = "/var/log/osquery/osqueryd.warning"
+    keys = _keys(source, "mac", {1: ["macbook_file_encryption"]})
+    query = (
+        'search index="botsv2" (source="/var/log/osquery/osqueryd.WARNING" '
+        'OR source="/var/log/osquery/osqueryd.WARNING.20170811-070436.221") '
+        '"exceeds size limit" | head 5'
+    )
+    notable = {
+        "notable_id": "misfit-crypt",
+        "generator": "misfit",
+        "source_id": "botsv2:osquery_warning",
+        "content_key": "misfit-crypt",
+        "entities": [],
+        "evidence": [
+            {
+                "line": (
+                    "W0811 14:50:40.060264 61181952 filesystem.cpp:114] Cannot read file "
+                    "that exceeds size limit: Downloads/GoT.S07E02.mkv.crypt"
+                ),
+                "query": query,
+                "earliest": FIRST,
+                "latest": FIRST + 3600.0,
+            }
+        ],
+    }
+    family = _family(
+        tmp_path,
+        notables=[notable],
+        keys=keys,
+        files={("mac", source): ["W0811 14:50:40.060264 exceeds size limit: x.crypt"]},
+    )
+    assert family["steps"][0]["first_rank"] == 0
+    assert family["recall"]["overall"]["None"] == 1
+
+
 def test_honesty_accepts_an_index_unseen_by_the_store() -> None:
     # botsv2, 2026-11-18: the store holds no botsv2 rows, so nothing is excluded and the loader's
     # leak guard is the protection; the scoreboard must score it rather than refuse.

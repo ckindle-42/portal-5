@@ -47,6 +47,9 @@ def _key(
     entity: str = "domain",
     admitted: bool | None = True,
     count: int | None = None,
+    klass: str | None = None,
+    credit: bool | None = None,
+    requires: list[str] | None = None,
 ) -> dict[str, Any]:
     row: dict[str, Any] = {
         "dataset": "botsv2",
@@ -60,6 +63,12 @@ def _key(
         "admitted": admitted,
         "audit": None if count is None else {"count": count},
     }
+    if klass is not None:
+        row["class"] = klass
+    if credit is not None:
+        row["credit"] = credit
+    if requires is not None:
+        row["requires"] = requires
     return row
 
 
@@ -275,3 +284,211 @@ def test_render_and_main_print_the_entity_report(tmp_path: Path, capsys: Any) ->
     assert "fruitfly/c2_beacon" in printed
     assert "eidk.duckdns.org" in printed
     assert "scenarios  top50 1/1" in printed
+
+
+def _sqli_notable() -> dict[str, Any]:
+    """Row-34 shape from the stored botsv2 run: the query terms select mysql keyed events;
+    the artefact values (/member.php, updatexml) appear nowhere in the notable text."""
+    line = (
+        '2017-08-08 17:58:59 hostname="gacrux", port="3306", database_name="mysql", '
+        'EVENT_ID="11", Duration="0.000167", '
+        "SQL_TEXT=\"SELECT * FROM mybb_users WHERE uid = '31'\""
+    )
+    return {
+        "generator": "similar_to_known",
+        "source_id": "botsv2:mysql:transaction:details",
+        "content_key": "similar_to_known|botsv2:mysql:transaction:details|sqli",
+        "what": "did SELECT * FROM mybb_users WHERE uid = '31' to mysql",
+        "entities": [
+            {"role": "action", "value": "SELECT * FROM mybb_users WHERE uid = '31'"},
+            {"role": "object", "value": "mysql"},
+        ],
+        "evidence": [
+            {
+                "line": line,
+                "query": 'search index="botsv2" sourcetype="mysql:transaction:details" '
+                '(source="gacrux") "mybb_users" "SELECT" "mysql" | head 5',
+                "earliest": 1502215139.569,
+                "latest": 1504220160.271,
+            }
+        ],
+    }
+
+
+def _keyed_event(value: str, raw: str, source: str = "gacrux") -> str:
+    return json.dumps(
+        {
+            "dataset": "botsv2",
+            "scenario": "brewertalk_web",
+            "step": "sql_injection",
+            "value": value,
+            "time": 1502215139.569,
+            "source": source,
+            "raw": raw,
+        }
+    )
+
+
+def test_line_mode_scores_keyed_events_beside_entity_mode(tmp_path: Path) -> None:
+    keys = [_key("brewertalk_web", "sql_injection", "updatexml", entity="payload", klass="B")]
+    events = tmp_path / "keyed_events.jsonl"
+    events.write_text(
+        _keyed_event(
+            "updatexml",
+            "mysql> SELECT * FROM mybb_users WHERE uid = '31' and updatexml(1,1,1) -- gacrux",
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    run = _run(tmp_path, notables=[_sqli_notable()], keys=keys)
+    family = score(run, [str(run / "keys.jsonl")], keyed_events=[f"bots={events}"])["families"][0]
+    assert family["recall"]["overall"]["None"] == 0  # entity mode: the value is never named
+    line = family["line_mode"]
+    assert line is not None and line["events"] == 1
+    assert line["recall"]["overall"] == {"50": 1, "100": 1, "None": 1}
+    steps = {step["step"]: step for step in line["steps"]}
+    assert steps["brewertalk_web/sql_injection"]["first_rank"] == 0
+    assert steps["brewertalk_web/sql_injection"]["by_generator"] == {"similar_to_known": 0}
+    assert line["class_recall"]["B"]["covered"]["50"] == 1
+    printed = board.render(family)
+    assert "line mode" in printed and "strict" in printed
+
+
+def test_line_mode_without_keyed_events_is_omitted(tmp_path: Path) -> None:
+    keys = [_key("brewertalk_web", "sql_injection", "updatexml", entity="payload")]
+    family = _family(tmp_path, notables=[_sqli_notable()], keys=keys)
+    assert family["line_mode"] is None
+
+
+def test_keyed_events_from_another_dataset_are_rejected(tmp_path: Path) -> None:
+    keys = [_key("brewertalk_web", "sql_injection", "updatexml", entity="payload")]
+    events = tmp_path / "keyed_events.jsonl"
+    events.write_text(_keyed_event("updatexml", "raw") + "\n", encoding="utf-8")
+    run = _run(tmp_path, notables=[_sqli_notable()], keys=keys, index="botsv3")
+    (run / "sources.json").write_text(
+        json.dumps({"index": "botsv2", "cards": [{"facts": {"sources": ["stream:dns"]}}]}),
+        encoding="utf-8",
+    )
+    payload = events.read_text(encoding="utf-8").replace('"botsv2"', '"botsv1"')
+    events.write_text(payload, encoding="utf-8")
+    with pytest.raises(ScoreboardError, match="another dataset"):
+        score(run, [str(run / "keys.jsonl")], keyed_events=[f"bots={events}"])
+
+
+def test_strict_matches_only_what_basis_why_and_entities(tmp_path: Path) -> None:
+    # real shape, botsv2 #30: the scanner IP sits only inside evidence lines
+    evidence_line = (
+        "[Fri Aug 11 12:02:10 2017] [error] [client 45.77.65.211] "
+        "File does not exist: /var/www/html/1101"
+    )
+    loose_only = _notable("deviation", "error log burst")
+    loose_only["evidence"][0]["line"] = evidence_line
+    # real shape, botsv2 #18: the .hwp file name is an entity value and sits in `what`
+    strict_hit = _notable("deviation", "first dns.py, last 나는_데이비드를_사랑한다.hwp")
+    strict_hit["entities"] = [
+        {"role": "actor", "value": "10.0.2.107"},
+        {"role": "object", "value": "나는_데이비드를_사랑한다.hwp"},
+    ]
+    keys = [
+        _key("brewertalk_web", "web_scan", "45.77.65.211", entity="ip", klass="B"),
+        _key(
+            "taedonggang_phish",
+            "ftp_download",
+            "나는_데이비드를_사랑한다.hwp",
+            entity="file",
+            klass="P",
+        ),
+    ]
+    family = _family(tmp_path, notables=[loose_only, strict_hit], keys=keys)
+    artefacts = {row["value"]: row for row in family["artefacts"]}
+    assert artefacts["45.77.65.211"]["first_rank"] == 0
+    assert artefacts["45.77.65.211"]["first_rank_strict"] is None
+    assert artefacts["나는_데이비드를_사랑한다.hwp"]["first_rank"] == 1
+    assert artefacts["나는_데이비드를_사랑한다.hwp"]["first_rank_strict"] == 1
+    assert family["recall"]["overall"] == {"50": 2, "100": 2, "None": 2}
+    assert family["strict_recall"]["overall"] == {"50": 1, "100": 1, "None": 1}
+    assert "strict" in board.render(family)
+
+
+def test_shared_key_credits_its_first_step_only(tmp_path: Path) -> None:
+    keys = [
+        _key("brewertalk_web", "web_scan", "45.77.65.211", entity="ip", klass="B", count=168004),
+        _key("taedonggang_phish", "c2_ssl", "45.77.65.211", entity="ip", klass="B", count=168004),
+    ]
+    hit = _notable("deviation", "[client 45.77.65.211] File does not exist")
+    family = _family(tmp_path, notables=[hit], keys=keys)
+    steps = {step["step"]: step for step in family["steps"]}
+    assert steps["brewertalk_web/web_scan"]["first_rank"] == 0
+    assert "taedonggang_phish/c2_ssl" not in steps
+    assert family["keys"]["shared_keys"] == 1
+    shared = {row["value"]: row for row in family["artefacts"]}
+    assert shared["45.77.65.211"]["first_rank"] == 0  # located, reported
+    assert shared["45.77.65.211"]["shared_step"] == "brewertalk_web/web_scan"
+    assert family["recall"]["overall"] == {"50": 1, "100": 1, "None": 1}
+    assert family["scenario_recall"]["overall"]["None"] == 1  # taedonggang has nothing left
+    assert "shared" in board.render(family)
+
+
+def test_no_credit_key_is_reported_but_never_covers(tmp_path: Path) -> None:
+    keys = [
+        _key(
+            "brewertalk_web",
+            "xss_cookie_theft",
+            "1502408189",
+            entity="cookie",
+            klass="T",
+            credit=False,
+        ),
+        _key("fruitfly", "c2_beacon", "eidk.hopto.org", entity="domain", klass="B"),
+    ]
+    cookie = _notable("deviation", "cookie=1502408189; path=/")
+    family = _family(tmp_path, notables=[cookie], keys=keys)
+    artefacts = {row["value"]: row for row in family["artefacts"]}
+    assert artefacts["1502408189"]["first_rank"] == 0  # seen and reported
+    assert artefacts["1502408189"]["covered"] == {"50": False, "100": False, "None": False}
+    assert family["recall"]["overall"]["None"] == 0
+    assert family["keys"]["no_credit_keys"] == 1
+    assert "no credit" in board.render(family)
+
+
+def test_requires_demands_the_payload_before_the_uri_credits(tmp_path: Path) -> None:
+    keys = [
+        _key(
+            "brewertalk_web",
+            "sql_injection",
+            "/member.php",
+            entity="uri",
+            klass="B",
+            requires=["updatexml"],
+        ),
+        _key("brewertalk_web", "sql_injection", "updatexml", entity="payload", klass="B"),
+    ]
+    uri_only = _notable("alerts", "GET /member.php from one host")
+    family = _family(tmp_path, notables=[uri_only], keys=keys)
+    assert family["recall"]["overall"]["None"] == 0  # no payload located yet
+    payload = _notable("deviation", "updatexml extract in the query string")
+    family = _family(tmp_path, notables=[uri_only, payload], keys=keys)
+    steps = {step["step"]: step for step in family["steps"]}
+    assert steps["brewertalk_web/sql_injection"]["first_rank"] == 0
+    assert family["recall"]["overall"]["None"] == 1
+
+
+def test_class_recall_splits_behavioural_from_trivia(tmp_path: Path) -> None:
+    keys = [
+        _key("brewertalk_web", "web_scan", "45.77.65.211", entity="ip", klass="B"),
+        _key("insider_leak", "executive_contact", "mberk@berkbeer.com", entity="email", klass="T"),
+    ]
+    hit = _notable("deviation", "smtp to mberk@berkbeer.com")
+    family = _family(tmp_path, notables=[hit], keys=keys)
+    classes = family["class_recall"]
+    assert classes["T"]["covered"]["None"] == 1
+    assert classes["T"]["steps"] == 1
+    assert classes["B"]["covered"]["None"] == 0
+    assert classes["B+P"]["steps"] == 1
+    assert classes["B+P"]["covered"]["None"] == 0
+
+
+def test_untagged_keys_leave_class_recall_empty(tmp_path: Path) -> None:
+    keys = [_key("fruitfly", "c2_beacon", "eidk.hopto.org", entity="domain")]
+    family = _family(tmp_path, notables=[_notable("alerts", "quiet day")], keys=keys)
+    assert family["class_recall"] == {}
