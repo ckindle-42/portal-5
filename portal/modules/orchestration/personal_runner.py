@@ -1280,12 +1280,26 @@ def _signal_cloud_lane(record: dict[str, Any]) -> bool:
     if pid <= 0 or not role:
         return False
     try:
-        probe = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "command="], capture_output=True, text=True, check=False
+        command = (
+            Path(f"/proc/{pid}/cmdline")
+            .read_bytes()
+            .replace(b"\0", b" ")
+            .decode("utf-8", errors="replace")
         )
     except OSError:
-        return False
-    if role not in probe.stdout:
+        command = ""
+    if not command:
+        try:
+            probe = subprocess.run(
+                ["ps", "-ww", "-p", str(pid), "-o", "command="],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:
+            return False
+        command = probe.stdout
+    if role not in command:
         return False
     try:
         os.kill(pid, signal.SIGTERM)

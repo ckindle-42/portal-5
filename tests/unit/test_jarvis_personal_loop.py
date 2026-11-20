@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-import time
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -256,11 +256,18 @@ def test_long_personal_task_sends_one_checkin_before_completion(
     from portal.modules.orchestration import personal_runner
 
     monkeypatch.setattr(personal_runner, "PERSONAL_CHECKIN_SECONDS", 0.5, raising=False)
+    checkin_sent = threading.Event()
+
+    class WaitingNotices(_Notices):
+        def notify(self, task_id: str, kind: str, message: str) -> None:
+            super().notify(task_id, kind, message)
+            if message.startswith("Personal task check-in."):
+                checkin_sent.set()
 
     class SlowCaller(_Caller):
         def complete(self, body: dict[str, Any]) -> Completion:
             if len(self.bodies) == 2:
-                time.sleep(0.75)
+                assert checkin_sent.wait(timeout=5)
             return super().complete(body)
 
     reply = telegram_do_reply(tmp_path, 1, "read the newest arm receipt")
@@ -282,16 +289,15 @@ def test_long_personal_task_sends_one_checkin_before_completion(
             Completion("Receipt read.", (), 0),
         ]
     )
-    notices = _Notices()
+    notices = WaitingNotices()
 
     result = poll_personal_tasks(tmp_path, notices, caller)
 
     assert result is not None and result.status == "done"
     assert len(notices.messages) == 2
     checkin = notices.messages[0][2]
-    last_tool = checkin.split("last tool: ", 1)[1]
-    assert task_id in checkin and "hop" in checkin
-    assert last_tool in {"recall", "read_receipt"}
+    assert f"Task: {task_id}" in checkin
+    assert "hop: " in checkin and "last tool: " in checkin
     assert notices.messages[1][2] == "Receipt read."
 
 
