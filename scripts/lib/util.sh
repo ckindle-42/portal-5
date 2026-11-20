@@ -485,9 +485,12 @@ _disk_hygiene() {
     [ -f "$raw_path" ] && raw_before="$(du -k "$raw_path" 2>/dev/null | awk '{print $1}')"
 
     # Superseded Portal images: compose decides what is current; the declared set
-    # is name-only for build: services, so compare repositories. An empty set
-    # (compose could not render) skips removal — fail safe.
-    declared="$(cd "$COMPOSE_DIR" && docker compose config --images 2>/dev/null | sed 's/:.*//' | sort -u)"
+    # is name-only for build: services, so compare repositories. Both channel
+    # profiles are passed (the `_do_down` precedent) so a disabled channel's
+    # image is still declared — never pruned. An empty set (compose could not
+    # render) skips removal — fail safe.
+    declared="$(cd "$COMPOSE_DIR" && docker compose --profile telegram --profile slack \
+        config --images 2>/dev/null | sed 's/:.*//' | sort -u)"
     in_use="$(docker ps -a --format '{{.Image}}' 2>/dev/null | sort -u)"
     if [ -n "$declared" ]; then
         removed=0
