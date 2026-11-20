@@ -261,6 +261,34 @@ def test_a_personal_cloud_brief_forbids_the_repository_gates(tmp_path: Path) -> 
     assert "a user-facing answer, not a worker" in brief
 
 
+def test_a_blocked_cloud_lane_does_not_paste_its_report_at_the_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cap-reached notice used the lane's whole report as its detail line."""
+    from portal.modules.orchestration import personal_runner
+
+    monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
+    sink = _Notices()
+    telegram_do_reply(tmp_path, 7, "help with an invalid local plan")
+    bad = [Completion("not JSON", (), 0), Completion("still not JSON", (), 0)]
+    first = poll_personal_tasks(tmp_path, sink, _Caller(list(bad)), recall=lambda _q: "")
+    assert first is not None and first.status == "retrying"
+
+    class Lane:
+        def run(self, **_kwargs: Any) -> Any:
+            from types import SimpleNamespace
+
+            return SimpleNamespace(
+                exit_code=1, status="failed", model="mock", result_text=LIVE_CLOUD_REPORT
+            )
+
+    run = poll_personal_tasks(tmp_path, sink, _Caller([]), dispatcher=Lane(), recall=lambda _q: "")
+    assert run is not None and run.status == "blocked"
+    notice = sink.messages[-1]
+    assert "## EVIDENCE" not in notice and "uv run pytest" not in notice
+    assert "one-page Word document" in notice
+
+
 # ── 3. Proxmox and browser reach the pipeline from inside the container ──────
 
 

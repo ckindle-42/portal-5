@@ -524,8 +524,12 @@ def _cloud_result(
             f"Cloud attempt {attempt} failed; retrying tier {('auto' if attempt == 1 else 'escalate')}.",
         )
         return PersonalRun(task.id, "cloud-retry")
-    error = str(outcome.get("error") or outcome.get("result") or "cloud dispatch failed")
-    error = f"cloud attempt cap {cap} reached after {attempt} failed attempt(s): {error}"
+    detail = str(
+        outcome.get("error")
+        or user_answer(str(outcome.get("result") or ""))
+        or "cloud dispatch failed"
+    )
+    error = f"cloud attempt cap {cap} reached after {attempt} failed attempt(s): {detail}"
     _finish(
         root,
         store,
