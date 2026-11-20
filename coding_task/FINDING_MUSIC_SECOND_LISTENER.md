@@ -25,11 +25,17 @@ fetched 2026-11-20). Non-Google entries:
 | `mistralai/voxtral-small-24b-2507` | 32K | Mistral | HTTP 429 in the smoke window; speech-first model, not retried |
 | `perceptron/perceptron-mk1.5` | 36K | Perceptron | not tried |
 
-Reachable but unusable for this job: **codex** (OpenAI CLI, text/vision only), **grok**
-(`grok-voice-transcribe-2.0` is STT — the 11-20 run already showed it returns no words on
-instrumentals, which is not a musicality score). **Local oMLX/Ollama**: the installed set has
-no audio-input checkpoint (`ollama list`, `/Volumes/data01/omlx-models` — all text or vision);
-`qwen3-vl:32b` is vision. A local omni model would have to be pulled first.
+Reachable but unusable for this job: **codex** (`codex --help` offers `--image` only),
+**grok** (`grok --help` offers `--prompt-file`; the platform's `grok-voice-transcribe-2.0` is
+STT — the 11-20 run already showed it returns no words on instrumentals, which is not a
+musicality score). **Local oMLX/Ollama**: the installed set has no audio-input checkpoint
+(`ollama list`, `/Volumes/data01/omlx-models` — all text or vision); `qwen3-vl:32b` is vision.
+A local omni model would have to be pulled first.
+
+A trap worth recording: `opencode run -f <clip.wav>` with `--model openrouter/xiaomi/mimo-v2.6-pro`
+did **not** hand the wav to the model — the agent went and called a local transcription tool
+instead, so its answer proves nothing about native audio. Only the direct API request below,
+where the provider counts `audio_tokens`, is evidence.
 
 ## 2. The smoke — the same clip, five questions
 
