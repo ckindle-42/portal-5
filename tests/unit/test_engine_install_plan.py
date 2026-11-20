@@ -329,6 +329,24 @@ def test_engine_plan_exports_upstream_lock_before_resolving(tmp_path):
     assert "--upstream-requirements" in args
     assert "upstream-requirements.txt" in args[args.index("--upstream-requirements") + 1]
 
+    wan_requirement = "mlx-video @ git+https://example.invalid/mlx-video.git@abc123"
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            'source "$SERVICES_SH"; _engine_dep_plan video "$TARGET_PY" apply "$PROJECT" "$WAN_REQ"',
+        ],
+        capture_output=True,
+        text=True,
+        env=env | {"PROJECT": str(project), "WAN_REQ": wan_requirement},
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    exported = uv_log.read_text(encoding="utf-8").splitlines()
+    assert "--all-extras" in exported
+    args = plan_args.read_text(encoding="utf-8").splitlines()
+    assert args[args.index("--extra-requirement") + 1] == wan_requirement
+
 
 def test_music_and_video_seed_only_missing_engine_venvs():
     from pathlib import Path
@@ -341,6 +359,7 @@ def test_music_and_video_seed_only_missing_engine_venvs():
     assert "Existing video venv has no usable Python" in text
     assert "uv sync --python 3.12 --frozen" in text
     assert "uv sync --all-extras" in text
+    assert 'uv pip install "mlx-video @ git+' not in text
 
 
 def test_sweep_parser_ignores_rows_without_a_fixed_version_column():
@@ -378,6 +397,13 @@ def test_upgrade_plan_updates_all_installed_packages_without_lowering_floors():
     assert "idna" in command
     assert "idna>=3.20.0" in plan.floors
     assert "torch==2.10.0" in plan.holds
+
+
+def test_extra_dependency_uses_the_same_install_plan():
+    dependency = "mlx-video @ git+https://example.invalid/mlx-video.git@abc123"
+    plan = build_plan("video", {"idna": "3.20.0"}, "", extra_requirements=(dependency,))
+    assert dependency in plan.requirements()
+    assert "idna>=3.20.0" in plan.floors
 
 
 def test_apply_shows_old_to_new_changes_before_installing(monkeypatch, capsys):

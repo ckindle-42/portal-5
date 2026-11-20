@@ -165,10 +165,16 @@ class InstallPlan:
     floors: tuple[str, ...]
     installed: tuple[tuple[str, str], ...]
     upstream_floors: tuple[str, ...]
+    extra_requirements: tuple[str, ...]
     satisfied: tuple[str, ...] = ()
 
     def requirements(self) -> list[str]:
-        requirements = [*self.service_deps, *self.upgrades, *self.upstream_floors]
+        requirements = [
+            *self.service_deps,
+            *self.extra_requirements,
+            *self.upgrades,
+            *self.upstream_floors,
+        ]
         names = {requirement_name(spec) for spec in requirements}
         requirements.extend(name for name, _version in self.installed if name not in names)
         return requirements
@@ -197,6 +203,7 @@ def build_plan(
     installed: dict[str, str],
     sweep_text: str,
     upstream_text: str = "",
+    extra_requirements: tuple[str, ...] = (),
 ) -> InstallPlan:
     """Upgrade all installed packages while keeping the core and version floors."""
     if service not in SERVICE_DEPS:
@@ -244,6 +251,7 @@ def build_plan(
         floors,
         tuple(sorted(installed.items())),
         upstream_floors,
+        extra_requirements,
         tuple(satisfied),
     )
 
@@ -258,6 +266,10 @@ def _constraint_floor(spec: str) -> str:
 def render_plan(plan: InstallPlan, python: str) -> str:
     lines = [f"service: {plan.service}", "service deps:"]
     lines.extend(f"  {spec}" for spec in plan.service_deps)
+    lines.append("extra requirements:")
+    lines.extend(f"  {spec}" for spec in plan.extra_requirements)
+    if not plan.extra_requirements:
+        lines.append("  (none)")
     lines.append("upstream lock floors:")
     lines.extend(f"  {spec}" for spec in plan.upstream_floors)
     if not plan.upstream_floors:
@@ -484,6 +496,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--python", required=True)
     parser.add_argument("--sweep-report", default="")
     parser.add_argument("--upstream-requirements", default="")
+    parser.add_argument("--extra-requirement", action="append", default=[])
     parser.add_argument("--mode", choices=("apply", "dry-run"), default="apply")
     args = parser.parse_args(argv)
     # Make paths absolute without following symlinks: a venv's bin/python is a
@@ -502,13 +515,24 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode == "dry-run":
         if not Path(python).is_file():
             installed: dict[str, str] = {}
-            print(render_plan(build_plan(args.service, installed, sweep, upstream), python))
+            print(
+                render_plan(
+                    build_plan(
+                        args.service, installed, sweep, upstream, tuple(args.extra_requirement)
+                    ),
+                    python,
+                )
+            )
             return 0
-        plan = build_plan(args.service, read_installed(python), sweep, upstream)
+        plan = build_plan(
+            args.service, read_installed(python), sweep, upstream, tuple(args.extra_requirement)
+        )
         return _apply(plan, python, dry_run=True)
     if not Path(python).is_file():
         raise SystemExit(f"interpreter missing: {python}")
-    plan = build_plan(args.service, read_installed(python), sweep, upstream)
+    plan = build_plan(
+        args.service, read_installed(python), sweep, upstream, tuple(args.extra_requirement)
+    )
     return _apply(plan, python, dry_run=False)
 
 

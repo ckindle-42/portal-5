@@ -73,7 +73,7 @@ _latest_sweep_report() {
 
 # Resolve service deps against the engine lock floors and a fresh apply-time sweep.
 _engine_dep_plan() {
-    local service="$1" py="$2" mode="${3:-apply}" project="${4:-}"
+    local service="$1" py="$2" mode="${3:-apply}" project="${4:-}" extra_dependency="${5:-}"
     local portal_py="$PORTAL_ROOT/.venv/bin/python"
     [ -x "$portal_py" ] || portal_py="$(command -v python3)"
     local report="" work_dir="" candidate status upstream_requirements=""
@@ -124,6 +124,9 @@ _engine_dep_plan() {
     fi
     if [ -n "$upstream_requirements" ]; then
         args+=( --upstream-requirements "$upstream_requirements" )
+    fi
+    if [ -n "$extra_dependency" ]; then
+        args+=( --extra-requirement "$extra_dependency" )
     fi
     if "${args[@]}"; then status=0; else status=$?; fi
     [ -z "$work_dir" ] || rm -rf "$work_dir"
@@ -386,7 +389,7 @@ _launch_install_video_mlx() {
     # Wan2.2-TI2V-5B converted to MLX Q8. Silent 720p photoreal output.
     VX_WAN_MODEL="$VX_DIR/wan2.2-ti2v-5b-q8"
     VX_WAN_EXTRAS=""
-    local dry=0 wan=0 arg
+    local dry=0 wan=0 arg wan_requirement=""
     for arg in "$@"; do
         case "$arg" in
             --dry-run) dry=1 ;;
@@ -394,6 +397,9 @@ _launch_install_video_mlx() {
             *) echo "  ❌ unknown install-video-mlx argument: $arg" >&2; exit 1 ;;
         esac
     done
+    if [ "$wan" -eq 1 ]; then
+        wan_requirement="mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837"
+    fi
 
     if [ "$ARCH" != "arm64" ]; then
         echo "  ❌ Video-MLX requires Apple Silicon (arm64). Detected: $ARCH."
@@ -401,7 +407,7 @@ _launch_install_video_mlx() {
         exit 1
     fi
     if [ "$dry" -eq 1 ]; then
-        _engine_dep_plan video "$VX_VENV/bin/python" dry-run "$VX_SRC"
+        _engine_dep_plan video "$VX_VENV/bin/python" dry-run "$VX_SRC" "$wan_requirement"
         echo "  dry-run: no clone, no pip apply, no launchctl"
         return 0
     fi
@@ -437,7 +443,7 @@ _launch_install_video_mlx() {
         echo "  Seeding the new venv from the upstream lock..."
         ( cd "$VX_SRC" && uv sync --all-extras )
     fi
-    _engine_dep_plan video "$VX_VENV/bin/python" apply "$VX_SRC" || {
+    _engine_dep_plan video "$VX_VENV/bin/python" apply "$VX_SRC" "$wan_requirement" || {
         echo "  ❌ security dependency upgrade failed" >&2; exit 1;
     }
     # `uv sync` strips anything outside the engine's own lock, and a failed late
@@ -448,10 +454,6 @@ _launch_install_video_mlx() {
         echo "  ❌ the engine venv cannot import mcp/starlette (MCP server deps)" >&2; exit 1; }
 
     if [ "$wan" -eq 1 ]; then
-        echo "  Installing the mlx-video fallback (Wan2.2-TI2V-5B)..."
-        ( cd "$VX_SRC" && uv pip install "mlx-video @ git+https://github.com/Blaizzy/mlx-video.git@87db56a51758fefb748a359b90a5283bb8ba4837" ) || {
-            echo "  ❌ mlx-video install failed" >&2; exit 1;
-        }
         if [ ! -d "$VX_WAN_MODEL" ]; then
             echo "  Downloading Wan2.2-TI2V-5B MLX Q8 (~20GB)..."
             ( cd "$VX_SRC" && "$VX_VENV/bin/huggingface-cli" download \
