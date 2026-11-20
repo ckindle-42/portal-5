@@ -408,6 +408,14 @@ def _engine_problems(
                         "detail": f"size {row.get('size_tokens')} {status}",
                     }
                 )
+            elif status == "reasoning_only":
+                problems.append(
+                    {
+                        "kind": "note",
+                        "detail": f"size {row.get('size_tokens')} reasoning_only "
+                        f"({row.get('completion_tokens')} tokens of budget)",
+                    }
+                )
             elif row.get("engine_ok") is False:
                 problems.append(
                     {
@@ -715,7 +723,9 @@ def _cell_rows(cell: dict[str, Any]) -> dict[str, dict[str, Any]]:
         if not isinstance(row, dict):
             continue
         # Refused/no-answer/hop rows are not a measurement of this seat's model.
-        if row.get("seat_status") not in (None, "ok"):
+        # A reasoning_only row is one: the budget-exhausted generation still
+        # measured decode, so it stays in the comparison.
+        if row.get("seat_status") not in (None, "ok", "reasoning_only"):
             continue
         key = str(row.get("size_tokens", ""))
         if cell.get("phase") == "B2":

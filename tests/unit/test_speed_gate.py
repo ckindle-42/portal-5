@@ -706,6 +706,29 @@ def test_b3_skipped_context_and_multi_hop_rows_are_notes_not_engine_failures():
     assert speed_gate._status(problems) == "ok"
 
 
+def test_b3_reasoning_only_row_is_a_note_and_stays_in_the_comparison():
+    payload = {
+        "results": [
+            {
+                "size_tokens": 2000,
+                "seat_status": "reasoning_only",
+                "engine_ok": None,
+                "decode_tps": 92.8,
+                "completion_tokens": 128,
+            }
+        ],
+        "failures": [],
+    }
+
+    problems = speed_gate._engine_problems("B3", "auto-security::pentest", payload, {}, 0)
+
+    assert [problem["kind"] for problem in problems] == ["note"]
+    assert "reasoning_only" in problems[0]["detail"]
+    assert speed_gate._status(problems) == "ok"
+    cell = _cell("B3", payload["results"])
+    assert speed_gate._cell_rows(cell)["2000"]["decode_tps"] == 92.8
+
+
 def test_compare_ignores_skipped_rows():
     row = {**_b1_row(8000), "seat_status": "skipped_context"}
     cell = _cell("B3", [row])

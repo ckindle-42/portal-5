@@ -508,6 +508,47 @@ def test_pipeline_no_answer_is_reported_as_such(tmp_path: Path, monkeypatch):
     assert not any("WRONG ENGINE" in failure for failure in data["failures"])
 
 
+def test_reasoning_only_budget_row_is_a_decode_sample_not_a_failure(tmp_path: Path, monkeypatch):
+    """pentest/deep spent max_tokens=128 entirely on reasoning: decode is still measured."""
+    reg, cfg = _synthetic_configs(tmp_path)
+    monkeypatch.setattr(
+        speed_bench,
+        "request_pipeline",
+        lambda *_a, **_kw: (
+            {
+                "answer_tps": None,
+                "ttft_s": 3.10,
+                "total_s": 4.48,
+                "reasoning_tokens": 129,
+                "completion_tokens": 128,
+                "timing_source": "engine",
+            },
+            {"prompt_tokens": 3310, "completion_tokens": 128},
+            "model",
+            "auto-daily::fast;omlx-general;model",
+            "⚠️ The model did not produce an answer. Please retry.",
+        ),
+    )
+    out = tmp_path / "reasoning.json"
+    rc = run_bench(
+        "pipeline",
+        "http://localhost:9099",
+        "auto-daily::fast",
+        [2000],
+        out=str(out),
+        registry=reg,
+        portal_config=cfg,
+        personas={},
+    )
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert rc == 0
+    assert data["results"][0]["seat_status"] == "reasoning_only"
+    assert data["results"][0]["engine_ok"] is None
+    assert data["failures"] == []
+    assert any("output budget as reasoning" in note for note in data["notes"])
+    assert data["results"][0]["decode_tps"] == pytest.approx(128 / (4.48 - 3.10))
+
+
 def test_seat_context_limit_and_multi_hop(tmp_path: Path):
     _reg, cfg = _synthetic_configs(tmp_path)
     assert speed_bench.seat_context_limit("auto-daily", portal_config=cfg, personas={}) == 8192

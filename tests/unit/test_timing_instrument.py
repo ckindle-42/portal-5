@@ -186,6 +186,62 @@ async def test_final_timing_frame_is_inserted_before_done_and_keeps_content():
     assert aggregate["tool_s"] == 0.75
 
 
+def test_a_discarded_tool_hop_adds_no_answer_seconds_to_the_rollup():
+    """A require-tool retry must not charge hop 1's decode time to hop 2's tokens."""
+    start_timings()
+    add_model_turn(
+        {
+            "usage": {
+                "prompt_tokens": 2422,
+                "completion_tokens": 77,
+                "prompt_eval_duration": 2.63,
+                "generation_duration": 0.98,
+                "total_time": 3.61,
+                "time_to_first_token": 2.63,
+            }
+        },
+        {
+            "ttft_s": 2.63,
+            "total_s": 3.61,
+            "answer_tokens": 0,
+            "answer_s": 0.0,
+            "answer_deltas": 77,
+            "reasoning_tokens": 0,
+            "reasoning_deltas": 0,
+            "tool_turn": True,
+        },
+    )
+    add_model_turn(
+        {
+            "usage": {
+                "prompt_tokens": 2444,
+                "completion_tokens": 128,
+                "prompt_eval_duration": 0.46,
+                "generation_duration": 1.69,
+                "total_time": 2.15,
+                "time_to_first_token": 0.46,
+            }
+        },
+        {
+            "ttft_s": 0.46,
+            "total_s": 2.15,
+            "answer_tokens": 128,
+            "answer_s": 1.69,
+            "answer_deltas": 128,
+            "reasoning_tokens": 0,
+            "reasoning_deltas": 0,
+        },
+    )
+
+    timings = current_portal_timings()
+
+    assert timings["answer_tokens"] == 128
+    assert timings["answer_s"] == 1.69
+    assert timings["answer_tps"] == round(128 / 1.69, 3)
+    assert timings["answer_deltas"] == 205  # both hops stay visible in the trace
+    assert timings["total_s"] == 5.76  # the request itself still spans both hops
+
+
 def test_trace_record_exposes_timing_metadata():
     trace = TurnTrace("wfe-timing-test")
     trace.set(portal_timings={"prefill_s": 1.0, "timing_source": "engine"})
