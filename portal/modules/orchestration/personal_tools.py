@@ -7,6 +7,7 @@ shared workspace (``workspace_files``, read-only).
 
 from __future__ import annotations
 
+import heapq
 import json
 import os
 from pathlib import Path
@@ -31,7 +32,8 @@ def tool_schema(name: str) -> dict[str, Any]:
         required = ["unit_id"]
     elif name == "workspace_files":
         description = (
-            "List files in the shared workspace with their sizes in bytes, largest first. "
+            "List the largest files in the shared workspace, size descending, at most "
+            f"{WORKSPACE_FILE_CAP}. Smaller files are omitted; the largest are not. "
             "path is relative to the workspace root: '/workspace/generated' -> 'generated', "
             "'/workspace/uploads' -> 'uploads'. Read-only."
         )
@@ -115,8 +117,9 @@ def _workspace_files(arguments: dict[str, Any]) -> dict[str, Any]:
     if target != root and not target.is_relative_to(root):
         raise ValueError("workspace_files path is outside the shared workspace")
     if not target.is_dir():
-        return {"root": str(root), "path": relative, "count": 0, "files": []}
-    files: list[dict[str, Any]] = []
+        return _file_listing(root, relative, [], 0)
+    heap: list[tuple[int, int, dict[str, Any]]] = []
+    scanned = 0
     for base, _dirs, names in os.walk(target):
         for filename in names:
             full = Path(base) / filename
@@ -126,10 +129,43 @@ def _workspace_files(arguments: dict[str, Any]) -> dict[str, Any]:
                 size = full.stat().st_size
             except OSError:
                 continue
-            files.append({"path": str(full.relative_to(root)), "size": size})
-            if len(files) >= WORKSPACE_FILE_CAP:
-                break
-        if len(files) >= WORKSPACE_FILE_CAP:
-            break
-    files.sort(key=lambda item: item["size"], reverse=True)
-    return {"root": str(root), "path": relative, "count": len(files), "files": files}
+            scanned += 1
+            _keep_largest(
+                heap,
+                {"path": str(full.relative_to(root)), "size": size},
+                scanned,
+                WORKSPACE_FILE_CAP,
+            )
+    return _file_listing(root, relative, heap, scanned)
+
+
+def _keep_largest(
+    heap: list[tuple[int, int, dict[str, Any]]],
+    item: dict[str, Any],
+    seq: int,
+    cap: int,
+) -> None:
+    """Bound the listing by size, not by walk order. The smallest of the kept set is the floor."""
+    size = int(item["size"])
+    if len(heap) < cap:
+        heapq.heappush(heap, (size, seq, item))
+        return
+    if size > heap[0][0]:
+        heapq.heapreplace(heap, (size, seq, item))
+
+
+def _file_listing(
+    root: Path,
+    relative: str,
+    heap: list[tuple[int, int, dict[str, Any]]],
+    scanned: int,
+) -> dict[str, Any]:
+    files = [item for _size, _seq, item in sorted(heap, key=lambda row: row[0], reverse=True)]
+    return {
+        "root": str(root),
+        "path": relative,
+        "count": len(files),
+        "scanned": scanned,
+        "truncated": scanned > len(files),
+        "files": files,
+    }
