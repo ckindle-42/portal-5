@@ -1,8 +1,9 @@
 """Local reads for a personal task. The Pipeline still runs its own tool loop.
 
 ``queue_status`` and ``read_receipt`` are local. Wiki tools call the same functions
-the wiki MCP serves. Nothing here writes; reads stay inside the tasks root or the
-shared workspace (``workspace_files``, read-only).
+the wiki MCP serves. Nothing here writes; reads stay inside the tasks root, the
+shared workspace (``workspace_files``) or one of the allowlisted host roots
+(``read_local_file``) — all read-only.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ LOCAL_TOOLS = frozenset(
         "wiki_get_unit",
         "workspace_files",
         "security_sweep",
+        "read_local_file",
     }
 )
 # Bound the listing so one read cannot exhaust the tool-caller window on a huge tree.
@@ -28,6 +30,35 @@ WORKSPACE_FILE_CAP = 200
 # The weekly sweep job writes its report here (scripts/security_sweep.py default_output_dir).
 SWEEP_DIR = Path.home() / ".portal5" / "security"
 SWEEP_CRITICAL_CAP = 20
+# One read_local_file call can never put more than this in the tool-caller window.
+READ_LOCAL_MAX_BYTES = 32768
+# MCP-served document tools: a pre-flight names the bundle when its MCP is unwired.
+DOCUMENT_TOOLS = frozenset(
+    {
+        "create_word_document",
+        "read_word_document",
+        "create_excel",
+        "read_excel",
+        "read_pdf",
+        "create_powerpoint",
+    }
+)
+_BUNDLE_PREFIXES = (
+    ("proxmox", "proxmox_"),
+    ("git", "git_"),
+    ("unifi", "unifi_"),
+    ("browser", "browser_"),
+)
+
+
+def tool_bundle(name: str) -> str:
+    """The MCP bundle a Pipeline tool belongs to, so a fail-fast names it."""
+    if name in DOCUMENT_TOOLS:
+        return "documents"
+    for bundle, prefix in _BUNDLE_PREFIXES:
+        if name.startswith(prefix):
+            return bundle
+    return name.split("_", 1)[0]
 
 
 def tool_schema(name: str) -> dict[str, Any]:
@@ -53,6 +84,18 @@ def tool_schema(name: str) -> dict[str, Any]:
             "Read the newest security sweep report: MAL advisories, critical findings, the "
             "new/carried/resolved delta and the CRITICAL rows, with the report path. Read-only."
         )
+    elif name == "read_local_file":
+        description = (
+            "Read one text file on the host, read-only, under ~/AI_Output or "
+            f"~/.portal5/security (at most {READ_LOCAL_MAX_BYTES} bytes; 'truncated' says more "
+            "followed). Use it for a security sweep report, a generated file, or a task "
+            "receipt by full path. Repo files use read_text_file instead."
+        )
+        properties = {
+            "path": {"type": "string"},
+            "max_bytes": {"type": "integer", "minimum": 1},
+        }
+        required = ["path"]
     return {
         "type": "function",
         "function": {
@@ -75,6 +118,8 @@ def run_read_tool(name: str, arguments: dict[str, Any], tasks_root: Path) -> str
         return json.dumps(_workspace_files(arguments), sort_keys=True)
     if name == "security_sweep":
         return json.dumps(_security_sweep(), sort_keys=True)
+    if name == "read_local_file":
+        return json.dumps(_read_local_file(arguments), sort_keys=True)
     if name == "wiki_search":
         from portal_wiki.mcp import wiki_search
 
@@ -229,3 +274,64 @@ def _sweep_delta(sections: dict[str, list[str]]) -> str:
                 if line.strip():
                     return line.strip()
     return ""
+
+
+def _read_local_file(arguments: dict[str, Any]) -> dict[str, Any]:
+    """One capped text read under the allowlisted host roots."""
+    raw = arguments.get("path")
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError("read_local_file requires path")
+    limit = _byte_limit(arguments.get("max_bytes"))
+    resolved = _local_read_path(raw.strip())
+    if not resolved.is_file():
+        return {"error": f"no readable file: {raw.strip()}"}
+    try:
+        size = resolved.stat().st_size
+        with resolved.open("rb") as handle:
+            data = handle.read(limit + 1)
+    except OSError as exc:
+        return {"error": f"could not read {resolved}: {exc}"}
+    return {
+        "path": str(resolved),
+        "bytes": size,
+        "truncated": size > limit,
+        "content": data[:limit].decode("utf-8", errors="replace"),
+    }
+
+
+def _byte_limit(raw: Any) -> int:
+    if raw is None:
+        return READ_LOCAL_MAX_BYTES
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        raise ValueError("read_local_file max_bytes must be a positive integer")
+    return min(int(raw), READ_LOCAL_MAX_BYTES)
+
+
+def _local_read_path(raw: str) -> Path:
+    """Resolve one requested path inside the allowlisted roots; anything else is refused."""
+    text = raw.replace("\\", "/")
+    if text.startswith("/workspace/"):  # the container path of the shared workspace
+        text = text.removeprefix("/workspace/")
+    candidate = Path(text).expanduser()
+    if ".." in candidate.parts:
+        raise PermissionError(f"read_local_file refuses a relative walk: {raw}")
+    roots = _read_roots()
+    if not candidate.is_absolute():
+        candidate = roots[0] / candidate
+    resolved = candidate.resolve()
+    if not any(resolved == root or resolved.is_relative_to(root) for root in roots):
+        allowed = ", ".join(str(root) for root in roots)
+        raise PermissionError(f"read_local_file path is outside the allowed roots: {allowed}")
+    return resolved
+
+
+def _read_roots() -> tuple[Path, ...]:
+    """The only host trees a personal read may touch."""
+    from portal.platform.mcp_host.workspace import get_workspace_root
+
+    roots: list[Path] = []
+    for path in (get_workspace_root(), SWEEP_DIR):
+        resolved = path.resolve()
+        if resolved not in roots:
+            roots.append(resolved)
+    return tuple(roots)

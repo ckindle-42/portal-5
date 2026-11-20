@@ -31,7 +31,12 @@ from portal.modules.orchestration.personal_policy import (
     text_gate,
 )
 from portal.modules.orchestration.personal_store import PersonalStore, PersonalTask
-from portal.modules.orchestration.personal_tools import LOCAL_TOOLS, run_read_tool, tool_schema
+from portal.modules.orchestration.personal_tools import (
+    LOCAL_TOOLS,
+    run_read_tool,
+    tool_bundle,
+    tool_schema,
+)
 from portal.modules.orchestration.worker import Engine, _call_arguments, _response_parts
 from portal.platform.inference.mcp_http import call_tool, map_tool_result
 
@@ -50,6 +55,8 @@ class Completion:
 class PipelineCaller(Protocol):
     def complete(self, body: dict[str, Any]) -> Completion: ...
 
+    def tool_names(self) -> frozenset[str] | None: ...
+
 
 @dataclass(frozen=True)
 class PersonalRun:
@@ -63,6 +70,8 @@ CLOUD_STALE_SECONDS = 7200
 _CLOUD_RUNNING = "cloud-running"
 RECALL_TIMEOUT_S = 10.0
 RECALL_TOP_K = 5
+# A pre-flight that cannot reach the Pipeline quickly is "unknown", not a stalled task.
+TOOL_REGISTRY_TIMEOUT_S = 5.0
 # Client-side relevance floor, stricter than the memory MCP's RECALL_FLOOR (0.60); not calibrated live.
 RECALL_MIN_SIMILARITY = 0.65
 RecallFn = Callable[[str], str]
@@ -86,6 +95,7 @@ class _CheckIn:
         self.last_tool = "routing"
         self.called: list[str] = []
         self.recall_error = ""
+        self.preflight: dict[str, Any] | None = None
         self.finished = False
         self.timer = threading.Timer(PERSONAL_CHECKIN_SECONDS, self._send)
 
@@ -141,6 +151,29 @@ class EngineCaller:
         outputs = tuple(str(entry.get("output") or "") for entry in entries)
         return Completion(content, tuple(calls), len(names), names, outputs)
 
+    def tool_names(self) -> frozenset[str] | None:
+        """The names the Pipeline registry serves, or None when it cannot be asked."""
+        root = self.engine.base_url.rstrip("/")
+        url = root + "/tools" if root.endswith("/v1") else root + "/v1/tools"
+        headers = {"Authorization": f"Bearer {self.engine.api_key}"} if self.engine.api_key else {}
+        try:
+            with httpx.Client(trust_env=False, timeout=TOOL_REGISTRY_TIMEOUT_S) as client:
+                response = client.get(url, headers=headers)
+            if response.status_code != 200:
+                return None
+            payload = response.json()
+        except (httpx.HTTPError, ValueError):
+            return None
+        return _tool_names_payload(payload)
+
+
+def _tool_names_payload(payload: Any) -> frozenset[str] | None:
+    """Registered tool names from the Pipeline's ``GET /v1/tools`` body."""
+    names = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(names, list):
+        return None
+    return frozenset(name for name in names if isinstance(name, str) and name)
+
 
 def poll_personal_tasks(
     root: Path,
@@ -186,6 +219,8 @@ def poll_personal_tasks(
             return collected or run
         run = _run_routed(root, store, claimed, active_caller, notices, checkin, active_recall)
         return collected or run
+    except ToolsUnavailableError as exc:
+        return _finish_unavailable(root, store, claimed, notices, exc)
     except Exception as exc:  # noqa: BLE001 — one personal task must not kill queue-run
         if not _retryable_failure(exc):
             _finish(
@@ -250,6 +285,8 @@ def _record_local_failure(
     }
     if checkin.recall_error:
         record["recall_error"] = checkin.recall_error
+    if checkin.preflight is not None:
+        record["preflight"] = checkin.preflight
     _write_receipt(attempt_path, record)
     local_paths.append(attempt_path)
     if task.plan_json is not None:
@@ -291,6 +328,40 @@ def _finish_local_block(
         error=str(record["error"]),
         route=record["route"],
         extra=extra,
+    )
+    return PersonalRun(task.id, "blocked")
+
+
+class ToolsUnavailableError(RuntimeError):
+    """The route names Pipeline tools the registry does not serve; no retry can fix wiring."""
+
+    def __init__(self, bundle: str, missing: list[str], route: PersonalRoute) -> None:
+        super().__init__(f"{bundle} tools unavailable on Pipeline: {', '.join(missing)}")
+        self.bundle = bundle
+        self.missing = tuple(missing)
+        self.route = route
+
+    def as_receipt(self) -> dict[str, Any]:
+        return {"checked": True, "missing": list(self.missing)}
+
+
+def _finish_unavailable(
+    root: Path, store: PersonalStore, task: PersonalTask, notices: Any, exc: ToolsUnavailableError
+) -> PersonalRun:
+    """A failed pre-flight is terminal: no second local attempt, no cloud lane."""
+    _finish(
+        root,
+        store,
+        task,
+        "blocked",
+        str(exc),
+        exc.route.workspace,
+        0,
+        [],
+        notices,
+        error=str(exc),
+        route=exc.route.as_receipt(),
+        extra={"preflight": exc.as_receipt()},
     )
     return PersonalRun(task.id, "blocked")
 
@@ -979,6 +1050,7 @@ def _execute_route(
     notices: Any,
     checkin: _CheckIn,
 ) -> PersonalRun:
+    checkin.preflight = _preflight(caller, route)
     content, hops, called, outputs = _hop_loop(
         caller,
         _route_messages(task.text, memory),
@@ -1001,9 +1073,29 @@ def _execute_route(
         called,
         notices,
         route=route.as_receipt(),
-        extra=_recall_extra(checkin),
+        extra={**_recall_extra(checkin), "preflight": checkin.preflight},
     )
     return PersonalRun(task.id, "done")
+
+
+def _preflight(caller: PipelineCaller, route: PersonalRoute) -> dict[str, Any]:
+    """Ask the Pipeline which tools it serves before the loop; a wiring fault fails fast."""
+    pipeline_tools = sorted(name for name in route.tools if name not in LOCAL_TOOLS)
+    if not pipeline_tools:
+        return {"checked": False, "missing": []}
+    probe = getattr(caller, "tool_names", None)  # a caller that cannot ask leaves it unknown
+    registered = probe() if callable(probe) else None
+    if registered is None:
+        return {"checked": False, "missing": [], "note": "the Pipeline tool list was unavailable"}
+    missing = sorted(set(pipeline_tools) - set(registered))
+    if missing:
+        raise ToolsUnavailableError(_bundle_name(missing), missing, route)
+    return {"checked": True, "missing": []}
+
+
+def _bundle_name(missing: list[str]) -> str:
+    bundles = sorted({tool_bundle(name) for name in missing})
+    return bundles[0] if len(bundles) == 1 else "personal"
 
 
 def _request_confirm(
