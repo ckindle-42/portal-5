@@ -4,8 +4,10 @@ import copy
 import importlib
 import io
 import json
+import runpy
 import sys
 from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -96,6 +98,11 @@ def test_parse_output_paths_takes_last_runner_line():
     assert screen.parse_output_paths("") == []
 
 
+def test_parse_output_paths_ignores_non_path_records():
+    text = 'OUTPUT_PATHS: [{"path": "/a/two.wav", "tensor": "large"}]\n'
+    assert screen.parse_output_paths(text) == []
+
+
 def test_plan_image_substitutes_prompt_output_and_candidate_cache(tmp_path):
     row = next(r for r in CATALOG["media"]["image"]["rows"] if r["id"] == "iris-q8")
     plan = screen._plan_prompt(CATALOG, "image", row, 1, tmp_path, tmp_path / "image")
@@ -107,6 +114,17 @@ def test_plan_image_substitutes_prompt_output_and_candidate_cache(tmp_path):
         screen._plan_prompt(CATALOG, "image", incumbent, 1, tmp_path, tmp_path / "image").env_add
         == {}
     )
+
+
+def test_plan_video_incumbent_uses_portal_installed_cli(tmp_path):
+    row = next(r for r in CATALOG["media"]["video"]["rows"] if r["id"] == "ltx25-q4")
+    plan = screen._plan_prompt(CATALOG, "video", row, 1, tmp_path, tmp_path / "video")
+    assert plan.argv[0] == f"{CATALOG['paths']['video_venv']}/bin/ltx-2-mlx"
+    assert "uvx" not in plan.argv
+    assert plan.argv[1:3] == ["generate", "--distilled"]
+    assert plan.argv[plan.argv.index("--model") + 1] == "dgrauet/ltx-2.5-mlx-q4"
+    assert plan.argv[plan.argv.index("--frames") + 1] == "97"
+    assert plan.argv[-1] == str(tmp_path / "video" / "ltx25-q4-p1.mp4")
 
 
 def test_plan_music_spec_and_materialized_runner(tmp_path):
@@ -300,6 +318,64 @@ def test_music_runner_text_needs_no_substitution():
     text = screen._music_runner_text()
     assert "initialize_service" in text and "OUTPUT_PATHS: " in text
     assert "{prompt}" not in text and "{output}" not in text
+
+
+def test_music_runner_extracts_path_without_stringifying_tensor(tmp_path, monkeypatch, capsys):
+    output_path = tmp_path / "song.wav"
+    output_path.write_bytes(b"audio")
+    spec = {
+        "root": str(tmp_path),
+        "save_dir": str(tmp_path),
+        "dit": "dit",
+        "load_lm": False,
+        "lm": None,
+        "caption": "caption",
+        "lyrics": "",
+        "duration": 1.0,
+        "steps": 1,
+        "seed": 42,
+        "shift": 3.0,
+        "instrumental": True,
+    }
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text(json.dumps(spec))
+    runner_path = tmp_path / "runner.py"
+    runner_path.write_text(screen._music_runner_text())
+
+    class Tensor:
+        def __repr__(self):
+            raise AssertionError("tensor was formatted")
+
+    handler = ModuleType("acestep.handler")
+    handler.AceStepHandler = type(
+        "AceStepHandler",
+        (),
+        {"initialize_service": lambda self, **kwargs: ("ready", True)},
+    )
+    inference = ModuleType("acestep.inference")
+    inference.GenerationConfig = lambda **kwargs: kwargs
+    inference.GenerationParams = lambda **kwargs: kwargs
+    inference.generate_music = lambda *args, **kwargs: SimpleNamespace(
+        audios=[{"path": str(output_path), "tensor": Tensor()}]
+    )
+    llm = ModuleType("acestep.llm_inference")
+    llm.LLMHandler = type("LLMHandler", (), {})
+    package = ModuleType("acestep")
+    package.__path__ = []
+    for name, module in (
+        ("acestep", package),
+        ("acestep.handler", handler),
+        ("acestep.inference", inference),
+        ("acestep.llm_inference", llm),
+    ):
+        monkeypatch.setitem(sys.modules, name, module)
+    old_path = sys.path[:]
+    monkeypatch.setattr(sys, "argv", [str(runner_path), "--spec", str(spec_path)])
+    try:
+        runpy.run_path(str(runner_path), run_name="__main__")
+    finally:
+        sys.path[:] = old_path
+    assert screen.parse_output_paths(capsys.readouterr().out) == [str(output_path)]
 
 
 def test_catalog_copy_is_deep_enough_for_mutation_tests():
