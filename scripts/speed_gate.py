@@ -34,7 +34,7 @@ DEFAULT_SIZES = (2000, 8000, 32000)
 DEFAULT_RUNS = 3
 DEFAULT_COOLDOWN_S = 10.0
 RECLAIM_NEED_GIB = 64
-RESET_SETTLE_S = 2.0
+RESET_SETTLE_S = 3.0
 CELL_SETTLE_S = 1.0
 REQUEST_TIMEOUT_S = 600.0
 BENCH_TIMEOUT_S = 4 * 3600.0
@@ -359,7 +359,7 @@ def _engine_problems(
     if phase == "B1":
         if isinstance(payload, dict) and payload.get("engine") not in (None, "omlx"):
             problems.append({"kind": "engine", "detail": f"served engine {payload['engine']}"})
-        if returncode and not isinstance(payload, dict):
+        if not isinstance(payload, dict):
             problems.append({"kind": "failed", "detail": "speed_bench produced no report"})
     elif phase == "B2":
         problems.extend(_b2_engine_problems(model, payload, after, returncode))
@@ -379,7 +379,7 @@ def _engine_problems(
             for failure in failures
             if "WRONG ENGINE" in failure
         )
-        if returncode and not isinstance(payload, dict):
+        if not isinstance(payload, dict):
             problems.append({"kind": "failed", "detail": "speed_bench produced no report"})
     if phase != "B2":
         problems.extend(
@@ -532,6 +532,7 @@ def run_cell(ctx: Ctx, phase: str, target: str, model: str | None) -> dict[str, 
         "started_at": started,
         "finished_at": _now(),
         "returncode": returncode,
+        "log": path.with_suffix(".log").name if phase == "B2" else None,
         "status": _status(problems),
         "problems": problems,
         "setup": {"before": before, "after": after, "reset": reset},
@@ -640,8 +641,19 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def load_tag(out_dir: Path, tag: str) -> dict[str, dict[str, Any]]:
+    """Load the cells this tag's run.json lists; stale files from an older run are ignored."""
+    directory = out_dir / tag
+    run = _read_json(directory / "run.json")
+    names = []
+    if isinstance(run, dict):
+        names = [str(entry["file"]) for entry in run.get("cells") or [] if entry.get("file")]
+    paths = (
+        [directory / name for name in dict.fromkeys(names)]
+        if names
+        else sorted(directory.glob("b[123]_*.json"))
+    )
     cells: dict[str, dict[str, Any]] = {}
-    for path in sorted((out_dir / tag).glob("b[123]_*.json")):
+    for path in paths:
         cell = _read_json(path)
         if isinstance(cell, dict):
             cells[path.stem] = cell

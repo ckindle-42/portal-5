@@ -601,6 +601,30 @@ def test_compare_b2_cv_widens_the_avg_tps_band():
     assert "avg_tps" in _compare(target, [steady])[0]
 
 
+def test_load_tag_uses_the_run_manifest_and_ignores_stale_cells(tmp_path):
+    tag = tmp_path / "run1"
+    tag.mkdir()
+    current = _cell("B1", [_b1_row(8000)])
+    stale = _cell("B1", [_b1_row(8000, decode=1.0)])
+    (tag / "b1_model-a.json").write_text(json.dumps(current), encoding="utf-8")
+    (tag / "b1_retired-model.json").write_text(json.dumps(stale), encoding="utf-8")
+    manifest = {"tag": "run1", "cells": [{"file": "b1_model-a.json", "status": "ok"}]}
+    (tag / "run.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    cells = speed_gate.load_tag(tmp_path, "run1")
+
+    assert list(cells) == ["b1_model-a"]
+
+
+def test_cell_fails_when_the_instrument_writes_no_report(tmp_path):
+    http = FakeHttp().on("/api/ps", OLLAMA_PS_EMPTY).on("/v1/models/status", OMLX_STATUS_TARGET)
+    ctx = _ctx(tmp_path, http, speed=lambda _ctx, _engine, _target, _path: 0)
+
+    cell = speed_gate.run_cell(ctx, "B1", "model-a", "model-a")
+
+    assert cell["status"] == "failed"
+
+
 def test_compare_reports_missing_and_dropped_cells():
     target = {"b1_model-a": _cell("B1", [_b1_row(8000)])}
     baseline = [{"b1_model-b": _cell("B1", [_b1_row(8000)])}]
