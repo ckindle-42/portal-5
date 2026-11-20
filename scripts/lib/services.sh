@@ -71,40 +71,62 @@ _latest_sweep_report() {
     printf '%s' "$report"
 }
 
-# Build service deps and sweep fixes; apply refreshes the report after upstream sync.
+# Resolve service deps against the engine lock floors and a fresh apply-time sweep.
 _engine_dep_plan() {
-    local service="$1" py="$2" mode="${3:-apply}"
+    local service="$1" py="$2" mode="${3:-apply}" project="${4:-}"
     local portal_py="$PORTAL_ROOT/.venv/bin/python"
     [ -x "$portal_py" ] || portal_py="$(command -v python3)"
-    local report="" report_dir="" candidate status
+    local report="" work_dir="" candidate status upstream_requirements=""
+    if [ "$mode" = "apply" ] || [ -n "$project" ]; then
+        work_dir="$(mktemp -d "${TMPDIR:-/tmp}/portal5-engine-sweep.XXXXXX")" || return 1
+    fi
     if [ "$mode" = "apply" ]; then
-        report_dir="$(mktemp -d "${TMPDIR:-/tmp}/portal5-engine-sweep.XXXXXX")" || return 1
         if ! "$portal_py" "$PORTAL_ROOT/scripts/security_sweep.py" \
-            --repo "$PORTAL_ROOT" --home "$HOME" --output-dir "$report_dir" \
+            --repo "$PORTAL_ROOT" --home "$HOME" --output-dir "$work_dir" \
             --skip-images --no-alert --no-delta; then
             echo "  ❌ fresh security sweep failed; refusing to apply engine dependencies" >&2
-            rm -rf "$report_dir"
+            [ -z "$work_dir" ] || rm -rf "$work_dir"
             return 1
         fi
-        for candidate in "$report_dir"/security_sweep_*.md; do
+        for candidate in "$work_dir"/security_sweep_*.md; do
             [ -f "$candidate" ] || continue
             report="$candidate"
         done
         if [ -z "$report" ]; then
             echo "  ❌ fresh security sweep produced no report; refusing to apply engine dependencies" >&2
-            rm -rf "$report_dir"
+            [ -z "$work_dir" ] || rm -rf "$work_dir"
             return 1
         fi
     else
         report="$(_latest_sweep_report)"
+    fi
+    if [ -n "$project" ]; then
+        if [ ! -f "$project/uv.lock" ]; then
+            echo "  ❌ upstream lock missing from $project; refusing dependency plan" >&2
+            [ -z "$work_dir" ] || rm -rf "$work_dir"
+            return 1
+        fi
+        upstream_requirements="$work_dir/upstream-requirements.txt"
+        local export_args=( uv export --locked --format requirements.txt --no-hashes
+            --no-annotate --no-emit-project --no-emit-local --python "$py"
+            --output-file "$upstream_requirements" )
+        [ "$service" != "video" ] || export_args+=( --all-extras )
+        if ! ( cd "$project" && "${export_args[@]}" ); then
+            echo "  ❌ cannot export upstream lock from $project; refusing dependency plan" >&2
+            [ -z "$work_dir" ] || rm -rf "$work_dir"
+            return 1
+        fi
     fi
     local args=( "$portal_py" "$PORTAL_ROOT/scripts/engine_install_plan.py"
         --service "$service" --python "$py" --mode "$mode" )
     if [ -n "$report" ]; then
         args+=( --sweep-report "$report" )
     fi
+    if [ -n "$upstream_requirements" ]; then
+        args+=( --upstream-requirements "$upstream_requirements" )
+    fi
     if "${args[@]}"; then status=0; else status=$?; fi
-    [ -z "$report_dir" ] || rm -rf "$report_dir"
+    [ -z "$work_dir" ] || rm -rf "$work_dir"
     return "$status"
 }
 
@@ -138,7 +160,7 @@ _launch_install_music() {
         exit 1
     fi
     if [ "$dry" -eq 1 ]; then
-        _engine_dep_plan music "$PY" dry-run
+        _engine_dep_plan music "$PY" dry-run "$ACE_DIR"
         echo "  dry-run: no clone, no pip apply, no launchctl"
         return 0
     fi
@@ -154,10 +176,13 @@ _launch_install_music() {
     fi
     git -C "$ACE_DIR" fetch --depth 1 origin "$ACE_SHA"
     git -C "$ACE_DIR" checkout --detach "$ACE_SHA"
-    ( cd "$ACE_DIR" && uv python install 3.12 && uv sync --python 3.12 --frozen )
-    # ACE-Step's own lock owns the core stack. Portal adds service deps and
-    # non-core sweep fixes only (scripts/engine_install_plan.py).
-    _engine_dep_plan music "$PY" apply || {
+    if [ -d "$ACE_DIR/.venv" ]; then
+        [ -x "$PY" ] || { echo "  ❌ Existing ACE-Step venv has no usable Python: $PY" >&2; exit 1; }
+        echo "  Preserving the existing ACE-Step venv; the upstream lock seeds new installs only."
+    else
+        ( cd "$ACE_DIR" && uv python install 3.12 && uv sync --python 3.12 --frozen )
+    fi
+    _engine_dep_plan music "$PY" apply "$ACE_DIR" || {
         echo "  ❌ security dependency upgrade failed" >&2; exit 1;
     }
 
@@ -376,7 +401,7 @@ _launch_install_video_mlx() {
         exit 1
     fi
     if [ "$dry" -eq 1 ]; then
-        _engine_dep_plan video "$VX_VENV/bin/python" dry-run
+        _engine_dep_plan video "$VX_VENV/bin/python" dry-run "$VX_SRC"
         echo "  dry-run: no clone, no pip apply, no launchctl"
         return 0
     fi
@@ -402,11 +427,17 @@ _launch_install_video_mlx() {
         echo "  Cloning dgrauet/ltx-2-mlx..."; git clone --depth 1 https://github.com/dgrauet/ltx-2-mlx.git "$VX_SRC"
     fi
     echo "  Engine checkout: $VX_SRC -> $(cd "$VX_SRC" && pwd) @ $(git -C "$VX_SRC" rev-parse --short HEAD)"
-    echo "  Resolving deps (uv sync)..."
-    ( cd "$VX_SRC" && uv sync --all-extras )
-    # Engine lock owns torch/transformers/mlx. Sweep fixes that are not core
-    # are applied by scripts/engine_install_plan.py; a core hit is refused.
-    _engine_dep_plan video "$VX_VENV/bin/python" apply || {
+    if [ -d "$VX_VENV" ]; then
+        [ -x "$VX_VENV/bin/python" ] || {
+            echo "  ❌ Existing video venv has no usable Python: $VX_VENV/bin/python" >&2
+            exit 1
+        }
+        echo "  Preserving the existing engine venv; the upstream lock seeds new installs only."
+    else
+        echo "  Seeding the new venv from the upstream lock..."
+        ( cd "$VX_SRC" && uv sync --all-extras )
+    fi
+    _engine_dep_plan video "$VX_VENV/bin/python" apply "$VX_SRC" || {
         echo "  ❌ security dependency upgrade failed" >&2; exit 1;
     }
     # `uv sync` strips anything outside the engine's own lock, and a failed late
