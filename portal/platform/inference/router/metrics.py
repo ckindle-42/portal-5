@@ -510,6 +510,9 @@ def _record_response_time(model: str, workspace: str, duration_seconds: float) -
         if not workspace.startswith("bench-"):
             global _total_response_time_ms
             _total_response_time_ms += duration_seconds * 1000
+            from portal.platform.inference.router.state import _record_daily_total
+
+            _record_daily_total("total_response_time_ms", duration_seconds * 1000)
     except Exception as e:
         logger.debug("Failed to record response time: %s", e)
 

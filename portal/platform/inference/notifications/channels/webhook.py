@@ -87,6 +87,7 @@ class WebhookChannel(NotificationChannel):
                 "timestamp": event.timestamp.isoformat(),
                 "total_requests": event.total_requests,
                 "requests_by_workspace": event.requests_by_workspace,
+                "requests_by_client": event.requests_by_client,
                 "healthy_backends": event.healthy_backends,
                 "total_backends": event.total_backends,
                 "uptime_seconds": event.uptime_seconds,

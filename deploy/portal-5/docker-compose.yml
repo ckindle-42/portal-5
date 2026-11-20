@@ -113,6 +113,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - MAX_CONCURRENT_REQUESTS=${MAX_CONCURRENT_REQUESTS:-20}
       - PROMETHEUS_MULTIPROC_DIR=/tmp/portal_metrics
+      - METRICS_STATE_FILE=/app/data/metrics_state.json
+      - DAILY_SUMMARY_SNAPSHOT_FILE=/app/data/daily_summary_snapshot.json
       # Was also missing this passthrough — startup hint validation has no
       # per-workspace exception, so enabling eval (60 bench-* workspaces) for
       # the first time since the modular refactor exposed 41 stale model

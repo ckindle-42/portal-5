@@ -107,6 +107,7 @@ class TestSummaryEvent:
             healthy_backends=1,
             total_backends=1,
             uptime_seconds=7200.0,
+            requests_by_client={"ui": 90, "api": 10},
             avg_tokens_per_second=30.0,
             avg_response_time_ms=800.0,
         )
@@ -114,6 +115,7 @@ class TestSummaryEvent:
         assert "Daily Summary" in formatted
         assert "100" in formatted
         assert "30.0" in formatted  # avg TPS
+        assert "api 10" in formatted and "ui 90" in formatted
 
     def test_ttft_median_includes_sample_count_in_each_format(self):
         from portal.platform.inference.notifications.events import EventType, SummaryEvent
@@ -242,6 +244,96 @@ class TestNotificationDispatcher:
             # No event loop is running here -- this is the synchronous-script case.
             disp._schedule(coro())
             assert ran == [True], "the coroutine was scheduled but never actually run"
+
+
+class TestCalendarDaySummary:
+    def test_daily_metrics_are_saved_for_reload_after_container_recreation(self, tmp_path):
+        import json
+
+        import portal.platform.inference.router.state as state_mod
+        from portal.platform.inference.notifications.scheduler import _load_aggregated_state
+
+        state_file = tmp_path / "metrics_state.json"
+        with (
+            patch.object(state_mod, "_STATE_FILE", state_file),
+            patch.object(state_mod, "_daily_metrics", {}),
+        ):
+            state_mod._record_daily_request("auto", "api")
+            state_mod._record_daily_total("total_input_tokens", 12)
+            state_mod._record_daily_total("total_response_time_ms", 456.0)
+            state_mod._save_state()
+
+            state_mod._record_daily_request("auto", "api")
+            state_mod._save_state()
+            saved = json.loads(state_file.read_text())
+            day = state_mod._metrics_date()
+            assert saved["daily_metrics_version"] == 1
+            assert saved["daily_metrics"][day]["request_count"] == {"auto": 2}
+            assert saved["daily_metrics"][day]["requests_by_client"] == {"api": 2}
+            assert saved["daily_metrics"][day]["total_input_tokens"] == 12
+            assert saved["daily_metrics"][day]["total_response_time_ms"] == 456.0
+            assert _load_aggregated_state()["daily_metrics"][day] == saved["daily_metrics"][day]
+
+    @pytest.mark.asyncio
+    async def test_summary_uses_persisted_local_day_and_keeps_api_traffic(self):
+        from zoneinfo import ZoneInfo
+
+        import portal.platform.inference.notifications.scheduler as sched_module
+        from portal.platform.inference.notifications.dispatcher import NotificationDispatcher
+        from portal.platform.inference.notifications.scheduler import NotificationScheduler
+
+        disp = NotificationDispatcher()
+        scheduler = NotificationScheduler(disp)
+        zone = ZoneInfo("America/Chicago")
+        report_date = datetime.now(zone).date().isoformat()
+        state = {
+            "daily_metrics_version": 1,
+            "daily_metrics": {
+                report_date: {
+                    "request_count": {"auto": 4, "bench-route": 2},
+                    "requests_by_client": {"ui": 4, "api": 2},
+                    "total_input_tokens": 600,
+                    "total_output_tokens": 300,
+                    "total_response_time_ms": 6000.0,
+                }
+            },
+        }
+        snapshot = MagicMock()
+        snapshot.exists.return_value = True
+        cooldown = MagicMock()
+        cooldown.exists.return_value = False
+
+        with (
+            patch.dict(
+                os.environ,
+                {"ALERT_SUMMARY_ENABLED": "true", "ALERT_SUMMARY_TIMEZONE": "America/Chicago"},
+            ),
+            patch.object(sched_module, "_load_aggregated_state", return_value=state),
+            patch(
+                "portal.platform.inference.notifications.scheduler._load_snapshot",
+                return_value={},
+            ),
+            patch(
+                "portal.platform.inference.notifications.scheduler._save_snapshot"
+            ) as save_snapshot,
+            patch("portal.platform.inference.notifications.scheduler._SNAPSHOT_FILE", snapshot),
+            patch("portal.platform.inference.notifications.scheduler._COOLDOWN_FILE", cooldown),
+            patch.object(disp, "dispatch", new_callable=AsyncMock) as dispatch,
+        ):
+            sched_module._attach_to_pipeline(disp, {}, 0.0)
+            await scheduler._send_daily_summary(force=True, report_today=True)
+
+        dispatch.assert_awaited_once()
+        event = dispatch.call_args.args[0]
+        assert event.report_date == report_date
+        assert event.total_requests == 6
+        assert event.requests_by_workspace == {"auto": 4, "bench-route": 2}
+        assert event.requests_by_client == {"ui": 4, "api": 2}
+        assert event.total_input_tokens == 600
+        assert event.total_output_tokens == 300
+        assert event.avg_response_time_ms == pytest.approx(1500.0)
+        save_snapshot.assert_not_called()
+        cooldown.write_text.assert_not_called()
 
 
 class TestDailySummaryDeltaComputation:

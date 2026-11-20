@@ -204,6 +204,8 @@ def _record_timing_series(
         if not excluded:
             _state_mod._decode_tokens += completion_tokens
             _state_mod._decode_seconds += decode_s
+            _state_mod._record_daily_total("decode_tokens", completion_tokens)
+            _state_mod._record_daily_total("decode_seconds", decode_s)
 
     ttft = _positive_float(engine_ttft_seconds)
     ttft_source = "engine"
@@ -214,6 +216,7 @@ def _record_timing_series(
         _ttft_seconds.labels(model=model, workspace=workspace, source=ttft_source).observe(ttft)
         if not excluded:
             _state_mod._ttft_samples.append(ttft)
+            _state_mod._record_daily_sample("ttft_samples", ttft)
 
     resolved_answer = _resolve_answer_tokens(completion_tokens, reasoning_tokens, answer_tokens)
     answer_s = _positive_float(answer_seconds)
@@ -240,6 +243,10 @@ def _record_timing_series(
             _state_mod._answer_seconds_by_model[model] = (
                 _state_mod._answer_seconds_by_model.get(model, 0.0) + answer_s
             )
+            _state_mod._record_daily_total("answer_tokens", resolved_answer)
+            _state_mod._record_daily_total("answer_seconds", answer_s)
+            _state_mod._record_daily_count("answer_tokens_by_model", model, resolved_answer)
+            _state_mod._record_daily_count("answer_seconds_by_model", model, answer_s)
 
 
 def _record_usage(
@@ -329,11 +336,13 @@ def _record_usage(
             _output_tokens.labels(model=model, workspace=workspace).inc(completion_tokens)
             if not workspace.startswith(INTERNAL_WORKSPACE_PREFIX):
                 _state_mod._total_output_tokens += completion_tokens
+                _state_mod._record_daily_total("total_output_tokens", completion_tokens)
 
         if prompt_tokens > 0:
             _input_tokens.labels(model=model, workspace=workspace).inc(prompt_tokens)
             if not workspace.startswith(INTERNAL_WORKSPACE_PREFIX):
                 _state_mod._total_input_tokens += prompt_tokens
+                _state_mod._record_daily_total("total_input_tokens", prompt_tokens)
 
         # TPS: prefer Ollama's eval_duration; fall back to wall-clock elapsed time (streaming)
         if completion_tokens > 0 and eval_duration_ns > 0:
@@ -377,6 +386,7 @@ def _record_usage(
         # Track per-model request count for summary (plain dict, not the Counter)
         if not workspace.startswith(INTERNAL_WORKSPACE_PREFIX):
             _state_mod._req_count_by_model[model] = _state_mod._req_count_by_model.get(model, 0) + 1
+            _state_mod._record_daily_count("req_count_by_model", model)
 
         _record_timing_series(
             model=model,
@@ -401,6 +411,8 @@ def _record_model_request(model: str, workspace: str) -> None:
     try:
         _requests_by_model.labels(model=model, workspace=workspace).inc()
         _state_mod._req_count_by_model[model] = _state_mod._req_count_by_model.get(model, 0) + 1
+        if not workspace.startswith(INTERNAL_WORKSPACE_PREFIX):
+            _state_mod._record_daily_count("req_count_by_model", model)
     except Exception as e:
         logger.debug("Failed to record model request: %s", e)
 
