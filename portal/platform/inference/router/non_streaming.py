@@ -240,12 +240,20 @@ def _completion_body(resp: httpx.Response, workspace_id: str) -> dict[str, Any]:
     return data
 
 
-def _protect_failed_model(backend: Any, model: str) -> None:
-    """Keep a model that just failed out of eviction while another candidate is tried.
+def _note_failed_model(backend: Any, model: str) -> None:
+    """Mark the model this hop failed on: the first eviction candidate, never a shield.
 
-    P-2: streaming protects the model a stream failed over from; the non-streamed
-    cascade used to leave it evictable, so load_guard could free the seat this request
-    would have retried into."""
+    P-2 used to protect the failing source for 300 s instead, so a failed hop pinned its
+    own memory and refused the healthy seat (live 2026-11-20: Nemotron 22.9 GiB
+    "failover protected" blocked the oMLX seat's 16.6 GiB load).
+    """
+    from portal.platform.inference import load_guard
+
+    load_guard.note_failure(getattr(backend, "type", ""), model)
+
+
+def _protect_served_model(backend: Any, model: str) -> None:
+    """Keep the seat that served a failover loaded: it holds the answer in front of the user."""
     from portal.platform.inference import load_guard
 
     load_guard.protect_failover(getattr(backend, "type", ""), model)
@@ -750,15 +758,37 @@ def _empty_completion(data: dict[str, Any]) -> bool:
     return True
 
 
-def _empty_reply_reason(data: dict[str, Any]) -> str:
-    """Why an empty reply is empty, from the finish reason and its reasoning channel."""
-    choice = (data.get("choices") or [{}])[0] or {}
-    message = choice.get("message") or {}
-    reasoning = any(
+def _reasoning_present(message: dict[str, Any]) -> bool:
+    return any(
         isinstance(message.get(name), str) and message.get(name)
         for name in ("reasoning", "reasoning_content", "thinking")
     )
-    return f"content empty, no tool_calls, finish_reason={choice.get('finish_reason')!r}, reasoning={reasoning}"
+
+
+def _budget_spent_on_reasoning(data: dict[str, Any]) -> bool:
+    """An empty reply whose whole completion budget went to the reasoning channel."""
+    if not _empty_completion(data):
+        return False
+    choice = (data.get("choices") or [{}])[0] or {}
+    return choice.get("finish_reason") == "length" and _reasoning_present(
+        choice.get("message") or {}
+    )
+
+
+def _empty_reply_reason(data: dict[str, Any], max_tokens: Any = None) -> str:
+    """Why an empty reply is empty, naming a reasoning-spent budget as that cause rather
+    than as a model that returns nothing (live 2026-11-20: Nemotron, max_tokens=16)."""
+    choice = (data.get("choices") or [{}])[0] or {}
+    finish = choice.get("finish_reason")
+    reasoning = _reasoning_present(choice.get("message") or {})
+    budget = f"max_tokens={max_tokens}" if max_tokens else "the completion budget"
+    if finish == "length" and reasoning:
+        return f"{budget} ran out on reasoning before any answer (finish_reason='length')"
+    if finish == "length":
+        return f"{budget} ran out before any answer (finish_reason='length', no reasoning)"
+    if reasoning:
+        return f"reasoning only, no answer (finish_reason={finish!r})"
+    return f"content empty, no tool_calls, finish_reason={finish!r}"
 
 
 def _strip_emitted_tool_markup(data: dict[str, Any]) -> None:
@@ -798,6 +828,16 @@ async def _retry_empty_toolless_first_answer(
 ) -> tuple[dict[str, Any], float, dict[str, Any]]:
     """One toolless retry when tools swallowed the answer; returns the body actually sent."""
     if not _needs_toolless_first_answer(req_body, data, workspace_id):
+        return data, model_started, req_body
+    if _budget_spent_on_reasoning(data):
+        # The budget, not the tools, swallowed the answer: another 16-token turn cannot help.
+        logger.warning(
+            "Non-stream: workspace=%s model=%s answered nothing because %s; asking with "
+            "tools off cannot help, treating it as a failed hop",
+            workspace_id,
+            target_model,
+            _empty_reply_reason(data, req_body.get("max_tokens")),
+        )
         return data, model_started, req_body
     _record_intermediate_model(data, target_model, workspace_id, model_started)
     _empty_answer_retried.labels(workspace=workspace_id).inc()
@@ -1096,6 +1136,7 @@ async def _try_non_streaming(
                 path="non_streaming",
             ).inc()
 
+    _failover_hop = bool(tried)  # an earlier attempt for this request already failed
     if tried is not None:
         _attempt = (backend.chat_url, target_model)
         if _attempt in tried:
@@ -1275,8 +1316,13 @@ async def _try_non_streaming(
                 # 200 with no content and no call is not an answer (2026-11-20: a
                 # one-token thinking warm-up was logged as success, then the seat's
                 # fallback copy was loaded and the oMLX copy evicted).
-                reason = _empty_reply_reason(data)
-                _record_error(workspace_id, "empty_completion")
+                reason = _empty_reply_reason(data, req_body.get("max_tokens"))
+                _record_error(
+                    workspace_id,
+                    "empty_completion_budget"
+                    if _budget_spent_on_reasoning(data)
+                    else "empty_completion",
+                )
                 if tried is not None:
                     tried[(backend.chat_url, target_model)] = (
                         f"{target_model}: empty completion ({reason})"
@@ -1564,11 +1610,13 @@ async def _try_non_streaming(
                 )
                 result = await _run_request()
         if result is not None:
+            if _failover_hop:
+                _protect_served_model(backend, target_model)
             return result
         _raise_prefill_capacity_error(_prefill_refusal, _last_request_body)
         # Non-timeout failure (HTTP error, JSON parse, etc.) — cascade immediately.
         if not _local_refusal:  # a local refusal is not a backend failure (P-2)
-            _protect_failed_model(backend, target_model)
+            _note_failed_model(backend, target_model)
         logger.warning(
             "Backend %s failed for workspace=%s — trying next candidate",
             backend.id,
@@ -1601,6 +1649,8 @@ async def _try_non_streaming(
             except httpx.TimeoutException:
                 result = None  # a second timeout must cascade, not escape
             if result is not None:
+                if _failover_hop:
+                    _protect_served_model(backend, target_model)
                 return result
         if tried is not None:
             tried[(backend.chat_url, target_model)] = (
@@ -1617,5 +1667,5 @@ async def _try_non_streaming(
                 "Backend %s: engine unreachable or no model running — cascading to next candidate",
                 backend.id,
             )
-        _protect_failed_model(backend, target_model)
+        _note_failed_model(backend, target_model)
         return None

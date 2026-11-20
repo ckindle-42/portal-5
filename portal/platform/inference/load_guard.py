@@ -483,21 +483,40 @@ class LoadRefusedError(Exception):
 #: The pipeline's guard (set by lifespan); None outside the pipeline process.
 GUARD: LoadGuard | None = None
 
-#: How long the model a request just failed over FROM stays out of eviction (P-2). On the
-#: V2 closeout run an oMLX timeout failed over to an Ollama cold load, load_guard freed the
-#: oMLX seat to make room, and every reload of it then got HTTP 507.
+#: How long the seat that SERVED a failover stays out of eviction (P-2): it holds the
+#: answer the user is reading, and re-loading it costs a cold load.
 FAILOVER_PROTECT_S = float(os.environ.get("LOAD_GUARD_FAILOVER_PROTECT_S", "300"))
+
+#: How long a model that just failed (or answered empty) leads the eviction order.
+FAILED_EVICT_S = float(os.environ.get("LOAD_GUARD_FAILED_EVICT_S", "300"))
 
 
 def protect_failover(engine: str, model: str) -> None:
-    """Keep the model a request just failed over from loaded for a cool-down (P-2)."""
+    """Keep the seat a request failed over TO loaded for a cool-down (P-2).
+
+    Only ever called for the backend that served: the model a hop just failed on is a
+    :func:`note_failure` candidate, never a shield (live 2026-11-20: a failed Nemotron
+    GGUF pinned 22.9 GiB "failover protected" and refused a healthy oMLX seat).
+    """
     if GUARD is not None and engine in (OLLAMA, OMLX) and model:
         GUARD.protect(engine, model, failover=True)
         logger.info(
-            "load_guard: protecting %s:%s for %.0fs after a failover",
+            "load_guard: protecting %s:%s for %.0fs after it served a failover",
             engine,
             model,
             FAILOVER_PROTECT_S,
+        )
+
+
+def note_failure(engine: str, model: str) -> None:
+    """Mark the model a hop failed on: evict it first, and drop any shield it had."""
+    if GUARD is not None and engine in (OLLAMA, OMLX) and model:
+        GUARD.note_failure(engine, model)
+        logger.info(
+            "load_guard: %s:%s failed — first eviction candidate for %.0fs",
+            engine,
+            model,
+            FAILED_EVICT_S,
         )
 
 
@@ -599,6 +618,7 @@ class LoadGuard:
         self._counterpart = counterpart or (lambda _engine, model: model)
         self._protected: dict[tuple[str, str], float] = {}  # (engine, model) -> monotonic deadline
         self._failover_protected: dict[tuple[str, str], float] = {}
+        self._failed: dict[tuple[str, str], float] = {}  # evicted before any other resident
         self._pinned = pinned
         self._client = client
         self._lock = asyncio.Lock()
@@ -822,6 +842,8 @@ class LoadGuard:
         span = FAILOVER_PROTECT_S if seconds is None else seconds
         protected = self._failover_protected if failover else self._protected
         protected[(engine, model)] = time.monotonic() + span
+        if failover:  # it served: it is no longer a failed-hop candidate
+            self._failed.pop((engine, model_key(model) if engine == OLLAMA else model), None)
 
     def protected(self, engine: str) -> set[str]:
         """Models currently in a keeper or failover protection window."""
@@ -840,6 +862,19 @@ class LoadGuard:
             for (e, m), until in self._failover_protected.items()
             if e == engine and until > now
         }
+
+    def note_failure(self, engine: str, model: str) -> None:
+        """A model that just failed or answered empty: first eviction candidate, no shield."""
+        key = model_key(model) if engine == OLLAMA else model
+        for pair in [p for p in self._failover_protected if p[0] == engine]:
+            if (model_key(pair[1]) if engine == OLLAMA else pair[1]) == key:
+                del self._failover_protected[pair]
+        self._failed[(engine, key)] = time.monotonic() + FAILED_EVICT_S
+
+    def failed(self, engine: str) -> set[str]:
+        """Models that failed inside the window: evicted before anything else."""
+        now = time.monotonic()
+        return {m for (e, m), until in self._failed.items() if e == engine and until > now}
 
     def busy(self, engine: str, model: str) -> int:
         if engine != OLLAMA:
@@ -1166,9 +1201,11 @@ class LoadGuard:
         try:
             url, idle = await self._omlx_idle_models(client, exclude)
             protected = self.protected(OMLX)
+            failed = self.failed(OMLX)
             last_models = last_models or set()
             idle.sort(
                 key=lambda m: (
+                    str(m["id"]) not in failed,
                     str(m["id"]) in last_models,
                     str(m["id"]) in protected,
                     float(m.get("last_access") or 0),
@@ -1258,9 +1295,11 @@ class LoadGuard:
             and self._ollama_idle({n: size}, include_protected=include_protected) > 0
         ]
         protected = self.protected(OLLAMA)
+        failed = self.failed(OLLAMA)
         last_keys = {model_key(name) for name in (last_models or set())}
         idle.sort(
             key=lambda name: (
+                model_key(name) not in failed,
                 model_key(name) in last_keys,
                 model_key(name) in protected,
                 self._last_access.get((OLLAMA, model_key(name)), 0.0),
@@ -2341,8 +2380,10 @@ class LoadGuard:
             and self._ollama_hold_reason(name, include_protected) is None
         ]
         last_keys = {model_key(name) for name in (last_models or set())}
+        failed = self.failed(OLLAMA)
         idle.sort(
             key=lambda name: (
+                model_key(name) not in failed,
                 model_key(name) in last_keys,
                 self._last_access.get((OLLAMA, model_key(name)), 0.0),
             )
