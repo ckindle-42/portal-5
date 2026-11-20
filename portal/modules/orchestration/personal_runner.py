@@ -1271,7 +1271,7 @@ def cancel_personal_task(root: Path, task_id: str) -> str:
 
 
 def _signal_cloud_lane(record: dict[str, Any]) -> bool:
-    """SIGTERM the lane's dispatch process, only when ``ps`` still shows that role."""
+    """SIGTERM the dispatch process only when its command line still shows that role."""
     try:
         pid = int(record.get("pid") or 0)
         role = str(record.get("role") or "")
