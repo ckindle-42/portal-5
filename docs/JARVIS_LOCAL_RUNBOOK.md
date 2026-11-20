@@ -50,6 +50,13 @@ position. The runner takes one per poll, between arm jobs:
   `auto-daily::fast` (or `auto-coding` when the request needs a sandbox); the chosen bundle, seat
   and offered tools are in the receipt's `route`. A Portal status question answers through
   `get_pipeline_status` / `get_loaded_models`.
+- A host file outside the repo — a security sweep report, a generated file — is read by
+  `read_local_file` (full path, at most 32 KB), confined to `~/AI_Output` and `~/.portal5/security`;
+  a path outside them is refused.
+- Before the first tool call the runner asks the Pipeline's `GET /v1/tools` what the registry
+  actually serves. A route needing a tool it lacks is `blocked` on attempt 1 with
+  `<bundle> tools unavailable on Pipeline: …`, and `preflight` sits beside `route` in the receipt —
+  no retry, no cloud lane. An unanswered probe is unknown, and the attempt runs.
 - A risky step (shell, file write, `remember`, git write, a mutating proxmox or unifi/browser call)
   waits for a Confirm button. Read-only proxmox and git reads do not.
 - A destructive request (`docker compose down`, a docker prune, `rm -rf`, `launch.sh down`, a force

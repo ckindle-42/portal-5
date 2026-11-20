@@ -76,6 +76,7 @@ def check_pipeline_assembles() -> tuple[str, str, list[dict]]:
         ("/ollama/api/tags", "GET"),
         ("/notifications/test", "POST"),
         ("/v1/models", "GET"),
+        ("/v1/tools", "GET"),
         ("/v1/backends", "GET"),
         ("/v1/chat/completions", "POST"),
         ("/v1/embeddings", "POST"),
