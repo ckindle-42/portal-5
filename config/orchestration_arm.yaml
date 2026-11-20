@@ -68,7 +68,7 @@ queue:
       security_tier: daybreak
       timeout_seconds: 1800
   personal_cloud:
-    enabled: true
+    enabled: false
     max_attempts: 1
   telegram_control:
     enabled: true
