@@ -76,26 +76,31 @@ _engine_dep_plan() {
     local service="$1" py="$2" mode="${3:-apply}" project="${4:-}" extra_dependency="${5:-}"
     local portal_py="$PORTAL_ROOT/.venv/bin/python"
     [ -x "$portal_py" ] || portal_py="$(command -v python3)"
-    local report="" work_dir="" candidate status upstream_requirements=""
+    local report="" work_dir="" candidate status upstream_requirements="" sweep_status=0
     if [ "$mode" = "apply" ] || [ -n "$project" ]; then
         work_dir="$(mktemp -d "${TMPDIR:-/tmp}/portal5-engine-sweep.XXXXXX")" || return 1
     fi
     if [ "$mode" = "apply" ]; then
-        if ! "$portal_py" "$PORTAL_ROOT/scripts/security_sweep.py" \
+        # Exit contract of scripts/security_sweep.py: a non-zero exit means "scan
+        # errors recorded" (with --skip-images that is always the intentional
+        # skip entry), never "the scan failed" — the report is written before the
+        # exit status is decided. Gate on the report instead: present and
+        # non-empty means the sweep ran and reported findings → plan the fixes.
+        # Missing/empty means it could not run → refuse.
+        "$portal_py" "$PORTAL_ROOT/scripts/security_sweep.py" \
             --repo "$PORTAL_ROOT" --home "$HOME" --output-dir "$work_dir" \
-            --skip-images --no-alert --no-delta; then
-            echo "  ❌ fresh security sweep failed; refusing to apply engine dependencies" >&2
-            [ -z "$work_dir" ] || rm -rf "$work_dir"
-            return 1
-        fi
+            --skip-images --no-alert --no-delta || sweep_status=$?
         for candidate in "$work_dir"/security_sweep_*.md; do
             [ -f "$candidate" ] || continue
             report="$candidate"
         done
-        if [ -z "$report" ]; then
-            echo "  ❌ fresh security sweep produced no report; refusing to apply engine dependencies" >&2
+        if [ -z "$report" ] || [ ! -s "$report" ]; then
+            echo "  ❌ fresh security sweep produced no report (exit $sweep_status); refusing to apply engine dependencies" >&2
             [ -z "$work_dir" ] || rm -rf "$work_dir"
             return 1
+        fi
+        if [ "$sweep_status" -ne 0 ]; then
+            echo "  ℹ️  security sweep exited $sweep_status with findings/errors recorded; proceeding with the fresh report"
         fi
     else
         report="$(_latest_sweep_report)"
