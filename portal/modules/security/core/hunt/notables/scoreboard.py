@@ -680,6 +680,7 @@ def _step_row(step: Step) -> dict[str, Any]:
         "step": step.label,
         "lines": step.lines,
         "quiet": step.quiet,
+        "class": step.klass,
         "first_rank": step.first_rank,
         "covered": {str(limit): _cut(step.first_rank, limit) for limit in CUTS},
         "by_generator": dict(sorted(step.by_generator.items(), key=lambda item: item[1])),
@@ -904,16 +905,19 @@ def _entity_ownership(artefacts: Sequence[EntityKey]) -> dict[str, str]:
 def _entity_groups(
     artefacts: Sequence[EntityKey], owners: Mapping[str, str]
 ) -> tuple[dict[str, Step], dict[str, Step]]:
-    """Steps and scenarios a key can still credit: shared values and no-credit keys give none."""
+    """Steps and scenarios the keys declare: shared values credit the owner's step only,
+    and a step whose every key holds no credit stays in the denominator at zero lines."""
     steps: dict[str, Step] = {}
     scenarios: dict[str, Step] = {}
     for key in artefacts:
-        if not key.credit or owners.get(key.value) != f"{key.scenario}/{key.step}":
-            continue
         label = f"{key.scenario}/{key.step}"
+        if owners.get(key.value) != label:
+            continue
         step = steps.setdefault(label, Step(label, klass=key.klass))
         if key.klass and not step.klass:
             step.klass = key.klass
+        if not key.credit:
+            continue
         step.lines += key.audit_count or 0
         scenario = scenarios.setdefault(key.scenario, Step(key.scenario))
         scenario.lines += key.audit_count or 0
@@ -1105,7 +1109,9 @@ def _entity_line_mode(
     rows: Sequence[dict[str, Any]],
 ) -> dict[str, Any]:
     """The family rule over the keyed events: which notables' queries select them."""
-    by_value = {key.value: key for key in artefacts}
+    by_value: dict[str, EntityKey] = {}
+    for key in artefacts:
+        by_value.setdefault(key.value, key)  # the owner row: same order as _entity_ownership
     creditable = {
         key.value
         for key in artefacts
@@ -1114,15 +1120,15 @@ def _entity_line_mode(
     steps: dict[str, Step] = {}
     folded: list[tuple[str, KeyedEvent, str]] = []
     for event in events:
-        key = by_value.get(event.value)
-        if key is None or event.value not in creditable:
+        owner: EntityKey | None = by_value.get(event.value)
+        if owner is None or event.value not in creditable:
             continue
-        if any(by_value.get(name) is None or name not in creditable for name in key.requires):
+        if any(by_value.get(name) is None or name not in creditable for name in owner.requires):
             continue
-        label = f"{key.scenario}/{key.step}"
-        step = steps.setdefault(label, Step(label, klass=key.klass))
-        if key.klass and not step.klass:
-            step.klass = key.klass
+        label = f"{owner.scenario}/{owner.step}"
+        step = steps.setdefault(label, Step(label, klass=owner.klass))
+        if owner.klass and not step.klass:
+            step.klass = owner.klass
         step.lines += 1
         folded.append((label, event, event.raw.casefold()))
     by_source: defaultdict[str, list[tuple[str, KeyedEvent, str]]] = defaultdict(list)

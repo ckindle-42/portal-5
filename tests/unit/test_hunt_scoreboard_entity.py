@@ -429,6 +429,51 @@ def test_shared_key_credits_its_first_step_only(tmp_path: Path) -> None:
     assert "shared" in board.render(family)
 
 
+def test_shared_key_events_land_on_the_owning_step_in_line_mode(tmp_path: Path) -> None:
+    keys = [
+        _key("brewertalk_web", "web_scan", "45.77.65.211", entity="ip", klass="B"),
+        _key("taedonggang_phish", "c2_ssl", "45.77.65.211", entity="ip", klass="B"),
+    ]
+    events = tmp_path / "keyed_events.jsonl"
+    events.write_text(
+        json.dumps(
+            {
+                "dataset": "botsv2",
+                "scenario": "brewertalk_web",
+                "step": "web_scan",
+                "value": "45.77.65.211",
+                "time": 1502452930.0,
+                "source": "/var/log/httpd/error_log",
+                "raw": "[client 45.77.65.211] File does not exist: /var/www/html/1101",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    hit = {
+        "generator": "deviation",
+        "source_id": "botsv2:apache_error",
+        "content_key": "burst",
+        "what": "error log burst",
+        "entities": [],
+        "evidence": [
+            {
+                "line": "burst",
+                "query": 'search index="botsv2" (source="/var/log/httpd/error_log") | head 109',
+                "earliest": 1502452800.0,
+                "latest": 1502467200.0,
+            }
+        ],
+    }
+    run = _run(tmp_path, notables=[hit], keys=keys)
+    family = score(run, [str(run / "keys.jsonl")], keyed_events=[f"bots={events}"])["families"][0]
+    line = family["line_mode"]
+    steps = {step["step"]: step for step in line["steps"]}
+    assert steps["brewertalk_web/web_scan"]["first_rank"] == 0
+    assert "taedonggang_phish/c2_ssl" not in steps
+    assert line["recall"]["overall"]["None"] == 1
+
+
 def test_no_credit_key_is_reported_but_never_covers(tmp_path: Path) -> None:
     keys = [
         _key(
@@ -447,6 +492,12 @@ def test_no_credit_key_is_reported_but_never_covers(tmp_path: Path) -> None:
     assert artefacts["1502408189"]["first_rank"] == 0  # seen and reported
     assert artefacts["1502408189"]["covered"] == {"50": False, "100": False, "None": False}
     assert family["recall"]["overall"]["None"] == 0
+    assert family["recall"]["steps"] == 2  # the no-credit step stays, uncoverable
+    steps = {step["step"]: step for step in family["steps"]}
+    assert steps["brewertalk_web/xss_cookie_theft"]["lines"] == 0
+    assert steps["brewertalk_web/xss_cookie_theft"]["class"] == "T"
+    assert family["class_recall"]["T"]["steps"] == 1
+    assert family["class_recall"]["T"]["covered"]["None"] == 0
     assert family["keys"]["no_credit_keys"] == 1
     assert "no credit" in board.render(family)
 
