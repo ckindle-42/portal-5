@@ -215,9 +215,12 @@ def parse_output_paths(runner_text: str) -> list[str]:
     if not matches:
         return []
     try:
-        return [str(p) for p in json.loads(matches[-1])]
+        paths = json.loads(matches[-1])
     except json.JSONDecodeError:
         return []
+    if not isinstance(paths, list):
+        return []
+    return [path for path in paths if isinstance(path, str) and Path(path).suffix.lower() == ".wav"]
 
 
 def _free_pct() -> float | None:
@@ -401,8 +404,23 @@ params = GenerationParams(
 )
 config = GenerationConfig(batch_size=1, use_random_seed=False, seeds=[spec["seed"]], audio_format="wav")
 result = generate_music(dit, lm, params, config, save_dir=str(save_dir))
-audios = [str(a) for a in (getattr(result, "audios", None) or [])]
-print("OUTPUT_PATHS: " + json.dumps(audios))
+
+def audio_paths(value):
+    if isinstance(value, (str, os.PathLike)):
+        path = os.fspath(value)
+        return [path] if Path(path).suffix.lower() == ".wav" else []
+    if isinstance(value, dict):
+        path = value.get("path")
+        if isinstance(path, (str, os.PathLike)):
+            return audio_paths(path)
+        return [path for item in value.values() for path in audio_paths(item)]
+    if isinstance(value, (list, tuple)):
+        return [path for item in value for path in audio_paths(item)]
+    path = getattr(value, "path", None)
+    return audio_paths(path) if isinstance(path, (str, os.PathLike)) else []
+
+audios = getattr(result, "audios", None)
+print("OUTPUT_PATHS: " + json.dumps(audio_paths(audios if audios is not None else result)))
 """
 
 
