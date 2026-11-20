@@ -1326,15 +1326,13 @@ class TestPreferredResident:
         assert model == hint
         assert "-ctx" in model and "num_ctx" not in options
 
-    def test_the_shipped_config_resolves_the_daily_driver_to_ollama(self):
-        """The real registry: the hint is served only by ollama-general."""
+    def test_the_shipped_config_warms_nothing(self):
+        """The real registry: no preferred resident is warmed (2026-11-20)."""
         import portal.platform.inference.router.lifespan as lifespan_mod
         from portal.platform.inference.cluster_backends import DEFAULT_CONFIG_PATH, BackendRegistry
 
         registry = BackendRegistry(config_path=str(DEFAULT_CONFIG_PATH))
-        ((backend, engine, model, _),) = lifespan_mod._preferred_resident_targets(registry)
-        assert (backend.id, engine) == ("ollama-general", "ollama")
-        assert model == WORKSPACES["auto-daily"]["model_hint"]
+        assert list(lifespan_mod._preferred_resident_targets(registry)) == []
 
     def test_a_workspace_whose_hint_no_backend_serves_is_skipped(self, caplog):
         import logging
