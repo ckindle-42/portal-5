@@ -63,9 +63,10 @@ case "${1:-up}" in
 
     # The load guard admits an oMLX cold load only inside the engine's own
     # prefill-safe share of its ceiling (past it oMLX aborts mid-prefill, which no
-    # fallback can recover). Read that share from the engine's settings here, so the
-    # guard uses the engine's number instead of a copy of it.
-    export_omlx_prefill_zone
+    # fallback can recover), and caps an Ollama cold load at what leaves a loaded
+    # seat that share. Read the engine's numbers here, so the guard uses them
+    # instead of a copy.
+    export_omlx_memory_settings
 
     # Auto-start native services first so _check_hardware sees them as running
     _ensure_native_services

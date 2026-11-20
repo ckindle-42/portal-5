@@ -40,7 +40,11 @@ fixed budget; the balanced tier's ceiling follows free memory (P5-OMLX-CEILING-0
 Ollama sizing adds per-layer KV bytes at baked ``num_ctx`` using ``OLLAMA_KV_CACHE_TYPE`` (default q8_0); missing geometry falls back to weights × ``LOAD_GUARD_FACTOR`` and observed residency can raise the estimate. An oMLX cold load is admitted only inside the engine's own
 prefill-safe share of that headroom (``memory.prefill_safe_zone_ratio``, read from
 ``OMLX_PREFILL_SAFE_ZONE_RATIO`` or the engine's settings file): past it oMLX aborts
-mid-prefill, which no fallback can recover.
+mid-prefill, which no fallback can recover. The same reserve binds the other way: an
+Ollama cold load is capped at what leaves the loaded oMLX seat its prefill share of the
+ceiling the load would leave behind (an Ollama resident takes all but the engine's
+``other_app_reclaim_ratio`` of its footprint off that ceiling), and idles are evicted
+before the load is refused.
 Cold loads unload idle models when current headroom does not cover the incoming model; an
 oMLX cold load frees idle oMLX residents first (LRU, never itself) and waits out each
 accepted unload's release (200 or 202), then frees Ollama's.
@@ -141,6 +145,42 @@ def _omlx_prefill_zone(settings: Path | None = None) -> float | None:
 #: 16.6 GiB seat reached 19.8 GiB of a 20.7 GiB ceiling and died after the stream had
 #: started. The engine's own prefill-safe share is what that room is called.
 _OMLX_PREFILL_ZONE: float | None = _omlx_prefill_zone()
+#: Share of other apps' active memory oMLX may reclaim into its ceiling, per the
+#: engine's memory-guard tier. An Ollama resident takes the rest back out of the room
+#: the loaded oMLX seat prefills in: 2026-11-20 a 24.6 GiB resident left oMLX 23.22 GB
+#: of its 58.88 GB static cap and the engine refused a 2k-token prefill.
+_OMLX_TIER_RECLAIM: dict[str, float] = {"safe": 0.0, "balanced": 0.25, "aggressive": 0.5}
+#: A user-pinned (`custom`) ceiling is fixed, so no Ollama load takes anything from it.
+_OMLX_CUSTOM_RECLAIM = 1.0
+
+
+def _omlx_reclaim_ratio(settings: Path | None = None) -> float | None:
+    """oMLX's ``other_app_reclaim_ratio`` for its memory-guard tier; None when the
+    tier cannot be read. The engine does not expose it on ``/api/status`` or
+    ``/v1/models/status``, so it comes from the tier ``launch.sh up`` exports, else
+    from the engine's settings file."""
+    raw = os.environ.get("OMLX_OTHER_APP_RECLAIM_RATIO", "").strip()
+    if raw:
+        try:
+            value = float(raw)
+        except ValueError:
+            logger.warning("load_guard: OMLX_OTHER_APP_RECLAIM_RATIO=%r is not a number", raw)
+        else:
+            if 0 <= value <= 1:
+                return value
+            logger.warning("load_guard: OMLX_OTHER_APP_RECLAIM_RATIO=%r is outside [0, 1]", raw)
+    tier = os.environ.get("OMLX_MEMORY_GUARD_TIER", "").strip().lower()
+    if tier:
+        return _OMLX_CUSTOM_RECLAIM if tier == "custom" else _OMLX_TIER_RECLAIM.get(tier)
+    try:
+        memory = json.loads((settings or OMLX_SERVER_SETTINGS).read_text()).get("memory") or {}
+        tier = str(memory.get("memory_guard_tier") or "").strip().lower()
+    except Exception:
+        return None
+    return _OMLX_CUSTOM_RECLAIM if tier == "custom" else _OMLX_TIER_RECLAIM.get(tier)
+
+
+_OMLX_RECLAIM_RATIO: float | None = _omlx_reclaim_ratio()
 #: Set inside one ``admit`` task when that admission armed a parallel-seat yield.
 _ADMIT_YIELD_PIN: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "admit_yield_pin", default=False
@@ -487,6 +527,21 @@ def _omlx_prefill_reserve(status: dict[str, Any], used: float) -> float:
     """Room left above the resident models inside oMLX's prefill-safe share; negative means
     the engine has no room to prefill in and aborts whatever it is sent."""
     return _budget_bytes(status) * (_OMLX_PREFILL_ZONE or 1.0) - _MARGIN - used
+
+
+def _omlx_ollama_load_cap(status: dict[str, Any] | None, used: float) -> float | None:
+    """Most bytes an Ollama load may add while the loaded oMLX seat (``used`` bytes)
+    keeps its prefill share of the ceiling the load leaves behind: an Ollama resident
+    takes ``(1 - reclaim_ratio)`` of its footprint off that ceiling. None when there is
+    no loaded seat or the engine's numbers are unknowable (the previous behaviour)."""
+    if not isinstance(status, dict) or used <= 0 or not _OMLX_PREFILL_ZONE:
+        return None
+    ceiling = _budget_bytes(status)
+    ratio = _OMLX_RECLAIM_RATIO
+    if ceiling <= 0 or ratio is None or ratio >= 1:
+        return None
+    room = ceiling * _OMLX_PREFILL_ZONE - _MARGIN - used
+    return max(0.0, room / (_OMLX_PREFILL_ZONE * (1.0 - ratio)))
 
 
 def _releasable_ollama_bytes(held: list[tuple[str, int, str]], freed: set[str]) -> float:
@@ -1265,15 +1320,17 @@ class LoadGuard:
         idle: float,
         quiet: bool,
         waited: float,
+        reserved: float = 0.0,
     ) -> LoadRefusedError:
         detail = (
             f"after waiting {waited:.1f}s" if not quiet else "with nothing in flight to wait for"
         )
+        held = f" - {reserved / _GIB:.1f} GiB held for the loaded oMLX seat" if reserved > 0 else ""
         return LoadRefusedError(
             f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
             f"exceed host headroom {available / _GIB:.1f} GiB (oMLX headroom "
             f"{headroom / _GIB:.1f} + idle Ollama {idle / _GIB:.1f} - margin "
-            f"{_MARGIN / _GIB:.0f}) {detail}",
+            f"{_MARGIN / _GIB:.0f}{held}) {detail}",
             "quiet" if quiet else "projected-exceeds",
         )
 
@@ -1341,6 +1398,7 @@ class LoadGuard:
         activity_seen: bool,
         pending_change: bool,
         pending_free_names: list[str],
+        reserved: float = 0.0,
     ) -> tuple[_Release, bool, float]:
         remaining = deadline - time.monotonic()
         release()
@@ -1376,7 +1434,14 @@ class LoadGuard:
                     model, pending_free_names, need, available, _waited_s(deadline)
                 )
             raise self._ollama_refusal(
-                model, need, available, headroom, idle, quiet, waited=_waited_s(deadline)
+                model,
+                need,
+                available,
+                headroom,
+                idle,
+                quiet,
+                waited=_waited_s(deadline),
+                reserved=reserved,
             )
         logger.info(
             "load_guard: %s needs %.1f GiB, %.1f available; waiting for engine activity",
@@ -1955,6 +2020,72 @@ class LoadGuard:
                 break
         return attempted
 
+    def _omlx_kept_seats(
+        self, status: dict[str, Any] | None, model: str
+    ) -> tuple[float, list[str]]:
+        """Loaded oMLX memory this Ollama load must leave its prefill share to, and the
+        seats holding it: busy, pinned, loading, failover-protected, served elsewhere,
+        or the incoming seat's other-engine copy. Idle seats stay freeable."""
+        if not isinstance(status, dict):
+            return 0.0, []
+        failover = self.failover_protected(OMLX)
+        copies = self._counterpart_models(OLLAMA, model) if model else set()
+        kept = 0.0
+        loading = 0.0
+        names: list[str] = []
+        for entry in status.get("models") or []:
+            if not isinstance(entry, dict) or not (entry.get("loaded") or entry.get("is_loading")):
+                continue
+            mid = str(entry.get("id") or "")
+            if not (
+                entry.get("pinned")
+                or entry.get("is_loading")
+                or mid in failover
+                or mid in copies
+                or self.busy(OMLX, mid)
+                or self._active_elsewhere(OMLX, mid)
+            ):
+                continue
+            size = float(entry.get("actual_size") or entry.get("estimated_size") or 0)
+            kept += size
+            if not entry.get("loaded"):
+                loading += size  # may not have reached the counter yet
+            names.append(mid)
+        return min(kept, float(status.get("current_model_memory") or 0) + loading), names
+
+    def _hold_seat_prefill_room(
+        self, status: dict[str, Any] | None, model: str, available: float
+    ) -> tuple[float, float]:
+        """Cap what this Ollama load may add so the loaded oMLX seats it may not free
+        keep their prefill share after it; returns (available, bytes held back)."""
+        kept, names = self._omlx_kept_seats(status, model)
+        if kept <= 0:
+            return available, 0.0
+        cap = _omlx_ollama_load_cap(status, kept)
+        if cap is None:
+            logger.info(
+                "load_guard: cannot project oMLX's ceiling after loading %s (prefill or "
+                "reclaim share unknown); admitting on the previous fail-open path",
+                model,
+            )
+            return available, 0.0
+        if cap >= available:
+            return available, 0.0
+        logger.info(
+            "load_guard: %s may add %.1f GiB of %s headroom; %.1f GiB is held so the loaded "
+            "oMLX seat%s (%s, %.1f GiB) keep%s a %.0f%% prefill share",
+            model,
+            cap / _GIB,
+            OLLAMA,
+            (available - cap) / _GIB,
+            "" if len(names) == 1 else "s",
+            ", ".join(names),
+            kept / _GIB,
+            "s" if len(names) == 1 else "",
+            100 * (_OMLX_PREFILL_ZONE or 1.0),
+        )
+        return cap, available - cap
+
     async def _admit_ollama(
         self, base: str, model: str, deadline: float, held: list[_Release]
     ) -> _Release | None:
@@ -1997,12 +2128,21 @@ class LoadGuard:
                 return None
             need = await self._need(client, base, model)
             capacity = await self._headroom(client)
-            if capacity is None or not need:
-                break  # unmeasurable: fail open
+            if capacity is None:
+                logger.info(
+                    "load_guard: oMLX status unreadable for %s; admitting on the fail-open path",
+                    model,
+                )
+                break
+            if not need:
+                break
             headroom, used = capacity
             carry.last_used, recheck = self._track_counter(used, carry.last_used, recheck)
             idle = self._ollama_idle(resident)
             available = self._ollama_available(headroom, resident, idle) - _MARGIN
+            available, reserved = self._hold_seat_prefill_room(
+                _ADMIT_OMLX_STATUS.get(), model, available
+            )
             _record_headroom(available)
             if await self._free_or_yield_parallel(
                 client,
@@ -2052,6 +2192,7 @@ class LoadGuard:
                 activity_seen,
                 bool(pending_omlx or pending_ollama or recheck),
                 list(pending_omlx) + list(pending_ollama),
+                reserved,
             )
             recheck = False
         return release

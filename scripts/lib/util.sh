@@ -329,29 +329,35 @@ _restart_native_mcps() {
     [ "$failed" -eq 0 ]
 }
 
-# ── The load guard's oMLX prefill reserve ────────────────────────────────────
+# ── The load guard's oMLX memory numbers ─────────────────────────────────────
 # An oMLX cold load is admitted only inside the engine's own prefill-safe share of
 # its ceiling (past it oMLX aborts mid-prefill, which no fallback can recover). Read
-# that share from the engine's settings, so the guard uses the engine's number
-# rather than a copy of it. Exported before `docker compose up`; empty = raw headroom.
-export_omlx_prefill_zone() {
+# that share, and the memory-guard tier whose reclaim share decides how much of an
+# Ollama resident comes off that ceiling, from the engine's settings, so the guard
+# uses the engine's numbers rather than a copy of them. Exported before
+# `docker compose up`; empty = the guard's previous behaviour.
+export_omlx_memory_settings() {
     local settings="${OMLX_SERVER_SETTINGS:-$HOME/.omlx/settings.json}"
     [ -f "$settings" ] || return 0
-    [ -n "${OMLX_PREFILL_SAFE_ZONE_RATIO:-}" ] && return 0  # an explicit .env wins
-    local value
-    value="$(python3 - "$settings" <<'PY'
+    local zone tier output
+    output="$(python3 - "$settings" <<'PY'
 import json, sys
 try:
     memory = json.load(open(sys.argv[1])).get("memory") or {}
-    zone = float(memory.get("prefill_safe_zone_ratio") or 0)
 except Exception:
     sys.exit(0)
-print(zone if 0 < zone <= 1 else "")
+zone = float(memory.get("prefill_safe_zone_ratio") or 0)
+print(zone if 0 < zone <= 1 else "-", memory.get("memory_guard_tier") or "-")
 PY
-)"
-    [ -n "$value" ] || return 0
-    export OMLX_PREFILL_SAFE_ZONE_RATIO="$value"
-    echo "[portal-5] Load guard: oMLX prefill-safe zone ${value} of its ceiling (from ${settings})"
+)" || return 0
+    read -r zone tier <<< "$output" || true
+    if [ -z "${OMLX_PREFILL_SAFE_ZONE_RATIO:-}" ] && [ -n "${zone:-}" ] && [ "$zone" != "-" ]; then
+        export OMLX_PREFILL_SAFE_ZONE_RATIO="$zone"
+        echo "[portal-5] Load guard: oMLX prefill-safe zone ${zone} of its ceiling (from ${settings})"
+    fi
+    if [ -z "${OMLX_MEMORY_GUARD_TIER:-}" ] && [ -n "${tier:-}" ] && [ "$tier" != "-" ]; then
+        export OMLX_MEMORY_GUARD_TIER="$tier"
+    fi
 }
 
 # ── `up` health gate: wait for every enabled service to answer /health ──────
