@@ -11,6 +11,7 @@ import os
 import plistlib
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,13 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 OSV_API = "https://api.osv.dev/v1"
+# Image-scan export scratch: data01, never the main drive's $TMPDIR (the 11-19
+# ENOSPC leak: each interrupted scan left ~22 GB of exports there). Env override
+# follows the PORTAL5_HUNT_DIR / PORTAL5_LANCE_DIR pattern; the weekly launchd
+# job runs with the default.
+IMAGE_SCAN_SCRATCH_ENV = "PORTAL5_SWEEP_IMAGE_SCRATCH_DIR"
+IMAGE_SCAN_SCRATCH_DEFAULT = "/Volumes/data01/portal5_sweep_scratch/osv-image-scan"
+_IMAGE_EXPORT_PATTERNS = ("portal-osv-image-", "docker-image-", "image-blob-")
 
 
 def default_output_dir() -> Path:
@@ -837,11 +845,97 @@ def build_image_triage(
     return triage
 
 
+def image_scan_scratch_dir() -> Path | None:
+    """The data01 scratch for osv-scanner image exports; None when unusable.
+
+    PORTAL5_SWEEP_IMAGE_SCRATCH_DIR wins, then the data01 default. The main
+    drive's $TMPDIR is never a fallback — an export there is the disk-filling
+    leak this path exists to prevent.
+    """
+    raw = os.environ.get(IMAGE_SCAN_SCRATCH_ENV, "").strip()
+    path = Path(raw).expanduser() if raw else Path(IMAGE_SCAN_SCRATCH_DEFAULT)
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+        probe = path / ".portal5-write-probe"
+        probe.write_bytes(b"")
+        probe.unlink()
+    except OSError:
+        return None
+    return path
+
+
+def _clear_image_exports(scratch: Path) -> int:
+    """Remove image-scan exports under ``scratch``: stale leftovers of an earlier
+    killed run at startup, and whatever an interrupted scan still held at exit."""
+    removed = 0
+    try:
+        entries = list(scratch.iterdir())
+    except OSError:
+        return 0
+    for entry in entries:
+        if not entry.name.startswith(_IMAGE_EXPORT_PATTERNS):
+            continue
+        if entry.is_dir() and not entry.is_symlink():
+            shutil.rmtree(entry, ignore_errors=True)
+        else:
+            try:
+                entry.unlink()
+            except OSError:
+                continue
+        removed += 1
+    return removed
+
+
+def _interrupt_scan(signum: int, frame: object) -> None:
+    """SIGTERM handler during the image scan: raise so unwinding removes the exports."""
+    raise KeyboardInterrupt(f"image scan interrupted by {signal.Signals(signum).name}")
+
+
+def _scan_one_image(
+    scanner: str, refs: list[str], scratch_dir: Path, image_timeout: int
+) -> tuple[list[dict[str, str]], int, str]:
+    """One image scan; osv-scanner's export lands in its TMPDIR (a per-image dir
+    under the scratch), removed when the scan exits — normal, timeout, exception.
+    Returns (findings, package_count, error); error '' on success."""
+    with tempfile.TemporaryDirectory(prefix="portal-osv-image-", dir=scratch_dir) as temp_dir:
+        output = Path(temp_dir) / "result.json"
+        try:
+            result = subprocess.run(
+                [
+                    scanner,
+                    "scan",
+                    "image",
+                    refs[0],
+                    "--format",
+                    "json",
+                    "--all-packages",
+                    "--output-file",
+                    str(output),
+                    "--verbosity",
+                    "error",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=image_timeout,
+                env={**os.environ, "TMPDIR": str(temp_dir)},
+            )
+            if not output.is_file():
+                return [], 0, f"{refs[0]}: scanner exit {result.returncode}"
+            data = json.loads(output.read_text(encoding="utf-8"))
+        except subprocess.TimeoutExpired:
+            return [], 0, f"{refs[0]}: scan timed out after {image_timeout}s; re-run to resume"
+        except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
+            return [], 0, f"{refs[0]}: {type(exc).__name__}"
+        image_findings, count = _docker_findings(data, refs)
+    return image_findings, count, ""
+
+
 def scan_docker_images(
     docker: str,
     cache_path: Path,
     image_timeout: int = 600,
     refresh: bool = False,
+    scratch_dir: Path | None = None,
 ) -> tuple[list[dict[str, str]], dict[str, int], list[str], list[dict[str, str]]]:
     scanner = shutil.which("osv-scanner")
     if not scanner:
@@ -851,6 +945,26 @@ def scan_docker_images(
             ["osv-scanner is not installed"],
             [],
         )
+    if scratch_dir is None:
+        scratch_dir = image_scan_scratch_dir()
+    else:
+        try:  # a caller-passed path may not exist yet (tests, one-off runs)
+            scratch_dir.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            scratch_dir = None
+    if scratch_dir is None:
+        return (
+            [],
+            {"images": 0, "scanned": 0, "cached": 0, "packages": 0},
+            [
+                "image scan skipped: no image-scan scratch ("
+                f"{IMAGE_SCAN_SCRATCH_ENV} unset and {IMAGE_SCAN_SCRATCH_DEFAULT} unusable)"
+            ],
+            [],
+        )
+    stale = _clear_image_exports(scratch_dir)
+    if stale:
+        print(f"Removed {stale} stale image-scan export(s) from {scratch_dir}", flush=True)
     images, errors = _docker_images(docker)
     keys, inspect_errors = image_inventory(docker, list(images))
     errors.extend(inspect_errors)
@@ -861,63 +975,45 @@ def scan_docker_images(
     findings: list[dict[str, str]] = []
     rows_by_key: dict[str, list[dict[str, str]]] = {}
     packages = scanned = cached = 0
-    for key, refs in sorted(keys.items(), key=lambda item: item[1][0]):
-        entry = cache.get(key)
-        if isinstance(entry, dict):
-            rows = [
-                dict(row, source="docker image " + ", ".join(refs))
-                for row in entry.get("findings", [])
-            ]
-            findings.extend(rows)
-            rows_by_key[key] = rows
-            packages += int(entry.get("packages", 0))
-            cached += 1
-            continue
-        print(f"Scanning Docker image {refs[0]}", flush=True)
-        with tempfile.TemporaryDirectory(prefix="portal-osv-image-") as temp_dir:
-            output = Path(temp_dir) / "result.json"
-            try:
-                result = subprocess.run(
-                    [
-                        scanner,
-                        "scan",
-                        "image",
-                        refs[0],
-                        "--format",
-                        "json",
-                        "--all-packages",
-                        "--output-file",
-                        str(output),
-                        "--verbosity",
-                        "error",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=image_timeout,
-                )
-                if not output.is_file():
-                    errors.append(f"{refs[0]}: scanner exit {result.returncode}")
-                    continue
-                data = json.loads(output.read_text(encoding="utf-8"))
-            except subprocess.TimeoutExpired:
-                errors.append(f"{refs[0]}: scan timed out after {image_timeout}s; re-run to resume")
+    previous_term = signal.getsignal(signal.SIGTERM)
+    try:
+        signal.signal(signal.SIGTERM, _interrupt_scan)
+        for key, refs in sorted(keys.items(), key=lambda item: item[1][0]):
+            entry = cache.get(key)
+            if isinstance(entry, dict):
+                rows = [
+                    dict(row, source="docker image " + ", ".join(refs))
+                    for row in entry.get("findings", [])
+                ]
+                findings.extend(rows)
+                rows_by_key[key] = rows
+                packages += int(entry.get("packages", 0))
+                cached += 1
                 continue
-            except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
-                errors.append(f"{refs[0]}: {type(exc).__name__}")
+            print(f"Scanning Docker image {refs[0]}", flush=True)
+            image_findings, count, error = _scan_one_image(
+                scanner, refs, scratch_dir, image_timeout
+            )
+            if error:
+                errors.append(error)
                 continue
-            image_findings, count = _docker_findings(data, refs)
-        findings.extend(image_findings)
-        rows_by_key[key] = image_findings
-        packages += count
-        scanned += 1
-        cache[key] = {
-            "findings": [dict(row, source="") for row in image_findings],
-            "packages": count,
-            "scanned": dt.datetime.now().astimezone().date().isoformat(),
-        }
-        save_image_cache(
-            cache_path, scanner_id, cache
-        )  # incremental: an interrupted run keeps finished scans
+            findings.extend(image_findings)
+            rows_by_key[key] = image_findings
+            packages += count
+            scanned += 1
+            cache[key] = {
+                "findings": [dict(row, source="") for row in image_findings],
+                "packages": count,
+                "scanned": dt.datetime.now().astimezone().date().isoformat(),
+            }
+            save_image_cache(
+                cache_path, scanner_id, cache
+            )  # incremental: an interrupted run keeps finished scans
+    finally:
+        signal.signal(
+            signal.SIGTERM, previous_term if previous_term is not None else signal.SIG_DFL
+        )
+        _clear_image_exports(scratch_dir)  # an interrupted run leaves nothing behind
     stats = {"images": len(keys), "scanned": scanned, "cached": cached, "packages": packages}
     triage = build_image_triage(rows_by_key, keys) if keys else []
     return findings, stats, errors, triage
