@@ -1,4 +1,5 @@
 import json
+import plistlib
 import subprocess
 from pathlib import Path
 
@@ -64,6 +65,82 @@ def test_default_report_dir_is_outside_the_repo(monkeypatch, tmp_path):
     text = plist.read_text(encoding="utf-8")
     assert "--output-dir __HOME__/.portal5/security" in text
     assert "docs/security" not in text
+
+
+# Keys read by _telegram_alert (security_sweep.py) and _pushover (check_updates.py).
+ALERT_KEYS = {
+    "TELEGRAM_ALERT_BOT_TOKEN",
+    "TELEGRAM_BOT_TOKEN",
+    "TELEGRAM_ALERT_CHANNEL_ID",
+    "TELEGRAM_USER_IDS",
+    "PUSHOVER_API_TOKEN",
+    "PUSHOVER_USER_KEY",
+}
+
+
+def _sweep_plist_command() -> str:
+    plist = Path(__file__).resolve().parents[2] / "deploy/launchd/com.portal5.security-sweep.plist"
+    return plistlib.loads(plist.read_bytes())["ProgramArguments"][2]
+
+
+def test_sweep_plist_does_not_source_dotenv_and_names_only_alert_keys():
+    command = _sweep_plist_command()
+    assert ". ./.env" not in command
+    assert "set -a" not in command
+    listed = command.split("for k in ", 1)[1].split("; do", 1)[0].split()
+    assert set(listed) == ALERT_KEYS
+    assert "exec .venv/bin/python scripts/security_sweep.py" in command
+    assert "--output-dir __HOME__/.portal5/security" in command
+
+
+def test_sweep_plist_exports_only_alert_keys_from_dotenv(tmp_path):
+    dotenv = (
+        'TELEGRAM_ALERT_BOT_TOKEN="alert-token"\n'
+        "TELEGRAM_BOT_TOKEN=fallback-token\n"
+        "TELEGRAM_ALERT_CHANNEL_ID=-100123\n"
+        "TELEGRAM_USER_IDS=123,456\n"
+        "PUSHOVER_API_TOKEN=push-token\n"
+        "PUSHOVER_USER_KEY=stale-user\n"
+        "PUSHOVER_USER_KEY=push-user\n"
+        "PIPELINE_API_KEY=must-not-leak\n"
+        "OLLAMA_HOST=http://ollama:11434\n"
+        "AI_OUTPUT_DIR=/workspace\n"
+    )
+    (tmp_path / ".env").write_text(dotenv, encoding="utf-8")
+    command = _sweep_plist_command().replace("__PORTAL_ROOT__", str(tmp_path))
+    prefix = command.split("; exec ", 1)[0]
+    result = subprocess.run(
+        ["/bin/bash", "-c", prefix + "; exec /usr/bin/env"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+    )
+    exported = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+    assert exported["TELEGRAM_ALERT_BOT_TOKEN"] == "alert-token"
+    assert exported["TELEGRAM_BOT_TOKEN"] == "fallback-token"
+    assert exported["TELEGRAM_ALERT_CHANNEL_ID"] == "-100123"
+    assert exported["TELEGRAM_USER_IDS"] == "123,456"
+    assert exported["PUSHOVER_API_TOKEN"] == "push-token"
+    assert exported["PUSHOVER_USER_KEY"] == "push-user"
+    dotenv_keys = {line.split("=", 1)[0] for line in dotenv.splitlines()}
+    assert dotenv_keys & exported.keys() <= ALERT_KEYS
+
+
+def test_sweep_plist_env_extraction_tolerates_missing_dotenv(tmp_path):
+    command = _sweep_plist_command().replace("__PORTAL_ROOT__", str(tmp_path))
+    prefix = command.split("; exec ", 1)[0]
+    result = subprocess.run(
+        ["/bin/bash", "-c", prefix + "; exec /usr/bin/env"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)},
+    )
+    exported = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+    assert all(exported.get(key, "") == "" for key in ALERT_KEYS)
 
 
 def test_docker_findings_keep_image_severity_and_fixed_version():
