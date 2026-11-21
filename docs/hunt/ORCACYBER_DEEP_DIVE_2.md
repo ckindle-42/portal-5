@@ -155,6 +155,12 @@ Per-step C0 reachability, `_v2` vs control [live]:
 family. That is the signature of one mechanism, not of a general read regression — and it points
 straight at `sourcetype=access_combined`.
 
+Globally (not read-relative) the @50 sets move too, and not always for a read reason: santos `_v2`
+loses `webshell_upload` and gains `dns_scan` + `traceroute`; russell loses `webshell_cmd` and
+`webshell_upload`; kyoushi's global @50 set is identical (11 steps). The santos gains are
+claim-matching against the raw log on disk, on lines the run never read, so they are not findings —
+which is the whole reason the acceptance has to be read-relative.
+
 The steps `_v2` *newly* reached are worth naming because they change the story of the ranker:
 `attacker_change_user` (rank 95), `attacker_vpn` (143) and `exfiltration-service` (never covered)
 are steps the control could not reach at all. The tuned index did not make the ranker worse; it
@@ -312,6 +318,21 @@ Recomputing `verify_steps` in-process on both stores [live, `diag_spine.py`]:
 - The spine receipts' `episodes 19,296 vs 34,499` and `links 25,037 vs 62,928` are the same
   artefact: episodes are keyed `(entity, source_id, part)` [code `spine.py:606`], so 131 per-day
   source ids fragment the same entity into more groups. Neither number measures quality.
+
+**The fix is verified offline, not argued.** I rebuilt the `_v2` santos spine from the stored store
+into `coding_task/scratch/deepdive2/spine-v2-patched/` (hardlinked `behaviours.duckdb`, nothing in
+the proof run touched). The baseline rebuild reproduces the stored receipt exactly
+(`fields_typed 5`, `events_without_entity 3,351`, `verify 9/21`). Adding `uid`,`auid`,`gid`,`euid`,
+`sid` to `_USER_FIELDS` then gives:
+
+```
+patched rebuild: events_without_entity 3,351 -> 2,958   user entities 134 -> 139
+patched verify:  9/21 steps -> 11/21 steps             lines_without_entity 2 -> 0
+```
+
+[live] So D4 is a five-word change that takes the santos S2 acceptance from 9/11 to 11/11 and
+removes 393 untyped audit records; the only reason it looked like a "schema seam" is that the tuned
+index read the record for the first time.
 
 One genuine seam-adjacent loss does exist: **parse coverage**, see RC5.
 
@@ -553,8 +574,11 @@ same source carries `acct` for that id, record both. Also: a partitioned card's 
 the entity key so `event_type=dns` and `flow` never merge.
 **Property.** An audit record whose only identity is numeric still carries an entity and lands in an
 episode.
-**Live proof.** `spine verify-steps` on santos `_v2` → 11/11 steps pass (the LOGIN line gains
-`user:1002`); and on the control → 12/12 unchanged.
+**Proof already run offline (§3.4).** Rebuilding the santos `_v2` spine under the change reproduces
+the baseline exactly and then takes `verify_steps` from 9 of 11 read steps to **11 of 11** with
+`lines_without_entity 0`; the control stays 12 of 12. The orchestrator's live proof is the same
+rebuild on a fresh run: `python -m …hunt.notables.spine --out <run>/v2/santos --family santos
+--keys …` → `steps_pass == steps_read`, `lines_without_entity 0`.
 **Test.** the exact LOGIN line as a fixture → ≥ 1 entity.
 
 ### D5 (P0, S) — rung 1 fires
@@ -647,14 +671,14 @@ uv run python -m portal.modules.security.core.hunt.notables.scoreboard \
 uv run python -m portal.modules.security.core.hunt.notables \
   --index hb_ait_santos_v2 --out <run>/v2/santos --stage behaviours --family santos
 # pass: receipt lists every access_combined file with its own events_read; inventory shows
-#       access_combined:c_ip=18 complete, linux_audit:acct=13 complete, accelerated=6 models,
+#       access_combined:c_ip=18 complete, linux_audit:acct=13 complete, accelerated ≥6 model roots,
 #       zero `by template|program|v*` searches, `capped` list with values > 0
 
 # 3. the same for kyoushi and russell, then the scoreboard
 uv run python -m portal.modules.security.core.hunt.notables.scoreboard \
   --out <run> --keys kyoushi=… --keys santos=$keys_s --keys russell=… --baseline <control run>
-# pass: C0 reachable steps kyoushi 11/11, santos 12/12 (excl. absent evidence), russell 15/15;
-#       lost = [] for all three; recall-of-reachable @50 ≥ control's set
+# pass: reachable ⊇ control (kyoushi 11, santos 12, russell 15) and covered@50 ⊇ control's set;
+#       `evidence_absent` lists crack_passwords 44/44 on santos; lost = [] for all three
 ```
 
 ---
@@ -662,8 +686,10 @@ uv run python -m portal.modules.security.core.hunt.notables.scoreboard \
 ## 6. What I did not do / what is still unproven
 
 - **No re-run of the pipeline.** Every `_v2`-vs-control comparison above is a re-score of the stored
-  runs plus read-only Splunk probes. The slice proofs in §5 are commands and expected shapes, not
-  results — no lane ran them.
+  runs plus read-only Splunk probes, and the slice proofs in §5 are commands and expected shapes
+  unless a slice says otherwise. **D4 is the exception and it is verified**: its spine rebuild was
+  run against a hardlinked copy of the stored store (§3.4), reproducing the baseline before the
+  change. D1/D2/D5/D7 need a real read and have only query-level evidence.
 - **The D1 counterfactual is proved per query, not end-to-end.** I showed the single-file read
   returns 1,250 rows where the pooled read returns 0–313 and that the file holds 87 % attacker
   traffic; I did not rebuild a store with the fixed route and re-score it. The projected ceiling
@@ -697,7 +723,8 @@ uv run python -m portal.modules.security.core.hunt.notables.scoreboard \
 - `docs/hunt/ORCACYBER_DEEP_DIVE_2.md` — this document.
 - `coding_task/scratch/deepdive2/` — `spl.py` (read-only Splunk job client), `diag_spine.py`
   (re-derives the spine's typing per run), `routes.py` (labelled-file vs read-route ranking), the
-  six score JSON/txt files. Scratch only, gitignored.
+  six score JSON/txt files, `spine-v2-patched/` (hardlinked copy of the stored store used to rebuild
+  the spine under the D4 hypothesis). Scratch only, gitignored.
 
 No production code was changed: the brief asks for the diagnosis and the replan, and the code
 changes belong to the lanes that farm §5.
@@ -804,4 +831,17 @@ uv run python -m portal.modules.security.core.hunt.notables.scoreboard --out <ru
   --keys <fam>=<keys> [--json]            # six runs, §2.1
 uv run python coding_task/scratch/deepdive2/routes.py      # §3.1(a)
 uv run python coding_task/scratch/deepdive2/diag_spine.py v2|control   # §3.4
+
+# D4 proof: rebuild the spine on a hardlinked copy, baseline then patched (writes only under scratch)
+d=coding_task/scratch/deepdive2/spine-v2-patched
+ln <run>/v2/santos/{behaviours.duckdb,sources.json,progress.json} $d/
+uv run python - <<'PY'
+import sys; sys.path.insert(0,'.')
+from pathlib import Path
+import portal.modules.security.core.hunt.notables.spine as S
+out=Path('coding_task/scratch/deepdive2/spine-v2-patched')
+print(S.spine_from_store(out)['events_without_entity'])          # 3351, matches the stored receipt
+S._USER_FIELDS |= {"uid","auid","gid","euid","sid"}
+print(S.spine_from_store(out)['events_without_entity'])          # 2958
+PY
 ```
