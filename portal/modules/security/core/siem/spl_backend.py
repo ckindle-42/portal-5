@@ -112,6 +112,8 @@ class SplunkBackend:
 
         rows: list[dict[str, Any]] = []
         for obj in _iter_json_objects(r.text):
+            if obj.get("preview") is True:
+                continue
             if "result" not in obj:
                 continue
             result = obj.get("result", obj)

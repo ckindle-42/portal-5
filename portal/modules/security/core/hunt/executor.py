@@ -107,6 +107,9 @@ class Read:
     error: BaseException | None = None
 
 
+ReadObserver = Callable[[str, float, float, Read, str | None, str | None], None]
+
+
 @dataclass
 class HuntBudget:
     limits: dict[str, float]
@@ -351,6 +354,7 @@ class HuntExecutor:
         self.search = search
         self.budget = budget
         self._last_error: BaseException | None = None
+        self.read_observer: ReadObserver | None = None
 
     def read(
         self,
@@ -360,6 +364,8 @@ class HuntExecutor:
         *,
         kind: str,
         row_cap: int | None = None,
+        source_id: str | None = None,
+        part: str | None = None,
     ) -> Read:
         """Issue one bounded read. `row_cap` bounds a discovery sample; evidence and cell
         reads are bounded by the shared budget they spend."""
@@ -368,6 +374,7 @@ class HuntExecutor:
         error: BaseException | None = None
         query_deadline: float | None = None
         spend = "discovery"
+        queries_before = self.budget.queries
         for attempt in range(RETRY_ATTEMPTS):
             if query_deadline is not None and time.monotonic() >= query_deadline:
                 reason = QUERY_BOUND
@@ -377,6 +384,15 @@ class HuntExecutor:
             )
             if retry_error is None:
                 if isinstance(error, (SearchBudgetExceededError, HuntSearchFailedError)):
+                    if self.read_observer is not None and self.budget.queries > queries_before:
+                        self.read_observer(
+                            query,
+                            start,
+                            end,
+                            Read(rows, True, reason or CENSORED, error),
+                            source_id,
+                            part,
+                        )
                     raise error
                 break
             if rows or attempt + 1 >= RETRY_ATTEMPTS:
@@ -391,8 +407,11 @@ class HuntExecutor:
                 reason = QUERY_BOUND
                 break
             time.sleep(delay)
+        result = Read(rows, reason is not None, reason, error)
+        if self.read_observer is not None:
+            self.read_observer(query, start, end, result, source_id, part)
         self.budget.record_rows(spend, len(rows))
-        return Read(rows, reason is not None, reason, error)
+        return result
 
     def _read_attempt(
         self,

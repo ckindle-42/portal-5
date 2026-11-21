@@ -121,7 +121,7 @@ def test_nonterminal_hunt_views_return_compact_progress_instead_of_empty_results
     for result in results:
         assert result["status"] == "RUNNING"
         assert result["stage"] == "cards"
-        assert result["stages_done"] == "0/4"
+        assert result["stages_done"] == "0/5"
         assert result["last_progress"] == "cards"
         assert "progress" not in result
         assert result["next"] == "Check this job again after it advances."
@@ -187,8 +187,8 @@ def test_opt_in_judge_is_bounded_and_relation_still_uses_stage1_notables(
         "cards",
         "behaviours",
         "notables",
-        "judge",
         "relate",
+        "judge",
     ]
     assert judge_call["max_notables"] == 10
     assert judge_call["explain"] is True
@@ -338,6 +338,8 @@ def test_judge_stage_annotates_only_the_top_ten_without_reordering(
     assert [row["notable_id"] for row in saved] == [f"n{i}" for i in range(12)]
     assert all(row["p_yes"] == 0.7 for row in saved[:10])
     assert all("p_yes" not in row for row in saved[10:])
+    assert all(row["unjudged"] is False for row in saved[:10])
+    assert all(row["unjudged"] is True for row in saved[10:])
     assert saved[0]["judge"]["answer"] == "yes: short reason"
     assert receipt["selection"] == {
         "policy": "stage1_order_annotation_limit",
@@ -357,24 +359,27 @@ def test_stage_plan_preserves_relation_time_and_spends_released_ranking_time() -
         "behaviours": 100.0,
         "notables": 350.0,
         "relate": 120.0,
+        "judge": 60.0,
     }
-    judge_order = ("cards", "behaviours", "notables", "judge", "relate")
+    judge_order = ("cards", "behaviours", "notables", "relate", "judge")
     judge = product_jobs._stage_plan("judge", 180.0, stage_order=judge_order)
     assert judge["budget_s"] == 60.0
-    assert judge["reserved_for_later"] == {"relate": 120.0}
+    assert judge["reserved_for_later"] == {}
     full = product_jobs._stage_plan("cards", 1247.0)
-    assert full["budget_s"] == 677.0
+    assert full["budget_s"] == 617.0
     assert full["reserved_for_later"] == {
         "behaviours": 100.0,
         "notables": 350.0,
         "relate": 120.0,
+        "judge": 60.0,
     }
     short = product_jobs._stage_plan("cards", 707.0)
-    assert short["budget_s"] == 137.0
+    assert short["budget_s"] == 77.0
     assert short["reserved_for_later"] == {
         "behaviours": 100.0,
         "notables": 350.0,
         "relate": 120.0,
+        "judge": 60.0,
     }
 
 

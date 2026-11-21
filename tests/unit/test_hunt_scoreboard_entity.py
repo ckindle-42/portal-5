@@ -7,6 +7,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
+import duckdb
 import pytest
 
 from portal.modules.security.core.hunt.notables import scoreboard as board
@@ -111,9 +112,35 @@ def _run(
     return run
 
 
-def _family(tmp_path: Path, **kwargs: Any) -> dict[str, Any]:
+def _family(
+    tmp_path: Path, *, causes: dict[str, str] | None = None, **kwargs: Any
+) -> dict[str, Any]:
     run = _run(tmp_path, **kwargs)
-    return score(run, [str(run / "keys.jsonl")])["families"][0]
+    extra = []
+    if causes is not None:
+        path = run / "causes.json"
+        path.write_text(json.dumps(causes), encoding="utf-8")
+        extra.append(f"{run.name}={path}")
+    return score(run, [str(run / "keys.jsonl")], causes=extra)["families"][0]
+
+
+def _store(
+    run: Path,
+    *,
+    events: tuple[str, ...] = (),
+    misfits: tuple[str, ...] = (),
+) -> None:
+    con = duckdb.connect(str(run / "behaviours.duckdb"))
+    con.execute(
+        "CREATE TABLE events (source_id VARCHAR, host VARCHAR, ts DOUBLE, actor VARCHAR,"
+        " action VARCHAR, object VARCHAR, raw VARCHAR, query VARCHAR)"
+    )
+    for raw in events:
+        con.execute("INSERT INTO events VALUES ('botsv2:st', 'h', 0, '', '', '', ?, '')", [raw])
+    con.execute("CREATE TABLE misfits (source_id VARCHAR, shape VARCHAR, examples VARCHAR)")
+    for shape in misfits:
+        con.execute("INSERT INTO misfits VALUES ('botsv2:st', ?, '')", [shape])
+    con.close()
 
 
 def test_artefact_in_evidence_covers_its_step_and_scenario_with_cuts(tmp_path: Path) -> None:
@@ -250,6 +277,128 @@ def test_relate_cases_report_scenario_rank_and_false_cases_above(tmp_path: Path)
     assert relation["first_true_case_rank"] == 1
     assert relation["false_cases_above_first_true"] == 1
     assert relation["case_rows"][1]["scenarios"] == ["fruitfly"]
+
+
+def test_promoted_raw_relate_rows_do_not_improve_strict_or_case_recall(tmp_path: Path) -> None:
+    key = _key("fruitfly", "c2_beacon", "eidk.duckdns.org")
+    seed = _notable("peer_rare", "ordinary dns activity", content_key="seed")
+    promoted = _notable(
+        "relate", "raw event eidk.duckdns.org", terms=("eidk.duckdns.org",), content_key="raw"
+    )
+    case = {
+        "case_id": "case-raw",
+        "seed_notables": ["seed"],
+        "related_notables": ["raw"],
+        "evidence": [{"line": "raw event eidk.duckdns.org"}],
+    }
+    family = _family(
+        tmp_path,
+        notables=[seed, promoted],
+        keys=[key],
+        relate={
+            "receipt": {"promotion": {"ids": [{"notable_id": "raw", "after_rank": 0}]}},
+            "notables": [promoted],
+            "cases": [case],
+        },
+    )
+
+    assert family["strict_recall"]["overall"]["None"] == 0
+    assert family["case_recall"]["overall"]["None"] == 0
+    assert family["promotion_effect"]["with"]["strict_recall"]["overall"]["None"] == 0
+    assert family["promotion_effect"]["without"]["case_recall"]["overall"]["None"] == 0
+
+
+def test_ledger_separates_never_read_from_read_and_censored(tmp_path: Path) -> None:
+    censored = _key("fruitfly", "c2_beacon", "eidk.duckdns.org")
+    censored["locator"] = 'search index=botsv2 sourcetype="stream:dns" TERM("eidk.duckdns.org")'
+    unread = _key("fruitfly", "usb_delivery", "Important_HR_INFO")
+    unread["locator"] = 'search index=botsv2 sourcetype="syslog" TERM("Important_HR_INFO")'
+    run = _run(
+        tmp_path,
+        notables=[_notable("peer_rare", "no key")],
+        keys=[censored, unread],
+    )
+    (run / "ledger.jsonl").write_text(
+        json.dumps(
+            {
+                "stage": "behaviours",
+                "source_id": "botsv2:stream:dns",
+                "part": None,
+                "query": 'search index=botsv2 sourcetype="stream:dns"',
+                "window_start": FIRST,
+                "window_end": FIRST + 1,
+                "rows": 1,
+                "capped": True,
+                "reason": "row_cap",
+                "values_extracted": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    causes = {row["step"].split("/")[-1]: row["cause"] for row in family["ceiling"]["per_step"]}
+
+    assert causes == {"c2_beacon": "censored", "usb_delivery": "unreached"}
+
+
+def test_generator_marginal_counts_top50_and_top100_loss(tmp_path: Path) -> None:
+    key = _key("fruitfly", "c2_beacon", "eidk.duckdns.org")
+    at_50 = [
+        _notable("peer_rare", f"noise {index}", content_key=f"noise-{index}") for index in range(49)
+    ]
+    at_50.append(_notable("deviation", "eidk.duckdns.org", content_key="hit-50"))
+    family_50 = _run(tmp_path, notables=at_50, keys=[key], run_name="at-50")
+    progress = json.loads((family_50 / "progress.json").read_text())
+    progress["stages"]["notables"].update(
+        peer_rare={"existed": 49, "kept": 49},
+        deviation={"existed": 1, "kept": 1},
+        merge={"weights": {"peer_rare": 1, "deviation": 0}, "priority": ["peer_rare", "deviation"]},
+    )
+    (family_50 / "progress.json").write_text(json.dumps(progress))
+
+    scored_50 = score(family_50, [str(family_50 / "keys.jsonl")])["families"][0]
+    assert scored_50["generators"]["deviation"]["marginal@50"] == 1
+
+    at_51 = [
+        _notable("peer_rare", f"noise {index}", content_key=f"late-noise-{index}")
+        for index in range(50)
+    ]
+    at_51.append(_notable("alerts", "eidk.duckdns.org", content_key="hit-51"))
+    family_51 = _run(tmp_path, notables=at_51, keys=[key], run_name="at-51")
+    progress = json.loads((family_51 / "progress.json").read_text())
+    progress["stages"]["notables"].update(
+        peer_rare={"existed": 50, "kept": 50},
+        alerts={"existed": 1, "kept": 1},
+        merge={"weights": {"peer_rare": 1, "alerts": 0}, "priority": ["peer_rare", "alerts"]},
+    )
+    (family_51 / "progress.json").write_text(json.dumps(progress))
+
+    scored_51 = score(family_51, [str(family_51 / "keys.jsonl")])["families"][0]
+    assert scored_51["generators"]["alerts"]["marginal@50"] == 0
+    assert scored_51["generators"]["alerts"]["marginal@100"] == 1
+
+
+def test_marginal_weight_folds_average_remerge_losses_and_floor_unmeasured() -> None:
+    weights = board._weights_block(
+        [
+            {
+                "family": "a",
+                "generators": {},
+                "marginal_generators": {"deviation": {"candidates": 1, "marginal@50": 2}},
+            },
+            {
+                "family": "b",
+                "generators": {},
+                "marginal_generators": {"deviation": {"candidates": 1, "marginal@50": 4}},
+            },
+        ]
+    )
+
+    assert weights["marginal_folds"][0]["weights"]["deviation"] == 3
+    assert weights["marginal_folds"][1]["weights"]["deviation"] == 4
+    assert weights["marginal_folds"][0]["weights"]["peer_rare"] == board.UNMEASURED_WEIGHT
 
 
 def test_artefact_located_through_the_index_normalization_form(tmp_path: Path) -> None:
@@ -543,3 +692,75 @@ def test_untagged_keys_leave_class_recall_empty(tmp_path: Path) -> None:
     keys = [_key("fruitfly", "c2_beacon", "eidk.hopto.org", entity="domain")]
     family = _family(tmp_path, notables=[_notable("alerts", "quiet day")], keys=keys)
     assert family["class_recall"] == {}
+
+
+def test_ceiling_marks_a_read_artefact_reachable_and_charges_not_surfaced(tmp_path: Path) -> None:
+    keys = [_key("fruitfly", "c2_beacon", "eidk.duckdns.org", count=12, klass="B")]
+    run = _run(tmp_path, notables=[_notable("deviation", "quiet day")], keys=keys)
+    _store(run, events=("query eidk.duckdns.org from 10.0.0.9",))
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    ceiling = family["ceiling"]
+    assert ceiling["keys_reachable"] == 1
+    assert ceiling["loose"]["reachable"] == 1
+    assert ceiling["loose"]["covered"]["50"] == 0
+    assert ceiling["loose"]["recall"]["50"] == 0.0
+    assert ceiling["per_step"][0]["reachable"] is True
+    assert ceiling["per_step"][0]["stores"] == ["events"]
+    assert ceiling["per_step"][0]["cause"] == "not_surfaced"
+
+
+def test_a_key_in_no_read_store_is_unreached(tmp_path: Path) -> None:
+    keys = [_key("fruitfly", "c2_beacon", "eidk.hopto.org", count=8, klass="B")]
+    run = _run(tmp_path, notables=[_notable("deviation", "quiet day")], keys=keys)
+    _store(run)
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    assert family["ceiling"]["keys_reachable"] == 0
+    assert family["ceiling"]["per_step"][0]["cause"] == "unreached"
+
+
+def test_the_inventory_value_list_is_a_reachable_store(tmp_path: Path) -> None:
+    keys = [_key("taedonggang_phish", "spearphish_attachment", "invoice.zip", klass="P")]
+    run = _run(tmp_path, notables=[_notable("alerts", "quiet day")], keys=keys)
+    (run / "inventory.json").write_text(
+        json.dumps(
+            {
+                "fields": [
+                    {
+                        "field": "attach_filename",
+                        "status": "complete",
+                        "values": [{"value": "invoice.zip", "events": 9}],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    assert family["ceiling"]["per_step"][0]["reachable"] is True
+    assert family["ceiling"]["per_step"][0]["stores"] == ["inventory"]
+
+
+def test_audit_cause_overrides_the_derived_one(tmp_path: Path) -> None:
+    keys = [_key("fruitfly", "c2_beacon", "eidk.hopto.org", count=8, klass="B")]
+    family = _family(
+        tmp_path,
+        notables=[_notable("deviation", "quiet day")],
+        keys=keys,
+        causes={"fruitfly/c2_beacon": "design_limit"},
+    )
+    row = family["ceiling"]["per_step"][0]
+    assert row["cause"] == "design_limit"
+    assert row["cause_source"] == "audit"
+
+
+def test_an_artefact_only_in_an_evidence_line_is_an_instrument_cause(tmp_path: Path) -> None:
+    keys = [_key("fruitfly", "c2_beacon", "eidk.duckdns.org", count=12, klass="B")]
+    hit = _notable("deviation", "quiet")
+    hit["what"] = "dns beacon on one host"
+    hit["evidence"][0]["line"] = "query eidk.duckdns.org from 10.0.0.9"
+    run = _run(tmp_path, notables=[hit], keys=keys)
+    _store(run, events=("query eidk.duckdns.org",))
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    assert family["strict_recall"]["overall"]["50"] == 0
+    assert family["recall"]["overall"]["50"] == 1
+    assert family["ceiling"]["per_step"][0]["cause"] == "instrument"

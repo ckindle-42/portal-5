@@ -25,6 +25,34 @@ def source_coverage(cards: Sequence[SourceCard]) -> dict[str, float]:
     return found
 
 
+def _shape_decision(events: int, lines_read: int, misfit_lines: int, card_coverage: float) -> str:
+    """keep, novel (rare line in a source the share gate would drop), or a skip reason."""
+    if lines_read <= 0:
+        return "no_read_stats"
+    if card_coverage < MISFIT_MIN_COVERAGE:
+        return "low_coverage"
+    if misfit_lines / lines_read <= MISFIT_MAX_SHARE:
+        return "keep"
+    if events / lines_read <= MISFIT_MAX_SHARE:
+        return "novel"
+    return "poorly_understood_source"
+
+
+def _trim_novel(
+    groups: dict[str, list[tuple[float, MisfitShape, float, int]]], novel_sources: set[str]
+) -> int:
+    """A discarded source contributes its rarest in-threshold shape, not the whole tail."""
+    trimmed = 0
+    for source_id in novel_sources:
+        group = groups.get(source_id)
+        if not group or len(group) <= 1:
+            continue
+        group.sort(key=lambda item: (item[0], item[1].shape))
+        trimmed += len(group) - 1
+        groups[source_id] = group[:1]
+    return trimmed
+
+
 def generate_misfit(
     cards: Sequence[SourceCard],
     facts_by_source: Mapping[str, SourceFacts],
@@ -35,26 +63,28 @@ def generate_misfit(
     """Rank out-of-structure shapes by how unusual each is for its own source."""
     coverage = source_coverage(cards)
     groups: dict[str, list[tuple[float, MisfitShape, float, int]]] = {}
+    novel_sources: set[str] = set()
     skipped = {
         "low_coverage": 0,
         "poorly_understood_source": 0,
         "no_read_stats": 0,
+        "novel_source_trimmed": 0,
     }
     for shape in misfits:
         source_stat = stats.get(shape.source_id) or {}
         lines_read = int(source_stat.get("lines_read") or 0)
         misfit_lines = int(source_stat.get("misfit_lines") or 0)
         card_coverage = coverage.get(shape.source_id, 0.0)
-        if lines_read <= 0:
-            skipped["no_read_stats"] += 1
-        elif card_coverage < MISFIT_MIN_COVERAGE:
-            skipped["low_coverage"] += 1
-        elif misfit_lines / lines_read > MISFIT_MAX_SHARE:
-            skipped["poorly_understood_source"] += 1
-        else:
-            groups.setdefault(shape.source_id, []).append(
-                (shape.events / lines_read, shape, card_coverage, lines_read)
-            )
+        decision = _shape_decision(shape.events, lines_read, misfit_lines, card_coverage)
+        if decision in skipped:
+            skipped[decision] += 1
+            continue
+        if decision == "novel":
+            novel_sources.add(shape.source_id)
+        groups.setdefault(shape.source_id, []).append(
+            (shape.events / lines_read, shape, card_coverage, lines_read)
+        )
+    skipped["novel_source_trimmed"] = _trim_novel(groups, novel_sources)
     for group in groups.values():
         group.sort(key=lambda item: (item[0], item[1].shape))
     ordered = sorted(groups.items(), key=lambda item: (item[1][0][0], item[0]))
@@ -73,6 +103,7 @@ def generate_misfit(
         "max_share": MISFIT_MAX_SHARE,
         "sources": len({shape.source_id for shape in misfits}),
         "sources_ranked": len(groups),
+        "novel_sources": len(novel_sources),
         "notes": list(notes),
         "ordering": "sources interleaved, rarest shape of each source first",
     }

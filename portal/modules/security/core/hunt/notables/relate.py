@@ -19,7 +19,7 @@ import re
 import sys
 import time
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
 from statistics import median
 from typing import Any
@@ -28,8 +28,10 @@ import duckdb
 
 from ..engine import Search, _literal_term_segments, _search_literal
 from ..executor import executor_for
-from .receipt import read_json, write_json
-from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, read_notables
+from .inventory import INVENTORY_FILE, load_inventory
+from .knowledge import PROOF_INDEXES
+from .receipt import progress_update, read_json, write_json
+from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, configure_ledger, read_notables
 from .sample import shared_source_names, source_route
 
 RELATE_FILE = "relate.json"
@@ -37,7 +39,9 @@ MAX_SEEDS = 40  # effort budget: seed notables expanded into episodes
 MAX_ENTITIES_PER_SEED = 5  # effort budget: identity pivots read from one notable
 MAX_EVENTS_PER_QUERY = 20  # effort budget: neighbouring rows retained per identity query
 EVIDENCE_CHARS = 400  # effort budget: event preview kept beside its reproducible reference
-TRAINING_INDEXES = frozenset({"hb_kyoushi_s1", "hb_ait_santos", "hb_ait_russellmitchell"})
+PROMOTE_HEAD = 50  # the scoreboard's smallest recall cut; a case already inside it is strong
+PROMOTE_PER_CASE = 3  # effort budget: weak members one strong case may lift into the head
+PROMOTE_TOTAL = 12  # effort budget: lifts across every strong case in the run
 _PROGRAM_FIELD = "program"  # a template source keys its actor on the program, not an identity
 _IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
 _CLF_TIME = re.compile(r"\[\d{1,2}/\w{3}/\d{4}:")  # an access-log timestamp is not an identity
@@ -575,6 +579,7 @@ def _related_rows(
                 "generator": "relate",
                 "basis": "identity_episode",
                 "what": raw[:EVIDENCE_CHARS],
+                "unjudged": True,
                 "entities": [{"role": "related_entity", "value": value} for value in shared],
                 "source_id": f"{index}:{row.get('sourcetype') or row.get('source') or ''}",
                 "first_seen": item["time"],
@@ -618,7 +623,40 @@ def _overlap(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
     )
 
 
-def _case_groups(seeds: Sequence[Mapping[str, Any]]) -> list[list[str]]:
+def relatable_index(index: str) -> None:
+    """Relate runs on any index except the held-out proof indexes."""
+    cleaned = index.strip()
+    if not cleaned:
+        raise ValueError(f"{SOURCES_FILE} needs an index")
+    if cleaned.casefold() in PROOF_INDEXES:
+        raise ValueError(f"{cleaned} is a proof index and is not hunted")
+
+
+def _union_flows(
+    parent: dict[str, str], seeds: Sequence[Mapping[str, Any]], flow_values: Collection[str]
+) -> None:
+    """A stored cross-source value links seeds on different sources without a time overlap."""
+    flows = {value.casefold() for value in flow_values if value}
+    if not flows:
+        return
+    by_flow: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for seed in seeds:
+        for entity in seed.get("entities") or ():
+            if not isinstance(entity, Mapping):
+                continue
+            value = str(entity.get("value") or "").casefold()
+            if value in flows:
+                by_flow[value].append(seed)
+    for matches in by_flow.values():
+        for offset, left in enumerate(matches):
+            for right in matches[offset + 1 :]:
+                if str(left.get("source_id")) != str(right.get("source_id")):
+                    _union(parent, str(left["id"]), str(right["id"]))
+
+
+def _case_groups(
+    seeds: Sequence[Mapping[str, Any]], flow_values: Collection[str] = ()
+) -> list[list[str]]:
     """Union-find seeds into episodes: a shared identity anchor or a same-source user chain."""
     parent = {str(seed["id"]): str(seed["id"]) for seed in seeds}
     by_value: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
@@ -637,6 +675,7 @@ def _case_groups(seeds: Sequence[Mapping[str, Any]]) -> list[list[str]]:
             for right in matches[offset + 1 :]:
                 if _overlap(left, right):
                     _union(parent, str(left["id"]), str(right["id"]))
+    _union_flows(parent, seeds, flow_values)
     components: dict[str, list[str]] = defaultdict(list)
     for node in parent:
         components[_root(parent, node)].append(node)
@@ -683,10 +722,66 @@ def _case_order(
     )
 
 
-def _cases(
-    seeds: Sequence[Mapping[str, Any]], related: Sequence[Mapping[str, Any]]
+def _transition(flow: Mapping[str, Any]) -> dict[str, Any]:
+    steps = [step for step in flow.get("steps") or () if isinstance(step, Mapping)]
+    return {
+        "value": flow.get("value"),
+        "ingress": flow.get("ingress") or (steps[0].get("source_id") if steps else ""),
+        "later": flow.get("later") or (steps[-1].get("source_id") if steps else ""),
+        "steps": steps,
+    }
+
+
+def _matching_flows(
+    seed_ids: Sequence[str],
+    by_seed: Mapping[str, Mapping[str, Any]],
+    flows: Sequence[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    groups = _case_groups(seeds)
+    values: set[str] = set()
+    for seed_id in seed_ids:
+        for entity in by_seed[seed_id].get("entities") or ():
+            if isinstance(entity, Mapping):
+                values.add(str(entity.get("value") or "").casefold())
+    return [
+        _transition(flow)
+        for flow in flows
+        if str(flow.get("value") or "").casefold() in values and len(flow.get("steps") or ()) >= 2
+    ]
+
+
+def _flow_case(
+    seed_ids: Sequence[str],
+    by_seed: Mapping[str, Mapping[str, Any]],
+    flows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any] | None:
+    """A case whose only link is a stored cross-source value, with no pivot rows yet."""
+    transitions = _matching_flows(seed_ids, by_seed, flows)
+    if not transitions:
+        return None
+    seed_ids_out = sorted(str(by_seed[seed_id]["id"]) for seed_id in seed_ids)
+    starts = [float(by_seed[seed_id]["start"]) for seed_id in seed_ids_out]
+    ends = [float(by_seed[seed_id]["end"]) for seed_id in seed_ids_out]
+    return {
+        "case_id": hashlib.sha1("|".join(seed_ids_out).encode()).hexdigest()[:16],
+        "anchor_entity": _anchor_label(seed_ids_out, by_seed),
+        "score": 0.0,
+        "seed_notables": seed_ids_out,
+        "related_notables": [],
+        "start": min(starts),
+        "end": max(ends),
+        "links": [],
+        "evidence": [],
+        "transitions": transitions,
+    }
+
+
+def _cases(
+    seeds: Sequence[Mapping[str, Any]],
+    related: Sequence[Mapping[str, Any]],
+    flows: Sequence[Mapping[str, Any]] = (),
+) -> list[dict[str, Any]]:
+    flow_values = [str(item.get("value") or "") for item in flows]
+    groups = _case_groups(seeds, flow_values)
     by_seed = {str(seed["id"]): seed for seed in seeds}
     ordered_cases: list[
         tuple[tuple[float, float, float, float, float, float, str], dict[str, Any]]
@@ -697,6 +792,9 @@ def _cases(
             row for row in related if any(link["seed_id"] in seed_set for link in row["relations"])
         ]
         if not events:
+            flow_case = _flow_case(seed_ids, by_seed, flows)
+            if flow_case is not None:
+                ordered_cases.append((_case_order(flow_case, 0.0, 0.0, 1.0), flow_case))
             continue
         links = [link for row in events for link in row["relations"] if link["seed_id"] in seed_set]
         evidence = [row["evidence"][0]["event"] for row in events]
@@ -716,6 +814,7 @@ def _cases(
             "evidence": sorted(
                 evidence, key=lambda event: (event["time"], event["host"], event["source"])
             ),
+            "transitions": _matching_flows(seed_ids_out, by_seed, flows),
         }
         event_seed_counts: list[int] = []
         event_generator_counts: list[int] = []
@@ -745,18 +844,109 @@ def _cases(
     return [case for _, case in sorted(ordered_cases, key=lambda item: item[0])]
 
 
+def _row_index(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+    found: dict[str, int] = {}
+    for index, row in enumerate(rows):
+        notable_id = str(row.get("notable_id") or "")
+        if notable_id and notable_id not in found:
+            found[notable_id] = index
+    return found
+
+
+def _weak_members(
+    case: Mapping[str, Any],
+    rows: Sequence[Mapping[str, Any]],
+    by_id: Mapping[str, int],
+    related_by_id: Mapping[str, Mapping[str, Any]],
+) -> tuple[int, list[tuple[int, dict[str, Any]]]] | None:
+    positions = [
+        by_id[seed_id]
+        for seed_id in (str(item) for item in case.get("seed_notables") or ())
+        if seed_id in by_id
+    ]
+    if not positions or min(positions) >= PROMOTE_HEAD:
+        return None
+    anchor = min(positions)
+    weak = [(position, dict(rows[position])) for position in positions if position >= PROMOTE_HEAD]
+    for related_id in (str(item) for item in case.get("related_notables") or ()):
+        if related_id in by_id and by_id[related_id] >= PROMOTE_HEAD:
+            weak.append((by_id[related_id], dict(rows[by_id[related_id]])))
+        elif related_id not in by_id and related_id in related_by_id:
+            weak.append((len(rows) + 1, dict(related_by_id[related_id])))
+    weak.sort(key=lambda item: (item[0], str(item[1].get("notable_id") or "")))
+    return anchor, weak[:PROMOTE_PER_CASE]
+
+
+def _apply_lifts(
+    rows: Sequence[Mapping[str, Any]],
+    planned: Sequence[tuple[int, str, Sequence[tuple[int, dict[str, Any]]]]],
+    by_id: Mapping[str, int],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    lifts: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    remove: set[int] = set()
+    lifted: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for anchor, case_id, weak in sorted(planned):
+        for _position, row in weak:
+            notable_id = str(row.get("notable_id") or "")
+            if len(lifted) >= PROMOTE_TOTAL or not notable_id or notable_id in seen:
+                continue
+            seen.add(notable_id)
+            if notable_id in by_id:
+                remove.add(by_id[notable_id])
+            lifts[anchor].append(dict(row))
+            lifted.append({"case_id": case_id, "notable_id": notable_id, "after_rank": anchor})
+    rebuilt: list[dict[str, Any]] = []
+    for index, stored in enumerate(rows):
+        if index in remove:
+            continue
+        rebuilt.append(dict(stored))
+        rebuilt.extend(lifts.get(index, ()))
+    return rebuilt, lifted
+
+
+def promote_case_members(
+    rows: Sequence[Mapping[str, Any]],
+    cases: Sequence[Mapping[str, Any]],
+    related: Sequence[Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """A case already inside the head lifts its weak members to sit just after its anchor."""
+    by_id = _row_index(rows)
+    related_by_id = {
+        str(row.get("notable_id") or ""): row for row in related if row.get("notable_id")
+    }
+    planned = [
+        (anchor, str(case.get("case_id") or ""), weak)
+        for case in cases
+        if (picked := _weak_members(case, rows, by_id, related_by_id)) is not None
+        for anchor, weak in (picked,)
+    ]
+    rebuilt, lifted = _apply_lifts(rows, planned, by_id)
+    return rebuilt, {
+        "lifted": len(lifted),
+        "head": PROMOTE_HEAD,
+        "per_case": PROMOTE_PER_CASE,
+        "total": PROMOTE_TOTAL,
+        "ids": lifted,
+    }
+
+
+def _write_notables(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
+    path.write_text("".join(json.dumps(dict(row), sort_keys=True) + "\n" for row in rows))
+
+
 def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dict[str, Any]:
     """Read identity neighbours over episode windows, score links by within-source share."""
+    configure_ledger(search, out, "relate")
     sources = read_json(out / SOURCES_FILE)
     index = str(sources.get("index") or "")
-    if index not in TRAINING_INDEXES:
-        raise ValueError(
-            f"Stage 3 is restricted to training indexes: {', '.join(sorted(TRAINING_INDEXES))}"
-        )
+    relatable_index(index)
     start, end = _number(sources.get("start")), _number(sources.get("end"))
     if start is None or end is None or end <= start:
         raise ValueError(f"{out / SOURCES_FILE} needs a valid start/end range")
-    notables = read_notables(out / NOTABLES_FILE)
+    notables = [
+        {**row, "unjudged": row.get("p_yes") is None} for row in read_notables(out / NOTABLES_FILE)
+    ]
     selected = [row for row in notables if not judged_only or row.get("p_yes") is not None]
     identity = _identity_fields(out)
     shares, spans = _load_metrics(out / STORE_FILE)
@@ -767,7 +957,12 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
     began = time.monotonic()
     candidates, coverage = _gather(executor, requests, details)
     related = _related_rows(index, candidates)
-    cases = _cases(seeds, related)
+    inventory = load_inventory(out / INVENTORY_FILE)
+    flows = [item for item in inventory.get("flows") or () if isinstance(item, Mapping)]
+    cases = _cases(seeds, related, flows)
+    promoted, promotion = promote_case_members(notables, cases, related)
+    promoted = [{**row, "unjudged": row.get("p_yes") is None} for row in promoted]
+    _write_notables(out / NOTABLES_FILE, promoted)
     snapshot = executor.budget.snapshot()
     receipt = {
         "index": index,
@@ -777,6 +972,8 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
         "requests": len(requests),
         "related_events": len(related),
         "cases": len(cases),
+        "flows": len(flows),
+        "promotion": promotion,
         "seconds": round(time.monotonic() - began, 3),
         "coverage_complete": bool(coverage)
         and not any(row["reason"] or row["unreferenced_events"] for row in coverage),
@@ -784,7 +981,11 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
         "coverage": coverage,
         "executor": snapshot,
     }
-    write_json(out / RELATE_FILE, {"receipt": receipt, "notables": related, "cases": cases})
+    write_json(
+        out / RELATE_FILE,
+        {"receipt": receipt, "notables": related, "cases": cases, "flows": flows},
+    )
+    progress_update(out, "relate", receipt)
     return receipt
 
 

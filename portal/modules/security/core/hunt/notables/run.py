@@ -1,18 +1,22 @@
-"""Stage orchestration: cards, behaviours, notables and the judge, one receipt per stage."""
+"""Stage orchestration: cards, behaviours, notables, relate and the judge."""
 
 from __future__ import annotations
 
 import json
+import os
+import re
+import threading
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ...review.window import SplunkWindowSource
 from ..engine import Search
-from ..executor import executor_for
+from ..executor import ROW_CAP, HuntExecutor, Read, executor_for
 from ..judge import JudgeClient
 from .behaviours import (
     Behaviour,
@@ -34,6 +38,13 @@ from .cards import (
 )
 from .generators import GENERATORS as BASE_GENERATORS
 from .generators import SERIES_SPAN_SECONDS, generate
+from .inventory import (
+    INVENTORY_FILE,
+    apply_inventory,
+    collect_inventory,
+    inventory_summary,
+    load_inventory,
+)
 from .judge_notables import judge_all
 from .merge import DEFAULT_MERGE, merge_notables
 from .misfit import MISFIT_GENERATOR, generate_misfit
@@ -55,7 +66,7 @@ from .window_activity import resolve_source_windows
 HTTP_ERROR_THRESHOLD = 0.20
 JUDGE_STAGE_DEADLINE_SECONDS = 720.0  # effort budget: the hunt job wall time (executor job_seconds)
 
-STAGES = ("cards", "behaviours", "notables", "judge")
+STAGES = ("cards", "behaviours", "notables", "relate", "judge")
 GENERATORS = (*BASE_GENERATORS, MISFIT_GENERATOR, SIMILAR_GENERATOR)
 DEFAULT_GENERATORS = (*BASE_GENERATORS, MISFIT_GENERATOR)
 MERGE_PRIORITY = (SIMILAR_GENERATOR, *BASE_GENERATORS, MISFIT_GENERATOR)
@@ -64,8 +75,93 @@ STORE_FILE = "behaviours.duckdb"
 NOTABLES_FILE = "notables.jsonl"
 
 
+def _query_filter(query: str, field: str) -> str:
+    found = re.search(rf'(?i)(?<![\w]){field}\s*=\s*(?:"([^"]*)"|([^\s|]+))', query)
+    return str(found.group(1) or found.group(2) or "") if found else ""
+
+
+def _ledger_source_id(query: str) -> str:
+    index = _query_filter(query, "index")
+    source = _query_filter(query, "sourcetype") or _query_filter(query, "source")
+    return f"{index}:{source}" if index and source else ""
+
+
+def _extracted_values(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    values: dict[str, None] = {}
+
+    def visit(value: Any) -> None:
+        if isinstance(value, Mapping):
+            for item in value.values():
+                visit(item)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                visit(item)
+        elif value is not None and str(value):
+            values.setdefault(str(value), None)
+
+    for row in rows:
+        visit(row)
+    return list(values)
+
+
+def reset_ledger(out: Path) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "ledger.jsonl").write_text("", encoding="utf-8")
+
+
+def configure_ledger(search: Search, out: Path, stage: str) -> HuntExecutor:
+    path = out / "ledger.jsonl"
+    out.mkdir(parents=True, exist_ok=True)
+    lock = threading.Lock()
+    executor = executor_for(search)
+
+    def record(
+        query: str,
+        start: float,
+        end: float,
+        result: Read,
+        source_id: str | None,
+        part: str | None,
+    ) -> None:
+        row = {
+            "stage": stage,
+            "source_id": source_id or _ledger_source_id(query),
+            "part": part,
+            "query": query,
+            "window_start": start,
+            "window_end": end,
+            "rows": len(result.rows),
+            "capped": result.reason == ROW_CAP,
+            "reason": result.reason,
+            "values_extracted": _extracted_values(result.rows),
+        }
+        with lock, path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(row, sort_keys=True) + "\n")
+
+    executor.read_observer = record
+    with suppress(AttributeError, TypeError):
+        cast(Any, search).executor = executor
+    return executor
+
+
 def default_search() -> SplunkWindowSource:
     return SplunkWindowSource()
+
+
+def merge_weights_from_env() -> dict[str, int] | None:
+    """A per-run weight vector (``PORTAL_HUNT_MERGE_WEIGHTS``); absent leaves DEFAULT_WEIGHTS."""
+    raw = os.environ.get("PORTAL_HUNT_MERGE_WEIGHTS")
+    if not raw:
+        return None
+    stored = json.loads(raw)
+    if not isinstance(stored, Mapping):
+        raise ValueError("PORTAL_HUNT_MERGE_WEIGHTS must be a JSON object of generator: weight")
+    weights: dict[str, int] = {}
+    for name, value in stored.items():
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"PORTAL_HUNT_MERGE_WEIGHTS[{name!r}] is not a non-negative integer")
+        weights[str(name)] = value
+    return weights
 
 
 def _sources_payload(
@@ -307,6 +403,7 @@ def cards_stage(
 ) -> dict[str, Any]:
     """Sample every source, then ask once per distinct structure, concurrently."""
     began = time.monotonic()
+    configure_ledger(search, out, "cards")
     executor = executor_for(search)
     facts, notes = index_facts(executor, index, start, end)
     cache = CardCache(out / "cache" / "cards")
@@ -370,15 +467,36 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
     """Count distinct behaviours for every activity source on DuckDB, declaring coverage."""
     cards = load_cards(out)
     began = time.monotonic()
-    behaves, receipt = collect_behaviours(
-        executor_for(search), cards, facts_by_source(cards), out / STORE_FILE
+    sources = read_json(out / SOURCES_FILE)
+    configure_ledger(search, out, "behaviours")
+    executor = executor_for(search)
+    inventory = collect_inventory(
+        executor,
+        cards,
+        str(sources.get("index") or ""),
+        float(sources.get("start") or 0.0),
+        float(sources.get("end") or 0.0),
     )
+    write_json(out / INVENTORY_FILE, inventory)
+    behaves, receipt = collect_behaviours(executor, cards, facts_by_source(cards), out / STORE_FILE)
+    receipt["inventory"] = inventory_summary(inventory)
     _write_role_overrides(out, receipt.get("identity_overrides") or {})
     receipt.pop("identity_overrides", None)
     receipt["seconds_total"] = round(time.monotonic() - began, 3)
     receipt["peak_memory_mb"] = peak_memory_mb()
     progress_update(out, "behaviours", receipt)
     return behaves, receipt
+
+
+def _stored_inventory(
+    out: Path, cards: Sequence[SourceCard], behaviours: Sequence[Behaviour]
+) -> tuple[list[Behaviour], dict[str, SourceFacts], dict[str, Any]]:
+    """Apply the stored value lists in memory. The behaviour table stays sample-based."""
+    source_facts = facts_by_source(cards)
+    updated, receipt = apply_inventory(
+        behaviours, load_inventory(out / INVENTORY_FILE), source_facts
+    )
+    return updated, source_facts, receipt
 
 
 def notables_stage(
@@ -396,6 +514,7 @@ def notables_stage(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Raise notables from each independent generator, bounded and ordered, to notables.jsonl."""
     began = time.monotonic()
+    configure_ledger(search, out, "notables")
     cards = load_cards(out)
     store = out / STORE_FILE
     if not store.exists():
@@ -405,7 +524,7 @@ def notables_stage(
         name for name in enabled if name not in (SIMILAR_GENERATOR, MISFIT_GENERATOR)
     ]
     executor = executor_for(search)
-    source_facts = facts_by_source(cards)
+    behaviours, source_facts, inventory_receipt = _stored_inventory(out, cards, behaviours)
     notables, receipt = generate(
         executor,
         index,
@@ -446,10 +565,12 @@ def notables_stage(
         notables = [*similar, *notables]
         receipt[SIMILAR_GENERATOR] = detail
         receipt["seconds"][SIMILAR_GENERATOR] = detail["seconds"]
-    merged, merge_receipt = merge_notables(notables, MERGE_PRIORITY, DEFAULT_MERGE)
+    merged, merge_receipt = merge_notables(
+        notables, MERGE_PRIORITY, DEFAULT_MERGE, weights=merge_weights_from_env()
+    )
     if "deviation" in enabled:
         receipt["source_windows"] = resolve_source_windows(merged, executor, cards, source_facts)
-    receipt["merge"] = merge_receipt
+    receipt.update(inventory=inventory_receipt, merge=merge_receipt)
     receipt["enabled"] = list(enabled)
     receipt["total"] = len(merged)
     receipt["seconds"]["total"] = round(time.monotonic() - began, 3)
@@ -526,6 +647,7 @@ def judge_stage(
         "cut": cut,
         "cut_reason": "; ".join(cut_reasons) or None,
     }
+    saved = [{**row, "unjudged": row.get("p_yes") is None} for row in saved]
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in saved))
     receipt["file"] = str(path)
     receipt["peak_memory_mb"] = peak_memory_mb()

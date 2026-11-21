@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import duckdb
 import pytest
 
 from portal.modules.security.core.hunt.notables import scoreboard as board
@@ -450,7 +451,7 @@ def test_cost_rolls_up_stages_requests_and_peak_memory(tmp_path: Path) -> None:
     assert cost["model_requests"] == 10
     assert cost["peak_memory_mb"] == 512.5
     assert cost["stages"]["notables"]["seconds"] == 30.0
-    assert "total=100.0s requests=10" in board.render(family)
+    assert "total=100.0s model-requests=10" in board.render(family)
 
 
 def test_honesty_reports_loaded_families_and_the_exclusion(tmp_path: Path) -> None:
@@ -601,6 +602,8 @@ def test_json_output_carries_the_rule_and_every_section(
         "notables",
         "steps",
         "recall",
+        "generators",
+        "ceiling",
         "judge",
         "cost",
         "honesty",
@@ -797,3 +800,31 @@ def test_honesty_accepts_an_index_unseen_by_the_store() -> None:
     }
     with pytest.raises(board.ScoreboardError):
         board._honesty(leaked, "botsv2")
+
+
+def test_line_ceiling_counts_only_labelled_lines_the_run_actually_read(tmp_path: Path) -> None:
+    source = "/apache2/access.log.4"
+    read = _line("10.0.0.5", "/scan")
+    unread = _line("10.0.0.6", "/probe")
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", source, ["10.0.0.5"])],
+        keys=_keys(source, "web", {1: ["dirb"], 2: ["nikto"]}),
+        files={("web", source): [read, unread]},
+    )
+    con = duckdb.connect(str(run / "behaviours.duckdb"))
+    con.execute("CREATE TABLE events (raw VARCHAR)")
+    con.execute("INSERT INTO events VALUES (?)", [read])
+    con.close()
+    family = score(run, [str(run / "keys.jsonl")], logs=tmp_path / "corpus" / "fam" / "gather")[
+        "families"
+    ][0]
+    ceiling = family["ceiling"]
+    assert ceiling["lines_read"] == 1
+    assert ceiling["labelled_lines"] == 2
+    assert ceiling["reachable"] == 1
+    assert ceiling["covered"]["50"] == 1
+    assert ceiling["recall"]["50"] == 1.0
+    per_step = {row["step"]: row for row in ceiling["per_step"]}
+    assert per_step["dirb"]["reachable"] is True
+    assert per_step["nikto"]["reachable"] is False
