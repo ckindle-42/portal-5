@@ -1,4 +1,4 @@
-"""Inventory, misfit-share and case promotion against shapes read from stored runs.
+"""Inventory enumeration, misfit-share and case promotion against stored-run shapes.
 
 Field stats: snap_neon_02cc2e3 kyoushi sources.json audit.log (type/uid).
 Behaviour: that run's behaviours.duckdb row uid=0 type=USER_END.
@@ -7,10 +7,14 @@ Misfit: that run's botsv2 osquery_warning shape whose raw line is the .mkv.crypt
 
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable, Mapping
+
 from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.behaviours import Behaviour, MisfitShape
 from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.inventory import (
+    INVENTORY_MAX_VALUES,
     apply_inventory,
     collect_inventory,
     select_fields,
@@ -59,7 +63,7 @@ def _audit_card() -> SourceCard:
             _stat("msg", 32, 32, ("free",)),
         ),
         sample={"lines": 32},
-        facts={"index": "hb_kyoushi_s1", "sourcetype": "audit.log"},
+        facts={"index": "hb_kyoushi_s1", "sourcetype": "audit.log", "events": 100},
         model={},
         cache_key="audit",
     )
@@ -91,9 +95,33 @@ def _behaviour() -> Behaviour:
 
 
 class _Executor:
-    def __init__(self, rows: dict[str, list[dict[str, object]]]) -> None:
-        self.rows = rows
+    """A fake Splunk: probes answer from configuration, value queries from `value_rows`."""
+
+    def __init__(
+        self,
+        value_rows: Mapping[str, list[dict[str, object]]] | None = None,
+        *,
+        indexed: Iterable[str] = (),
+        tstats_names: Mapping[str, int] | None = None,
+        search_names: Iterable[str] | None = None,
+    ) -> None:
+        self.value_rows = dict(value_rows or {})
+        self.indexed = set(indexed)
+        self.tstats_names = None if tstats_names is None else dict(tstats_names)
+        self.search_names = None if search_names is None else set(search_names)
         self.queries: list[str] = []
+
+    @staticmethod
+    def _name(query: str) -> str:
+        match = re.search(r'sourcetype="([^"]+)"', query)
+        return match.group(1) if match else ""
+
+    def _value_key(self, query: str) -> str:
+        group = query.rsplit(" by ", 1)[1].strip()
+        tail = query.split('sourcetype="', 1)[-1].split(" | stats", 1)[0]
+        part = re.search(r' \w+="([^"]+)"', tail)
+        suffix = f"|{part.group(1)}" if part else ""
+        return f"{self._name(query)}|{group}{suffix}"
 
     def read(
         self,
@@ -103,13 +131,50 @@ class _Executor:
         *,
         kind: str,
         row_cap: int | None = None,
+        source_id: str | None = None,
+        part: str | None = None,
     ) -> Read:
-        del start, end, kind, row_cap
+        del start, end, kind, row_cap, source_id, part
         self.queries.append(query)
-        needles = [needle for needle in self.rows if needle in query]
-        if not needles:
+        name = self._name(query)
+        if query.startswith("| tstats count where "):
+            if " by " in query:
+                field = query.rsplit(" by ", 1)[1].strip()
+                return Read([{"count": "1"}] if field in self.indexed else [])
+            if self.tstats_names is None:
+                return Read([{"count": "100"}])
+            events = self.tstats_names.get(name)
+            return Read([{"count": str(events)}] if events else [])
+        if query.startswith("search ") and query.endswith("| head 1"):
+            if self.search_names is None or name in self.search_names:
+                return Read([{"_raw": "x"}])
             return Read([])
-        return Read(self.rows[max(needles, key=len)])
+        return Read(self.value_rows.get(self._value_key(query), []))
+
+
+def _row(value: str, field: str = "uid", **extra: object) -> dict[str, object]:
+    row: dict[str, object] = {"count": 1, "first": 1, "last": 2, "hosts": 1, **extra}
+    row[field] = value
+    return row
+
+
+def _windows_card(*, sample: Mapping[str, object] | None = None) -> SourceCard:
+    """A botsv2 card named as the tsidx path sees it, as the stored cards are."""
+    return SourceCard(
+        index="botsv2",
+        sourcetype="wineventlog:security",
+        kind="activity",
+        roles={"action": ("EventCode",)},
+        understood=True,
+        reason=None,
+        fmt="kv",
+        coverage=1.0,
+        fields=(_stat("EventCode", 40, 5, ("4624",)),),
+        sample={"lines": 40, **(sample or {})},
+        facts={"index": "botsv2", "sourcetype": "wineventlog:security", "events": 1_000_000},
+        model={},
+        cache_key="windows",
+    )
 
 
 def test_select_fields_keeps_the_stored_audit_role_fields() -> None:
@@ -121,29 +186,46 @@ def test_select_fields_keeps_the_stored_audit_role_fields() -> None:
     ]
 
 
-def test_collect_inventory_stores_values_and_caps_the_search() -> None:
+def test_select_fields_prefers_actors_over_constant_actions() -> None:
+    actions = tuple(f"const{index:02d}" for index in range(40))
+    card = SourceCard(
+        index="hb_kyoushi_s1",
+        sourcetype="audit.log",
+        kind="activity",
+        roles={"action": actions, "actor": ("user", "owner", "acct")},
+        understood=True,
+        reason=None,
+        fmt="kv",
+        coverage=1.0,
+        fields=(
+            *(_stat(name, 40, 1, ("same",)) for name in actions),
+            _stat("user", 40, 3, ("root",)),
+            _stat("owner", 40, 2, ("root",)),
+            _stat("acct", 40, 4, ("root",)),
+        ),
+        sample={"lines": 40},
+        facts={"index": "hb_kyoushi_s1", "sourcetype": "audit.log", "events": 100},
+        model={},
+        cache_key="actors",
+    )
+
+    chosen = select_fields([card])
+
+    assert {item.field for item in chosen} >= {"user", "owner", "acct"}
+    assert len(chosen) < len(actions)
+
+
+def test_collect_inventory_stores_values_and_records_the_stats_route() -> None:
     executor = _Executor(
         {
-            "by type, uid": [
-                {
-                    "uid": "0",
-                    "type": "USER_END",
-                    "count": "1173",
-                    "first": "1616400000",
-                    "last": "1616888706",
-                },
-                {
-                    "uid": "33",
-                    "type": "USER_ROLE",
-                    "count": "2",
-                    "first": "1616800000",
-                    "last": "1616800100",
-                },
+            "audit.log|uid, type": [
+                _row("USER_END", "type", uid="0", count=1173, first=1616400000, last=1616888706),
+                _row("USER_ROLE", "type", uid="33", count=2, first=1616800000, last=1616800100),
             ],
-            "by uid": [{"uid": "0", "count": 10, "first": 1, "last": 2}],
-            "by type": [
-                {"type": "USER_END", "count": 1173, "first": 1616400000, "last": 1616888706},
-                {"type": "USER_ROLE", "count": 2, "first": 1616800000, "last": 1616800100},
+            "audit.log|uid": [_row("0", count=10)],
+            "audit.log|type": [
+                _row("USER_END", "type", count=1173, first=1616400000, last=1616888706),
+                _row("USER_ROLE", "type", count=2, first=1616800000, last=1616800100),
             ],
         }
     )
@@ -151,44 +233,130 @@ def test_collect_inventory_stores_values_and_caps_the_search() -> None:
     document = collect_inventory(executor, [_audit_card()], "hb_kyoushi_s1", 0.0, 1617000000.0)
 
     assert document["searches"] == 3
-    assert {item["field"] for item in document["fields"]} == {"uid", "type"}
+    assert document["probe_queries"] > 0
+    uid = next(item for item in document["fields"] if item["field"] == "uid")
+    assert uid["status"] == "complete"
+    assert uid["mechanism"] == "stats"
+    assert uid["name_used"] == "audit.log"
+    assert uid["events_scanned"] == 100
+    assert uid["values"][0]["value"] == "0"
     joint = document["joints"][0]
     assert joint["status"] == "complete"
+    assert joint["mechanism"] == "stats"
     assert joint["rows"][0]["first_seen"] == 1616400000.0
-    assert any(query.endswith("by type, uid") for query in executor.queries)
+    assert any(query.endswith("by uid, type") for query in executor.queries)
 
 
 def test_a_field_list_joint_is_not_another_search() -> None:
     executor = _Executor(
         {
-            "by type": [
-                {"type": f"ACT{index}", "count": 1, "first": 100 + index, "last": 200}
-                for index in range(40)
+            "audit.log|type": [
+                _row(f"ACT{index}", "type", first=100 + index) for index in range(300)
             ],
-            "by uid": [
-                {"uid": "mallory", "count": 4, "first": 10, "last": 20},
-                {"uid": "alice", "count": 4, "first": 30, "last": 40},
-            ],
+            "audit.log|uid": [_row("mallory", count=4, first=10), _row("alice", count=4, first=30)],
         }
     )
 
     document = collect_inventory(executor, [_audit_card()], "hb_kyoushi_s1", 0.0, 10.0)
 
-    assert document["searches"] == len(executor.queries) == 2
+    assert document["searches"] == len(executor.queries) - document["probe_queries"] == 2
     assert document["joints"][0]["reason"] == "field_list"
     assert document["joints"][0]["fields"] == [{"role": "actor", "field": "uid"}]
 
 
 def test_capped_field_is_not_a_value_list() -> None:
     executor = _Executor(
-        {"by uid": [{"uid": str(index), "count": 1, "first": 1, "last": 2} for index in range(65)]}
+        {"audit.log|uid": [_row(str(index)) for index in range(INVENTORY_MAX_VALUES + 1)]}
     )
-    card = _audit_card()
-    document = collect_inventory(executor, [card], "hb_kyoushi_s1", 0.0, 10.0)
+    document = collect_inventory(executor, [_audit_card()], "hb_kyoushi_s1", 0.0, 10.0)
     uid = next(item for item in document["fields"] if item["field"] == "uid")
 
     assert uid["status"] == "capped"
     assert uid["values"] == []
+
+
+def test_tstats_without_a_value_column_is_unavailable_not_empty() -> None:
+    executor = _Executor(
+        {"audit.log|type": [{"count": 5, "first": 1, "last": 2}]},
+        indexed={"type"},
+    )
+
+    document = collect_inventory(executor, [_audit_card()], "hb_kyoushi_s1", 0.0, 10.0)
+    record = next(item for item in document["fields"] if item["field"] == "type")
+
+    assert record["status"] == "unavailable:tstats"
+    assert record["values"] == []
+
+
+def test_a_source_with_two_names_uses_the_name_each_path_accepts() -> None:
+    card = _windows_card(sample={"search_sourcetypes": ["WinEventLog"]})
+    executor = _Executor(
+        {
+            "WinEventLog|EventCode": [
+                {"EventCode": "4624", "count": 9, "first": 1, "last": 2, "hosts": 3}
+            ]
+        },
+        tstats_names={"wineventlog:security": 1_000_000},
+        search_names={"WinEventLog"},
+    )
+
+    document = collect_inventory(executor, [card], "botsv2", 0.0, 10.0)
+
+    record = document["fields"][0]
+    assert record["status"] == "complete"
+    assert record["mechanism"] == "stats"
+    assert record["name_used"] == "WinEventLog"
+    assert record["values"][0]["value"] == "4624"
+    assert document["names"][0]["two_names"] is True
+
+
+def test_a_rejected_name_is_unavailable_name_not_empty() -> None:
+    card = _windows_card()
+    executor = _Executor(
+        tstats_names={"wineventlog:security": 1_000_000},
+        search_names=set(),
+    )
+
+    document = collect_inventory(executor, [card], "botsv2", 0.0, 10.0)
+
+    record = document["fields"][0]
+    assert record["status"] == "unavailable:name"
+    assert not any(" | stats " in query for query in executor.queries)
+
+
+def test_the_same_field_on_two_parts_makes_two_lists() -> None:
+    def card(part: str) -> SourceCard:
+        return SourceCard(
+            index="hb_kyoushi_s1",
+            sourcetype="audit.log",
+            kind="activity",
+            roles={"actor": ("uid",)},
+            understood=True,
+            reason=None,
+            fmt="kv",
+            coverage=1.0,
+            fields=(_stat("uid", 20, 3, ("0",)),),
+            sample={"lines": 20},
+            facts={"index": "hb_kyoushi_s1", "sourcetype": "audit.log", "events": 100},
+            model={},
+            cache_key=f"audit-{part}",
+            part_field="channel",
+            part_value=part,
+        )
+
+    executor = _Executor(
+        {
+            "audit.log|uid|A": [{"uid": "alice", "count": 3, "first": 1, "last": 2, "hosts": 1}],
+            "audit.log|uid|B": [{"uid": "mallory", "count": 4, "first": 3, "last": 4, "hosts": 1}],
+        }
+    )
+
+    document = collect_inventory(executor, [card("A"), card("B")], "hb_kyoushi_s1", 0.0, 10.0)
+
+    records = {item["part"]["value"]: item for item in document["fields"]}
+    assert set(records) == {"A", "B"}
+    assert records["A"]["values"][0]["value"] == "alice"
+    assert records["B"]["values"][0]["value"] == "mallory"
 
 
 def test_joint_replaces_sample_first_seen_and_adds_the_unseen_pair() -> None:
@@ -239,12 +407,8 @@ def test_joint_replaces_sample_first_seen_and_adds_the_unseen_pair() -> None:
 def test_value_flow_orders_ingress_before_the_later_source() -> None:
     executor = _Executor(
         {
-            'sourcetype="audit.log" by type': [
-                {"type": "USER_END", "count": 4, "first": 200.0, "last": 300.0}
-            ],
-            'sourcetype="access.log" by type': [
-                {"type": "USER_END", "count": 9, "first": 100.0, "last": 150.0}
-            ],
+            "audit.log|type": [{"type": "USER_END", "count": 4, "first": 200.0, "last": 300.0}],
+            "access.log|type": [{"type": "USER_END", "count": 9, "first": 100.0, "last": 150.0}],
         }
     )
     cards = [
@@ -260,7 +424,7 @@ def test_value_flow_orders_ingress_before_the_later_source() -> None:
             coverage=1.0,
             fields=(_stat("type", 20, 2, ("USER_END", "GET")),),
             sample={"lines": 20},
-            facts={},
+            facts={"events": 50},
             model={},
             cache_key="access",
         ),

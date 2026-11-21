@@ -1,4 +1,4 @@
-"""Index-wide value lists for low-cardinality card fields, enumerated before sampling."""
+"""Index-wide value lists for reviewable fields, enumerated before sampling on a probed path."""
 
 from __future__ import annotations
 
@@ -17,15 +17,53 @@ from .parse import FieldStat
 from .sample import SourceFacts
 
 INVENTORY_FILE = "inventory.json"
-INVENTORY_MAX_SAMPLE_DISTINCT = 32  # effort budget: card fields above this are not enumerated
-INVENTORY_MAX_VALUES = 64  # effort budget: aggregation rows; more is not low-cardinality
-INVENTORY_MAX_FIELD_SEARCHES = 32  # effort budget: one search per selected field
+INVENTORY_MAX_VALUES = 5_000  # effort budget (LIST_MAX): a longer list is capped, never exhaustive
+INVENTORY_MAX_FIELD_SEARCHES = 32  # effort budget: one value query per selected field
+INVENTORY_FIELDS_PER_SOURCE = 8  # effort budget: one source cannot fill the field budget
+INVENTORY_MAX_SCAN_EVENTS = 2_000_000  # effort budget: a stats list above this is localised first
+INVENTORY_MAX_JOINT_VALUES = 256  # effort budget: rows one two-field joint may aggregate
 INVENTORY_MAX_JOINT_SEARCHES = 16  # effort budget: joint first-seen searches after the field lists
 INVENTORY_CANDIDATES_PER_SOURCE = 8  # effort budget: unseen value rows handed to the generators
 INVENTORY_CANDIDATE_TOTAL = 32  # effort budget: unseen value rows across the index
 FLOW_MAX_SOURCES = 12  # effort budget: a value in more sources is ambient, not one entity
-_ROLE_ORDER = {"action": 0, "actor": 1, "object": 2}
-_FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_ROLE_ORDER = {"actor": 0, "action": 1, "object": 2, "from": 3, "to": 4, "outcome": 5}
+_CORE_ROLES = ("actor", "action", "object")
+# Structural field names can carry an artefact; no value, extension or source is named here.
+_STRUCTURAL_FIELDS = frozenset(
+    {
+        "path",
+        "file",
+        "file_name",
+        "filename",
+        "image",
+        "process",
+        "process_name",
+        "parent",
+        "parent_image",
+        "cmdline",
+        "command_line",
+        "user",
+        "username",
+        "account",
+        "src",
+        "dest",
+        "src_ip",
+        "dest_ip",
+        "source_ip",
+        "destination_ip",
+        "query",
+        "url",
+        "uri",
+        "registry",
+        "key",
+        "exe",
+        "comm",
+        "uid",
+        "acct",
+        "addr",
+    }
+)
+_FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 _IPV4 = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
 _LITERAL_ROLES = (
     ("actor", "actor_field", "actor", "actor_mode"),
@@ -37,10 +75,29 @@ _LITERAL_ROLES = (
 @dataclass(frozen=True)
 class FieldChoice:
     source_id: str
+    card_id: str
     sourcetype: str
     field: str
     role: str
     distinct: int
+    part_field: str = ""
+    part_value: str = ""
+
+
+@dataclass(frozen=True)
+class SourcePaths:
+    """Which access path accepts which name for one source; both probed, never assumed."""
+
+    tstats_name: str
+    search_name: str
+    tstats_events: int
+    observed: tuple[str, ...]
+    failed: bool = False
+
+    @property
+    def two_names(self) -> bool:
+        """True when the tsidx path and the raw path answer to different names."""
+        return bool(self.tstats_name and self.search_name and self.tstats_name != self.search_name)
 
 
 def _field_token(name: str) -> str:
@@ -58,10 +115,13 @@ def _empty_document(index: str) -> dict[str, Any]:
     return {
         "index": index,
         "searches": 0,
+        "probe_queries": 0,
+        "probe_failures": [],
         "seconds": 0.0,
         "fields": [],
         "joints": [],
         "flows": [],
+        "names": [],
         "notes": [],
     }
 
@@ -72,71 +132,227 @@ def load_inventory(path: Any) -> dict[str, Any]:
 
     stored = read_json(path)
     document = _empty_document(str(stored.get("index") or ""))
-    for key in ("searches", "seconds", "fields", "joints", "flows", "notes"):
+    for key in (
+        "searches",
+        "probe_queries",
+        "probe_failures",
+        "seconds",
+        "fields",
+        "joints",
+        "flows",
+        "names",
+        "notes",
+    ):
         if key in stored:
             document[key] = stored[key]
     return document
 
 
-def _stat_rejected(stat: FieldStat) -> bool:
-    return (
-        stat.variety == "free" or stat.distinct > INVENTORY_MAX_SAMPLE_DISTINCT or stat.distinct < 1
-    )
+def _selectable(stat: FieldStat) -> bool:
+    """A reviewable field: present, and small enough that one aggregation decides completeness."""
+    return 1 <= stat.distinct <= INVENTORY_MAX_VALUES
+
+
+def _candidates(card: SourceCard) -> list[tuple[str, str, FieldStat]]:
+    """Role fields first, then structural fields, each name once per card."""
+    stats = {stat.name: stat for stat in card.fields}
+    found: dict[str, tuple[str, str, FieldStat]] = {}
+    for role in _ROLE_ORDER:
+        for name in card.roles.get(role, ()):
+            stat = stats.get(name)
+            if stat is not None and _selectable(stat) and name not in found:
+                found[name] = (role, name, stat)
+    for name in sorted(stats):
+        stat = stats[name]
+        if name.casefold() in _STRUCTURAL_FIELDS and _selectable(stat) and name not in found:
+            found[name] = ("object", name, stat)
+    return list(found.values())
 
 
 def select_fields(cards: Sequence[SourceCard]) -> list[FieldChoice]:
-    """Low-cardinality role fields, smallest sample variety first, inside the search budget."""
-    banned: set[tuple[str, str]] = set()
-    chosen: dict[tuple[str, str], FieldChoice] = {}
+    """Role first, then smallest list, with affordable sources ahead of oversized ones."""
+    chosen: list[FieldChoice] = []
     for card in cards:
         if not card.understood:
             continue
-        stats = {stat.name: stat for stat in card.fields}
-        for role in _ROLE_ORDER:
-            for name in card.roles.get(role, ()):
-                stat = stats.get(name)
-                key = (card.source_id, name)
-                if stat is None or _stat_rejected(stat):
-                    banned.add(key)
-                    chosen.pop(key, None)
-                    continue
-                if key in banned:
-                    continue
-                current = chosen.get(key)
-                distinct = (
-                    stat.distinct if current is None else max(current.distinct, stat.distinct)
-                )
-                if current is None or _ROLE_ORDER[role] < _ROLE_ORDER[current.role]:
-                    chosen[key] = FieldChoice(card.source_id, card.sourcetype, name, role, distinct)
-                elif current is not None:
-                    chosen[key] = replace(current, distinct=distinct)
+        over_budget = int(_number(card.facts.get("events"))) > INVENTORY_MAX_SCAN_EVENTS
+        ranked = sorted(
+            _candidates(card),
+            key=lambda item: (_ROLE_ORDER[item[0]], over_budget, item[2].distinct, item[1]),
+        )[:INVENTORY_FIELDS_PER_SOURCE]
+        chosen.extend(
+            FieldChoice(
+                card.source_id,
+                card.card_id,
+                card.sourcetype,
+                name,
+                role,
+                stat.distinct,
+                card.part_field,
+                card.part_value,
+            )
+            for role, name, stat in ranked
+        )
     ordered = sorted(
-        chosen.values(),
-        key=lambda item: (item.distinct, _ROLE_ORDER[item.role], item.source_id, item.field),
+        chosen, key=lambda item: (_ROLE_ORDER[item.role], item.distinct, item.card_id, item.field)
     )
     return ordered[:INVENTORY_MAX_FIELD_SEARCHES]
 
 
-def _value_query(index: str, sourcetype: str, fields: Sequence[str]) -> str:
-    by = ", ".join(_field_token(name) for name in fields)
+class _Prober:
+    """Name and field probes cached per source and per field: one query per question."""
+
+    def __init__(self, executor: HuntExecutor, index: str, start: float, end: float) -> None:
+        self.executor = executor
+        self.index = index
+        self.start = start
+        self.end = end
+        self.queries = 0
+        self.probe_queries = 0
+        self.failures: list[str] = []
+        self._sources: dict[tuple[str, str], SourcePaths] = {}
+        self._fields: dict[tuple[str, str, str], bool] = {}
+
+    def _route(self, name: str, card: SourceCard | None = None) -> str:
+        route = f"index={_search_literal(self.index)} sourcetype={_search_literal(name)}"
+        if card is not None and card.part_field:
+            route += f" {_field_token(card.part_field)}={_search_literal(card.part_value)}"
+        return route
+
+    def read(
+        self,
+        query: str,
+        row_cap: int | None = None,
+        *,
+        source_id: str | None = None,
+        part: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str]:
+        """One read; a transport failure is a recorded reason, not an empty answer."""
+        self.queries += 1
+        try:
+            result = self.executor.read(
+                query,
+                self.start,
+                self.end,
+                kind="discovery",
+                row_cap=row_cap,
+                source_id=source_id,
+                part=part,
+            )
+        except Exception as exc:  # noqa: BLE001 -- one failed aggregate is coverage, not a crash
+            return [], f"read_failed:{type(exc).__name__}"
+        rows = [dict(row) for row in result.rows]
+        # A censored aggregate's rows are partial: the reason travels with them.
+        return rows, (str(result.reason) if result.reason else "")
+
+    def _probe(
+        self,
+        query: str,
+        row_cap: int | None = None,
+        *,
+        source_id: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str]:
+        self.probe_queries += 1
+        return self.read(query, row_cap, source_id=source_id)
+
+    def source(self, card: SourceCard) -> SourcePaths:
+        key = (card.index, card.sourcetype)
+        found = self._sources.get(key)
+        if found is None:
+            found = self._probe_source(card)
+            self._sources[key] = found
+        return found
+
+    def _probe_source(self, card: SourceCard) -> SourcePaths:
+        observed = tuple(
+            str(name) for name in (card.sample.get("search_sourcetypes") or ()) if str(name)
+        )
+        names = tuple(dict.fromkeys((card.sourcetype, *observed)))
+        tstats_name, tstats_events = "", 0
+        failed = False
+        for name in names:
+            rows, problem = self._probe(
+                f"| tstats count where {self._route(name)}", source_id=card.source_id
+            )
+            if problem:
+                failed = True
+                self.failures.append(f"name:tstats:{problem}")
+                continue
+            events = int(_number(rows[0].get("count"))) if rows else 0
+            if events > 0:
+                tstats_name, tstats_events = name, events
+                break
+        search_name = ""
+        for name in names:
+            rows, problem = self._probe(
+                f"search {self._route(name)} | head 1", source_id=card.source_id
+            )
+            if problem:
+                failed = True
+                self.failures.append(f"name:search:{problem}")
+                continue
+            if rows:
+                search_name = name
+                break
+        return SourcePaths(tstats_name, search_name, tstats_events, observed, failed)
+
+    def field_indexed(self, card: SourceCard, name: str, field: str) -> bool:
+        """One field per probe: a multi-field by-list cannot attribute a failed field."""
+        key = (card.index, name, field)
+        found = self._fields.get(key)
+        if found is None:
+            rows, problem = self._probe(
+                f"| tstats count where {self._route(name)} by {_field_token(field)}",
+                source_id=card.source_id,
+            )
+            if problem:
+                self.failures.append(f"field:{field}:{problem}")
+            found = bool(rows)
+            self._fields[key] = found
+        return found
+
+
+def _mechanism(prober: _Prober, card: SourceCard, fields: Sequence[str]) -> tuple[str, str, str]:
+    """(mechanism, name_used, reason): the cheapest proven path, or why there is none."""
+    paths = prober.source(card)
+    if paths.tstats_name:
+        part_ok = not card.part_field or prober.field_indexed(
+            card, paths.tstats_name, card.part_field
+        )
+        if part_ok and all(prober.field_indexed(card, paths.tstats_name, f) for f in fields):
+            return "tstats", paths.tstats_name, ""
+    if paths.search_name:
+        return "stats", paths.search_name, ""
+    # The search path is the only route for a search-time field, so a rejected name is the cause.
+    return "", "", "mechanism" if paths.failed else "name"
+
+
+def _value_query(
+    index: str,
+    name: str,
+    mechanism: str,
+    fields: Sequence[str],
+    card: SourceCard,
+) -> str:
+    route = f"index={_search_literal(index)} sourcetype={_search_literal(name)}"
+    if card.part_field:
+        route += f" {_field_token(card.part_field)}={_search_literal(card.part_value)}"
+    by = ", ".join(_field_token(field) for field in fields)
+    if mechanism == "tstats":
+        return f"| tstats count min(_time) as first max(_time) as last where {route} by {by}"
     return (
-        "| tstats count min(_time) as first max(_time) as last "
-        f"where index={_search_literal(index)} sourcetype={_search_literal(sourcetype)} by {by}"
+        f"search {route} | stats count min(_time) as first max(_time) as last "
+        f"dc(host) as hosts by {by}"
     )
 
 
 def _read_values(
-    executor: HuntExecutor, query: str, start: float, end: float
-) -> tuple[list[dict[str, Any]], str]:
-    try:
-        result = executor.read(
-            query, start, end, kind="discovery", row_cap=INVENTORY_MAX_VALUES + 1
-        )
-    except Exception as exc:  # noqa: BLE001 -- one failed aggregate is coverage, not a crash
-        return [], f"failed:{type(exc).__name__}"
-    if result.reason and not result.rows:
-        return [], f"failed:{result.reason}"
-    return [dict(row) for row in result.rows], ""
+    prober: _Prober, query: str, row_cap: int | None, card: SourceCard
+) -> tuple[list[dict[str, Any]], str, float]:
+    part = f"{card.part_field}={card.part_value}" if card.part_field else None
+    began = time.monotonic()
+    rows, problem = prober.read(query, row_cap, source_id=card.source_id, part=part)
+    return rows, problem, round(time.monotonic() - began, 3)
 
 
 def _cell(row: Mapping[str, Any], field: str) -> str:
@@ -149,11 +365,26 @@ def _cell(row: Mapping[str, Any], field: str) -> str:
     return ""
 
 
-def _complete(
-    rows: Sequence[Mapping[str, Any]], fields: Sequence[str]
+def _has_column(row: Mapping[str, Any], field: str) -> bool:
+    if field in row:
+        return True
+    folded = field.casefold()
+    return any(str(key).casefold() == folded for key in row)
+
+
+def _values(
+    rows: Sequence[Mapping[str, Any]],
+    fields: Sequence[str],
+    mechanism: str,
+    problem: str = "",
 ) -> tuple[str, list[dict[str, Any]]]:
+    """complete | capped | unavailable:<mechanism>; only a proven mechanism may report empty."""
     if len(rows) > INVENTORY_MAX_VALUES:
         return "capped", []
+    if problem:
+        return f"failed:{problem}", []
+    if rows and not all(_has_column(row, field) for row in rows for field in fields):
+        return f"unavailable:{mechanism}", []
     values: list[dict[str, Any]] = []
     for row in rows:
         mapped = {field: _cell(row, field) for field in fields}
@@ -167,27 +398,52 @@ def _complete(
                 "events": int(_number(row.get("count"))),
                 "first_seen": first,
                 "last_seen": last,
+                "hosts": int(_number(row.get("hosts"))),
             }
         )
     return ("empty" if not values else "complete"), values
 
 
+def _scanned(mechanism: str, rows: Sequence[Mapping[str, Any]], available: int) -> int:
+    if mechanism == "stats":
+        return available or int(sum(_number(row.get("count")) for row in rows))
+    return int(sum(_number(row.get("count")) for row in rows))
+
+
 def _field_record(
-    choice: FieldChoice, status: str, values: Sequence[Mapping[str, Any]]
+    choice: FieldChoice,
+    status: str,
+    values: Sequence[Mapping[str, Any]],
+    *,
+    mechanism: str = "",
+    name_used: str = "",
+    events_scanned: int = 0,
+    seconds: float = 0.0,
 ) -> dict[str, Any]:
     return {
         "source_id": choice.source_id,
+        "card_id": choice.card_id,
         "sourcetype": choice.sourcetype,
+        "part": (
+            {"field": choice.part_field, "value": choice.part_value} if choice.part_field else None
+        ),
         "field": choice.field,
         "role": choice.role,
         "sample_distinct": choice.distinct,
         "status": status,
+        "mechanism": mechanism,
+        "name_used": name_used,
+        "events_scanned": events_scanned,
+        "events_scope": "source" if mechanism == "stats" else ("aggregate" if mechanism else ""),
+        "accel_window": None,
+        "seconds": seconds,
         "values": [
             {
                 "value": str(item["values"][choice.field]),
                 "events": item["events"],
                 "first_seen": item["first_seen"],
                 "last_seen": item["last_seen"],
+                "hosts": item["hosts"],
             }
             for item in values
         ],
@@ -195,68 +451,128 @@ def _field_record(
 
 
 def _enumerate_fields(
-    executor: HuntExecutor,
+    prober: _Prober,
     index: str,
-    start: float,
-    end: float,
     choices: Sequence[FieldChoice],
-) -> tuple[list[dict[str, Any]], int]:
+    cards_by_id: Mapping[str, SourceCard],
+) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for choice in choices:
-        rows, reason = _read_values(
-            executor, _value_query(index, choice.sourcetype, (choice.field,)), start, end
-        )
-        if reason:
-            records.append(_field_record(choice, "failed", ()))
-            records[-1]["reason"] = reason
+        card = cards_by_id[choice.card_id]
+        mechanism, name, reason = _mechanism(prober, card, (choice.field,))
+        if not mechanism:
+            records.append(_field_record(choice, f"unavailable:{reason or 'mechanism'}", ()))
             continue
-        status, values = _complete(rows, (choice.field,))
-        records.append(_field_record(choice, status, values))
-    return records, len(choices)
+        available = int(_number(card.facts.get("events")))
+        if mechanism == "stats" and available > INVENTORY_MAX_SCAN_EVENTS:
+            record = _field_record(choice, "unavailable:mechanism", ())
+            record["reason"] = "events_budget"
+            record["events_available"] = available
+            records.append(record)
+            continue
+        rows, problem, seconds = _read_values(
+            prober,
+            _value_query(index, name, mechanism, (choice.field,), card),
+            INVENTORY_MAX_VALUES + 1,
+            card,
+        )
+        status, values = _values(rows, (choice.field,), mechanism, problem)
+        records.append(
+            _field_record(
+                choice,
+                status,
+                values,
+                mechanism=mechanism,
+                name_used=name,
+                events_scanned=_scanned(mechanism, rows, available),
+                seconds=seconds,
+            )
+        )
+    return records
 
 
 def _joint_plan(
-    records: Sequence[Mapping[str, Any]],
-) -> list[tuple[str, str, list[Mapping[str, Any]]]]:
-    by_source: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    records: Sequence[Mapping[str, Any]], cards_by_id: Mapping[str, SourceCard]
+) -> list[tuple[SourceCard, list[Mapping[str, Any]]]]:
+    by_card: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for record in records:
         if record.get("status") == "complete" and record.get("values"):
-            by_source[str(record["source_id"])].append(record)
-    planned: list[tuple[str, str, list[Mapping[str, Any]]]] = []
-    for source_id, group in sorted(by_source.items()):
+            by_card[str(record["card_id"])].append(record)
+    planned: list[tuple[SourceCard, list[Mapping[str, Any]]]] = []
+    for card_id, group in sorted(by_card.items()):
         per_role: dict[str, Mapping[str, Any]] = {}
         for record in sorted(group, key=lambda item: (len(item["values"]), str(item["field"]))):
-            per_role.setdefault(str(record["role"]), record)
-        picked = [per_role[role] for role in _ROLE_ORDER if role in per_role]
+            if str(record["role"]) in _CORE_ROLES:
+                per_role.setdefault(str(record["role"]), record)
+        picked = [per_role[role] for role in _CORE_ROLES if role in per_role]
         product = 1
         for record in picked:
             product *= len(record["values"])
-        if len(picked) >= 2 and product <= INVENTORY_MAX_VALUES:
-            planned.append((source_id, str(picked[0]["sourcetype"]), picked))
+        card = cards_by_id.get(card_id)
+        if card is not None and len(picked) >= 2 and product <= INVENTORY_MAX_JOINT_VALUES:
+            planned.append((card, picked))
     return planned[:INVENTORY_MAX_JOINT_SEARCHES]
 
 
+def _joint_record(
+    card: SourceCard,
+    picked: Sequence[Mapping[str, Any]],
+    status: str,
+    mechanism: str,
+    name_used: str,
+    events_scanned: int,
+    seconds: float,
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "source_id": card.source_id,
+        "card_id": card.card_id,
+        "sourcetype": card.sourcetype,
+        "part": {"field": card.part_field, "value": card.part_value} if card.part_field else None,
+        "fields": [{"role": record["role"], "field": record["field"]} for record in picked],
+        "status": status,
+        "reason": mechanism,
+        "mechanism": mechanism,
+        "name_used": name_used,
+        "events_scanned": events_scanned,
+        "events_scope": "source" if mechanism == "stats" else ("aggregate" if mechanism else ""),
+        "accel_window": None,
+        "seconds": seconds,
+        "rows": rows,
+    }
+
+
 def _enumerate_joints(
-    executor: HuntExecutor,
+    prober: _Prober,
     index: str,
-    start: float,
-    end: float,
-    planned: Sequence[tuple[str, str, list[Mapping[str, Any]]]],
+    planned: Sequence[tuple[SourceCard, list[Mapping[str, Any]]]],
 ) -> list[dict[str, Any]]:
     joints: list[dict[str, Any]] = []
-    for source_id, sourcetype, picked in planned:
+    for card, picked in planned:
         names = [str(record["field"]) for record in picked]
-        rows, reason = _read_values(executor, _value_query(index, sourcetype, names), start, end)
-        status, values = ("failed", []) if reason else _complete(rows, names)
+        mechanism, name, reason = _mechanism(prober, card, names)
+        if not mechanism:
+            joints.append(_joint_record(card, picked, f"unavailable:{reason}", "", "", 0, 0.0, ()))
+            continue
+        rows, problem, seconds = _read_values(
+            prober,
+            _value_query(index, name, mechanism, names, card),
+            INVENTORY_MAX_VALUES + 1,
+            card,
+        )
+        status, values = _values(rows, names, mechanism, problem)
+        available = int(_number(card.facts.get("events")))
         joints.append(
-            {
-                "source_id": source_id,
-                "sourcetype": sourcetype,
-                "fields": [{"role": record["role"], "field": record["field"]} for record in picked],
-                "status": status,
-                "reason": reason,
-                "rows": values,
-            }
+            _joint_record(
+                card,
+                picked,
+                status,
+                mechanism,
+                name,
+                _scanned(mechanism, rows, available),
+                seconds,
+                values,
+            )
         )
     return joints
 
@@ -316,29 +632,37 @@ def _single_field_joints(
     records: Sequence[Mapping[str, Any]], jointed: set[str]
 ) -> list[dict[str, Any]]:
     """A complete one-field list is the joint when no two-field aggregate was run."""
-    by_source: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    by_card: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for record in records:
         if record.get("status") == "complete" and record.get("values"):
-            by_source[str(record["source_id"])].append(record)
+            by_card[str(record["card_id"])].append(record)
     joints: list[dict[str, Any]] = []
-    for source_id, group in sorted(by_source.items()):
-        if source_id in jointed:
+    for card_id, group in sorted(by_card.items()):
+        if card_id in jointed:
             continue
         record = min(group, key=lambda item: (len(item["values"]), str(item["field"])))
         field = str(record["field"])
         joints.append(
             {
-                "source_id": source_id,
+                "source_id": record["source_id"],
+                "card_id": card_id,
                 "sourcetype": record["sourcetype"],
+                "part": record.get("part"),
                 "fields": [{"role": record["role"], "field": field}],
                 "status": "complete",
                 "reason": "field_list",
+                "mechanism": record.get("mechanism"),
+                "name_used": record.get("name_used"),
+                "events_scanned": record.get("events_scanned"),
+                "accel_window": None,
+                "seconds": record.get("seconds"),
                 "rows": [
                     {
                         "values": {field: item["value"]},
                         "events": item["events"],
                         "first_seen": item["first_seen"],
                         "last_seen": item["last_seen"],
+                        "hosts": item.get("hosts"),
                     }
                     for item in record["values"]
                     if isinstance(item, Mapping)
@@ -346,6 +670,29 @@ def _single_field_joints(
             }
         )
     return joints
+
+
+def _name_documents(
+    choices: Sequence[FieldChoice], cards_by_id: Mapping[str, SourceCard], prober: _Prober
+) -> list[dict[str, Any]]:
+    """One receipt row per probed source: both names, and whether they differ."""
+    found: dict[str, dict[str, Any]] = {}
+    for choice in choices:
+        if choice.source_id in found:
+            continue
+        card = cards_by_id[choice.card_id]
+        paths = prober.source(card)
+        found[choice.source_id] = {
+            "source_id": choice.source_id,
+            "card_name": card.sourcetype,
+            "tstats_name": paths.tstats_name,
+            "search_name": paths.search_name,
+            "two_names": paths.two_names,
+            "failed": paths.failed,
+            "observed": list(paths.observed),
+            "tstats_events": paths.tstats_events,
+        }
+    return list(found.values())
 
 
 def collect_inventory(
@@ -358,21 +705,25 @@ def collect_inventory(
     """Enumerate selected fields over the whole index and store value lists plus joints."""
     began = time.monotonic()
     choices = select_fields(cards)
-    fields, searches = _enumerate_fields(executor, index, start, end, choices)
-    planned = _joint_plan(fields)
-    joints = _enumerate_joints(executor, index, start, end, planned)
-    network_searches = searches + len(joints)
-    jointed = {str(item["source_id"]) for item in joints if item.get("status") == "complete"}
+    cards_by_id = {card.card_id: card for card in cards}
+    prober = _Prober(executor, index, start, end)
+    fields = _enumerate_fields(prober, index, choices, cards_by_id)
+    planned = _joint_plan(fields, cards_by_id)
+    joints = _enumerate_joints(prober, index, planned)
+    jointed = {str(item["card_id"]) for item in joints if item.get("status") == "complete"}
     joints.extend(_single_field_joints(fields, jointed))
     document = _empty_document(index)
     document.update(
         {
-            "searches": network_searches,
+            "searches": len(choices) + len(planned),
+            "probe_queries": prober.probe_queries,
+            "probe_failures": prober.failures[:16],
             "seconds": round(time.monotonic() - began, 3),
             "fields_selected": len(choices),
             "fields": fields,
             "joints": joints,
             "flows": _flows(fields),
+            "names": _name_documents(choices, cards_by_id, prober),
         }
     )
     return document
@@ -382,18 +733,43 @@ def inventory_summary(document: Mapping[str, Any]) -> dict[str, Any]:
     """Counts for the behaviour receipt. The value lists stay in inventory.json."""
     fields = [item for item in document.get("fields") or () if isinstance(item, Mapping)]
     by_status: dict[str, int] = defaultdict(int)
+    mechanisms: dict[str, int] = defaultdict(int)
     values = 0
+    scanned = 0
     for item in fields:
         by_status[str(item.get("status") or "")] += 1
         values += len(item.get("values") or ())
+        if item.get("mechanism"):
+            mechanisms[str(item["mechanism"])] += 1
+        scanned += int(_number(item.get("events_scanned")))
+    names = [item for item in document.get("names") or () if isinstance(item, Mapping)]
     return {
         "searches": int(document.get("searches") or 0),
+        "probe_queries": int(document.get("probe_queries") or 0),
+        "probe_failures": list(document.get("probe_failures") or ()),
         "seconds": document.get("seconds"),
         "fields_selected": int(document.get("fields_selected") or len(fields)),
         "fields": dict(sorted(by_status.items())),
+        "mechanisms": dict(sorted(mechanisms.items())),
+        "two_names": sum(1 for item in names if item.get("two_names")),
+        "events_scanned": scanned,
         "values": values,
         "joints": len(document.get("joints") or ()),
         "flows": len(document.get("flows") or ()),
+        "lists": [
+            {
+                "card_id": item.get("card_id"),
+                "part": item.get("part"),
+                "field": item.get("field"),
+                "status": item.get("status"),
+                "mechanism": item.get("mechanism"),
+                "name_used": item.get("name_used"),
+                "events_scanned": int(_number(item.get("events_scanned"))),
+                "values": len(item.get("values") or ()),
+                "seconds": item.get("seconds"),
+            }
+            for item in fields
+        ],
     }
 
 
@@ -418,6 +794,7 @@ def _joint_key(
 def _joint_index(
     joints: Sequence[Mapping[str, Any]],
 ) -> dict[str, dict[tuple[tuple[str, str], ...], tuple[float, float, int]]]:
+    """Joint rows per source, min/max across parts; the value lists stay per part."""
     found: dict[str, dict[tuple[tuple[str, str], ...], tuple[float, float, int]]] = {}
     for joint in joints:
         if joint.get("status") != "complete":
@@ -432,11 +809,12 @@ def _joint_index(
             if not isinstance(mapped, Mapping):
                 continue
             mapped_text = {str(key): str(value) for key, value in mapped.items()}
-            table[tuple(sorted(_joint_key(spec, mapped_text)))] = (
-                _number(row.get("first_seen")),
-                _number(row.get("last_seen")),
-                int(_number(row.get("events"))),
-            )
+            key = tuple(sorted(_joint_key(spec, mapped_text)))
+            first = _number(row.get("first_seen"))
+            last = _number(row.get("last_seen"))
+            events = int(_number(row.get("events")))
+            old_first, old_last, old_events = table.get(key, (first, last, 0))
+            table[key] = (min(first, old_first), max(last, old_last), old_events + events)
     return found
 
 
@@ -519,17 +897,24 @@ def apply_inventory(
     seen = _seen_keys(behaviours)
     for behaviour in behaviours:
         pairs = tuple(sorted(_literal_pairs(behaviour)))
-        hit = (tables.get(behaviour.source_id) or {}).get(pairs) if pairs else None
+        table = tables.get(behaviour.source_id) or {}
+        hit = table.get(pairs) if pairs else None
         if hit is None or hit[0] <= 0:
             corrected.append(behaviour)
             continue
         replaced += 1
         corrected.append(replace(behaviour, first_seen=hit[0], last_seen=max(hit[1], hit[0])))
     candidates = _unseen_candidates(document, seen, facts)
+    summary = inventory_summary(document)
     return [*corrected, *candidates], {
         "first_seen_replaced": replaced,
         "candidates": len(candidates),
-        "flows": len(document.get("flows") or ()),
+        "flows": summary["flows"],
+        "fields": summary["fields"],
+        "mechanisms": summary["mechanisms"],
+        "values": summary["values"],
+        "events_scanned": summary["events_scanned"],
+        "two_names": summary["two_names"],
     }
 
 
