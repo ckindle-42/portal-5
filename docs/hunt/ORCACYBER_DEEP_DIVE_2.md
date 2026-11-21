@@ -536,8 +536,13 @@ with ≥ 1,250 rows; the store holds ≥ 1,000 `intranet_server` access events; 
 parity); russell ≥ 725.
 **Test.** 21-file fixture, labelled file rank 14 → routed and read; `head` pool fixture asserting
 per-file counts are non-zero for every file.
-**Cost.** Live evidence that per-file reads are *cheaper*: single-file `head 1250` scans 2.8–3.2 k
-events in ≤ 0.8 s; the pooled read scans 3.5 k and returns nothing from the wanted file.
+**Cost.** Live evidence that per-file reads are cheaper *per read*: a single-file `head 1250` scans
+2.8–3.2 k events in ≤ 0.8 s, where the pooled read scans 3.5 k and returns nothing from the wanted
+file. **But the search count multiplies**: santos `access_combined` alone is 21 files × 14 windows =
+294 searches against the 785 the entire `_v2` santos run issued. Allocate the *row* budget per file
+so total rows stay at today's level, cap `files × windows` with `READ_FILES_MAX`, and report
+`searches_by_stage` so the 720 s deadline is measured rather than hoped for. The wall cost is search
+overhead, not scan volume.
 
 ### D2 (P0, M) — one field vocabulary: the estate's, joined to the parse
 
