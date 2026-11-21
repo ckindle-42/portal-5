@@ -150,6 +150,7 @@ def _empty_document(index: str) -> dict[str, Any]:
         "names": [],
         "notes": [],
         "accelerated": [],
+        "model_probes": 0,
     }
 
 
@@ -170,6 +171,7 @@ def load_inventory(path: Any) -> dict[str, Any]:
         "names",
         "notes",
         "accelerated",
+        "model_probes",
     ):
         if key in stored:
             document[key] = stored[key]
@@ -257,6 +259,7 @@ class _Prober:
         self.end = end
         self.queries = 0
         self.probe_queries = 0
+        self.model_probes = 0
         self.failures: list[str] = []
         self._sources: dict[tuple[str, str], SourcePaths] = {}
         self._fields: dict[tuple[str, str, str], bool] = {}
@@ -437,6 +440,7 @@ def _model_query(index: str, name: str, model: str, fields: Sequence[str], card:
     route = f"index={_search_literal(index)} sourcetype={_search_literal(name)}"
     if card.part_field:
         route += f" {_field_token(card.part_field)}={_search_literal(card.part_value)}"
+    # Model name == root dataset for Authentication/Web; another root's zero rows fall through.
     by = ", ".join(f"{model}.{_field_token(field)}" for field in fields)
     return (
         f"| tstats summariesonly=true count min(_time) as first max(_time) as last "
@@ -456,6 +460,7 @@ def _datamodel_values(
         return None, "", [], "", 0.0
     for model in prober.accelerated():
         name = paths.tstats_name
+        prober.model_probes += 1
         rows, problem, seconds = _read_values(
             prober,
             _model_query(index, name, model.name, fields, card),
@@ -580,11 +585,8 @@ def _enumerate_fields(
     for choice in choices:
         card = cards_by_id[choice.card_id]
         mechanism, name, reason = _mechanism(prober, card, (choice.field,))
-        if not mechanism:
-            records.append(_field_record(choice, f"unavailable:{reason or 'mechanism'}", ()))
-            continue
         available = int(_number(card.facts.get("events")))
-        if mechanism == "stats" and available >= INVENTORY_ACCEL_MIN_EVENTS:
+        if mechanism != "tstats" and available >= INVENTORY_ACCEL_MIN_EVENTS:
             model, route_name, rows, problem, seconds = _datamodel_values(
                 prober, index, card, (choice.field,)
             )
@@ -606,6 +608,16 @@ def _enumerate_fields(
                     )
                 )
                 continue
+        if not mechanism:
+            records.append(
+                _field_record(
+                    choice,
+                    f"unavailable:{reason or 'mechanism'}",
+                    (),
+                    searched_window=(prober.start, prober.end),
+                )
+            )
+            continue
         if mechanism == "stats" and available > INVENTORY_MAX_SCAN_EVENTS:
             record = _field_record(choice, "unavailable:mechanism", ())
             record["reason"] = "events_budget"
@@ -877,6 +889,7 @@ def collect_inventory(
         {
             "searches": len(choices) + len(planned),
             "probe_queries": prober.probe_queries,
+            "model_probes": prober.model_probes,
             "probe_failures": prober.failures[:16],
             "seconds": round(time.monotonic() - began, 3),
             "fields_selected": len(choices),
@@ -910,6 +923,7 @@ def inventory_summary(document: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "searches": int(document.get("searches") or 0),
         "probe_queries": int(document.get("probe_queries") or 0),
+        "model_probes": int(document.get("model_probes") or 0),
         "probe_failures": list(document.get("probe_failures") or ()),
         "seconds": document.get("seconds"),
         "fields_selected": int(document.get("fields_selected") or len(fields)),

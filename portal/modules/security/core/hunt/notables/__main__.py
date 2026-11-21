@@ -160,6 +160,7 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
             f"values={inventory.get('values', 0)} joints={inventory.get('joints', 0)} "
             f"flows={inventory.get('flows', 0)} mechanisms={inventory.get('mechanisms')} "
             f"accelerated={inventory.get('accelerated')} "
+            f"model_probes={inventory.get('model_probes', 0)} "
             f"two_names={inventory.get('two_names', 0)} "
             f"events_scanned={inventory.get('events_scanned', 0)}"
         )

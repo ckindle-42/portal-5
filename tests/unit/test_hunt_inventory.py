@@ -187,6 +187,25 @@ def _windows_card(*, sample: Mapping[str, object] | None = None) -> SourceCard:
     )
 
 
+def _wide_card() -> SourceCard:
+    """A source above the stats events budget, named as its tsidx path sees it."""
+    return SourceCard(
+        index="botsv2",
+        sourcetype="wineventlog:security",
+        kind="activity",
+        roles={"actor": ("user",)},
+        understood=True,
+        reason=None,
+        fmt="kv",
+        coverage=1.0,
+        fields=(_stat("user", 40, 4_000, ("alice",)),),
+        sample={"lines": 40, "search_sourcetypes": ["WinEventLog"]},
+        facts={"index": "botsv2", "sourcetype": "wineventlog:security", "events": 2_200_000},
+        model={},
+        cache_key="wide",
+    )
+
+
 def test_select_fields_keeps_the_stored_audit_role_fields() -> None:
     chosen = select_fields([_audit_card()])
 
@@ -335,21 +354,7 @@ def test_a_rejected_name_is_unavailable_name_not_empty() -> None:
 
 
 def test_a_wide_source_is_listed_from_a_complete_accelerated_summary() -> None:
-    card = SourceCard(
-        index="botsv2",
-        sourcetype="wineventlog:security",
-        kind="activity",
-        roles={"actor": ("user",)},
-        understood=True,
-        reason=None,
-        fmt="kv",
-        coverage=1.0,
-        fields=(_stat("user", 40, 4_000, ("alice",)),),
-        sample={"lines": 40, "search_sourcetypes": ["WinEventLog"]},
-        facts={"index": "botsv2", "sourcetype": "wineventlog:security", "events": 2_200_000},
-        model={},
-        cache_key="wide",
-    )
+    card = _wide_card()
     executor = _Executor(
         tstats_names={"wineventlog:security": 2_200_000},
         search_names={"WinEventLog"},
@@ -390,6 +395,21 @@ def test_a_wide_source_is_listed_from_a_complete_accelerated_summary() -> None:
     assert "summariesonly=true" in next(
         query for query in executor.queries if "datamodel=" in query
     )
+
+
+def test_a_wide_source_with_no_accelerated_model_is_unavailable_not_empty() -> None:
+    executor = _Executor(
+        tstats_names={"wineventlog:security": 2_200_000},
+        search_names={"WinEventLog"},
+    )
+
+    document = collect_inventory(executor, [_wide_card()], "botsv2", 0.0, 2.0e9)
+
+    record = document["fields"][0]
+    assert record["status"] == "unavailable:mechanism"
+    assert record["reason"] == "events_budget"
+    assert record["values"] == []
+    assert not any(" | stats " in query for query in executor.queries)
 
 
 def test_every_source_keeps_a_list_when_the_search_budget_is_short(monkeypatch) -> None:
