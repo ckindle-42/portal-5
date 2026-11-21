@@ -146,7 +146,8 @@ at every stage; `app --check` proves it.
 | `props.conf` | `INDEXED_EXTRACTIONS=json` for `suricata`; index-time `TRANSFORMS-ph_ix_*`; search-time `EVAL-*` aliases to CIM names |
 | `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`c_user`/`vhost`/`cs_method`/`cs_uri_stem`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) — one `[ph_ix_*]` stanza per field, each with `WRITE_META = true` |
 | `fields.conf` | `INDEXED = true` for every index-time field, incl. the JSON keys the doc names (`alert.signature`, `dns.rrname`, `http.url`, …) |
-| `eventtypes.conf` + `tags.conf` | the CIM tag constraints: `authentication`, `web`, `ids`+`attack`, `network`+`communicate`, `network`+`resolution`, `endpoint`+`process`+`report` |
+| `eventtypes.conf` + `tags.conf` | the CIM tag constraints: `authentication`, `web`, `ids`+`attack`, `network`+`communicate`, `network`+`resolution`+`dns`, `endpoint`+`process`+`report` |
+| `metadata/default.meta` | `export = system`: the accelerator runs in `Splunk_SA_CIM`, so app-scoped tags would be invisible (see below) |
 | `datamodels.conf` | **not shipped** — the model object belongs to Splunk_SA_CIM, and a copy here loses to it; stage 3 writes the acceleration into the CIM app over REST |
 | `savedsearches.conf` | one `collect` per tuned index (stage 4) |
 
@@ -157,6 +158,23 @@ A copy under `portal5_hunt_setup` was rendered until 2026-11-21; it loses to Spl
 empty `()` default in every app context, so it was dropped. An app install left on the box by an
 earlier run may still hold it — it is inert (it loses too) and `rollback`'s app removal takes it
 out with the rest of the app.
+
+**The app's eventtypes and tags must be global, not app-scoped.** Knowledge objects default to
+`sharing = app`, which makes them visible only when a search runs in that app's context. Data-model
+acceleration runs its base search as `nobody` in `Splunk_SA_CIM`, so the 2026-11-21 install left
+every `ph_*` tag invisible to it: `tag=process tag=report` returned 28 events in the app's own
+context and 0 in `Splunk_SA_CIM`'s. The app now ships `metadata/default.meta` with
+`export = system`; the same measured pair must answer the same number in both contexts after
+`apply`. Vendor TAs (TA-nix's `authentication`, TA-suricata's `dns`) were already global, which is
+why only *some* models populated before the fix.
+
+**The CIM app's lookup files arrived with a `.default` suffix.** Every one of its 31 lookup CSVs
+is `lookups/<name>.csv.default` on the box, while `transforms.conf` names `<name>.csv`; the
+`Network_Resolution` DNS object therefore fails at `lookup cim_dns_reply_code_lookup`
+(`summary.last_error`, `summary.complete = 0`, `summary.size = 0` for hours). `apply` runs
+`host.ensure_lookup_file` for `cim_dns_reply_codes2.csv`: it copies the `.default` file into place
+when the plain name is absent and is a no-op once it is present. It repairs only the file this
+model needs — the other 30 are the same defect and will bite any future model that uses one.
 
 The same precedence applies to acceleration, and stage 3 is where it lands. `apply --accelerate`
 POSTs `acceleration = true`, `acceleration.earliest_time = -10y`,
@@ -439,11 +457,15 @@ query returned 0 rows in 0.12 s; unaccelerated (`summariesonly=false`) the model
 count 2.59 M events on `botsv2`.
 
 ```spl
-| rest /services/admin/summarization by_tstats=t | table datamodel_name summary.size summary.complete
+| rest /services/admin/summarization by_tstats=t | table summary.id summary.size summary.complete
 ```
-→ six entries with `summary.complete = 1` and `summary.size > 0`. `summary.size` replaces the
-5–15 % assumption with a measurement — record it. (`title` and `summary_size` are not fields on
-this endpoint; a query on them returns no rows, which reads as "nothing is accelerated".)
+→ six model-root entries with `summary.complete = 1`, keyed `DM_Splunk_SA_CIM_<Model>`; child
+objects (`DM_Splunk_SA_CIM_Endpoint.Processes`, …) are separate ids. `summary.size` replaces the
+5–15 % assumption with a measurement — record it. It is 0 for `Endpoint`'s root (`Ports`, no
+listening-port data in the corpus) while `Endpoint.Processes` is non-zero from the 28 auditd
+`SYSCALL` records; completeness, not size, is the property. (`datamodel_name`, `title` and
+`summary_size` are not fields on this endpoint; a query on them returns no rows, which reads as
+"nothing is accelerated".)
 
 **Control probe (the degradation must survive):**
 
@@ -455,7 +477,7 @@ this endpoint; a query on them returns no rows, which reads as "nothing is accel
 not even look at it. `summariesonly=false` is the point — with `true` the probe would return 0
 rows whether or not the macro worked. If this returns the 2.59 M events the realism doc measured,
 the macro precedence went the wrong way (stage 1's `verify` would already have failed) — fix before continuing.
-Second check: `| rest /services/admin/summarization by_tstats=t | table datamodel_name summary.earliest_time summary.latest_time`
+Second check: `| rest /services/admin/summarization by_tstats=t | table summary.id summary.earliest_time summary.latest_time`
 must show no entry covering 2017-08..2018-10.
 
 **Rollback:**
@@ -530,7 +552,7 @@ row; it never aborts the pass. What "worked" looks like, in one place:
 | `cim_macro:cim_<Model>_indexes` ×6 | the expansion names all three `_v2` indexes | the override is not in Splunk_SA_CIM's local conf — re-run `apply` |
 | `acceleration:<Model>` ×6 (`--accelerate`) | the model endpoint reports `enabled` over `-10y` | the row is not in Splunk_SA_CIM's local conf — re-run `apply --accelerate`; a row in the hunt app reports `enabled: False` |
 | `acceleration_window` | all six models at `-10y` | `datamodels.conf` did not land — re-run `apply --accelerate` |
-| `summaries_complete` | six entries, `summary.complete = 1` | the build has not finished (or never started) — `/services/admin/summarization` |
+| `summaries_complete` | six `DM_Splunk_SA_CIM_<Model>` ids, `summary.complete = 1` | the build has not finished (or never started) — `/services/admin/summarization`; a `summary.last_error` names the cause |
 | `summary_index:<index>` ×3 | >0 rows for `hunt_entities_index=<index>` | a `collect` search never ran — `summary --run-now` |
 | `eventcount index=<i>_v2` | = the table's kept count | a file failed to ship — `--resume` |
 | `tstats … by sourcetype` on `_v2` | ≤16 rows, no date-in-filename names | mapping missed a class |

@@ -182,8 +182,12 @@ EVENTTYPES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         'sourcetype="suricata" event_type=flow',
         ("network", "communicate"),
     ),
-    ("ph_dns_suricata", 'sourcetype="suricata" event_type=dns', ("network", "resolution")),
-    ("ph_dns_dnsmasq", 'sourcetype="dnsmasq"', ("network", "resolution")),
+    (
+        "ph_dns_suricata",
+        'sourcetype="suricata" event_type=dns',
+        ("network", "resolution", "dns"),
+    ),
+    ("ph_dns_dnsmasq", 'sourcetype="dnsmasq"', ("network", "resolution", "dns")),
     ("ph_web_suricata_http", 'sourcetype="suricata" event_type=http', ("web",)),
 )
 
@@ -195,6 +199,9 @@ CIM_DEFAULT_DEFINITION = "()"
 #: Files an earlier release shipped and this one does not; a tar install overwrites but never
 #: deletes, so the installer removes them by name.
 LEGACY_CONF_FILES = ("datamodels.conf",)
+
+#: The CIM DNS object looks this file up; the app on the box ships it only as ``.default``.
+CIM_DNS_LOOKUP_FILE = "cim_dns_reply_codes2.csv"
 
 #: Accelerated models (the doc's six cheap ones); Change is opt-in and needs winregistry.
 ACCELERATED = (

@@ -86,6 +86,28 @@ def install_app(
     return f"installed {app_root.name} into {container}:/opt/splunk/etc/apps"
 
 
+def ensure_lookup_file(
+    app: str, filename: str, *, lxc_id: str = DEFAULT_LXC, container: str = DEFAULT_CONTAINER
+) -> str:
+    """Materialise a lookup the app ships as ``<name>.default`` and prints present/copied/missing."""
+    app_g = _guarded(app, "app")
+    file_g = _guarded(filename, "lookup file")
+    inner = (
+        f"sh -c 'd=/opt/splunk/etc/apps/{app_g}/lookups; f={file_g}; "
+        'if [ -e "$d/$f" ]; then echo present; '
+        'elif [ -e "$d/$f.default" ]; then cp "$d/$f.default" "$d/$f" && echo copied; '
+        "else echo missing; fi'"
+    )
+    run = subprocess.run(
+        ssh_argv(in_container(lxc_id, container, inner, user="splunk")),
+        capture_output=True,
+        text=True,
+    )
+    if run.returncode != 0:
+        raise RuntimeError(f"lookup repair failed: {run.stderr.strip()[:400]}")
+    return run.stdout.strip()
+
+
 def restart(*, lxc_id: str = DEFAULT_LXC, container: str = DEFAULT_CONTAINER) -> str:
     box = _guarded(container, "container name")
     run = subprocess.run(
