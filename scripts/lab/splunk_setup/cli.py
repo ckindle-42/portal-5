@@ -302,20 +302,24 @@ def _row(name: str, check: Callable[..., tuple[bool, str]], *args: object) -> di
 
 
 def _probe_row(svc: rest.SplunkREST, probe: plan.Probe) -> dict[str, object]:
-    """`ok` covers both a failed job and a probe that returned too few rows."""
+    """`ok` covers a failed job, too few rows, and (for an absence probe) too many."""
 
     def check() -> tuple[bool, str]:
         earliest, latest = "0" if probe.name == "events" else "-10y", "now"
         if probe.name == "control_model_scope":
             earliest, latest = "2017-08-01T00:00:00", "2018-10-30T00:00:00"
         result = svc.search(probe.spl, earliest=earliest, latest=latest)
-        short = len(result.rows) < probe.min_rows
-        detail = f"rows={len(result.rows)} scan={result.scan_count} want {probe.expect}"
+        rows = len(result.rows)
+        short = rows < probe.min_rows
+        excess = probe.max_rows is not None and rows > probe.max_rows
+        detail = f"rows={rows} scan={result.scan_count} want {probe.expect}"
         if short:
             detail += f"; got fewer than {probe.min_rows} rows"
+        if excess:
+            detail += f"; got more than {probe.max_rows} rows"
         if result.failed:
             detail += "; job failed: " + "; ".join(result.messages)
-        return not (result.failed or short), detail
+        return not (result.failed or short or excess), detail
 
     return _row(probe.name, check)
 
