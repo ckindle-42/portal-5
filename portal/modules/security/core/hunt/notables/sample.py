@@ -447,16 +447,21 @@ def window_bounds(first: float, last: float, count: int) -> list[tuple[float, fl
     return [(first + index * width, first + (index + 1) * width) for index in range(count)]
 
 
-def source_windows(facts: SourceFacts, count: int) -> list[tuple[float, float]]:
-    """Include max(_time) in the last half-open search at the transport's microsecond precision."""
-    if facts.last < facts.first or count <= 0:
+def _span_windows(first: float, last: float, count: int) -> list[tuple[float, float]]:
+    """`count` equal slices of a range, its last slice ending after an event at `last`."""
+    if last < first or count <= 0:
         return []
-    end = facts.last + 0.000001
-    if facts.last == facts.first:
-        return [(facts.first, end)]
-    bounds = window_bounds(facts.first, facts.last, count)
+    end = last + 0.000001
+    if last == first:
+        return [(first, end)]
+    bounds = window_bounds(first, last, count)
     bounds[-1] = (bounds[-1][0], end)
     return bounds
+
+
+def source_windows(facts: SourceFacts, count: int) -> list[tuple[float, float]]:
+    """Include max(_time) in the last half-open search at the transport's microsecond precision."""
+    return _span_windows(facts.first, facts.last, count)
 
 
 def _read_range(
@@ -793,63 +798,62 @@ def read_files(
         )
     readable = [bounds for bounds in windows if bounds[1] > bounds[0]]
     parts = max(1, sub_windows)
-    slice_bounds: list[tuple[float, float]] = []
+    source_bounds: list[tuple[float, float]] = []
     for start, end in readable:
-        slice_bounds.extend(window_bounds(start, end, parts))
-    total = sum(max(1, item.events) for item in facts.files)
+        source_bounds.extend(window_bounds(start, end, parts))
+    per_read = max(1, per_window // parts)
     source_id = f"{facts.index}:{facts.sourcetype}"
     found = RowSet(
         windows=len(readable),
         route="source",
         selection="newest events of each indexed file's own windows",
     )
-    planned: list[tuple[IndexFile, list[tuple[float, float]], int]] = []
-    per_read = max(1, per_window // parts)
-    full = (facts.first, facts.last + 0.000001)
-    on_host = [item for item in facts.files if not host or not item.hosts or host in item.hosts]
-    for index, item in enumerate(on_host or facts.files):
-        budget = _file_budget(item.events, total, per_window, len(slice_bounds))
-        if index >= max_files:
-            _omit_file(
-                executor, facts, item, host, min(budget, per_read), source_id, "read_files_cap"
-            )
-            found.files.append(
-                FileRead(item.path, host, item.events, 0.0, 0.0, 0, "read_files_cap", item.hosts)
-            )
-            continue
-        if budget >= item.events:
-            planned.append((item, [full], item.events))
-            continue
-        take = _file_window_count(item.events, total, per_window, len(slice_bounds), per_read)
-        head = _file_head(item.events, total, per_window, len(slice_bounds), take, per_read)
-        planned.append((item, _spread_windows(slice_bounds, take), head))
-    requests = [(item, start, end, head) for item, chosen, head in planned for start, end in chosen]
+    planned, skipped = _plan_files(
+        executor, facts, source_bounds, per_window, per_read, host, max_files, source_id
+    )
+    found.files.extend(skipped)
+    requests = [
+        (item, file_host, start, end, head)
+        for item, file_host, reads in planned
+        for start, end, head in reads
+    ]
     if requests:
-        found.query = f"search index={_quoted(facts.index)} {file_route(facts, planned[0][0].path)} | head {planned[0][2]}"
+        item, file_host, _start, _end, head = requests[0]
+        found.query = (
+            f"search index={_quoted(facts.index)} {file_route(facts, item.path, file_host)}"
+            f" | sort - _time | head {head}"
+        )
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
     with ThreadPoolExecutor(max_workers=min(len(requests) or 1, concurrency)) as pool:
         futures = [
             pool.submit(
                 _read_range,
                 executor,
-                f"search index={_quoted(facts.index)} {file_route(facts, item.path, host)}"
-                f" | head {head}",
+                f"search index={_quoted(facts.index)} {file_route(facts, item.path, file_host)}"
+                f" | sort - _time | head {head}",
                 start,
                 end,
                 kind=kind,
                 row_cap=head,
                 source_id=source_id,
             )
-            for item, start, end, head in requests
+            for item, file_host, start, end, head in requests
         ]
-        for (item, start, end, _head), future in zip(requests, futures, strict=True):
+        for (item, file_host, start, end, _head), future in zip(requests, futures, strict=True):
             rows, reason = future.result()
             found.rows.extend(rows)
             if reason:
                 found.notes.append(reason)
             found.files.append(
                 FileRead(
-                    item.path, host, item.events, start, end, len(rows), reason or "", item.hosts
+                    item.path,
+                    file_host,
+                    item.events,
+                    start,
+                    end,
+                    len(rows),
+                    reason or "",
+                    item.hosts,
                 )
             )
     found.rows.sort(
@@ -866,39 +870,125 @@ def read_files(
     return found
 
 
-def _file_budget(events: int, total: int, per_window: int, windows: int) -> int:
-    """One file's share of the rows one source-wide read schedule may return."""
-    share = max(1, events) / max(1, total)
-    return min(max(1, events), max(1, math.ceil(share * per_window * windows)))
+def _plan_files(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    source_bounds: Sequence[tuple[float, float]],
+    per_window: int,
+    per_read: int,
+    host: str,
+    max_files: int,
+    source_id: str,
+) -> tuple[list[tuple[IndexFile, str, list[tuple[float, float, int]]]], list[FileRead]]:
+    """One read plan per file; every file not read is a receipt with its reason."""
+    planned: list[tuple[IndexFile, str, list[tuple[float, float, int]]]] = []
+    skipped: list[FileRead] = []
+    counts: dict[tuple[str, float, float], int] = {}
+    reading = 0
+    for item in facts.files:
+        if host and item.hosts and host not in item.hosts:
+            _omit_file(executor, facts, item, "", per_read, source_id, "host_mismatch")
+            skipped.append(
+                FileRead(item.path, "", item.events, 0.0, 0.0, 0, "host_mismatch", item.hosts)
+            )
+            continue
+        file_host = host if host and host in item.hosts else ""
+        reading += 1
+        if reading > max_files:
+            _omit_file(executor, facts, item, file_host, per_read, source_id, "read_files_cap")
+            skipped.append(
+                FileRead(
+                    item.path, file_host, item.events, 0.0, 0.0, 0, "read_files_cap", item.hosts
+                )
+            )
+            continue
+        planned.append(
+            (
+                item,
+                file_host,
+                _file_reads(executor, facts, item, source_bounds, per_window, per_read, counts),
+            )
+        )
+    return planned, skipped
 
 
-def _file_window_count(
-    events: int, total: int, per_window: int, windows: int, per_read: int
+def _file_reads(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    item: IndexFile,
+    source_bounds: Sequence[tuple[float, float]],
+    per_window: int,
+    per_read: int,
+    cache: dict[tuple[str, float, float], int],
+) -> list[tuple[float, float, int]]:
+    """One file's (window, head) plan: its own range sliced, else the source schedule."""
+    if item.events <= per_window:
+        bounds = _file_windows(item, 1) or [(facts.first, facts.last + 0.000001)]
+        return [(bounds[0][0], bounds[-1][1], max(1, item.events))]
+    own = _file_windows(item, _file_window_count(item.events, per_window, per_window))
+    bounds = own or _spread_windows(
+        source_bounds, _file_window_count(item.events, per_window, per_read)
+    )
+    return [
+        (
+            start,
+            end,
+            _file_head(
+                _window_events(executor, facts, item.path, start, end, cache),
+                per_window if own else per_read,
+            ),
+        )
+        for start, end in bounds
+    ]
+
+
+def _file_windows(item: IndexFile, count: int) -> list[tuple[float, float]]:
+    """A file's own range sliced like a source's, or none when the map recorded no time."""
+    return _span_windows(item.first, item.last, count) if item.last > 0.0 else []
+
+
+def _window_events(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    path: str,
+    start: float,
+    end: float,
+    cache: dict[tuple[str, float, float], int],
 ) -> int:
-    """Windows one file needs to expose its budget, never more than its own event count."""
-    if windows <= 1:
-        return 1
-    budget = _file_budget(events, total, per_window, windows)
-    density = max(1.0, events / windows)
-    needed = max(FILE_READ_MIN_WINDOWS, math.ceil(budget / density), math.ceil(budget / per_read))
-    return max(1, min(windows, needed, max(1, events)))
+    """The file's own count inside one window: one `tstats` request per file and window."""
+    key = (path, start, end)
+    if key not in cache:
+        rows, reason = _read_range(
+            executor,
+            f"| tstats count where index={_quoted(facts.index)} {file_route(facts, path)}",
+            start,
+            end,
+            kind="discovery",
+            row_cap=1,
+        )
+        counted = sum(_count(row.get("count")) for row in rows)
+        cache[key] = counted if rows and not reason else -1
+    return cache[key]
 
 
-def _file_head(
-    events: int, total: int, per_window: int, windows: int, take: int, per_read: int
-) -> int:
-    """One file's per-read cap: its budget over its windows, never above a pooled read's."""
-    budget = _file_budget(events, total, per_window, windows)
-    return max(1, min(per_read, math.ceil(budget / max(1, take))))
+def _file_window_count(events: int, per_window: int, per_read: int) -> int:
+    """Windows one file needs to expose the rows it can be read for, at several points."""
+    return max(FILE_READ_MIN_WINDOWS, math.ceil(min(events, per_window) / max(1, per_read)))
+
+
+def _file_head(events_in_window: int, per_read: int) -> int:
+    """One read's cap: the events this window holds, never above a pooled read's."""
+    return per_read if events_in_window < 0 else max(1, min(per_read, events_in_window))
 
 
 def _spread_windows(bounds: Sequence[tuple[float, float]], take: int) -> list[tuple[float, float]]:
-    """`take` windows spread evenly across the schedule, keeping time coverage."""
+    """`take` windows spread evenly across the schedule, always keeping the tail."""
     if take >= len(bounds):
         return list(bounds)
     step = len(bounds) / take
-    picks = sorted({min(len(bounds) - 1, int(number * step)) for number in range(take)})
-    return [bounds[number] for number in picks]
+    picks = {min(len(bounds) - 1, int(number * step)) for number in range(take)}
+    picks.add(len(bounds) - 1)
+    return [bounds[number] for number in sorted(picks)]
 
 
 def _omit_file(
