@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
-from portal.modules.security.core.hunt.executor import Read
+from portal.modules.security.core.hunt.executor import (
+    HuntBudget,
+    HuntExecutor,
+    Read,
+)
 from portal.modules.security.core.hunt.notables.behaviours import _file_rows
 from portal.modules.security.core.hunt.notables.cards import _facts as card_facts
 from portal.modules.security.core.hunt.notables.run import _fact_dict, card_from_dict
 from portal.modules.security.core.hunt.notables.sample import (
     IndexFile,
+    Localisation,
     LocalWindow,
     SourceFacts,
     file_span,
@@ -346,6 +353,102 @@ def test_a_capped_read_declares_every_unread_file_with_its_reason():
     assert {item.reason for item in omitted} == {"read_files_cap"}
     assert len(executor.skipped) == 18
     assert all(reason == "read_files_cap" for _query, reason in executor.skipped)
+
+
+def _wide_file_facts() -> SourceFacts:
+    return SourceFacts(
+        "ix", "st", 500, 0.0, 1_000.0, ("h1",), 1, ("a",), 1, files=(IndexFile("a", 500, ("h1",)),)
+    )
+
+
+def test_a_zero_row_file_read_declares_an_empty_window() -> None:
+    read = read_files(
+        _NewestExecutor(_rows()),
+        _wide_file_facts(),
+        [(2_000.0, 3_000.0)],
+        per_window=100,
+        kind="x",
+    )
+
+    assert read.files
+    assert all(item.rows == 0 for item in read.files)
+    assert {item.reason for item in read.files} == {"empty_window"}
+
+
+class _RefusingSearch:
+    """A transport that never answers: the shared request ceiling refuses before it can."""
+
+    executor: HuntExecutor | None = None
+
+    def iter_post_bounded(
+        self,
+        query: str,
+        start: float,
+        end: float,
+        *,
+        timeout_seconds: float = 0,
+        max_results: int | None = None,
+    ) -> list[dict[str, object]]:
+        del query, start, end, timeout_seconds, max_results
+        return []
+
+
+def test_a_budget_refused_read_writes_a_ledger_row(tmp_path: Path) -> None:
+    from portal.modules.security.core.hunt.notables.run import configure_ledger
+
+    search = _RefusingSearch()
+    budget = HuntBudget(
+        {"query_seconds": 30.0, "job_seconds": 60.0, "requests": 0, "cells": 10, "events": 10}
+    )
+    search.executor = HuntExecutor(search, budget)
+    executor = configure_ledger(search, tmp_path, "behaviours")
+
+    read = read_files(executor, _wide_file_facts(), [(0.0, 1_000.0)], per_window=100, kind="x")
+
+    assert {item.reason for item in read.files} == {"request_budget_exhausted"}
+    ledger = [
+        json.loads(line)
+        for line in (tmp_path / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    # the density probe (E2) and the window read are both issued reads, so both are declared
+    assert [row["reason"] for row in ledger] == ["request_budget_exhausted"] * 2
+    assert sum(row["query"].startswith("| tstats") for row in ledger) == 1
+
+
+def test_a_read_from_a_covering_summary_reports_accelerated_coverage() -> None:
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    located = Localisation(
+        windows=[LocalWindow("h1", 300.0, 600.0, 1_000)],
+        mechanism="accelerated",
+        model="Web",
+        accel_window=(0.0, 600.000001),
+        coverage="accelerated",
+    )
+    facts = SourceFacts("ix", "st", 55_000_000, 0.0, 600.0, ("h1",), 1, ("s1",), 1)
+    executor = _QueryExecutor([{"_time": 350.0, "host": "h1", "count": 1}])
+
+    merged = read_behaviour_source(
+        executor,
+        facts,
+        per_window=10,
+        anchors=located.windows,
+        accel_window=located.accel_window,
+        coverage=located.coverage,
+    )
+    direct = read_anchors(
+        executor,
+        facts,
+        located.windows,
+        per_window=10,
+        kind="x",
+        accel_window=located.accel_window,
+        coverage=located.coverage,
+    )
+
+    assert merged.coverage == "accelerated"
+    assert merged.accel_window == located.accel_window
+    assert direct.coverage == "accelerated"
 
 
 class _DensityExecutor:
