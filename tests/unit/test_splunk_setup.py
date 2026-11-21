@@ -344,12 +344,20 @@ def test_verify_fails_a_zero_row_entity_tstats(
             if "/services/admin/summarization" in spl:
                 rows = [
                     {
-                        "datamodel_name": model,
+                        "summary.id": f"DM_{plan.CIM_APP}_{model}",
                         "summary.size": "1024",
                         "summary.complete": "1",
                     }
                     for model in plan.ACCELERATED
                 ]
+                # a child object is its own id; only the six model roots are checked
+                rows.append(
+                    {
+                        "summary.id": f"DM_{plan.CIM_APP}_Endpoint.Processes",
+                        "summary.size": "0",
+                        "summary.complete": "1",
+                    }
+                )
                 return rest.SearchResult(rows=rows)
             if "hunt_entities_index=" in spl:
                 return rest.SearchResult(rows=[{"count": "7"}])
@@ -367,6 +375,8 @@ def test_verify_fails_a_zero_row_entity_tstats(
         failed = [row for row in report if not row["ok"]]
         assert [row["name"] for row in failed] == [f"entity_indexed:{tuned.target_index}"]
         assert "got fewer than 1 rows" in failed[0]["detail"]
+        summaries = {row["name"]: row for row in report}["summaries_complete"]
+        assert summaries["ok"] is True and "complete 6/6" in summaries["detail"]
 
     args = cli.build_parser().parse_args(["verify", "--index", "santos"])
     _Svc.zero = ""
@@ -499,3 +509,37 @@ def test_macro_expansion_reads_the_parser_endpoint() -> None:
     other = rest.SplunkREST(transport=lambda *_: {"optimizedSearch": expansion})
     with pytest.raises(rest.SplunkError):
         other.macro_expansion("cim_Web_indexes")
+
+
+def test_cim_objects_are_global_and_alias_the_dns_and_process_fields() -> None:
+    """The accelerator searches in Splunk_SA_CIM: app-scoped tags are invisible there."""
+    meta = (APP_ROOT / plan.APP_NAME / "metadata" / "default.meta").read_text()
+    assert "export = system" in meta
+    rendered = conf.conf_files()
+    tags, props = rendered["tags.conf"], rendered["props.conf"]
+    assert (
+        "[eventtype=ph_dns_dnsmasq]\nnetwork = enabled\nresolution = enabled\ndns = enabled" in tags
+    )
+    assert "EVAL-query = dns_query" in props
+    assert "EVAL-process = comm" in props and "EVAL-process_path = exe" in props
+    assert "EVAL-parent_process_id = ppid" in props
+
+
+def test_apply_materialises_a_cim_lookup_shipped_as_default(monkeypatch) -> None:
+    """The box's Splunk_SA_CIM has only `cim_dns_reply_codes2.csv.default`; the model needs the csv."""
+    calls: list[list[str]] = []
+
+    class _Run:
+        returncode = 0
+        stdout = "copied\n"
+        stderr = ""
+
+    def fake_run(argv, **_kwargs):
+        calls.append(argv)
+        return _Run()
+
+    monkeypatch.setattr(host.subprocess, "run", fake_run)
+    assert host.ensure_lookup_file(plan.CIM_APP, plan.CIM_DNS_LOOKUP_FILE) == "copied"
+    remote = calls[0][-1]
+    assert plan.CIM_DNS_LOOKUP_FILE in remote and "cp " in remote
+    assert "$f.default" in remote

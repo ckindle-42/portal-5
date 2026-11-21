@@ -76,6 +76,16 @@ EVALS: dict[str, dict[str, str]] = {
     "linux_audit": {
         "dest": "host",
         "action": 'if(match(_raw, "res=failed"), "failure", "success")',
+        "process": "comm",
+        "process_name": "comm",
+        "process_path": "exe",
+        "process_id": "pid",
+        "parent_process_id": "ppid",
+    },
+    "dnsmasq": {
+        "query": "dns_query",
+        "dest": "host",
+        "vendor_product": '"dnsmasq"',
     },
     "access_combined": {
         "src": "c_ip",
@@ -94,6 +104,7 @@ EVALS: dict[str, dict[str, str]] = {
         "src_port": "src_port",
         "dest_port": "dest_port",
         "transport": "proto",
+        "query": "dns.rrname",
         "bytes_in": "flow.bytes_toclient",
         "bytes_out": "flow.bytes_toserver",
         "http_method": "http.http_method",
@@ -214,11 +225,19 @@ def conf_files(with_change: bool = False) -> dict[str, str]:
     }
 
 
+def metadata_default_meta() -> str:
+    """Export every knowledge object: acceleration runs in Splunk_SA_CIM, not in this app."""
+    return HEADER + "[]\naccess = read : [ * ], write : [ admin ]\nexport = system\n"
+
+
 def write_app(root: Path, with_change: bool = False) -> Path:
     app_dir = root / plan.APP_NAME / "default"
     app_dir.mkdir(parents=True, exist_ok=True)
     for name, text in conf_files(with_change).items():
         (app_dir / name).write_text(text)
+    metadata = root / plan.APP_NAME / "metadata"
+    metadata.mkdir(parents=True, exist_ok=True)
+    (metadata / "default.meta").write_text(metadata_default_meta())
     for name in plan.LEGACY_CONF_FILES:
         (app_dir / name).unlink(missing_ok=True)
     return root / plan.APP_NAME
@@ -232,4 +251,7 @@ def diff_app(root: Path, with_change: bool = False) -> list[str]:
         path = app_dir / name
         if not path.exists() or path.read_text() != text:
             out.append(name)
+    meta = root / plan.APP_NAME / "metadata" / "default.meta"
+    if not meta.exists() or meta.read_text() != metadata_default_meta():
+        out.append("metadata/default.meta")
     return out

@@ -104,6 +104,18 @@ def cmd_apply(args: argparse.Namespace) -> int:
     actions: list[dict] = []
     if not args.dry_run:
         actions.append({"changed": True, "detail": host.install_app(app_dir, lxc_id=args.lxc_id)})
+        lookup = host.ensure_lookup_file(
+            plan.CIM_APP,
+            plan.CIM_DNS_LOOKUP_FILE,
+            lxc_id=args.lxc_id,
+            container=args.container,
+        )
+        actions.append(
+            {
+                "changed": lookup == "copied",
+                "detail": f"{plan.CIM_APP} {plan.CIM_DNS_LOOKUP_FILE}: {lookup}",
+            }
+        )
     for app in plan.APPS_ENABLE:
         actions.append(asdict(svc.ensure_app(app, enabled=True, dry_run=args.dry_run)))
     for macro in plan.cim_macros(args.with_change):
@@ -334,18 +346,17 @@ def _acceleration_check(svc: rest.SplunkREST) -> tuple[bool, str]:
 
 
 def _summaries_check(svc: rest.SplunkREST) -> tuple[bool, str]:
+    """Accelerator ids are ``DM_<app>_<Model>``; ``datamodel_name`` is not a field on the endpoint."""
     result = svc.search(
         "| rest /services/admin/summarization by_tstats=t "
-        "| table datamodel_name summary.size summary.complete",
+        "| table summary.id summary.size summary.complete",
         earliest="-1m",
     )
-    rows = {str(row.get("datamodel_name", "")): row for row in result.rows}
-    states = {
-        model: str(rows.get(model, {}).get("summary.complete", "absent"))
-        for model in plan.ACCELERATED
-    }
+    keyed = {str(row.get("summary.id", "")): row for row in result.rows}
+    rows = {model: keyed.get(f"DM_{plan.CIM_APP}_{model}", {}) for model in plan.ACCELERATED}
+    states = {model: str(row.get("summary.complete", "absent")) for model, row in rows.items()}
     unfinished = {model: value for model, value in states.items() if value not in _COMPLETE}
-    sizes = {model: rows.get(model, {}).get("summary.size", "absent") for model in plan.ACCELERATED}
+    sizes = {model: row.get("summary.size", "absent") for model, row in rows.items()}
     detail = f"complete {len(states) - len(unfinished)}/{len(states)}; size {sizes}"
     if unfinished:
         return False, f"{detail}; not complete {unfinished}"
