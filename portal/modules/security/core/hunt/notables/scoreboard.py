@@ -34,11 +34,12 @@ from .merge import (
     remerge_without,
 )
 from .receipt import read_json
-from .relate import RELATE_FILE
+from .relate import CASE_MIN_EVIDENCE, CASES_FILE, RELATE_FILE
 from .run import GENERATORS, MERGE_PRIORITY, NOTABLES_FILE, SOURCES_FILE, card_from_dict
 
 QUIET_MAX_LINES = 250  # statement §6: quiet steps are 1 to about 250 labelled lines
 CUTS: tuple[int | None, ...] = (50, 100, None)
+CASE_HEAD_LINES = 10  # a run can hold thousands of cases; the report prints the head
 PROGRESS_FILE = "progress.json"
 JUDGE_CACHE = Path("cache") / "judge.json"
 STAGE_ORDER = ("cards", "behaviours", "notables", "judge")
@@ -1033,6 +1034,72 @@ def _case_purity(
     }
 
 
+def _cases_payload(directory: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """The S3 case payload: cases.json when the cases were built over the spine."""
+    path = directory / CASES_FILE
+    if path.is_file():
+        stored = read_json(path)
+        return (
+            [dict(item) for item in stored.get("cases") or () if isinstance(item, Mapping)],
+            dict(stored.get("receipt") or {}),
+        )
+    payload = read_json(directory / RELATE_FILE)
+    return (
+        [dict(item) for item in payload.get("cases") or () if isinstance(item, Mapping)],
+        dict(payload.get("receipt") or {}),
+    )
+
+
+def _case_quality(
+    cases: Sequence[Mapping[str, Any]],
+    case_receipt: Mapping[str, Any],
+    relate_receipt: Mapping[str, Any],
+) -> dict[str, Any]:
+    """The S3 case properties measured on the run's own case payload."""
+    evidence = [len(case.get("evidence") or ()) for case in cases]
+    pieces = [int(case.get("pieces") or 0) for case in cases]
+    promotion = relate_receipt.get("promotion")
+    promotion = promotion if isinstance(promotion, Mapping) else {}
+    lifted = [item for item in promotion.get("ids") or () if isinstance(item, Mapping)]
+    censored = case_receipt.get("censored")
+    return {
+        "cases": len(cases),
+        "min_evidence": min(pieces) if pieces else 0,
+        "evidence_rows": min(evidence) if evidence else 0,
+        "two_evidence_violations": sum(1 for count in pieces if count < CASE_MIN_EVIDENCE),
+        "unjudged_cases": sum(1 for case in cases if case.get("unjudged")),
+        "coverage_complete": case_receipt.get("coverage_complete"),
+        "uncapped_fraction": case_receipt.get("uncapped_fraction"),
+        "censored": dict(censored) if isinstance(censored, Mapping) else {},
+        "promoted": int(promotion.get("lifted") or 0),
+        "promotion_judged_only": bool(promotion.get("judged_only")),
+        "promoted_unjudged": sum(1 for item in lifted if item.get("unjudged")),
+    }
+
+
+def _label_case_recall(purity: Mapping[str, Any], labels: Sequence[str]) -> dict[str, Any]:
+    """Per labelled step: a case inside the cut holds a line carrying that label."""
+    covered: dict[str, set[str]] = {str(limit): set() for limit in CUTS}
+    rows: list[dict[str, Any]] = []
+    for case in purity.get("cases") or ():
+        found = sorted(str(label) for label in case.get("labels") or ())
+        for limit in CUTS:
+            if _cut(int(case.get("rank") or 0), limit):
+                covered[str(limit)].update(found)
+        if found:
+            rows.append({"rank": case.get("rank"), "labels": found})
+    total = len(set(labels))
+    return {
+        "scenarios": total,
+        "overall": {key: len(value) for key, value in covered.items()},
+        "recall": {
+            key: round(len(value) / total, 6) if total else None for key, value in covered.items()
+        },
+        "dataset_covered": {key: bool(value) for key, value in covered.items()},
+        "cases": rows,
+    }
+
+
 def _relation_report(
     directory: Path,
     rows: Sequence[dict[str, Any]],
@@ -1042,14 +1109,15 @@ def _relation_report(
     before_steps: Sequence[Step],
 ) -> dict[str, Any] | None:
     path = directory / RELATE_FILE
-    if not path.is_file():
+    payload = read_json(path) if path.is_file() else {}
+    cases, case_receipt = _cases_payload(directory)
+    if not payload and not cases:
         return None
-    payload = read_json(path)
     related = [item for item in payload.get("notables") or () if isinstance(item, dict)]
-    cases = [item for item in payload.get("cases") or () if isinstance(item, Mapping)]
     after_rows = _with_related(rows, related)
     after_steps = _steps(keys)
     _coverage(after_steps, _ranked_notables(after_rows), keys, logs, year)
+    purity = _case_purity(cases, keys, logs)
     return {
         "related_notables": len(related),
         "cases": len(cases),
@@ -1057,7 +1125,11 @@ def _relation_report(
         "after": _recall(
             sorted(after_steps.values(), key=lambda step: (not step.quiet, step.lines, step.label))
         ),
-        "case_purity": _case_purity(cases, keys, logs),
+        "case_purity": purity,
+        "case_member_recall": _label_case_recall(
+            purity, sorted({label for line in keys for label in line.labels})
+        ),
+        "case_quality": _case_quality(cases, case_receipt, payload.get("receipt") or {}),
         "receipt": payload.get("receipt") or {},
     }
 
@@ -1639,11 +1711,14 @@ def _case_hypothesis_rows(
     owners: Mapping[str, str],
     rows: Sequence[Mapping[str, Any]],
     related: Sequence[Mapping[str, Any]],
+    classes: tuple[str, ...] = (),
 ) -> list[dict[str, Any]]:
     patterns = [
         (key, _entity_pattern(key.value))
         for key in artefacts
-        if key.credit and owners.get(key.value) == f"{key.scenario}/{key.step}"
+        if key.credit
+        and owners.get(key.value) == f"{key.scenario}/{key.step}"
+        and (not classes or key.klass in classes)
     ]
     members = {
         str(row.get("notable_id") or ""): row for row in (*rows, *related) if row.get("notable_id")
@@ -1683,13 +1758,16 @@ def _case_recall(
     owners: Mapping[str, str],
     rows: Sequence[Mapping[str, Any]],
     related: Sequence[Mapping[str, Any]],
+    classes: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     scenarios = {
         key.scenario
         for key in artefacts
-        if key.credit and owners.get(key.value) == f"{key.scenario}/{key.step}"
+        if key.credit
+        and owners.get(key.value) == f"{key.scenario}/{key.step}"
+        and (not classes or key.klass in classes)
     }
-    case_rows = _case_hypothesis_rows(cases, artefacts, owners, rows, related)
+    case_rows = _case_hypothesis_rows(cases, artefacts, owners, rows, related, classes)
     overall: dict[str, int] = {}
     recall: dict[str, float | None] = {}
     for limit in CUTS:
@@ -2008,11 +2086,11 @@ def _entity_relation(
     owners: Mapping[str, str],
 ) -> dict[str, Any] | None:
     path = directory / RELATE_FILE
-    if not path.is_file():
+    payload = read_json(path) if path.is_file() else {}
+    cases, case_receipt = _cases_payload(directory)
+    if not payload and not cases:
         return None
-    payload = read_json(path)
     related = [item for item in payload.get("notables") or () if isinstance(item, dict)]
-    cases = [item for item in payload.get("cases") or () if isinstance(item, Mapping)]
     after_rows = _with_related(rows, related)
     after_hays = [_haystack(row) for row in after_rows]
     _, _, _, after_steps, after_scenarios = _entity_pass(artefacts, after_rows, after_hays, owners)
@@ -2028,6 +2106,10 @@ def _entity_relation(
         "scenario_before": _recall(_entity_order(before_scenarios)),
         "scenario_after": _recall(_entity_order(after_scenarios)),
         "case_rows": case_rows,
+        "case_member_recall": _case_recall(
+            cases, artefacts, owners, rows, related, classes=("B", "P")
+        ),
+        "case_quality": _case_quality(cases, case_receipt, payload.get("receipt") or {}),
         "first_true_case_rank": first_true,
         "false_cases_above_first_true": false_above,
         "receipt": payload.get("receipt") or {},
@@ -2097,7 +2179,7 @@ def _entity_family(
     )
     relation_payload = read_json(directory / RELATE_FILE)
     related = [item for item in relation_payload.get("notables") or () if isinstance(item, Mapping)]
-    cases = [item for item in relation_payload.get("cases") or () if isinstance(item, Mapping)]
+    cases, _case_receipt = _cases_payload(directory)
     promoted = _promotion_ids(relation_payload)
     without_promotions = [row for row in rows if str(row.get("notable_id") or "") not in promoted]
     without_related = [row for row in related if str(row.get("notable_id") or "") not in promoted]
@@ -2277,6 +2359,30 @@ def _recall_lines(report: Mapping[str, Any]) -> list[str]:
     return lines
 
 
+def _case_lines(relation: Mapping[str, Any]) -> list[str]:
+    """The S3 case properties: member recall per scenario, evidence, coverage, promotion."""
+    quality = relation.get("case_quality") or {}
+    member = relation.get("case_member_recall") or {}
+    if not quality:
+        return []
+    overall = member.get("overall") or {}
+    dataset = (member.get("dataset_covered") or {}).get("50")
+    covered = "" if dataset is None else f"  scenario covered {_flag(bool(dataset))}"
+    lines = [
+        f"case members top50 {overall.get('50')}/{member.get('scenarios')} "
+        f"top100 {overall.get('100')}/{member.get('scenarios')} "
+        f"all {overall.get('None')}/{member.get('scenarios')} (B/P steps in a case){covered}",
+        f"case evidence pieces min {quality.get('min_evidence')} violations "
+        f"{quality.get('two_evidence_violations')}  rows min {quality.get('evidence_rows')}  "
+        f"unjudged cases {quality.get('unjudged_cases')}  "
+        f"coverage_complete {quality.get('coverage_complete')}  "
+        f"uncapped_fraction {quality.get('uncapped_fraction')}  censored {quality.get('censored')}",
+        f"case promotion judged_only {_flag(bool(quality.get('promotion_judged_only')))} "
+        f"lifted {quality.get('promoted')} unjudged_lifted {quality.get('promoted_unjudged')}",
+    ]
+    return lines
+
+
 def _relate_lines(report: Mapping[str, Any]) -> list[str]:
     relation = report.get("relate")
     if not isinstance(relation, Mapping):
@@ -2294,10 +2400,11 @@ def _relate_lines(report: Mapping[str, Any]) -> list[str]:
         f"relate cases {relation['cases']}  related events {relation['related_notables']}  "
         f"key overlap mean purity {purity['mean']}",
     ]
+    lines.extend(_case_lines(relation))
     lines.extend(
         f"  case {case['rank'] + 1}: {case['case_id']}  "
         f"keyed events {case['keyed_events']}/{case['events']}  purity {case['purity']}"
-        for case in purity["cases"]
+        for case in purity["cases"][:CASE_HEAD_LINES]
     )
     return lines
 
@@ -2487,10 +2594,11 @@ def _entity_relate_lines(report: Mapping[str, Any]) -> list[str]:
         f"first true case {relation['first_true_case_rank']}  "
         f"false cases above it {relation['false_cases_above_first_true']}",
     ]
+    lines.extend(_case_lines(relation))
     lines.extend(
         f"  case {row['rank'] + 1}: {row['case_id']}  events {row['events']}  "
         f"scenarios {', '.join(row['scenarios']) or '-'}"
-        for row in relation["case_rows"]
+        for row in relation["case_rows"][:CASE_HEAD_LINES]
     )
     return lines
 
