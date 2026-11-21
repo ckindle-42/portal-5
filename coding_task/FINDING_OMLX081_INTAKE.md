@@ -205,6 +205,12 @@ saved, so the orchestrator is creating it, not editing it.
 
 ### 3.2 Consequences the handoff depends on
 
+- `lora_adapters.py` reads only `adapter_config.json` + the weights. The adapter repos also ship
+  their own `chat_template.jinja` (9,004 B, both repos identical) — it differs from the base's
+  `Qwen3.8-27B-oQ4e-mtp/chat_template.jinja` (8,952 B) only by moving the assistant prefix and
+  `<|im_end|>` inside a `{% generation %}` block, and **oMLX never reads it**: the tokenizer and
+  template come from the model directory the adapter is applied to. So the profile, not the
+  adapter folder, is what has to say `enable_thinking: false`.
 - `lora_adapter` is a **filesystem path**, used verbatim (`apply_adapter(model, lora_path)`,
   `adapter_info(lora_path)`) — not an adapter id, and it must be reachable by the oMLX
   process (data01 mount).
