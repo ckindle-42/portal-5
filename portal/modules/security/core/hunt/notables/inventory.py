@@ -18,6 +18,8 @@ from .sample import SourceFacts
 
 INVENTORY_FILE = "inventory.json"
 INVENTORY_MAX_VALUES = 5_000  # effort budget (LIST_MAX): a longer list is capped, never exhaustive
+# Effort budget: the rarest values a capped list keeps beside its volume head.
+INVENTORY_MAX_TAIL = INVENTORY_MAX_VALUES // 10
 INVENTORY_MAX_FIELD_SEARCHES = 32  # effort budget: one value query per selected field
 INVENTORY_FIELDS_PER_SOURCE = 8  # effort budget: one source cannot fill the field budget
 INVENTORY_MAX_SCAN_EVENTS = 2_000_000  # effort budget: a stats list above this is localised first
@@ -387,22 +389,36 @@ def _mechanism(prober: _Prober, card: SourceCard, fields: Sequence[str]) -> tupl
     return "", "", "mechanism" if paths.failed else "name"
 
 
+def _bounded(aggregate: str, rarest: bool = False) -> str:
+    """Bound the aggregate server-side: one end of the volume distribution, plus its own total."""
+    if rarest:
+        return f"{aggregate} | sort 0 count | head {INVENTORY_MAX_TAIL}"
+    return (
+        f"{aggregate} | eventstats count as inventory_distinct"
+        f" | sort 0 -count | head {INVENTORY_MAX_VALUES + 1}"
+    )
+
+
 def _value_query(
     index: str,
     name: str,
     mechanism: str,
     fields: Sequence[str],
     card: SourceCard,
+    rarest: bool = False,
 ) -> str:
     route = f"index={_search_literal(index)} sourcetype={_search_literal(name)}"
     if card.part_field:
         route += f" {_field_token(card.part_field)}={_search_literal(card.part_value)}"
     by = ", ".join(_field_token(field) for field in fields)
     if mechanism == "tstats":
-        return f"| tstats count min(_time) as first max(_time) as last where {route} by {by}"
-    return (
+        return _bounded(
+            f"| tstats count min(_time) as first max(_time) as last where {route} by {by}", rarest
+        )
+    return _bounded(
         f"search {route} | stats count min(_time) as first max(_time) as last "
-        f"dc(host) as hosts by {by}"
+        f"dc(host) as hosts by {by}",
+        rarest,
     )
 
 
@@ -415,16 +431,42 @@ def _read_values(
     return rows, problem, round(time.monotonic() - began, 3)
 
 
-def _model_query(index: str, name: str, model: str, fields: Sequence[str], card: SourceCard) -> str:
+def _tail_values(
+    prober: _Prober,
+    index: str,
+    card: SourceCard,
+    choice: FieldChoice,
+    mechanism: str,
+    name: str,
+    model: str = "",
+) -> tuple[list[dict[str, Any]], float]:
+    """The rarest end of a capped list: one ordered aggregate, bounded by the tail budget."""
+    if mechanism == "datamodel":
+        query = _model_query(index, name, model, (choice.field,), card, rarest=True)
+    else:
+        query = _value_query(index, name, mechanism, (choice.field,), card, rarest=True)
+    rows, _problem, seconds = _read_values(prober, query, INVENTORY_MAX_TAIL, card)
+    return rows, seconds
+
+
+def _model_query(
+    index: str,
+    name: str,
+    model: str,
+    fields: Sequence[str],
+    card: SourceCard,
+    rarest: bool = False,
+) -> str:
     """One summary aggregate; the source predicate keeps the list attributable to its card."""
     route = f"index={_search_literal(index)} sourcetype={_search_literal(name)}"
     if card.part_field:
         route += f" {_field_token(card.part_field)}={_search_literal(card.part_value)}"
     # Model name == root dataset for Authentication/Web; another root's zero rows fall through.
     by = ", ".join(f"{model}.{_field_token(field)}" for field in fields)
-    return (
+    return _bounded(
         f"| tstats summariesonly=true count min(_time) as first max(_time) as last "
-        f"from datamodel={model} where {route} by {by}"
+        f"from datamodel={model} where {route} by {by}",
+        rarest,
     )
 
 
@@ -433,12 +475,15 @@ def _datamodel_values(
     index: str,
     card: SourceCard,
     fields: Sequence[str],
+    only: str = "",
 ) -> tuple[AcceleratedModel | None, str, list[dict[str, Any]], str, float]:
     """The first accelerated model that answers this source; the aggregate is its own probe."""
     paths = prober.source(card)
     if not paths.tstats_name:
         return None, "", [], "", 0.0
     for model in prober.accelerated():
+        if only and model.name != only:
+            continue
         name = paths.tstats_name
         prober.model_probes += 1
         rows, problem, seconds = _read_values(
@@ -469,19 +514,8 @@ def _has_column(row: Mapping[str, Any], field: str) -> bool:
     return any(str(key).casefold() == folded for key in row)
 
 
-def _values(
-    rows: Sequence[Mapping[str, Any]],
-    fields: Sequence[str],
-    mechanism: str,
-    problem: str = "",
-) -> tuple[str, list[dict[str, Any]]]:
-    """complete | capped | unavailable:<mechanism>; only a proven mechanism may report empty."""
-    if len(rows) > INVENTORY_MAX_VALUES:
-        return "capped", []
-    if problem:
-        return f"failed:{problem}", []
-    if rows and not all(_has_column(row, field) for row in rows for field in fields):
-        return f"unavailable:{mechanism}", []
+def _value_rows(rows: Sequence[Mapping[str, Any]], fields: Sequence[str]) -> list[dict[str, Any]]:
+    """One value dict per aggregate row; a row missing a value column carries nothing."""
     values: list[dict[str, Any]] = []
     for row in rows:
         mapped = {field: _cell(row, field) for field in fields}
@@ -498,7 +532,49 @@ def _values(
                 "hosts": int(_number(row.get("hosts"))),
             }
         )
-    return ("empty" if not values else "complete"), values
+    return values
+
+
+def _capped_values(
+    rows: Sequence[Mapping[str, Any]],
+    fields: Sequence[str],
+    tail: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """The volume head plus the rarest rows: a capped list is smaller, never empty."""
+    rare = _value_rows(tail, fields)
+    head = _value_rows(rows[: INVENTORY_MAX_VALUES - min(len(rare), INVENTORY_MAX_TAIL)], fields)
+    seen = {tuple(item["values"][field] for field in fields) for item in head}
+    for item in rare:
+        key = tuple(item["values"][field] for field in fields)
+        if key not in seen:
+            seen.add(key)
+            head.append(item)
+    return head[:INVENTORY_MAX_VALUES]
+
+
+def _capped_share(rows: Sequence[Mapping[str, Any]], kept: int) -> float:
+    """Kept over the aggregate's own distinct total; the rows it surfaced are the floor."""
+    total = max((int(_number(row.get("inventory_distinct"))) for row in rows), default=0)
+    return round(kept / max(total, len(rows), 1), 6)
+
+
+def _values(
+    rows: Sequence[Mapping[str, Any]],
+    fields: Sequence[str],
+    mechanism: str,
+    problem: str = "",
+    tail: Sequence[Mapping[str, Any]] = (),
+) -> tuple[str, list[dict[str, Any]], float | None]:
+    """complete | capped | unavailable:<mechanism>; only a proven mechanism may report empty."""
+    if len(rows) > INVENTORY_MAX_VALUES:
+        values = _capped_values(rows, fields, tail)
+        return "capped", values, _capped_share(rows, len(values))
+    if problem:
+        return f"failed:{problem}", [], None
+    if rows and not all(_has_column(row, field) for row in rows for field in fields):
+        return f"unavailable:{mechanism}", [], None
+    values = _value_rows(rows, fields)
+    return ("empty" if not values else "complete"), values, None
 
 
 def _scanned(mechanism: str, rows: Sequence[Mapping[str, Any]], available: int) -> int:
@@ -519,6 +595,7 @@ def _field_record(
     value_field: str = "",
     accel_window: Sequence[float] | None = None,
     searched_window: Sequence[float] | None = None,
+    capped_share: float | None = None,
 ) -> dict[str, Any]:
     return {
         "source_id": choice.source_id,
@@ -531,6 +608,7 @@ def _field_record(
         "role": choice.role,
         "sample_distinct": choice.distinct,
         "status": status,
+        "capped_share": capped_share,
         "mechanism": mechanism,
         "name_used": name_used,
         "events_scanned": events_scanned,
@@ -572,7 +650,15 @@ def _enumerate_fields(
             )
             if model is not None:
                 value_field = f"{model.name}.{choice.field}"
-                status, values = _values(rows, (value_field,), "datamodel", problem)
+                status, values, share = _values(rows, (value_field,), "datamodel", problem)
+                if status == "capped":
+                    tail, tail_seconds = _tail_values(
+                        prober, index, card, choice, "datamodel", route_name, model.name
+                    )
+                    seconds += tail_seconds
+                    status, values, share = _values(
+                        rows, (value_field,), "datamodel", problem, tail
+                    )
                 records.append(
                     _field_record(
                         choice,
@@ -585,6 +671,7 @@ def _enumerate_fields(
                         value_field=value_field,
                         accel_window=(model.earliest, model.latest) if model.latest > 0 else None,
                         searched_window=(prober.start, prober.end),
+                        capped_share=share,
                     )
                 )
                 continue
@@ -611,7 +698,11 @@ def _enumerate_fields(
             INVENTORY_MAX_VALUES + 1,
             card,
         )
-        status, values = _values(rows, (choice.field,), mechanism, problem)
+        status, values, share = _values(rows, (choice.field,), mechanism, problem)
+        if status == "capped":
+            tail, tail_seconds = _tail_values(prober, index, card, choice, mechanism, name)
+            seconds += tail_seconds
+            status, values, share = _values(rows, (choice.field,), mechanism, problem, tail)
         records.append(
             _field_record(
                 choice,
@@ -622,6 +713,7 @@ def _enumerate_fields(
                 events_scanned=_scanned(mechanism, rows, available),
                 seconds=seconds,
                 searched_window=(prober.start, prober.end),
+                capped_share=share,
             )
         )
     return records
@@ -660,6 +752,7 @@ def _joint_record(
     seconds: float,
     rows: Sequence[Mapping[str, Any]],
     searched_window: Sequence[float] | None = None,
+    capped_share: float | None = None,
 ) -> dict[str, Any]:
     return {
         "source_id": card.source_id,
@@ -668,6 +761,7 @@ def _joint_record(
         "part": {"field": card.part_field, "value": card.part_value} if card.part_field else None,
         "fields": [{"role": record["role"], "field": record["field"]} for record in picked],
         "status": status,
+        "capped_share": capped_share,
         "reason": mechanism,
         "mechanism": mechanism,
         "name_used": name_used,
@@ -710,7 +804,7 @@ def _enumerate_joints(
             INVENTORY_MAX_VALUES + 1,
             card,
         )
-        status, values = _values(rows, names, mechanism, problem)
+        status, values, share = _values(rows, names, mechanism, problem)
         joints.append(
             _joint_record(
                 card,
@@ -722,6 +816,7 @@ def _enumerate_joints(
                 seconds,
                 values,
                 window,
+                share,
             )
         )
     return joints
@@ -867,7 +962,7 @@ def collect_inventory(
     document = _empty_document(index)
     document.update(
         {
-            "searches": len(choices) + len(planned),
+            "searches": prober.queries - prober.probe_queries,
             "probe_queries": prober.probe_queries,
             "model_probes": prober.model_probes,
             "probe_failures": prober.failures[:16],
@@ -925,6 +1020,7 @@ def inventory_summary(document: Mapping[str, Any]) -> dict[str, Any]:
                 "part": item.get("part"),
                 "field": item.get("field"),
                 "status": item.get("status"),
+                "capped_share": item.get("capped_share"),
                 "mechanism": item.get("mechanism"),
                 "name_used": item.get("name_used"),
                 "events_scanned": int(_number(item.get("events_scanned"))),
