@@ -249,12 +249,224 @@ saved, so the orchestrator is creating it, not editing it.
 - Bench workspaces merge only when eval is on (`modules.eval.enabled`, or
   `PORTAL_ENABLE_EVAL=1`). The live `.env` already carries `PORTAL_ENABLE_EVAL=1`.
 
-## 5. What is deliberately not done
+## 5. Handoff — the exact oMLX state and the exact canaries
+
+### 5.1 `~/.omlx/model_profiles.json` (create; the file does not exist yet)
+
+Write it with oMLX **stopped** (a running oMLX rewrites this file from memory on its next
+profile save). `version` is `PROFILES_VERSION = 1`. Both ids resolve from the model **directory
+name**, which is what `Qwen3.8-27B-oQ4e-mtp` has (no `model_alias`).
+
+```json
+{
+  "version": 1,
+  "profiles": {
+    "Qwen3.8-27B-oQ4e-mtp": {
+      "opencode": {
+        "name": "opencode",
+        "display_name": "Qwen3.8-27B opencode LoRA",
+        "api_name": "opencode",
+        "description": "harness-hub/Qwen3.8-27B-opencode-adapted PEFT LoRA (r32/a64, q/k/v/o/gate/up/down) on Qwen3.8-27B-oQ4e-mtp. Thinking off, temperature 0.8, top-p 1.0 (card sampling).",
+        "created_at": "2026-11-21T00:00:00+00:00",
+        "updated_at": "2026-11-21T00:00:00+00:00",
+        "settings": {
+          "lora_adapter": "/Volumes/data01/omlx-models/Qwen3.8-27B-opencode-adapted",
+          "enable_thinking": false,
+          "temperature": 0.8,
+          "top_p": 1.0,
+          "max_context_window": 131072,
+          "max_tokens": 32768
+        },
+        "source_template": null,
+        "expose_as_model": true
+      },
+      "pi": {
+        "name": "pi",
+        "display_name": "Qwen3.8-27B pi LoRA",
+        "api_name": "pi",
+        "description": "harness-hub/Qwen3.8-27B-pi-adapted PEFT LoRA (r32/a64, q/k/v/o/gate/up/down) on Qwen3.8-27B-oQ4e-mtp. Thinking off, temperature 0.8, top-p 1.0 (card sampling).",
+        "created_at": "2026-11-21T00:00:00+00:00",
+        "updated_at": "2026-11-21T00:00:00+00:00",
+        "settings": {
+          "lora_adapter": "/Volumes/data01/omlx-models/Qwen3.8-27B-pi-adapted",
+          "enable_thinking": false,
+          "temperature": 0.8,
+          "top_p": 1.0,
+          "max_context_window": 131072,
+          "max_tokens": 32768
+        },
+        "source_template": null,
+        "expose_as_model": true
+      }
+    }
+  }
+}
+```
+
+Why each key is there: `lora_adapter` is the path oMLX hands to `apply_adapter`; `enable_thinking:
+false` is the only way the adapter actually runs think-off from a non-Portal client (the
+template defaults to `xhigh`), and it is the same value the Portal pipeline injects for
+`think: false`; `temperature 0.8` / `top_p 1.0` are the card's evaluation sampling so a direct
+harness call gets them without the pipeline; `max_context_window 131072` and `max_tokens 32768`
+are the card's evaluation window and its per-call output cap.
+
+The **base** entry in `model_settings.json` needs no change: it already has `mtp_enabled: true`,
+and the adapter lives only in the profile. (`resolve_lora_conflicts` clears DFlash / VLM MTP /
+ANE prefill / MoE offload / Prefill Accelerator / external engine for the profile variant
+automatically; on this host every one of those is already `false` for
+`Qwen3.8-27B-oQ4e-mtp` — read from `~/.omlx/model_settings.json`, `mtp_enabled: true` is the
+only flag set — so the adapter variant gives up nothing and keeps Lightning MTP.)
+
+Same thing through the API, if the orchestrator prefers not to stop oMLX — `POST
+http://127.0.0.1:8085/api/models/Qwen3.8-27B-oQ4e-mtp/profiles` with the admin key and body
+`{"name":"opencode","display_name":"…","api_name":"opencode","settings":{…},"expose_as_model":true}`.
+
+### 5.2 `~/.omlx/model_settings.json` delta (Inkling only)
+
+The file is `{"version": 2, "models": {…}}`. Add one entry (oMLX will create a
+`{"temperature": 1.0}` entry itself on first discovery — `load_sampling_defaults` returns exactly
+`{'temperature': 1.0}` for this checkpoint, and `lightning_mtp_supported` returns **True**
+(the bundled `mtp.safetensors` is found), so oMLX sets `mtp_enabled: true` on its own; the
+entry below pins the rest):
+
+```json
+"Inkling-2-Mini-oQ4e-mtp": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "max_tokens": 32768,
+  "max_context_window": 262144,
+  "chat_template_kwargs": { "reasoning_effort": "high" },
+  "mtp_enabled": true,
+  "is_pinned": false
+}
+```
+
+`chat_template_kwargs.reasoning_effort` is oMLX's only lever on Inkling's thinking: the template
+defaults to 0.9 ("high") when the kwarg is absent, and a request-level `reasoning_effort` still
+overrides it. Drop it to `"medium"`/`"low"` to cut reasoning tokens; `enable_thinking: false`
+does nothing on this template.
+
+### 5.3 What has to be restarted / rebuilt before the Portal path works
+
+- `config/backends.yaml` is **mounted** into the pipeline (`../../config/backends.yaml:/app/config/backends.yaml:ro`)
+  → a pipeline **restart** picks the three ids up.
+- `config/bench_workspaces.yaml` is **baked** into the image (only `backends.yaml` and
+  `portal_wiki/canonical/` are mounted) → the pipeline path needs `./launch.sh rebuild && ./launch.sh up`.
+  A direct-oMLX canary needs neither.
+- Bench workspaces exist in the pipeline catalog only while eval is on (`modules.eval.enabled`
+  or `PORTAL_ENABLE_EVAL=1`). The live `.env` already has `PORTAL_ENABLE_EVAL=1`; confirm inside
+  the container with `docker exec portal5-pipeline env | grep PORTAL_ENABLE_EVAL`.
+
+### 5.4 Canary 1 — oMLX, one request per new id (no Pipeline)
+
+```bash
+KEY=$(grep -m1 '^OMLX_API_KEY=' .env | cut -d= -f2-)
+B=http://127.0.0.1:8085
+
+curl -s "$B/v1/models" -H "Authorization: Bearer $KEY" \
+  | python3 -c 'import json,sys; [print(m["id"]) for m in json.load(sys.stdin)["data"]
+                  if "opencode" in m["id"] or m["id"].endswith(":pi") or "Inkling" in m["id"]]'
+```
+Wanted: exactly three ids — `Qwen3.8-27B-oQ4e-mtp:opencode`, `Qwen3.8-27B-oQ4e-mtp:pi`,
+`Inkling-2-Mini-oQ4e-mtp`. If the adapter ids are missing, the profile file was not picked up
+(wrong key/`api_name`, or `expose_as_model` false); if `Inkling` is missing, oMLX did not
+discover the symlink.
+
+```bash
+for M in 'Qwen3.8-27B-oQ4e-mtp:opencode' 'Qwen3.8-27B-oQ4e-mtp:pi' 'Inkling-2-Mini-oQ4e-mtp'; do
+  echo "== $M"
+  curl -sS "$B/v1/chat/completions" -H "Authorization: Bearer $KEY" \
+    -H 'Content-Type: application/json' \
+    -d "{\"model\":\"$M\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with the single word OK.\"}],\"max_tokens\":32,\"temperature\":0}"
+  echo
+done
+```
+Wanted: `choices[0].message.content` non-empty, `finish_reason: stop`, no 400/500. A
+`400 A LoRA adapter cannot be combined with …` means a conflicting setting survived on the base
+entry; `the adapter holds tensors oMLX does not apply` / `the model has no projection …` means
+the loader rejected it (it should not — §2.1 already ran the loader's own checks).
+
+Tool-call probe (this is the `supports_tools: true` claim, per id):
+
+```bash
+curl -sS "$B/v1/chat/completions" -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' -d '{
+ "model":"Qwen3.8-27B-oQ4e-mtp:opencode","temperature":0,"max_tokens":256,
+ "messages":[{"role":"user","content":"What is the weather in Little Rock, AR? Use the tool."}],
+ "tools":[{"type":"function","function":{"name":"get_weather","description":"Current weather",
+   "parameters":{"type":"object","properties":{"location":{"type":"string"}},"required":["location"]}}}],
+ "tool_choice":"auto"}' | python3 -m json.tool | head -40
+```
+Wanted: `finish_reason: "tool_calls"`, one `get_weather` call with `{"location": "Little Rock, AR"}`
+typed as a string. Repeat with `Qwen3.8-27B-oQ4e-mtp:pi`; for `Inkling-2-Mini-oQ4e-mtp` the call
+comes back through oMLX's inkling channel parser (`<|content_invoke_tool_json|>` → structured
+`tool_calls`) — a prose answer with the JSON inline instead means the parser did not engage.
+
+In the oMLX log, each adapter load must print `LoRA adapter /Volumes/data01/omlx-models/Qwen3.8-27B-{opencode,pi}-adapted: 448 projections` (64 decoder layers × 7 targets). A different
+number, or no line at all, means the adapter was not applied.
+
+### 5.5 Canary 2 — Pipeline → oMLX, one request per new id
+
+```bash
+P=http://localhost:9099
+for WS in bench-qwen38-opencode-adapter bench-qwen38-pi-adapter bench-inkling-2-mini; do
+  echo "== $WS"
+  curl -sS "$P/v1/chat/completions" -H 'Content-Type: application/json' \
+    -d "{\"model\":\"$WS\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with the single word OK.\"}],\"max_tokens\":32,\"stream\":false}" \
+    | python3 -m json.tool | head -25
+done
+```
+Wanted: an answer per workspace, and in the pipeline log the served model equals the seat id
+(`Qwen3.8-27B-oQ4e-mtp:opencode` etc.), with no `model_hint mismatch — wanted … serving …` line
+(that line would mean oMLX's `/v1/models` did not advertise the id and the router fell back).
+A 404/`unknown workspace` means the image predates `bench_workspaces.yaml` (needs the rebuild), or
+eval is off.
+
+### 5.6 Canary 3 — harnesses
+
+opencode, one task, against the oMLX profile (scratch config — do **not** edit the live
+`~/.config/opencode/opencode.json`, which points at the P40):
+
+```bash
+cat > /tmp/oc-adapter.json <<'JSON'
+{"$schema":"https://opencode.ai/config.json",
+ "provider":{"omlx":{"npm":"@ai-sdk/openai-compatible",
+   "options":{"baseURL":"http://127.0.0.1:8085/v1","apiKey":"<OMLX_API_KEY>"},
+   "models":{"Qwen3.8-27B-oQ4e-mtp:opencode":{}}}}}
+JSON
+OC_GLOBAL_CONFIG=/tmp/oc-adapter.json opencode run --standalone \
+  --model omlx/'Qwen3.8-27B-oQ4e-mtp:opencode' \
+  "Find out why the tests in tests/unit/test_config_validate.py fail and fix the bug."
+```
+Wanted: the agent emits structured tool calls (read/edit/bash), edits the file, and finishes;
+oMLX logs the adapter load. If opencode sends a Responses-API request the profile id will error —
+it needs the `@ai-sdk/openai-compatible` provider, as above.
+
+pi, one task, against the **P40** GGUF LoRA tag (the oMLX profile is Apple-silicon only), or the
+oMLX profile if pi runs on this Mac:
+
+```bash
+cat > ~/.pi/agent/models.json <<'JSON'
+{"providers":{"p40":{"baseUrl":"http://10.0.0.204:11434/v1","api":"openai-completions",
+  "apiKey":"dummy","models":[{"id":"qwen38-27b-pi-lora:ctx32k"}]}}}
+JSON
+pi --provider p40 --model qwen38-27b-pi-lora:ctx32k --print \
+  "Find out why the tests in tests/unit/test_config_validate.py fail and fix the bug."
+```
+`"api": "openai-completions"` is not optional (the card is explicit). The tag only exists after
+`ollama create qwen38-27b-pi-lora:ctx32k -f config/modelfiles/qwen38-27b-pi-lora-ctx32k.Modelfile`
+runs on the box that serves it, with `Qwen3.8-27B-pi-lora-F16.gguf` beside the Modelfile.
+
+## 6. What is deliberately not done
 
 - No production workspace, variant, persona, alias or `workspace_routing` group was pointed
-  at any of these ids.
+  at any of these ids; the ids sit at the end of `omlx-general`'s model list, so `models[0]`
+  (the last-resort substitution target) is unchanged.
 - Nothing seated (`bench-*` is excluded from auto-routing by name; `expose_to_owui: false`).
 - No `ollama create` was run anywhere — the recipes are files only.
-- No `~/.omlx` write, no engine restart, no `launch.sh` beyond `bash -n`.
+- No `~/.omlx` write at all (the profile and settings JSON are §5.1/§5.2 for the orchestrator to
+  apply), no engine restart, no `launch.sh` beyond `bash -n`.
+- No live probe of any kind: not one request was sent to oMLX, the Pipeline, opencode or pi.
+  Every `supports_tools: true` on the three new ids is *reasoned* from the base seat's probe and
+  the parser/template, not measured on the new id.
 - The Inkling oQ3e build was not downloaded (oQ4e chosen per the brief; 3 GB saved if the
   orchestrator prefers oQ3e — same code path, and the task is a bench screen first).
