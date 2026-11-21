@@ -512,6 +512,20 @@ class HuntExecutor:
         with self.budget.lock:
             return {kind: dict(slot) for kind, slot in self.budget.kind_stats.items()}
 
+    def record_skipped_read(
+        self,
+        query: str,
+        start: float,
+        end: float,
+        *,
+        source_id: str | None = None,
+        part: str | None = None,
+        reason: str,
+    ) -> None:
+        """Declare a read the read policy declined: the ledger sees it, no request is issued."""
+        if self.read_observer is not None:
+            self.read_observer(query, start, end, Read([], True, reason, None), source_id, part)
+
     def delta(self, before: Mapping[str, Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
         """Per-kind cost this read path added since `before`."""
         found: dict[str, dict[str, Any]] = {}

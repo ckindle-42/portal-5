@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import re
+
 from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.sample import (
+    IndexFile,
     LocalWindow,
     SourceFacts,
     localise,
     read_anchors,
+    read_files,
     read_mode,
     read_windows,
     route_filter,
@@ -223,3 +227,92 @@ def test_narrowed_scan_reads_one_host_window_and_reports_events_scanned():
     assert read.read_mode == "anchored"
     assert read.rung == "narrowed_scan"
     assert 'host="h1"' in executor.queries[0]
+
+
+class _FileExecutor:
+    """Splunk-like: `head` is arrival order, so a pooled route never reaches every file."""
+
+    def __init__(self, files: dict[str, list[dict[str, object]]]) -> None:
+        self.files = files
+        self.queries: list[str] = []
+        self.skipped: list[tuple[str, str]] = []
+
+    def rows_for(self, query: str) -> list[dict[str, object]]:
+        named = set(re.findall(r'source="([^"]+)"', query))
+        paths = [path for path in self.files if not named or path in named]
+        rows = [row for path in paths for row in self.files[path]]
+        return sorted(rows, key=lambda row: float(row["_time"]), reverse=True)
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del kind
+        self.queries.append(query)
+        inside = [row for row in self.rows_for(query) if start <= float(row["_time"]) < end]
+        return Read(inside[: row_cap or len(inside)], False, None)
+
+    def record_skipped_read(
+        self, query: str, start: float, end: float, *, source_id=None, part=None, reason: str
+    ) -> None:
+        del start, end, source_id, part
+        self.skipped.append((query, reason))
+
+
+def _file_facts() -> tuple[SourceFacts, dict[str, list[dict[str, object]]]]:
+    """21 files ranked by volume; the labelled one is 14th, so a pooled route never sees it."""
+    files = {
+        f"a{index:02d}": [
+            {
+                "_raw": f"a{index:02d} {number}",
+                "_time": float(number),
+                "host": "h1",
+                "source": f"a{index:02d}",
+            }
+            for number in range(1_000 - index * 10)
+        ]
+        for index in range(21)
+    }
+    ranked = sorted(files, key=lambda path: (-len(files[path]), path))
+    facts = SourceFacts(
+        "ix",
+        "st",
+        sum(len(rows) for rows in files.values()),
+        0.0,
+        1_000.0,
+        ("h1",),
+        1,
+        tuple(ranked),
+        21,
+        files=tuple(IndexFile(path, len(files[path]), ("h1",)) for path in ranked),
+    )
+    return facts, files
+
+
+def test_every_indexed_file_is_read_with_its_own_head_not_by_arrival_order():
+    facts, files = _file_facts()
+    executor = _FileExecutor(files)
+    labelled = "a13"
+    pooled = read_windows(executor, facts, window_bounds(0.0, 1_000.0, 2), per_window=100, kind="x")
+    assert not [row for row in pooled.rows if row["source"] == labelled]
+
+    read = read_files(executor, facts, window_bounds(0.0, 1_000.0, 2), per_window=100, kind="x")
+
+    assert {item.path for item in read.files} == set(files)
+    assert all(item.rows > 0 for item in read.files)
+    assert sum(item.rows for item in read.files if item.path == labelled) > 0
+    assert any(f'source="{labelled}"' in query for query in executor.queries)
+    assert len(read.rows) <= 100 * 2 + len(files) * 2  # today's row budget plus per-read rounding
+
+
+def test_a_capped_read_declares_every_unread_file_with_its_reason():
+    facts, files = _file_facts()
+    executor = _FileExecutor(files)
+    read = read_files(
+        executor, facts, window_bounds(0.0, 1_000.0, 1), per_window=100, kind="x", max_files=3
+    )
+
+    omitted = [item for item in read.files if item.reason]
+    assert len(omitted) == 18
+    assert {item.reason for item in omitted} == {"read_files_cap"}
+    assert len(executor.skipped) == 18
+    assert all(reason == "read_files_cap" for _query, reason in executor.skipped)

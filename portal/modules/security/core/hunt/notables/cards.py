@@ -516,8 +516,12 @@ def _facts(facts: SourceFacts) -> dict[str, Any]:
         "host_count": facts.host_count,
         "source_count": facts.source_count,
         "hosts": list(facts.hosts),
-        "sources": list(facts.sources[:12]),
-        "shared_sources": [name for name in facts.sources[:12] if name in facts.shared_sources],
+        "sources": list(facts.sources),
+        "shared_sources": [name for name in facts.sources if name in facts.shared_sources],
+        "files": [
+            {"path": item.path, "events": item.events, "hosts": list(item.hosts)}
+            for item in facts.files
+        ],
         "active_periods": facts.active_periods,
         "periods": facts.periods,
         "count_cv": facts.count_cv,

@@ -53,6 +53,7 @@ from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_
 from .sample import (
     ALERT_PROBE_LINES,
     SAMPLE_LINES,
+    IndexFile,
     SourceFacts,
     index_facts,
     read_alert_rows,
@@ -229,7 +230,26 @@ def _fact_dict(card: SourceCard) -> SourceFacts:
         active_periods=int(facts.get("active_periods") or 0),
         periods=int(facts.get("periods") or 0),
         count_cv=float(facts.get("count_cv") or 0.0),
+        files=tuple(
+            IndexFile(
+                str(item.get("path") or ""),
+                int(item.get("events") or 0),
+                tuple(str(name) for name in item.get("hosts") or ()),
+            )
+            for item in facts.get("files") or ()
+            if isinstance(item, Mapping)
+        ),
     )
+
+
+def _search_cost(executor: HuntExecutor, before: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """The searches this stage issued, by kind, so its wall cost is read not assumed."""
+    delta = executor.delta(before)
+    return {
+        "total": sum(int(slot["requests"]) for slot in delta.values()),
+        "seconds": round(sum(float(slot["seconds"]) for slot in delta.values()), 3),
+        "by_kind": delta,
+    }
 
 
 def _field_from(item: Mapping[str, Any], lines: int) -> FieldStat:
@@ -471,6 +491,7 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
     sources = read_json(out / SOURCES_FILE)
     configure_ledger(search, out, "behaviours")
     executor = executor_for(search)
+    before = executor.stats()
     inventory = collect_inventory(
         executor,
         cards,
@@ -484,6 +505,7 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
     )
     receipt["inventory"] = inventory_summary(inventory)
     receipt["spine"] = spine_from_store(out, receipts=receipt.get("receipts") or ())
+    receipt["searches"] = _search_cost(executor, before)
     _write_role_overrides(out, receipt.get("identity_overrides") or {})
     receipt.pop("identity_overrides", None)
     receipt["seconds_total"] = round(time.monotonic() - began, 3)

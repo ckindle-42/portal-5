@@ -18,7 +18,9 @@ SAMPLE_LINES = 40  # effort budget: events read per window for a source card
 SAMPLE_SOURCES = 2  # effort budget: indexed sources sampled for one source card
 ALERT_PROBE_LINES = 400  # effort budget: events read per window to detect an alert-bearing part
 ALERT_TERM = 'event_type="alert"'  # the search term that selects a JSON detection event
-BEHAVIOUR_SOURCES = 8  # effort budget: indexed sources one behaviour read covers
+BEHAVIOUR_SOURCES = 8  # effort budget: indexed sources one pooled read covers
+READ_FILES_MAX = 32  # effort budget: indexed files one behaviour read covers
+FILE_READ_MIN_WINDOWS = 3  # a file is sampled at several points, never only its tail
 MAX_HOST_NAMES = 24  # effort budget: host names listed on one source's facts
 # The results endpoint returns at most 50,000 rows per request; caps stay below it.
 METADATA_ROWS = 40_000  # effort budget: sourcetype/source/host aggregate rows read
@@ -47,6 +49,29 @@ ACCEL_PROBE_ROWS = 100  # effort budget: window rows one accelerated-model probe
 
 
 @dataclass(frozen=True)
+class IndexFile:
+    """One indexed source path under a sourcetype: its volume and the hosts it appears on."""
+
+    path: str
+    events: int
+    hosts: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class FileRead:
+    """One (indexed file, window) read, or why the file was not read at all."""
+
+    path: str
+    host: str
+    events_available: int
+    window_start: float
+    window_end: float
+    rows: int
+    reason: str = ""
+    hosts: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class SourceFacts:
     """Cheap index facts about one sourcetype: volume, time range, hosts and sources."""
 
@@ -63,6 +88,7 @@ class SourceFacts:
     periods: int = 0
     count_cv: float = 0.0
     shared_sources: tuple[str, ...] = ()
+    files: tuple[IndexFile, ...] = ()
 
 
 @dataclass
@@ -80,6 +106,7 @@ class RowSet:
     events_scanned: int = 0
     coverage: str = ""  # whole | accelerated | scan (never "empty")
     accel_window: tuple[float, float] | None = None
+    files: list[FileRead] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -90,6 +117,8 @@ class RowSet:
             "rung": self.rung,
             "events_scanned": self.events_scanned,
             "coverage": self.coverage,
+            "files_read": len({item.path for item in self.files if not item.reason}),
+            "files_omitted": len({item.path for item in self.files if item.reason}),
         }
 
 
@@ -422,7 +451,7 @@ def shared_source_names(by_type: Mapping[str, Iterable[str]]) -> set[str]:
 def index_facts(
     executor: HuntExecutor, index: str, start: float, end: float
 ) -> tuple[list[SourceFacts], list[str]]:
-    """Volume, time range, hosts and indexed sources for every sourcetype in the index."""
+    """Volume, time range, hosts and indexed files for every sourcetype in the index."""
     notes: list[str] = []
     volume, reason = _read_range(
         executor,
@@ -437,7 +466,7 @@ def index_facts(
         notes.append(f"volume_metadata:{reason}")
     if not volume:
         return [], notes + ["index_metadata_empty"]
-    sources, source_reason = _meta_rows(executor, index, "by sourcetype source", start, end)
+    sources, source_reason = _meta_rows(executor, index, "by sourcetype source host", start, end)
     hosts, host_reason = _meta_rows(executor, index, "by sourcetype host", start, end)
     cadence, cadence_notes = cadence_facts(executor, index, start, end)
     notes.extend(cadence_notes)
@@ -446,6 +475,7 @@ def index_facts(
             notes.append(f"{label}_metadata:{cause}")
     by_source = _group_meta(sources, "sourcetype", "source")
     by_host = _group_meta(hosts, "sourcetype", "host")
+    by_file = _group_files(sources)
     shared = shared_source_names({k: [s for s, _ in v] for k, v in by_source.items()})
     facts: list[SourceFacts] = []
     for row in sorted(volume, key=lambda item: str(item.get("sourcetype") or "")):
@@ -454,25 +484,68 @@ def index_facts(
             continue
         ranked_sources = sorted(by_source.get(name, []), key=lambda item: (-item[1], item[0]))
         ranked_hosts = sorted(by_host.get(name, []), key=lambda item: (-item[1], item[0]))
+        events = _count(row.get("count"))
+        files = _files_of(by_file.get(name), events)
+        if not files and by_file.get(name):
+            notes.append(f"files_incomplete:{name}")
         active, span, cv = cadence.get(name, (0, 0, 0.0))
         facts.append(
             SourceFacts(
                 index=index,
                 sourcetype=name,
-                events=_count(row.get("count")),
+                events=events,
                 first=_number(row.get("first")) or start,
                 last=_number(row.get("last")) or end,
                 hosts=tuple(host for host, _ in ranked_hosts[:MAX_HOST_NAMES]),
                 host_count=len(ranked_hosts),
-                sources=tuple(source for source, _ in ranked_sources),
+                sources=tuple(file.path for file in files)
+                or tuple(source for source, _ in ranked_sources),
                 source_count=len(ranked_sources),
                 active_periods=active,
                 periods=span,
                 count_cv=cv,
                 shared_sources=tuple(src for src, _ in ranked_sources if src.casefold() in shared),
+                files=files,
             )
         )
     return facts, notes
+
+
+def _group_files(
+    rows: Iterable[Mapping[str, Any]],
+) -> dict[str, dict[str, list[tuple[str, int]]]]:
+    """Per sourcetype: each indexed source path with its host rows and counts."""
+    grouped: dict[str, dict[str, list[tuple[str, int]]]] = {}
+    for row in rows:
+        owner = str(row.get("sourcetype") or "")
+        path = str(row.get("source") or "")
+        if not owner or not path:
+            continue
+        grouped.setdefault(owner, {}).setdefault(path, []).append(
+            (str(row.get("host") or ""), _count(row.get("count")))
+        )
+    return grouped
+
+
+def _files_of(
+    entries: Mapping[str, list[tuple[str, int]]] | None, events: int
+) -> tuple[IndexFile, ...]:
+    """Ranked files, or none when the file rows do not account for every event of the source."""
+    if not entries:
+        return ()
+    total = sum(count for pairs in entries.values() for _host, count in pairs)
+    if total != events:
+        return ()
+    files = [
+        IndexFile(path, sum(count for _host, count in pairs), _file_hosts(pairs))
+        for path, pairs in entries.items()
+        if pairs
+    ]
+    return tuple(sorted(files, key=lambda item: (-item.events, item.path)))
+
+
+def _file_hosts(pairs: Sequence[tuple[str, int]]) -> tuple[str, ...]:
+    return tuple(sorted({host for host, _count in pairs if host}))
 
 
 def route_filter(facts: SourceFacts, max_sources: int = SAMPLE_SOURCES) -> tuple[str, str]:
@@ -501,6 +574,7 @@ def read_windows(
     kind: str,
     max_sources: int = SAMPLE_SOURCES,
     sub_windows: int = 1,
+    host: str = "",
 ) -> RowSet:
     """Read the newest `per_window` events of each equal time slice, concurrently.
 
@@ -510,6 +584,8 @@ def read_windows(
     high-volume source is sampled at several points in the slice instead of only its tail.
     """
     route, route_name = route_filter(facts, max_sources)
+    if host:
+        route = f"{route} host={_quoted(host)}"
     readable = [bounds for bounds in windows if bounds[1] > bounds[0]]
     parts = max(1, sub_windows)
     slice_bounds: list[tuple[float, float]] = []
@@ -550,6 +626,169 @@ def read_windows(
     found.events_scanned = len(found.rows)
     found.coverage = "scan"
     return found
+
+
+def file_route(facts: SourceFacts, path: str, host: str = "", shared: Sequence[str] = ()) -> str:
+    """One indexed file's own route; a path another sourcetype also carries stays scoped."""
+    route = f"source={_quoted(path)}"
+    if path.casefold() in {name.casefold() for name in (shared or facts.shared_sources)}:
+        route = f"sourcetype={_quoted(facts.sourcetype)} {route}"
+    return f"{route} host={_quoted(host)}" if host else route
+
+
+def read_files(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    windows: Sequence[tuple[float, float]],
+    *,
+    per_window: int,
+    kind: str,
+    host: str = "",
+    sub_windows: int = 1,
+    max_files: int = READ_FILES_MAX,
+) -> RowSet:
+    """One read per indexed file with its own `head`; a pooled read returns arrival order.
+
+    Each file's row budget is its share of the source's, so the total stays at one
+    source-wide read, and its windows are spread over the schedule by the same share.
+    """
+    if not facts.files:
+        return read_windows(
+            executor,
+            facts,
+            windows,
+            per_window=per_window,
+            kind=kind,
+            max_sources=BEHAVIOUR_SOURCES,
+            sub_windows=sub_windows,
+            host=host,
+        )
+    readable = [bounds for bounds in windows if bounds[1] > bounds[0]]
+    parts = max(1, sub_windows)
+    slice_bounds: list[tuple[float, float]] = []
+    for start, end in readable:
+        slice_bounds.extend(window_bounds(start, end, parts))
+    total = sum(max(1, item.events) for item in facts.files)
+    source_id = f"{facts.index}:{facts.sourcetype}"
+    found = RowSet(
+        windows=len(readable),
+        route="source",
+        selection="newest events of each indexed file's own windows",
+    )
+    planned: list[tuple[IndexFile, list[tuple[float, float]], int]] = []
+    per_read = max(1, per_window // parts)
+    full = (facts.first, facts.last + 0.000001)
+    for index, item in enumerate(facts.files):
+        budget = _file_budget(item.events, total, per_window, len(slice_bounds))
+        if index >= max_files:
+            _omit_file(
+                executor, facts, item, host, min(budget, per_read), source_id, "read_files_cap"
+            )
+            found.files.append(
+                FileRead(item.path, host, item.events, 0.0, 0.0, 0, "read_files_cap", item.hosts)
+            )
+            continue
+        if budget >= item.events:
+            planned.append((item, [full], item.events))
+            continue
+        take = _file_window_count(item.events, total, per_window, len(slice_bounds), per_read)
+        head = _file_head(item.events, total, per_window, len(slice_bounds), take, per_read)
+        planned.append((item, _spread_windows(slice_bounds, take), head))
+    requests = [(item, start, end, head) for item, chosen, head in planned for start, end in chosen]
+    if requests:
+        found.query = f"search index={_quoted(facts.index)} {file_route(facts, planned[0][0].path)} | head {planned[0][2]}"
+    concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+    with ThreadPoolExecutor(max_workers=min(len(requests) or 1, concurrency)) as pool:
+        futures = [
+            pool.submit(
+                _read_range,
+                executor,
+                f"search index={_quoted(facts.index)} {file_route(facts, item.path, host)}"
+                f" | head {head}",
+                start,
+                end,
+                kind=kind,
+                row_cap=head,
+                source_id=source_id,
+            )
+            for item, start, end, head in requests
+        ]
+        for (item, start, end, _head), future in zip(requests, futures, strict=True):
+            rows, reason = future.result()
+            found.rows.extend(rows)
+            if reason:
+                found.notes.append(reason)
+            found.files.append(
+                FileRead(
+                    item.path, host, item.events, start, end, len(rows), reason or "", item.hosts
+                )
+            )
+    found.rows.sort(
+        key=lambda row: (
+            _number(row.get("_time")) or 0.0,
+            str(row.get("host") or ""),
+            str(row.get("_raw") or ""),
+        )
+    )
+    found.read_mode = "sampled"
+    found.rung = "equal_slice"
+    found.events_scanned = len(found.rows)
+    found.coverage = "scan"
+    return found
+
+
+def _file_budget(events: int, total: int, per_window: int, windows: int) -> int:
+    """One file's share of the rows one source-wide read schedule may return."""
+    share = max(1, events) / max(1, total)
+    return min(max(1, events), max(1, math.ceil(share * per_window * windows)))
+
+
+def _file_window_count(
+    events: int, total: int, per_window: int, windows: int, per_read: int
+) -> int:
+    """Windows one file needs to expose its budget, never more than its own event count."""
+    if windows <= 1:
+        return 1
+    budget = _file_budget(events, total, per_window, windows)
+    density = max(1.0, events / windows)
+    needed = max(FILE_READ_MIN_WINDOWS, math.ceil(budget / density), math.ceil(budget / per_read))
+    return max(1, min(windows, needed, max(1, events)))
+
+
+def _file_head(
+    events: int, total: int, per_window: int, windows: int, take: int, per_read: int
+) -> int:
+    """One file's per-read cap: its budget over its windows, never above a pooled read's."""
+    budget = _file_budget(events, total, per_window, windows)
+    return max(1, min(per_read, math.ceil(budget / max(1, take))))
+
+
+def _spread_windows(bounds: Sequence[tuple[float, float]], take: int) -> list[tuple[float, float]]:
+    """`take` windows spread evenly across the schedule, keeping time coverage."""
+    if take >= len(bounds):
+        return list(bounds)
+    step = len(bounds) / take
+    picks = sorted({min(len(bounds) - 1, int(number * step)) for number in range(take)})
+    return [bounds[number] for number in picks]
+
+
+def _omit_file(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    item: IndexFile,
+    host: str,
+    head: int,
+    source_id: str,
+    reason: str,
+) -> None:
+    """Declare an unread file in the ledger through the same observer every read uses."""
+    record = getattr(executor, "record_skipped_read", None)
+    if not callable(record):
+        return
+    query = (
+        f"search index={_quoted(facts.index)} {file_route(facts, item.path, host)} | head {head}"
+    )
+    record(query, facts.first, facts.last, source_id=source_id, reason=reason)
 
 
 def read_anchors(
@@ -641,6 +880,8 @@ __all__ = [
     "ACCEL_MODELS",
     "ALERT_TERM",
     "AccelSummary",
+    "FileRead",
+    "IndexFile",
     "Localisation",
     "LocalWindow",
     "RowSet",
@@ -650,12 +891,14 @@ __all__ = [
     "accel_summaries",
     "cadence_facts",
     "coverage_label",
+    "file_route",
     "index_facts",
     "localise",
     "localise_query",
     "localise_width",
     "read_alert_rows",
     "read_anchors",
+    "read_files",
     "read_mode",
     "read_windows",
     "route_filter",
