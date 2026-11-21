@@ -13,7 +13,7 @@ from typing import Any
 from ..engine import _search_literal
 from ..executor import HuntExecutor
 from .behaviours import Behaviour, reproduction_query
-from .cards import SourceCard
+from .cards import ROLE_CONSUMERS, SourceCard, card_consumers
 from .parse import FieldStat
 from .sample import ACCEL_MODELS, SourceFacts
 
@@ -1508,10 +1508,19 @@ def _seen_keys(behaviours: Sequence[Behaviour]) -> dict[str, set[tuple[tuple[str
     return found
 
 
+def _consumers(cards: Sequence[SourceCard]) -> dict[str, frozenset[str]]:
+    """The consumers each source's cards permit, unioned across that source's parts."""
+    found: dict[str, set[str]] = defaultdict(set)
+    for card in cards:
+        found[card.source_id].update(card_consumers(card))
+    return {source: frozenset(names) for source, names in found.items()}
+
+
 def apply_inventory(
     behaviours: Sequence[Behaviour],
     document: Mapping[str, Any],
     facts: Mapping[str, SourceFacts],
+    cards: Sequence[SourceCard],
 ) -> tuple[list[Behaviour], dict[str, Any]]:
     """Replace sample first-seen from joint aggregates and add unseen rows as candidates."""
     tables = _joint_index(
@@ -1529,7 +1538,7 @@ def apply_inventory(
             continue
         replaced += 1
         corrected.append(replace(behaviour, first_seen=hit[0], last_seen=max(hit[1], hit[0])))
-    candidates = _unseen_candidates(document, seen, facts)
+    candidates = _unseen_candidates(document, seen, facts, _consumers(cards))
     summary = inventory_summary(document)
     return [*corrected, *candidates], {
         "first_seen_replaced": replaced,
@@ -1550,12 +1559,15 @@ def _unseen_candidates(
     document: Mapping[str, Any],
     seen: Mapping[str, set[tuple[tuple[str, str], ...]]],
     facts: Mapping[str, SourceFacts],
+    consumers: Mapping[str, frozenset[str]],
 ) -> list[Behaviour]:
     per_source: dict[str, list[Behaviour]] = defaultdict(list)
     for joint in document.get("joints") or ():
         if not isinstance(joint, Mapping) or joint.get("status") != "complete":
             continue
         source_id = str(joint.get("source_id") or "")
+        if not consumers.get(source_id, frozenset()) & ROLE_CONSUMERS:
+            continue  # no generator reads behaviours from this card
         spec = [item for item in joint.get("fields") or () if isinstance(item, Mapping)]
         known = seen.get(source_id) or set()
         for row in joint.get("rows") or ():
