@@ -22,16 +22,16 @@ Three runs, one working tree, one lab box:
 |---|---|---|
 | **A — the brief's literal command** | `…notables --index botsv2 --out …/botsv2 --stage all --family botsv2 --knowledge-store knowledge_v2_20261116.duckdb --knowledge-families kyoushi,santos,russell` | **exit 1 in 720.98 s.** Cards 573.2 s, then every behaviour read refused (`events_read=0`), `HuntDeadlineExceededError` at relate. Scoreboard 4/20 keys, 0/14. |
 | **B — stage split** (same code, one stage per process, cards reused from A, so a fresh 720 s budget per stage) | `--stage behaviours`, `--stage notables …` | behaviours complete (259,769 events); **notables crashes**: `SimilarityError: behaviour sources need an activity card with roles: botsv2:pan:threat (kinds: alert)`. |
-| **C — scored run** | B + `--stage notables --generators alerts,peer_rare,deviation,misfit` (no knowledge store) + `--stage relate` + `--stage judge` | completes; **575 notables, 5,747 cases, 725/725 judged**; scoreboard below. `similar_to_known` is absent from C — the only deviation from the brief, forced by B's crash. |
+| **C — scored run** | B + `--stage notables --generators alerts,peer_rare,deviation,misfit` (no knowledge store) + `--stage relate` + `--stage judge` | completes; notables stage writes **575**, relate adds 3 `relate` + 147 `set_novelty` (725 total), **5,747 cases, 725/725 judged**; scoreboard below. `similar_to_known` is absent from C — the only deviation from the brief, forced by B's crash. |
 
 Timings (wall): cards 573.2 s (113 model requests, 887.1 model-seconds), behaviours 632.2 s
 (inventory 265.9 s, 1,813 behaviour reads), notables 32.9 s, relate 93.7 s, judge 464.8 s,
 case rerank 199.4 s. Scoreboard total 1,129.8 s.
 
-Environment: Pipeline `:9099` root, `hunt-reasoning` served `gemma-4-26b-a4b-it-QAT-4bit`,
-embeddings `google/embeddinggemma-2`; lab Splunk 10.2.5 at `https://10.0.1.30:8089`. The
-brief's `PORTAL_HUNT_JUDGE_URL` root form is the working one: `/v1/v1/chat/completions` returns
-404 live.
+Environment: Pipeline `:9099` root (the brief's `PORTAL_HUNT_JUDGE_URL=http://localhost:9099`;
+the judge client appends `/v1/chat/completions`, and the doubled `/v1/v1/chat/completions`
+returns 404 live), `hunt-reasoning` served `gemma-4-26b-a4b-it-QAT-4bit`, embeddings
+`google/embeddinggemma-2`; lab Splunk 10.2.5 at `https://10.0.1.30:8089`.
 
 ## 1. Acceptance properties (the brief's list)
 
@@ -49,14 +49,14 @@ brief's `PORTAL_HUNT_JUDGE_URL` root form is the working one: `/v1/v1/chat/compl
 |---|---|---|---|
 | **D0** | baseline reproduces; step-level sets; `C0 causes` on an entity family | **pass** | stored baseline rescored with this scoreboard: `keys 5/20 reachable steps 5/14`, `loose 3/14 @50`, `strict 2/14` — the plan's table; diff vs it prints names only (`lost -`, `gained fruitfly/usb_malware_delivery`). No `evidence_absent` step: every graded artefact's locator resolves in the estate map (the four wide sourcetypes name no graded key, §6 of the deep dive). |
 | **D1** | every indexed file has its own read or a reason; wide estate read | **partial** | 1,963 `(source,file,window)` rows over 181 files: 1,813 read, 150 `request_budget_exhausted`, 19 files declared (`files_indexed 181`, `files_omitted 19`). Same-volume read (259,769 vs 260,342) for 1,813 behaviour searches. |
-| **D2** | one vocabulary; no parse-only name queried; `empty` means present-and-zero | **pass, and it is what crashes D8 below** | `fields {'complete': 32, 'failed:censored': 1, 'parse_only': 107, 'unavailable:mechanism': 7}`, `mechanisms {'stats': 33}`, 761 values, `stream:http src_ip` 249, `linux_audit uid` 3, `stream:smtp src_ip` 116; the 7 unavailable are `events_budget` on the widest sources (`wineventlog:security EventCode` ×3, `stream:tcp src_ip` ×3, `winregistry process_image`). The complete `pan:threat dest` list (2 events) is the crash seed. |
-| **D3** | `capped` implies `values > 0` | **not exercised** | no list on botsv2 exceeds `LIST_MAX`; `capped []`. `first_seen_replaced 0`, `candidates 32` (was 0 / 13). |
+| **D2** | one vocabulary; no parse-only name queried; `empty` means present-and-zero | **pass, and its candidates are what crash `notables`** | `fields {'complete': 32, 'failed:censored': 1, 'parse_only': 107, 'unavailable:mechanism': 7}`, `mechanisms {'stats': 33}`, 761 values, `stream:http src_ip` 249, `linux_audit uid` 3, `stream:smtp src_ip` 116; the 7 unavailable are `events_budget` on the widest sources (`wineventlog:security EventCode` ×3, `stream:tcp src_ip` ×3, `winregistry process_image`). The complete `pan:threat dest` list (2 events) is the crash seed. |
+| **D3** | `capped` implies `values > 0` | **not exercised** | no list on botsv2 exceeds `LIST_MAX`; `capped []`. `first_seen_replaced 0` (also 0 before), `candidates 32` (was 13). |
 | **D4** | numeric identities typed; part is part of the key | **not measurable here** | spine `events 259769 entities 14143 episodes 122823 links 217276 without_entity 56295`; botsv2's graded steps are Windows/Suricata/stream keys, not audit `auid`, so the D4 property has no carrier on this family. |
 | **D5** | rung 1 fires when a complete summary covers the window | **pass as a no-op** | six `localise_accel` probes, `accelerated []` in inventory, `mechanism: indexed`, `accel_window: null`; independent `summariesonly` probe returns nothing for botsv2. On a tuned index the same probe returns rows, so this is the allowlist, not a dead query. |
 | **D6** | setup: shipper copies out, `user` regex, `auid` | **out of scope** | operator-owned; this lane made no setup change. |
 | **D7** | merge consumes the measured marginal | **not met** (not a brief acceptance item) | `weights_source: "default"`, `weights {'alerts':0,'deviation':26,'misfit':6,'peer_rare':0,'similar_to_known':31}`; the scoreboard's `--weights` fold is measured but nothing feeds it back in this command. |
 | **D8** | only verified members are promoted; set novelty gives the singleton a route | **pass on promotion; set novelty present** | lifted 10 / 12, `unjudged_lifted 0`; `set_novelty 147`; `case evidence pieces min 2 violations 0`. Case recall `top50 0/4, top100 0/4, all 1/4` (one scenario's B/P step is in a case at all). |
-| **D9** | a flow is `(entity, host)`; a duplicate ingest is not one | **not asserted here** | `flows 11`, `flows_skipped 264`, `flow_skips {'not_entity': 3, 'single_source': 261}`; the deep dive's D9 proof is santos, and this lane did not verify duplicate-pair exclusion on botsv2. |
+| **D9** | a flow is `(entity, host)`; a duplicate ingest is not one | **not asserted here** | `flows 11`, `flow_skips {'host': 7, 'not_entity': 11, 'same_role_vector': 7, 'single_source': 635}`; the deep dive's D9 proof is santos, and this lane did not verify duplicate-pair exclusion on botsv2. |
 | **D10** | cause per step, honesty block | **pass** | §1 above. |
 
 ## 3. The failing layers
