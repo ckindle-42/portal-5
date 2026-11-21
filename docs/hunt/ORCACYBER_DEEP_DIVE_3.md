@@ -1008,7 +1008,8 @@ over a declared comparable stratum:
 `judge.auc_by_generator` (or by `(generator, basis)`), plus `judge.auc_pooled` computed over the
 generators that can cover a labelled line (`deviation`, `misfit`, `peer_rare`, `alerts`, `set_novelty`)
 — `similar_to_known` excluded from the pooled figure and reported separately, because it is a ranked
-list whose coverage rate is 1.7–4 % (5/300, 13/300, 12/300) against 4.5 % for the pool.
+list whose prompt saturates `p_yes` (§5.3) and whose coverage rate is 1.7–4.3 % (5/300, 13/300,
+12/300).
 
 **Property (prompt).** `notable_body` renders the decision statistic — `measure.name = value` and,
 for the similar generator, `margin = <known_bad_minus_good> (threshold 0)` — and renders nearest-known
