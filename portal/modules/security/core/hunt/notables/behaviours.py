@@ -1234,6 +1234,15 @@ def _localisation_of(anchors: Mapping[str, Localisation], index: str) -> Localis
     return anchors.get(index) or Localisation()
 
 
+def _read_priority(
+    item: tuple[str, list[SourceCard], SourceFacts, float],
+) -> tuple[float, int, str, str]:
+    """Peaked then wide sources are planned first, so the file plan inside them is paid first."""
+    facts = item[2]
+    size = sum(file.events for file in facts.files) or facts.events
+    return (-facts.count_cv, -size, facts.index, facts.sourcetype)
+
+
 def _schedule_sources(
     grouped: Mapping[str, list[SourceCard]],
     facts_by_source: Mapping[str, SourceFacts],
@@ -1364,7 +1373,7 @@ def collect_behaviours(
     try:
         create_events(con)
         create_misfits(con)
-        scheduled = _schedule_sources(grouped, facts_by_source, skipped)
+        scheduled = sorted(_schedule_sources(grouped, facts_by_source, skipped), key=_read_priority)
         anchors_by_index, localisation = _localise_sources(executor, scheduled, per_window)
         burst_plan = (
             {} if anchors_by_index else _burst_windows_by_source(executor, scheduled, per_window)

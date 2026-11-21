@@ -97,6 +97,17 @@ def per_sample_cap(query: str) -> int | None:
     return int(head.group(1)) if head else None
 
 
+def budgeted_file_cap(executor: object, max_files: int, reads_per_file: int) -> tuple[int, str]:
+    """The files one read can pay for out of the unspent request ceiling, and why it stopped."""
+    counter = getattr(getattr(executor, "budget", None), "remaining_requests", None)
+    if not callable(counter) or reads_per_file < 1:
+        return max_files, "read_files_cap"
+    affordable = int(counter()) // reads_per_file
+    if affordable >= max_files:
+        return max_files, "read_files_cap"
+    return max(0, affordable), "request_budget_exhausted"
+
+
 @dataclass(frozen=True)
 class Read:
     """One query's outcome: what it returned, and whether that is all of it."""
@@ -166,6 +177,18 @@ class HuntBudget:
         remaining = self.job_remaining()
         stage_remaining = self.stage_remaining()
         return min(remaining, stage_remaining) if stage_remaining is not None else remaining
+
+    def remaining_requests(self) -> int:
+        """The unspent request ceiling: the one counter a stage never restarts."""
+        with self.lock:
+            return max(0, int(self.limits["requests"]) - self.queries)
+
+    def restart_clock(self) -> None:
+        """Start a stage's own wall clock; the request and result counters stay global."""
+        with self.lock:
+            self.started = time.monotonic()
+            if (self.exhausted or "").endswith("deadline_exceeded"):
+                self.exhausted = None
 
     def expired_reason(self) -> str | None:
         if self.job_remaining() <= 0:
@@ -697,6 +720,7 @@ __all__ = [
     "HuntExecutor",
     "HuntSearchFailedError",
     "Read",
+    "budgeted_file_cap",
     "executor_for",
     "per_sample_cap",
     "query_budget_kind",

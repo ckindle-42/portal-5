@@ -517,6 +517,7 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
     sources = read_json(out / SOURCES_FILE)
     configure_ledger(search, out, "behaviours")
     executor = executor_for(search)
+    executor.budget.restart_clock()  # cards is model-bound: its wall time is not a read cost
     before = executor.stats()
     inventory = collect_inventory(
         executor,

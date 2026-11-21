@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..engine import _search_literal
-from ..executor import HuntBudgetExceededError, HuntExecutor
+from ..executor import HuntBudgetExceededError, HuntExecutor, budgeted_file_cap
 
 SAMPLE_WINDOWS = 3  # effort budget: raw reads spread across each source's own time range
 SAMPLE_LINES = 40  # effort budget: events read per window for a source card
@@ -677,16 +677,15 @@ def read_files(
     )
     planned: list[tuple[IndexFile, list[tuple[float, float]], int]] = []
     per_read = max(1, per_window // parts)
+    max_files, cap_reason = budgeted_file_cap(executor, max_files, len(slice_bounds))
     full = (facts.first, facts.last + 0.000001)
     on_host = [item for item in facts.files if not host or not item.hosts or host in item.hosts]
     for index, item in enumerate(on_host or facts.files):
         budget = _file_budget(item.events, total, per_window, len(slice_bounds))
         if index >= max_files:
-            _omit_file(
-                executor, facts, item, host, min(budget, per_read), source_id, "read_files_cap"
-            )
+            _omit_file(executor, facts, item, host, min(budget, per_read), source_id, cap_reason)
             found.files.append(
-                FileRead(item.path, host, item.events, 0.0, 0.0, 0, "read_files_cap", item.hosts)
+                FileRead(item.path, host, item.events, 0.0, 0.0, 0, cap_reason, item.hosts)
             )
             continue
         if budget >= item.events:

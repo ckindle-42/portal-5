@@ -16,6 +16,41 @@ def test_the_transport_read_path_accepts_the_cancel_handle() -> None:
     assert "cancel" in parameters
 
 
+def test_a_slow_model_stage_does_not_consume_the_read_clock() -> None:
+    """A stage that issues no read still spends the wall clock: behaviours starts its own."""
+    from portal.modules.security.core.hunt.executor import (
+        DEFAULT_BUDGETS,
+        HuntBudget,
+        HuntExecutor,
+    )
+
+    class _OneRow:
+        def iter_post_bounded(
+            self,
+            query: str,
+            start: float,
+            end: float,
+            timeout_seconds: float = 0,
+            max_results: int | None = None,
+        ) -> list[dict[str, Any]]:
+            del query, end, timeout_seconds, max_results
+            return [{"_time": start, "host": "h1"}]
+
+    budget = HuntBudget(dict(DEFAULT_BUDGETS) | {"job_seconds": 60.0})
+    budget.started -= 600.0  # the model-bound cards stage spent the shared clock
+    budget.exhausted = "job_deadline_exceeded"
+    budget.queries = 17
+    executor = HuntExecutor(_OneRow(), budget)
+
+    budget.restart_clock()
+
+    assert budget.expired_reason() is None
+    assert budget.job_remaining() > 59.0
+    read = executor.read("search index=ix", 0.0, 1.0, kind="discovery")
+    assert read.rows and read.reason is None
+    assert budget.queries == 18  # the ceiling stays global: one more request, never a reset
+
+
 def test_one_capped_evidence_read_does_not_end_the_job(
     tmp_path: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:
