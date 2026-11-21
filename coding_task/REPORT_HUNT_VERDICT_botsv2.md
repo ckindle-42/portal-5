@@ -101,10 +101,10 @@ bounded search; the same query through the transport with a narrow window return
 
 **S1 — enumeration wiring.** The enumeration half works (13 complete lists, 26 `stats`
 mechanisms, 538 values, 10.1 M events scanned, `two_names: 1`), but it does not change a
-behaviour: `first_seen_replaced: 0` and `candidates: 10`. The lists are enough to put 7 keys in
-the reachable ceiling (`ledger` 7, `misfit` 3, `spine` 4, `events` 4, `behaviour` 3) but no
-notable names the added values. This is the plan's S1 acceptance property, and it fails on the
-wide control.
+behaviour: `first_seen_replaced: 0` and `candidates: 10`. The 7 reachable keys are found in
+`ledger` 7, `misfit` 3, `spine` 4, `events` 4 and `behaviour` 3 (a key can be in several), but
+no notable names the added values. This is the plan's S1 acceptance property, and it fails on
+the wide control.
 
 **S0/S6 — the single job budget cannot produce the run.** The literal command in the brief
 (`--stage all`) does not complete: cards alone is 526.2 s of model-driven wall time and
@@ -148,7 +148,7 @@ p_yes out of the pass bar).
 | read fraction | 0.117 % | 0.077 % | 0.14 % |
 | `localisation.mechanism` | n/a (no localiser) | indexed | indexed |
 
-The keys ceiling did not regress (5 → 7 → 5); the recalled steps moved down one at @50
+The keys ceiling did not regress (C 5, B 7, A 5); the recalled steps moved down one at @50
 (`malicious_account` @45 → not surfaced; `web_scan` 20 → 37; `ftp_download` 13 → 21;
 `macbook` 33 → 155). Under the plan's own definition, the only botsv2 pass bar that the
 coverage layer must meet without the Splunk setup is "ceiling reported with a per-key cause and
