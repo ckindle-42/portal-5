@@ -647,11 +647,7 @@ def read_files(
     sub_windows: int = 1,
     max_files: int = READ_FILES_MAX,
 ) -> RowSet:
-    """One read per indexed file with its own `head`; a pooled read returns arrival order.
-
-    Each file's row budget is its share of the source's, so the total stays at one
-    source-wide read, and its windows are spread over the schedule by the same share.
-    """
+    """One read per indexed file with its own `head`: a pooled `head` returns arrival order."""
     if not facts.files:
         return read_windows(
             executor,
@@ -678,7 +674,8 @@ def read_files(
     planned: list[tuple[IndexFile, list[tuple[float, float]], int]] = []
     per_read = max(1, per_window // parts)
     full = (facts.first, facts.last + 0.000001)
-    for index, item in enumerate(facts.files):
+    on_host = [item for item in facts.files if not host or not item.hosts or host in item.hosts]
+    for index, item in enumerate(on_host or facts.files):
         budget = _file_budget(item.events, total, per_window, len(slice_bounds))
         if index >= max_files:
             _omit_file(
