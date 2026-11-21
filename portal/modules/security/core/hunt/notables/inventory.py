@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import time
 from collections import defaultdict
@@ -33,6 +34,10 @@ INVENTORY_PROBE_EVENTS = 1_000  # effort budget: events one source's vocabulary 
 INVENTORY_MAX_PROBE_FIELDS = 96  # effort budget: names one presence probe resolves
 INVENTORY_MAX_PRESENCE_PROBES = 48  # effort budget: sources one run samples for a vocabulary
 FLOW_MAX_SOURCES = 12  # effort budget: a value in more sources is ambient, not one entity
+FLOW_MAX_GAP_SECONDS = 4 * 3600.0  # a later observation past the case link gap is another traverse
+FLOW_MAX_FLOWS = 64  # effort budget: emitted flows per index
+FLOW_MAX_PROBES = 16  # effort budget: host probes across every flow candidate
+FLOW_HOST_ROWS = 64  # effort budget: hosts one probe may return
 # The documented output of setup stage 3: one row per model, with the window its summary covers.
 ACCEL_QUERY = (
     "| rest /services/admin/summarization by_tstats=1 "
@@ -197,6 +202,7 @@ def _empty_document(index: str) -> dict[str, Any]:
         "fields": [],
         "joints": [],
         "flows": [],
+        "flow_skips": {},
         "names": [],
         "notes": [],
         "accelerated": [],
@@ -219,6 +225,7 @@ def load_inventory(path: Any) -> dict[str, Any]:
         "fields",
         "joints",
         "flows",
+        "flow_skips",
         "names",
         "notes",
         "accelerated",
@@ -399,7 +406,7 @@ class _Prober:
         # A censored aggregate's rows are partial: the reason travels with them.
         return rows, (str(result.reason) if result.reason else "")
 
-    def _probe(
+    def probe(
         self,
         query: str,
         row_cap: int | None = None,
@@ -425,7 +432,7 @@ class _Prober:
         tstats_name, tstats_events = "", 0
         failed = False
         for name in names:
-            rows, problem = self._probe(
+            rows, problem = self.probe(
                 f"| tstats count where {self._name_route(name)}", source_id=card.source_id
             )
             if problem:
@@ -438,7 +445,7 @@ class _Prober:
                 break
         search_name = ""
         for name in names:
-            rows, problem = self._probe(
+            rows, problem = self.probe(
                 f"search {self._name_route(name)} | head 1", source_id=card.source_id
             )
             if problem:
@@ -455,7 +462,7 @@ class _Prober:
         key = (card.index, name, field)
         found = self._fields.get(key)
         if found is None:
-            rows, problem = self._probe(
+            rows, problem = self.probe(
                 f"| tstats count where {self._route(name)} by {_field_token(field)}",
                 source_id=card.source_id,
             )
@@ -468,7 +475,7 @@ class _Prober:
     def accelerated(self) -> tuple[AcceleratedModel, ...]:
         """Models with a complete summary and the window it covers, probed once per run."""
         if self._accelerated is None:
-            rows, problem = self._probe(ACCEL_QUERY)
+            rows, problem = self.probe(ACCEL_QUERY)
             if problem:
                 self.failures.append(f"accelerated:{problem}")
                 rows = []
@@ -492,7 +499,7 @@ class _Prober:
     def vocabulary(self) -> tuple[str, ...]:
         """The estate's declared index-time names, one config read per run."""
         if self._vocabulary is None:
-            rows, problem = self._probe(VOCABULARY_QUERY, row_cap=INVENTORY_MAX_PROBE_FIELDS)
+            rows, problem = self.probe(VOCABULARY_QUERY, row_cap=INVENTORY_MAX_PROBE_FIELDS)
             if problem:
                 self.failures.append(f"vocabulary:{problem}")
                 rows = []
@@ -508,7 +515,7 @@ class _Prober:
         names = _probe_names(card, vocabulary)
         found: frozenset[str] | None = None
         if paths.search_name and names:
-            rows, problem = self._probe(
+            rows, problem = self.probe(
                 _presence_query(self._route(paths.search_name, card), names), row_cap=1
             )
             if problem:
@@ -990,49 +997,204 @@ def _entity_token(value: str) -> bool:
     return bool(_IPV4.fullmatch(value) or any(char.isalpha() for char in value))
 
 
-def _flow_keep(value: str, sources: int) -> bool:
-    return 2 <= sources <= FLOW_MAX_SOURCES and _entity_token(value)
+def _single_hosts(cards: Sequence[SourceCard]) -> dict[str, str]:
+    """A source that sits on exactly one host names it; a multi-host source stays unknown."""
+    found: dict[str, str] = {}
+    for card in cards:
+        names = [str(name) for name in (card.facts.get("hosts") or ()) if str(name)]
+        if len(names) == 1 and int(_number(card.facts.get("host_count"))) <= 1:
+            found[card.card_id] = names[0]
+    return found
 
 
-def _flows(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+def _role_vectors(records: Sequence[Mapping[str, Any]]) -> dict[str, frozenset[tuple[str, str]]]:
+    """Each card's selected role plan: two sources with one plan read one shape."""
+    found: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    for record in records:
+        if record.get("role") and record.get("field"):
+            found[str(record.get("card_id") or "")].add((str(record["role"]), str(record["field"])))
+    return {card_id: frozenset(pairs) for card_id, pairs in found.items()}
+
+
+def _flow_steps(
+    records: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, str]]:
+    """Steps per casefolded value, with the label each value was written as.
+
+    A capped list proves presence, never absence: its values may carry a flow.
+    """
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     labels: dict[str, str] = {}
     for record in records:
-        if record.get("status") != "complete":
+        if record.get("status") not in ("complete", "capped"):
             continue
+        part = record.get("part")
         for item in record.get("values") or ():
             if not isinstance(item, Mapping):
                 continue
             raw = str(item.get("value") or "")
-            key = raw.casefold()
-            labels.setdefault(key, raw)
-            grouped[key].append(
+            labels.setdefault(raw.casefold(), raw)
+            grouped[raw.casefold()].append(
                 {
-                    "source_id": record["source_id"],
-                    "field": record["field"],
+                    "source_id": str(record.get("source_id") or ""),
+                    "card_id": str(record.get("card_id") or ""),
+                    "sourcetype": str(record.get("sourcetype") or ""),
+                    "part": part if isinstance(part, Mapping) else None,
+                    "field": str(record.get("field") or ""),
+                    "mechanism": str(record.get("mechanism") or ""),
+                    "name_used": str(record.get("name_used") or ""),
+                    "value": raw,
                     "events": item.get("events"),
                     "first_seen": item.get("first_seen"),
                     "last_seen": item.get("last_seen"),
                 }
             )
+    return grouped, labels
+
+
+def _flow_digest(step: Mapping[str, Any]) -> str:
+    """A step's own span: two sources reporting the same one saw the same raw events."""
+    raw = (step.get("first_seen"), step.get("last_seen"))
+    return hashlib.sha1(str(raw).encode()).hexdigest()[:16]
+
+
+def _flow_pair(
+    ordered: Sequence[Mapping[str, Any]], vectors: Mapping[str, frozenset[tuple[str, str]]]
+) -> tuple[Mapping[str, Any] | None, str]:
+    """(later, reason): the first other source that is neither a duplicate nor the same shape."""
+    ingress = ordered[0]
+    digest = _flow_digest(ingress)
+    start = _number(ingress.get("first_seen"))
+    others = [step for step in ordered[1:] if step["source_id"] != ingress["source_id"]]
+    if not others:
+        return None, "single_source"
+    distinct = [step for step in others if _flow_digest(step) != digest]
+    if not distinct:
+        return None, "duplicate"
+    ordered_ok = [step for step in distinct if _number(step.get("first_seen")) > start]
+    if not ordered_ok:
+        return None, "order"
+    different = [
+        step
+        for step in ordered_ok
+        if vectors.get(str(step["card_id"])) != vectors.get(str(ingress["card_id"]))
+    ]
+    if not different:
+        return None, "same_role_vector"
+    for step in different:
+        gap = _number(step.get("first_seen")) - _number(ingress.get("last_seen"))
+        if gap <= FLOW_MAX_GAP_SECONDS:
+            return step, ""
+    return None, "gap"
+
+
+def _probe_hosts(
+    prober: _Prober, index: str, step: Mapping[str, Any]
+) -> tuple[bool, tuple[str, ...]]:
+    """(probed, hosts) for one endpoint; a search-time field cannot answer from the tsidx."""
+    name = str(step.get("name_used") or "")
+    if step.get("mechanism") != "tstats" or not name:
+        return False, ()
+    route = f"index={_search_literal(index)} sourcetype={_search_literal(name)}"
+    part = step.get("part")
+    if isinstance(part, Mapping) and part.get("field"):
+        route += (
+            f" {_field_token(str(part['field']))}={_search_literal(str(part.get('value') or ''))}"
+        )
+    route += f" {_field_token(str(step.get('field') or ''))}={_search_literal(str(step['value']))}"
+    rows, problem = prober.probe(f"| tstats count where {route} by host", FLOW_HOST_ROWS)
+    if problem:
+        return False, ()
+    return True, tuple(sorted({str(row.get("host") or "") for row in rows} - {""}))
+
+
+def _flow_host(
+    prober: _Prober,
+    index: str,
+    ingress: Mapping[str, Any],
+    later: Mapping[str, Any],
+    hosts: Mapping[str, str],
+    budget: list[int],
+) -> tuple[str, str, list[str]]:
+    """("shared"|"disjoint"|"unproven", one host or "", every shared host both endpoints see)."""
+    seen: dict[str, set[str]] = {}
+    for step in (ingress, later):
+        card_id = str(step.get("card_id") or "")
+        known = hosts.get(card_id, "")
+        if known:
+            seen[card_id] = {known}
+            continue
+        if budget[0] <= 0:
+            continue
+        budget[0] -= 1
+        probed, found = _probe_hosts(prober, index, step)
+        if probed:
+            seen[card_id] = set(found)
+    if len(seen) < 2:
+        return "unproven", "", []
+    shared = sorted(set.intersection(*seen.values()))
+    if not shared:
+        return "disjoint", "", []
+    return "shared", shared[0] if len(shared) == 1 else "", shared
+
+
+def _flows(
+    records: Sequence[Mapping[str, Any]],
+    hosts: Mapping[str, str],
+    prober: _Prober,
+    index: str,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Flows: (entity, host) ordered across role-different sources; a duplicate is not one."""
+    grouped, labels = _flow_steps(records)
+    vectors = _role_vectors(records)
     flows: list[dict[str, Any]] = []
-    for key, steps in grouped.items():
+    skips: dict[str, int] = defaultdict(int)
+    budget = [FLOW_MAX_PROBES]
+    # the rarest value first: the flow budget is spent on traverses, never on ambient volume
+    order = sorted(
+        grouped, key=lambda key: (sum(_number(step.get("events")) for step in grouped[key]), key)
+    )
+    for key in order:
+        steps = grouped[key]
+        value = labels[key]
+        sources = {str(step["source_id"]) for step in steps}
+        if not _entity_token(value):
+            skips["not_entity"] += 1
+            continue
+        if len(sources) < 2:
+            skips["single_source"] += 1
+            continue
+        if len(sources) > FLOW_MAX_SOURCES:
+            skips["ambient"] += 1
+            continue
+        if len(flows) >= FLOW_MAX_FLOWS:
+            skips["capped"] += 1
+            continue
         ordered = sorted(
             steps, key=lambda step: (_number(step.get("first_seen")), str(step["source_id"]))
         )
-        sources = {str(step["source_id"]) for step in ordered}
-        if not _flow_keep(labels[key], len(sources)):
+        later, reason = _flow_pair(ordered, vectors)
+        if later is None:
+            skips[reason] += 1
+            continue
+        state, host, shared_hosts = _flow_host(prober, index, ordered[0], later, hosts, budget)
+        if state == "disjoint":
+            skips["host"] += 1
             continue
         flows.append(
             {
-                "value": labels[key],
+                "value": value,
+                "status": "complete",
+                "host": host,
+                "hosts": shared_hosts,
+                "host_proven": state == "shared",
                 "ingress": ordered[0]["source_id"],
-                "later": ordered[-1]["source_id"],
-                "steps": ordered,
+                "later": later["source_id"],
+                "steps": [ordered[0], later],
             }
         )
     flows.sort(key=lambda item: (str(item["value"]).casefold(), str(item["ingress"])))
-    return flows
+    return flows, dict(sorted(skips.items()))
 
 
 def _single_field_joints(
@@ -1126,6 +1288,7 @@ def collect_inventory(
     jointed = {str(item["card_id"]) for item in joints if item.get("status") == "complete"}
     joints.extend(_single_field_joints(fields, jointed))
     accelerated = prober.accelerated()
+    flows, flow_skips = _flows(fields, _single_hosts(cards), prober, index)
     document = _empty_document(index)
     document.update(
         {
@@ -1137,7 +1300,8 @@ def collect_inventory(
             "fields_selected": sum(1 for choice in choices if not choice.parse_only),
             "fields": fields,
             "joints": joints,
-            "flows": _flows(fields),
+            "flows": flows,
+            "flow_skips": flow_skips,
             "names": _name_documents(choices, cards_by_id, prober),
             "vocabulary": len(vocabulary),
             "accelerated": [
@@ -1178,6 +1342,13 @@ def inventory_summary(document: Mapping[str, Any]) -> dict[str, Any]:
         "values": values,
         "joints": len(document.get("joints") or ()),
         "flows": len(document.get("flows") or ()),
+        "flows_skipped": sum(int(count) for count in (document.get("flow_skips") or {}).values()),
+        "flow_skips": dict(document.get("flow_skips") or {}),
+        "flows_proven": sum(
+            1
+            for item in document.get("flows") or ()
+            if isinstance(item, Mapping) and item.get("host_proven")
+        ),
         "accelerated": [
             str(item.get("model") or "")
             for item in document.get("accelerated") or ()
@@ -1339,6 +1510,8 @@ def apply_inventory(
         "first_seen_replaced": replaced,
         "candidates": len(candidates),
         "flows": summary["flows"],
+        "flows_skipped": summary["flows_skipped"],
+        "flow_skips": summary["flow_skips"],
         "fields": summary["fields"],
         "mechanisms": summary["mechanisms"],
         "values": summary["values"],

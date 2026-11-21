@@ -109,6 +109,7 @@ class _Executor:
         model_rows: Mapping[str, list[dict[str, object]]] | None = None,
         declared: Iterable[str] = (),
         absent: Iterable[str] = (),
+        hosts: Mapping[str, Iterable[str]] | None = None,
     ) -> None:
         self.value_rows = dict(value_rows or {})
         self.indexed = set(indexed)
@@ -118,6 +119,7 @@ class _Executor:
         self.model_rows = dict(model_rows or {})
         self.declared = set(declared)
         self.absent = set(absent)
+        self.hosts = {name: list(names) for name, names in (hosts or {}).items()}
         self.queries: list[str] = []
 
     @staticmethod
@@ -157,6 +159,8 @@ class _Executor:
             field = query.rsplit(" by ", 1)[1].split(" | ", 1)[0].strip()
             return Read(list(self.model_rows.get(field, [])))
         name = self._name(query)
+        if query.startswith("| tstats count where ") and query.endswith(" by host"):
+            return Read([{"host": host, "count": "1"} for host in self.hosts.get(name, [])])
         if query.startswith("| tstats count where "):
             if " by " in query:
                 field = query.split(" by ", 1)[1].strip()
@@ -578,7 +582,9 @@ def test_value_flow_orders_ingress_before_the_later_source() -> None:
         {
             "audit.log|type": [{"type": "USER_END", "count": 4, "first": 200.0, "last": 300.0}],
             "access.log|type": [{"type": "USER_END", "count": 9, "first": 100.0, "last": 150.0}],
-        }
+        },
+        indexed=("type",),
+        hosts={"audit.log": ["webserver"], "access.log": ["webserver"]},
     )
     cards = [
         _audit_card(),
@@ -604,6 +610,43 @@ def test_value_flow_orders_ingress_before_the_later_source() -> None:
     assert document["flows"][0]["value"] == "USER_END"
     assert document["flows"][0]["ingress"] == "hb_kyoushi_s1:access.log"
     assert document["flows"][0]["later"] == "hb_kyoushi_s1:audit.log"
+    # the tsidx probe names the host both endpoints see the value on
+    assert document["flows"][0]["host"] == "webserver"
+    assert document["flows"][0]["host_proven"] is True
+    assert any(query.endswith(" by host") for query in executor.queries)
+
+
+def test_a_duplicate_ingest_pair_is_never_a_flow() -> None:
+    """The stored control estate ingests the same mail log twice: one shape, one aggregate."""
+    rows = [{"user": "<amanda.watson>", "count": 893, "first": 1642139896.0, "last": 1642445389.0}]
+
+    def mail_card(name: str) -> SourceCard:
+        return SourceCard(
+            index="hb_ait_santos",
+            sourcetype=name,
+            kind="activity",
+            roles={"action": ("method",), "actor": ("user",)},
+            understood=True,
+            reason=None,
+            fmt="kv",
+            coverage=1.0,
+            fields=(_stat("user", 893, 17, ("<amanda.watson>",)), _stat("method", 893, 1, ("<",))),
+            sample={"lines": 893},
+            facts={"events": rows[0]["count"]},
+            model={},
+            cache_key=name,
+        )
+
+    document = collect_inventory(
+        _Executor({f"{name}|user": rows for name in ("mail.info", "mail.log")}),
+        [mail_card("mail.info"), mail_card("mail.log")],
+        "hb_ait_santos",
+        0.0,
+        1642500000.0,
+    )
+
+    assert document["flows"] == []
+    assert document["flow_skips"] == {"duplicate": 1}
 
 
 def test_flow_links_two_sources_sharing_a_value_with_adjacent_roles() -> None:
