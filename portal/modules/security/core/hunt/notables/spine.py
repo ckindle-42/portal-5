@@ -12,6 +12,7 @@ import json
 import re
 import statistics
 import sys
+import time
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -26,7 +27,6 @@ from .receipt import read_json, utc_now, write_json
 SPINE_FILE = "entities.duckdb"
 SPINE_RECEIPT = "spine.json"
 STORE_FILE = "behaviours.duckdb"
-SOURCES_FILE = "sources.json"
 PROGRESS_FILE = "progress.json"
 EPISODE_MIN_GAP_SECONDS = 5 * 60.0  # a sub-five-minute gap never splits an episode
 EPISODE_GAP_MULTIPLIER = 4.0  # an entity's own cadence: split beyond four median gaps
@@ -45,7 +45,6 @@ PROCESS = "process"
 HASH = "hash"
 REGISTRY = "registry"
 DOMAIN = "domain"
-KINDS = (ADDRESS, HOSTNAME, USER, FILE, PROCESS, HASH, REGISTRY, DOMAIN)
 
 _PROCESS_FIELDS = frozenset(
     {
@@ -590,6 +589,7 @@ def build_spine(
     roles: Mapping[tuple[str, str], str] | None = None,
 ) -> dict[str, Any]:
     """Write entities.duckdb from read events: entity rows, episodes and neighbour links."""
+    began = time.monotonic()
     overrides = field_kinds(events, roles)
     hits: dict[str, list[EntityHit]] = {}
     host_of_event: dict[str, str] = {event.event_id: event.host for event in events}
@@ -656,6 +656,7 @@ def build_spine(
         ),
         "kinds": dict(sorted(kinds.items())),
         "fields_typed": len(overrides),
+        "seconds": round(time.monotonic() - began, 3),
         "segmentation": {
             "min_gap_seconds": EPISODE_MIN_GAP_SECONDS,
             "gap_multiplier": EPISODE_GAP_MULTIPLIER,
@@ -804,13 +805,13 @@ def _event_index(out: Path) -> dict[str, set[tuple[str, str]]]:
 def _episode_index(out: Path) -> dict[str, set[str]]:
     con = duckdb.connect(str(out / SPINE_FILE), read_only=True)
     try:
-        rows = con.execute("SELECT episode_id, event_ids FROM episodes").fetchall()
+        rows = con.execute("SELECT entity_kind, value, event_ids FROM episodes").fetchall()
     finally:
         con.close()
     found: dict[str, set[str]] = defaultdict(set)
-    for episode_id, event_ids in rows:
+    for kind, value, event_ids in rows:
         for identifier in json.loads(str(event_ids or "[]")):
-            found[str(identifier)].add(str(episode_id))
+            found[str(identifier)].add(f"{kind}:{value}")
     return found
 
 
@@ -891,8 +892,11 @@ def _score_line(
         step["lines_without_entity"] += 1
         return
     step["_entities"].update(f"{kind}:{value}" for kind, value in entities)
+    named = {f"{kind}:{value}" for kind, value in entities}
     if any(identifier in episodes for identifier in identifiers):
-        step["lines_with_episode"] += 1
+        present = {entity for identifier in identifiers for entity in episodes.get(identifier, ())}
+        if present & named:
+            step["lines_with_episode"] += 1
 
 
 def _step_cause(step: Mapping[str, Any]) -> str:
