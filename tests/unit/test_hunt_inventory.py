@@ -11,6 +11,7 @@ import re
 from collections.abc import Iterable, Mapping
 
 from portal.modules.security.core.hunt.executor import Read
+from portal.modules.security.core.hunt.notables import inventory as inventory_module
 from portal.modules.security.core.hunt.notables.behaviours import Behaviour, MisfitShape
 from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.inventory import (
@@ -104,11 +105,15 @@ class _Executor:
         indexed: Iterable[str] = (),
         tstats_names: Mapping[str, int] | None = None,
         search_names: Iterable[str] | None = None,
+        accelerated: Iterable[Mapping[str, object]] = (),
+        model_rows: Mapping[str, list[dict[str, object]]] | None = None,
     ) -> None:
         self.value_rows = dict(value_rows or {})
         self.indexed = set(indexed)
         self.tstats_names = None if tstats_names is None else dict(tstats_names)
         self.search_names = None if search_names is None else set(search_names)
+        self.accelerated = [dict(row) for row in accelerated]
+        self.model_rows = dict(model_rows or {})
         self.queries: list[str] = []
 
     @staticmethod
@@ -136,6 +141,11 @@ class _Executor:
     ) -> Read:
         del start, end, kind, row_cap, source_id, part
         self.queries.append(query)
+        if query.startswith("| rest /services/admin/summarization"):
+            return Read([dict(row) for row in self.accelerated])
+        if query.startswith("| tstats summariesonly=true"):
+            field = query.rsplit(" by ", 1)[1].strip()
+            return Read(list(self.model_rows.get(field, [])))
         name = self._name(query)
         if query.startswith("| tstats count where "):
             if " by " in query:
@@ -322,6 +332,96 @@ def test_a_rejected_name_is_unavailable_name_not_empty() -> None:
     record = document["fields"][0]
     assert record["status"] == "unavailable:name"
     assert not any(" | stats " in query for query in executor.queries)
+
+
+def test_a_wide_source_is_listed_from_a_complete_accelerated_summary() -> None:
+    card = SourceCard(
+        index="botsv2",
+        sourcetype="wineventlog:security",
+        kind="activity",
+        roles={"actor": ("user",)},
+        understood=True,
+        reason=None,
+        fmt="kv",
+        coverage=1.0,
+        fields=(_stat("user", 40, 4_000, ("alice",)),),
+        sample={"lines": 40, "search_sourcetypes": ["WinEventLog"]},
+        facts={"index": "botsv2", "sourcetype": "wineventlog:security", "events": 2_200_000},
+        model={},
+        cache_key="wide",
+    )
+    executor = _Executor(
+        tstats_names={"wineventlog:security": 2_200_000},
+        search_names={"WinEventLog"},
+        accelerated=[
+            {
+                "datamodel_name": "Authentication",
+                "summary.complete": "1",
+                "summary.earliest_time": 1.5e9,
+                "summary.latest_time": 1.7e9,
+            },
+            {
+                "datamodel_name": "Web",
+                "summary.complete": "0.4",
+                "summary.earliest_time": 1.5e9,
+                "summary.latest_time": 1.7e9,
+            },
+        ],
+        model_rows={
+            "Authentication.user": [
+                {"Authentication.user": "alice", "count": 7, "first": 1.6e9, "last": 1.61e9}
+            ]
+        },
+    )
+
+    document = collect_inventory(executor, [card], "botsv2", 0.0, 2.0e9)
+
+    record = document["fields"][0]
+    assert record["status"] == "complete"
+    assert record["mechanism"] == "datamodel"
+    assert record["values"][0]["value"] == "alice"
+    assert record["events_scanned"] == 7
+    assert record["accel_window"] == [1.5e9, 1.7e9]
+    assert record["searched_window"] == [0.0, 2.0e9]
+    assert document["accelerated"] == [
+        {"model": "Authentication", "earliest": 1.5e9, "latest": 1.7e9}
+    ]
+    assert not any(" | stats " in query for query in executor.queries)
+    assert "summariesonly=true" in next(
+        query for query in executor.queries if "datamodel=" in query
+    )
+
+
+def test_every_source_keeps_a_list_when_the_search_budget_is_short(monkeypatch) -> None:
+    monkeypatch.setattr(inventory_module, "INVENTORY_MAX_FIELD_SEARCHES", 3)
+
+    def card(name: str) -> SourceCard:
+        return SourceCard(
+            index="hb_kyoushi_s1",
+            sourcetype=name,
+            kind="activity",
+            roles={"actor": (f"{name}_a",), "action": (f"{name}_b",)},
+            understood=True,
+            reason=None,
+            fmt="kv",
+            coverage=1.0,
+            fields=(
+                _stat(f"{name}_a", 20, 1, ("a",)),
+                _stat(f"{name}_b", 20, 2, ("b", "c")),
+            ),
+            sample={"lines": 20},
+            facts={"events": 100},
+            model={},
+            cache_key=name,
+        )
+
+    chosen = select_fields([card("one"), card("two"), card("three")])
+
+    assert {item.card_id for item in chosen} == {
+        "hb_kyoushi_s1:one",
+        "hb_kyoushi_s1:two",
+        "hb_kyoushi_s1:three",
+    }
 
 
 def test_the_same_field_on_two_parts_makes_two_lists() -> None:

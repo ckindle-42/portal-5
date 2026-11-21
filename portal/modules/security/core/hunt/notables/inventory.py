@@ -25,7 +25,14 @@ INVENTORY_MAX_JOINT_VALUES = 256  # effort budget: rows one two-field joint may 
 INVENTORY_MAX_JOINT_SEARCHES = 16  # effort budget: joint first-seen searches after the field lists
 INVENTORY_CANDIDATES_PER_SOURCE = 8  # effort budget: unseen value rows handed to the generators
 INVENTORY_CANDIDATE_TOTAL = 32  # effort budget: unseen value rows across the index
+INVENTORY_MAX_MODEL_PROBES = 8  # effort budget: accelerated models tried for one list
+INVENTORY_ACCEL_MIN_EVENTS = 250_000  # effort budget: below this a scan beats an acceleration probe
 FLOW_MAX_SOURCES = 12  # effort budget: a value in more sources is ambient, not one entity
+# The documented output of setup stage 3: one row per model, with the window its summary covers.
+ACCEL_QUERY = (
+    "| rest /services/admin/summarization by_tstats=1 "
+    "| fields datamodel_name summary.earliest_time summary.latest_time summary.complete"
+)
 _ROLE_ORDER = {"actor": 0, "action": 1, "object": 2, "from": 3, "to": 4, "outcome": 5}
 _CORE_ROLES = ("actor", "action", "object")
 # Structural field names can carry an artefact; no value, extension or source is named here.
@@ -100,6 +107,15 @@ class SourcePaths:
         return bool(self.tstats_name and self.search_name and self.tstats_name != self.search_name)
 
 
+@dataclass(frozen=True)
+class AcceleratedModel:
+    """One model whose summaries are complete, and the window those summaries cover."""
+
+    name: str
+    earliest: float
+    latest: float
+
+
 def _field_token(name: str) -> str:
     return name if _FIELD_NAME.fullmatch(name) else _search_literal(name)
 
@@ -109,6 +125,16 @@ def _number(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _summary_complete(value: Any) -> bool:
+    """`summary.complete` is a fraction; only a fully built summary may claim a complete list."""
+    if isinstance(value, bool):
+        return value
+    try:
+        return float(value) >= 1.0
+    except (TypeError, ValueError):
+        return str(value).casefold() == "true"
 
 
 def _empty_document(index: str) -> dict[str, Any]:
@@ -123,6 +149,7 @@ def _empty_document(index: str) -> dict[str, Any]:
         "flows": [],
         "names": [],
         "notes": [],
+        "accelerated": [],
     }
 
 
@@ -142,6 +169,7 @@ def load_inventory(path: Any) -> dict[str, Any]:
         "flows",
         "names",
         "notes",
+        "accelerated",
     ):
         if key in stored:
             document[key] = stored[key]
@@ -170,8 +198,12 @@ def _candidates(card: SourceCard) -> list[tuple[str, str, FieldStat]]:
 
 
 def select_fields(cards: Sequence[SourceCard]) -> list[FieldChoice]:
-    """Role first, then smallest list, with affordable sources ahead of oversized ones."""
-    chosen: list[FieldChoice] = []
+    """Role first then smallest list within a source; every source's best list before any second.
+
+    The round-robin is what lets a wide source be enumerated at all: a global "smallest list
+    wins" cut spends the whole budget on narrow cards and a wide card's list never runs.
+    """
+    ranked_cards: list[list[FieldChoice]] = []
     for card in cards:
         if not card.understood:
             continue
@@ -180,19 +212,35 @@ def select_fields(cards: Sequence[SourceCard]) -> list[FieldChoice]:
             _candidates(card),
             key=lambda item: (_ROLE_ORDER[item[0]], over_budget, item[2].distinct, item[1]),
         )[:INVENTORY_FIELDS_PER_SOURCE]
-        chosen.extend(
-            FieldChoice(
-                card.source_id,
-                card.card_id,
-                card.sourcetype,
-                name,
-                role,
-                stat.distinct,
-                card.part_field,
-                card.part_value,
+        if ranked:
+            ranked_cards.append(
+                [
+                    FieldChoice(
+                        card.source_id,
+                        card.card_id,
+                        card.sourcetype,
+                        name,
+                        role,
+                        stat.distinct,
+                        card.part_field,
+                        card.part_value,
+                    )
+                    for role, name, stat in ranked
+                ]
             )
-            for role, name, stat in ranked
-        )
+    chosen: list[FieldChoice] = []
+    depth = 0
+    while len(chosen) < INVENTORY_MAX_FIELD_SEARCHES:
+        added = False
+        for group in ranked_cards:
+            if len(chosen) >= INVENTORY_MAX_FIELD_SEARCHES:
+                break
+            if depth < len(group):
+                chosen.append(group[depth])
+                added = True
+        if not added:
+            break
+        depth += 1
     ordered = sorted(
         chosen, key=lambda item: (_ROLE_ORDER[item.role], item.distinct, item.card_id, item.field)
     )
@@ -212,6 +260,11 @@ class _Prober:
         self.failures: list[str] = []
         self._sources: dict[tuple[str, str], SourcePaths] = {}
         self._fields: dict[tuple[str, str, str], bool] = {}
+        self._accelerated: tuple[AcceleratedModel, ...] | None = None
+
+    def _name_route(self, name: str) -> str:
+        """The route a name probe asks about: a partition predicate belongs to the read, not the name."""
+        return f"index={_search_literal(self.index)} sourcetype={_search_literal(name)}"
 
     def _route(self, name: str, card: SourceCard | None = None) -> str:
         route = f"index={_search_literal(self.index)} sourcetype={_search_literal(name)}"
@@ -272,7 +325,7 @@ class _Prober:
         failed = False
         for name in names:
             rows, problem = self._probe(
-                f"| tstats count where {self._route(name)}", source_id=card.source_id
+                f"| tstats count where {self._name_route(name)}", source_id=card.source_id
             )
             if problem:
                 failed = True
@@ -285,7 +338,7 @@ class _Prober:
         search_name = ""
         for name in names:
             rows, problem = self._probe(
-                f"search {self._route(name)} | head 1", source_id=card.source_id
+                f"search {self._name_route(name)} | head 1", source_id=card.source_id
             )
             if problem:
                 failed = True
@@ -310,6 +363,30 @@ class _Prober:
             found = bool(rows)
             self._fields[key] = found
         return found
+
+    def accelerated(self) -> tuple[AcceleratedModel, ...]:
+        """Models with a complete summary and the window it covers, probed once per run."""
+        if self._accelerated is None:
+            rows, problem = self._probe(ACCEL_QUERY)
+            if problem:
+                self.failures.append(f"accelerated:{problem}")
+                rows = []
+            found: list[AcceleratedModel] = []
+            for row in rows:
+                name = str(row.get("datamodel_name") or "")
+                if not name or not _summary_complete(row.get("summary.complete")):
+                    continue
+                found.append(
+                    AcceleratedModel(
+                        name,
+                        _number(row.get("summary.earliest_time")),
+                        _number(row.get("summary.latest_time")),
+                    )
+                )
+            self._accelerated = tuple(
+                sorted(found, key=lambda item: item.name)[:INVENTORY_MAX_MODEL_PROBES]
+            )
+        return self._accelerated
 
 
 def _mechanism(prober: _Prober, card: SourceCard, fields: Sequence[str]) -> tuple[str, str, str]:
@@ -353,6 +430,41 @@ def _read_values(
     began = time.monotonic()
     rows, problem = prober.read(query, row_cap, source_id=card.source_id, part=part)
     return rows, problem, round(time.monotonic() - began, 3)
+
+
+def _model_query(index: str, name: str, model: str, fields: Sequence[str], card: SourceCard) -> str:
+    """One summary aggregate; the source predicate keeps the list attributable to its card."""
+    route = f"index={_search_literal(index)} sourcetype={_search_literal(name)}"
+    if card.part_field:
+        route += f" {_field_token(card.part_field)}={_search_literal(card.part_value)}"
+    by = ", ".join(f"{model}.{_field_token(field)}" for field in fields)
+    return (
+        f"| tstats summariesonly=true count min(_time) as first max(_time) as last "
+        f"from datamodel={model} where {route} by {by}"
+    )
+
+
+def _datamodel_values(
+    prober: _Prober,
+    index: str,
+    card: SourceCard,
+    fields: Sequence[str],
+) -> tuple[AcceleratedModel | None, str, list[dict[str, Any]], str, float]:
+    """The first accelerated model that answers this source; the aggregate is its own probe."""
+    paths = prober.source(card)
+    if not paths.tstats_name:
+        return None, "", [], "", 0.0
+    for model in prober.accelerated():
+        name = paths.tstats_name
+        rows, problem, seconds = _read_values(
+            prober,
+            _model_query(index, name, model.name, fields, card),
+            INVENTORY_MAX_VALUES + 1,
+            card,
+        )
+        if rows:
+            return model, name, rows, problem, seconds
+    return None, "", [], "", 0.0
 
 
 def _cell(row: Mapping[str, Any], field: str) -> str:
@@ -419,6 +531,9 @@ def _field_record(
     name_used: str = "",
     events_scanned: int = 0,
     seconds: float = 0.0,
+    value_field: str = "",
+    accel_window: Sequence[float] | None = None,
+    searched_window: Sequence[float] | None = None,
 ) -> dict[str, Any]:
     return {
         "source_id": choice.source_id,
@@ -434,12 +549,17 @@ def _field_record(
         "mechanism": mechanism,
         "name_used": name_used,
         "events_scanned": events_scanned,
-        "events_scope": "source" if mechanism == "stats" else ("aggregate" if mechanism else ""),
-        "accel_window": None,
+        "events_scope": (
+            "source"
+            if mechanism == "stats"
+            else ("summary" if mechanism == "datamodel" else ("aggregate" if mechanism else ""))
+        ),
+        "accel_window": list(accel_window) if accel_window else None,
+        "searched_window": list(searched_window) if searched_window else None,
         "seconds": seconds,
         "values": [
             {
-                "value": str(item["values"][choice.field]),
+                "value": str(item["values"][value_field or choice.field]),
                 "events": item["events"],
                 "first_seen": item["first_seen"],
                 "last_seen": item["last_seen"],
@@ -464,10 +584,33 @@ def _enumerate_fields(
             records.append(_field_record(choice, f"unavailable:{reason or 'mechanism'}", ()))
             continue
         available = int(_number(card.facts.get("events")))
+        if mechanism == "stats" and available >= INVENTORY_ACCEL_MIN_EVENTS:
+            model, route_name, rows, problem, seconds = _datamodel_values(
+                prober, index, card, (choice.field,)
+            )
+            if model is not None:
+                value_field = f"{model.name}.{choice.field}"
+                status, values = _values(rows, (value_field,), "datamodel", problem)
+                records.append(
+                    _field_record(
+                        choice,
+                        status,
+                        values,
+                        mechanism="datamodel",
+                        name_used=f"{model.name}:{route_name}",
+                        events_scanned=_scanned("datamodel", rows, available),
+                        seconds=seconds,
+                        value_field=value_field,
+                        accel_window=(model.earliest, model.latest) if model.latest > 0 else None,
+                        searched_window=(prober.start, prober.end),
+                    )
+                )
+                continue
         if mechanism == "stats" and available > INVENTORY_MAX_SCAN_EVENTS:
             record = _field_record(choice, "unavailable:mechanism", ())
             record["reason"] = "events_budget"
             record["events_available"] = available
+            record["searched_window"] = [prober.start, prober.end]
             records.append(record)
             continue
         rows, problem, seconds = _read_values(
@@ -486,6 +629,7 @@ def _enumerate_fields(
                 name_used=name,
                 events_scanned=_scanned(mechanism, rows, available),
                 seconds=seconds,
+                searched_window=(prober.start, prober.end),
             )
         )
     return records
@@ -523,6 +667,7 @@ def _joint_record(
     events_scanned: int,
     seconds: float,
     rows: Sequence[Mapping[str, Any]],
+    searched_window: Sequence[float] | None = None,
 ) -> dict[str, Any]:
     return {
         "source_id": card.source_id,
@@ -537,6 +682,7 @@ def _joint_record(
         "events_scanned": events_scanned,
         "events_scope": "source" if mechanism == "stats" else ("aggregate" if mechanism else ""),
         "accel_window": None,
+        "searched_window": list(searched_window) if searched_window else None,
         "seconds": seconds,
         "rows": rows,
     }
@@ -548,11 +694,23 @@ def _enumerate_joints(
     planned: Sequence[tuple[SourceCard, list[Mapping[str, Any]]]],
 ) -> list[dict[str, Any]]:
     joints: list[dict[str, Any]] = []
+    window = (prober.start, prober.end)
     for card, picked in planned:
         names = [str(record["field"]) for record in picked]
         mechanism, name, reason = _mechanism(prober, card, names)
         if not mechanism:
-            joints.append(_joint_record(card, picked, f"unavailable:{reason}", "", "", 0, 0.0, ()))
+            joints.append(
+                _joint_record(card, picked, f"unavailable:{reason}", "", "", 0, 0.0, (), window)
+            )
+            continue
+        available = int(_number(card.facts.get("events")))
+        if mechanism == "stats" and available > INVENTORY_MAX_SCAN_EVENTS:
+            record = _joint_record(
+                card, picked, "unavailable:mechanism", "", "", 0, 0.0, (), window
+            )
+            record["reason"] = "events_budget"
+            record["events_available"] = available
+            joints.append(record)
             continue
         rows, problem, seconds = _read_values(
             prober,
@@ -561,7 +719,6 @@ def _enumerate_joints(
             card,
         )
         status, values = _values(rows, names, mechanism, problem)
-        available = int(_number(card.facts.get("events")))
         joints.append(
             _joint_record(
                 card,
@@ -572,6 +729,7 @@ def _enumerate_joints(
                 _scanned(mechanism, rows, available),
                 seconds,
                 values,
+                window,
             )
         )
     return joints
@@ -654,7 +812,8 @@ def _single_field_joints(
                 "mechanism": record.get("mechanism"),
                 "name_used": record.get("name_used"),
                 "events_scanned": record.get("events_scanned"),
-                "accel_window": None,
+                "accel_window": record.get("accel_window"),
+                "searched_window": record.get("searched_window"),
                 "seconds": record.get("seconds"),
                 "rows": [
                     {
@@ -712,6 +871,7 @@ def collect_inventory(
     joints = _enumerate_joints(prober, index, planned)
     jointed = {str(item["card_id"]) for item in joints if item.get("status") == "complete"}
     joints.extend(_single_field_joints(fields, jointed))
+    accelerated = prober.accelerated()
     document = _empty_document(index)
     document.update(
         {
@@ -724,6 +884,10 @@ def collect_inventory(
             "joints": joints,
             "flows": _flows(fields),
             "names": _name_documents(choices, cards_by_id, prober),
+            "accelerated": [
+                {"model": model.name, "earliest": model.earliest, "latest": model.latest}
+                for model in accelerated
+            ],
         }
     )
     return document
@@ -756,6 +920,11 @@ def inventory_summary(document: Mapping[str, Any]) -> dict[str, Any]:
         "values": values,
         "joints": len(document.get("joints") or ()),
         "flows": len(document.get("flows") or ()),
+        "accelerated": [
+            str(item.get("model") or "")
+            for item in document.get("accelerated") or ()
+            if isinstance(item, Mapping)
+        ],
         "lists": [
             {
                 "card_id": item.get("card_id"),
@@ -765,8 +934,9 @@ def inventory_summary(document: Mapping[str, Any]) -> dict[str, Any]:
                 "mechanism": item.get("mechanism"),
                 "name_used": item.get("name_used"),
                 "events_scanned": int(_number(item.get("events_scanned"))),
-                "values": len(item.get("values") or ()),
+                "accel_window": item.get("accel_window"),
                 "seconds": item.get("seconds"),
+                "values": len(item.get("values") or ()),
             }
             for item in fields
         ],
@@ -915,6 +1085,7 @@ def apply_inventory(
         "values": summary["values"],
         "events_scanned": summary["events_scanned"],
         "two_names": summary["two_names"],
+        "accelerated": summary["accelerated"],
     }
 
 
