@@ -25,9 +25,11 @@ INDEX_FIELDS: dict[str, dict[str, str]] = {
         "terminal": r"\bterminal=(\S+)",
         "uid": r"\buid=(\d+)",
     },
+    #: One sourcetype for both Apache shapes: vhost_combined is combined behind `vhost:port `.
     "access_combined": {
-        "c_ip": r"^(\S+) ",
-        "c_user": r"^\S+ \S+ (\S+) \[",
+        "c_ip": r"^(?:[^\s:]+:\d+ )?(\S+) ",
+        "c_user": r"^(?:[^\s:]+:\d+ )?\S+ \S+ (\S+) \[",
+        "vhost": r"^([^\s:]+):\d+ ",
         "cs_method": r'"([A-Z]+) \S+ HTTP/',
         "cs_uri_stem": r'"[A-Z]+ (\S+) HTTP/',
         "sc_status": r'" (\d{3}) ',
@@ -79,6 +81,7 @@ EVALS: dict[str, dict[str, str]] = {
         "src": "c_ip",
         "user": 'if(c_user="-", null(), c_user)',
         "dest": "host",
+        "site": "vhost",
         "http_method": "cs_method",
         "uri_path": "cs_uri_stem",
         "status": "sc_status",

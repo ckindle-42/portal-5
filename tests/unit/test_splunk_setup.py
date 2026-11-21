@@ -97,6 +97,37 @@ def test_shipped_conf_is_rendered_from_the_plan_and_extracts() -> None:
     assert transforms.count("WRITE_META = true") == transforms.count("[ph_ix_")
 
 
+def test_vhost_combined_lines_keep_the_client_in_c_ip() -> None:
+    """`other_vhosts_access.log` is `vhost:port client - - [...]`: c_ip is the client, not the vhost."""
+    fields = conf.INDEX_FIELDS["access_combined"]
+    vhost_line = (
+        "cloud.dmz.smith.santos.com:443 172.21.129.224 - - [17/Jan/2022:06:38:41 +0000] "
+        '"GET / HTTP/1.1" 302 4067 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+        '(KHTML, like Gecko) HeadlessChrome/95.0.4638.69 Safari/537.36"'
+    )
+    assert re.search(fields["c_ip"], vhost_line).group(1) == "172.21.129.224"
+    assert re.search(fields["c_user"], vhost_line).group(1) == "-"
+    assert re.search(fields["vhost"], vhost_line).group(1) == "cloud.dmz.smith.santos.com"
+    combined = REAL_LINES["access_combined"][0]
+    assert re.search(fields["c_ip"], combined).group(1) == "10.229.1.182"
+    assert re.search(fields["vhost"], combined) is None
+    # an IPv6 client is not a `vhost:port` prefix, so `::1` stays the c_ip
+    ipv6 = (
+        '::1 - - [17/Jan/2022:06:32:17 +0000] "OPTIONS * HTTP/1.0" 200 110 "-" '
+        '"Apache/2.4.29 (Ubuntu) OpenSSL/1.1.1 (internal dummy connection)"'
+    )
+    assert re.search(fields["c_ip"], ipv6).group(1) == "::1"
+    # one sourcetype, and the vhost is an indexed field `tstats` can group by
+    assert plan.classify("other_vhosts_access.log").target == "access_combined"
+    transforms, props, fields_conf = (
+        conf.conf_files()[name] for name in ("transforms.conf", "props.conf", "fields.conf")
+    )
+    assert "[ph_ix_access_combined_vhost]" in transforms and "FORMAT = vhost::$1" in transforms
+    assert "ph_ix_access_combined_vhost" in props and "EVAL-site = vhost" in props
+    assert "[vhost]\nINDEXED = true" in fields_conf
+    assert "vhost_indexed" in {p.name for p in plan.verify_probes(plan.TUNED_BY_KEY["santos"])}
+
+
 def test_reindex_writes_only_new_indexes_and_routes_noise_out(tmp_path: Path) -> None:
     """A receipt row can only ever land in <index>_v2, and noise is counted, never shipped."""
     spec = plan.TUNED_BY_KEY["santos"]

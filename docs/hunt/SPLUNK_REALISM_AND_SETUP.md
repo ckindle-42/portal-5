@@ -482,7 +482,7 @@ Mapping (measured sourcetypes → target):
 | `2022-01-xx-system.auth.log`, `auth.log` | `linux_secure` | sshd/sudo auth |
 | `audit.log`, `linux_audit` | `linux_audit` | auditd |
 | `2022-01-xx-system.service.log`, `system.journal.txt`, `messages`, `syslog`, `kern.log`, `user.log` | `syslog` (or `journald`) | |
-| `*access.log`, `other_vhosts_access.log`, `horde-access.log`, `access_combined` | `access_combined` | Apache/nginx/horde |
+| `*access.log`, `other_vhosts_access.log`, `horde-access.log`, `access_combined` | `access_combined` | Apache/nginx/horde; `other_vhosts_access.log` is vhost_combined (`vhost:port` first) — same sourcetype, the regex skips the prefix so `c_ip` stays the client |
 | `error.log`, `apache_error` | `apache:error` | |
 | `eve.json` | `suricata` (or `suricata:eve`) | TA-suricata-4 exists; enable it |
 | `fast.log` | `suricata:fast` | |
@@ -560,7 +560,7 @@ set, per sourcetype class:
 | Windows security | `EventCode`, `Account_Name`, `Logon_Account`, `Source_Network_Address`, `ComputerName` | auth entity + outcome |
 | Sysmon / Windows XML | `EventCode`, `Image`, `ParentImage`, `CommandLine`, `User`, `TargetFilename`, `QueryName` | process/file/DNS spine |
 | Linux auditd / secure | `exe`, `comm`, `uid`, `acct`, `addr`, `terminal` | exec + auth spine |
-| Access logs | `cs_method`, `cs_uri_stem`, `c_ip`, `sc_status`, `cs_user_agent` | web |
+| Access logs | `cs_method`, `cs_uri_stem`, `c_ip`, `c_user`, `vhost`, `sc_status`, `cs_user_agent` | web |
 | Suricata / Eve | `event_type`, `src_ip`, `dest_ip`, `alert.signature`, `dns.rrname`, `http.url` | IDS + flows |
 | Proxy / PAN | `src`, `dest`, `app`, `action`, `url` | egress |
 
