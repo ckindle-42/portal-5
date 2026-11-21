@@ -49,6 +49,9 @@ python3 scripts/security_corpus_report.py          # combined red-corpus readine
 python3 scripts/security_replay_verify.py          # verify live captures replay into Splunk
 python3 scripts/corpus_truth_key.py                # labelled_corpus answer key from attack_data labels
 python3 scripts/detection_harness_mixed.py         # held-out mixed-corpus review score (read-only)
+uv run python -m scripts.lab.splunk_setup preflight # lab Splunk tuning: read-only stage-0 inventory
+uv run python -m scripts.lab.splunk_setup plan --index santos   # stage-2 reindex routing table (dry run)
+uv run python -m scripts.lab.splunk_setup apply    # stage 1+3: app, TAs, _v2 indexes, acceleration (docs/hunt/SPLUNK_SETUP_RUNBOOK.md)
 ```
 
 ## Dashboards and results
