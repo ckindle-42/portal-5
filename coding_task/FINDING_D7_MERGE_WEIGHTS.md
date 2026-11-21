@@ -74,6 +74,26 @@ generator marginal (candidates kept head@50 attribution@50 marginal@50/@100 meas
   similar_to_known       16669    300     24       7          1/1         1    31
 ```
 
+## Cost
+
+Measured on this host, read-only over stored runs: the marginal pass is 13.9 s for one family and
+84.7 s for three; it issues no Splunk search (it re-merges rows already on disk), so a run pays it
+once at the start and pays nothing per read.
+
+## Is the stored run still the live basis
+
+Two read-only lab Splunk `tstats` probes (REST job API, credentials read from
+`/Users/chris/projects/portal-5/.env` by key name, never sourced; training indexes only):
+
+```
+| tstats count where index IN (hb_ait_santos_v2, hb_kyoushi_s1_v2, hb_ait_russellmitchell_v2) by index
+-> hb_ait_russellmitchell_v2 4,191,003   hb_ait_santos_v2 4,474,600   hb_kyoushi_s1_v2 2,465,043
+   scan 11,130,646, 0.33 s
+```
+
+These are the deep dive's §2.1 index counts token for token, so the stored runs re-scored above are
+the corpus the orchestrator's re-run will read and the measured vector is not stale.
+
 ## Reproduce
 
 ```bash
