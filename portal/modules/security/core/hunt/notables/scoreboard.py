@@ -1095,6 +1095,7 @@ def _label_case_recall(purity: Mapping[str, Any], labels: Sequence[str]) -> dict
         "recall": {
             key: round(len(value) / total, 6) if total else None for key, value in covered.items()
         },
+        "dataset_covered": {key: bool(value) for key, value in covered.items()},
         "cases": rows,
     }
 
@@ -2365,10 +2366,12 @@ def _case_lines(relation: Mapping[str, Any]) -> list[str]:
     if not quality:
         return []
     overall = member.get("overall") or {}
+    dataset = (member.get("dataset_covered") or {}).get("50")
+    covered = "" if dataset is None else f"  scenario covered {_flag(bool(dataset))}"
     lines = [
         f"case members top50 {overall.get('50')}/{member.get('scenarios')} "
         f"top100 {overall.get('100')}/{member.get('scenarios')} "
-        f"all {overall.get('None')}/{member.get('scenarios')} (B/P scenarios in a case)",
+        f"all {overall.get('None')}/{member.get('scenarios')} (B/P steps in a case){covered}",
         f"case evidence pieces min {quality.get('min_evidence')} violations "
         f"{quality.get('two_evidence_violations')}  rows min {quality.get('evidence_rows')}  "
         f"unjudged cases {quality.get('unjudged_cases')}  "

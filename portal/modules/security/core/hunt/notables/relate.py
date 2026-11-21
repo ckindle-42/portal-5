@@ -953,7 +953,13 @@ def _case_evidence(
                 continue
             stored = events.get(queue[depth])
             if stored is not None:
-                rows.append({**stored, "event_id": queue[depth]})
+                rows.append(
+                    {
+                        key: value
+                        for key, value in {**stored, "event_id": queue[depth]}.items()
+                        if key != "query"
+                    }
+                )
             if len(rows) >= CASE_EVIDENCE_ROWS:
                 return rows
         depth += 1
@@ -1124,7 +1130,8 @@ def build_cases(
         "weights": list(CASE_WEIGHTS),
         "seconds": round(time.monotonic() - began, 3),
     }
-    write_json(out / CASES_FILE, {"receipt": receipt, "cases": cases})
+    payload = json.dumps({"receipt": receipt, "cases": cases})
+    (out / CASES_FILE).write_text(payload)
     return {"receipt": receipt, "cases": cases, "flows": flows}
 
 
