@@ -30,7 +30,9 @@ from typing import Any
 
 from ..judge import DEFAULT_KEY_ENV, JudgeClient, OpenAICompatibleClient, chat_completions_endpoint
 from . import stage2 as stage2_run
+from .judge_notables import judge_cases
 from .receipt import read_json, utc_now, write_json
+from .relate import CASES_FILE, RELATE_FILE
 from .scoreboard import (
     PROGRESS_FILE,
     Notable,
@@ -61,6 +63,8 @@ FUSION_WEIGHTS = (0.0, 0.25, 0.5, 0.75, 1.0)  # candidate p_yes weights, chosen 
 RECALL_CUTS = (50, 100)
 COUNCIL_DEADLINE_SECONDS = 720.0  # effort budget: the hunt job wall time for the second pass
 COUNCIL_PROBE_CALLS = 4  # effort budget: calibration sample measuring the council rate
+CASE_ORDER_HEAD = 50  # p_yes orders the head; the tail keeps the case score's order
+CASE_JUDGE_DEADLINE_SECONDS = 720.0  # effort budget: the case judge's wall time
 DECISION_RANK = {"SUPPORT": 0, "REJECT": 2}  # absent / REVISE / ESCALATE -> 1 (abstain)
 REPORT_FILE = "rerank.json"
 CALLS_FILE = "rerank_council_calls.jsonl"
@@ -514,6 +518,105 @@ def score(
     return report
 
 
+def _case_p_yes(case: Mapping[str, Any]) -> float | None:
+    try:
+        return float(case["p_yes"]) if case.get("p_yes") is not None else None
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def case_order(cases: Sequence[Mapping[str, Any]], *, head: int = CASE_ORDER_HEAD) -> list[int]:
+    """p_yes orders the head only; an unjudged case sinks but is never dropped."""
+    indices = list(range(len(cases)))
+    top = indices[:head]
+    judged = sorted(
+        (index for index in top if _case_p_yes(cases[index]) is not None),
+        key=lambda index: (-(_case_p_yes(cases[index]) or 0.0), index),
+    )
+    unjudged = [index for index in top if _case_p_yes(cases[index]) is None]
+    return judged + unjudged + indices[head:]
+
+
+def judged_only_cases(cases: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """A judged-only view drops members with no judge decision; the case keeps its verified rows."""
+    view: list[dict[str, Any]] = []
+    for case in cases:
+        members = [
+            dict(member)
+            for member in case.get("members") or ()
+            if isinstance(member, Mapping) and not member.get("unjudged")
+        ]
+        if members:
+            view.append({**case, "members": members, "unjudged": False})
+    return view
+
+
+def _case_payload(run: Path) -> tuple[Path, dict[str, Any]]:
+    """The case file a run carries: cases.json when S3's offline builder wrote it, else relate.json."""
+    path = run / CASES_FILE
+    if not path.is_file():
+        path = run / RELATE_FILE
+    if not path.is_file():
+        raise Stage2Error(f"{run} holds no {CASES_FILE} or {RELATE_FILE}; run the relate stage")
+    return path, read_json(path)
+
+
+def _write_case_payload(path: Path, payload: Mapping[str, Any]) -> None:
+    if path.name == CASES_FILE:
+        path.write_text(json.dumps(payload))
+    else:
+        write_json(path, payload)
+
+
+def judge_case_runs(
+    runs: Mapping[str, Path],
+    *,
+    client: JudgeClient | None,
+    model: str = "",
+    deadline: float = CASE_JUDGE_DEADLINE_SECONDS,
+    request_budget: int | None = None,
+) -> dict[str, Any]:
+    """Judge each run's stored cases, order the head by p_yes, and keep every case."""
+    reports: list[dict[str, Any]] = []
+    for name, run in runs.items():
+        path, payload = _case_payload(run)
+        cases = [dict(item) for item in payload.get("cases") or () if isinstance(item, Mapping)]
+        judged, receipt = judge_cases(
+            cases,
+            out=run,
+            client=client,
+            model=model,
+            request_budget=request_budget,
+            deadline_seconds=deadline,
+        )
+        order = case_order(judged)
+        ordered = [judged[index] for index in order]
+        for rank, case in enumerate(ordered):
+            case["rank"] = rank
+        view = judged_only_cases(ordered)
+        receipt["judged_only"] = {
+            "cases": len(view),
+            "members": sum(len(case.get("members") or ()) for case in view),
+            "dropped_members": sum(len(case.get("members") or ()) for case in ordered)
+            - sum(len(case.get("members") or ()) for case in view),
+        }
+        receipt["order"] = {
+            "head": CASE_ORDER_HEAD,
+            "moved": sum(
+                1 for position, index in enumerate(order[:CASE_ORDER_HEAD]) if index != position
+            ),
+        }
+        payload["cases"] = ordered
+        stored_receipt = payload.get("receipt")
+        if not isinstance(stored_receipt, dict):
+            stored_receipt = {}
+            payload["receipt"] = stored_receipt
+        stored_receipt["case_judge"] = receipt
+        _write_case_payload(path, payload)
+        reports.append({"family": name, "file": str(path), "receipt": receipt})
+    return {"generated": utc_now(), "runs": reports}
+
+
 def _fmt_recall(block: Mapping[str, Any], steps: int) -> str:
     return f"@50 {block['50']}/{steps} @100 {block['100']}/{steps} all {block['None']}/{steps}"
 
@@ -549,10 +652,27 @@ def render(report: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_cases(report: Mapping[str, Any]) -> str:
+    lines = []
+    for run in report["runs"]:
+        receipt = run["receipt"]
+        view = receipt["judged_only"]
+        lines.append(
+            f"family {run['family']} cases {receipt['cases']} "
+            f"verified {receipt['verified']} unverified {receipt['unverified']} "
+            f"judged {receipt['judged']} unjudged {receipt['unjudged']} "
+            f"order_moved {receipt['order']['moved']} "
+            f"judged_only {view['cases']} cases / {view['members']} members "
+            f"(dropped {view['dropped_members']}) budget {receipt['request_budget']} "
+            f"anchors {receipt['unverified_anchors']}"
+        )
+    return "\n".join(lines)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="append", required=True, help="family=run-dir (repeat)")
-    parser.add_argument("--keys", action="append", required=True, help="family=keys.jsonl (repeat)")
+    parser.add_argument("--keys", action="append", help="family=keys.jsonl (repeat)")
     parser.add_argument("--year", type=int, help="year for a timestamp that carries none")
     parser.add_argument("--offline", action="store_true", help="replay stored council calls")
     parser.add_argument("--no-council", action="store_true", help="skip the council second pass")
@@ -560,6 +680,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--council-deadline", type=float, default=COUNCIL_DEADLINE_SECONDS)
     parser.add_argument("--concurrency", type=int, default=2)
     parser.add_argument("--probe", type=int, default=COUNCIL_PROBE_CALLS)
+    parser.add_argument(
+        "--cases", action="store_true", help="judge stored cases and order the head by p_yes"
+    )
+    parser.add_argument("--case-budget", type=int, help="model calls the case judge may make")
+    parser.add_argument("--case-deadline", type=float, default=CASE_JUDGE_DEADLINE_SECONDS)
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -574,11 +699,41 @@ def _pairs(values: Sequence[str], flag: str) -> dict[str, Path]:
     return found
 
 
+def _case_client(request_budget: int | None) -> tuple[JudgeClient | None, str]:
+    """The Pipeline seat from env; an explicit zero budget needs no model at all."""
+    url = os.environ.get("PORTAL_HUNT_JUDGE_URL", "")
+    model = os.environ.get("PORTAL_HUNT_JUDGE_MODEL", "")
+    if request_budget == 0:
+        return None, model
+    if not url or not model:
+        raise Stage2Error(
+            "set PORTAL_HUNT_JUDGE_URL and PORTAL_HUNT_JUDGE_MODEL (or pass --case-budget 0)"
+        )
+    key_env = os.environ.get("PORTAL_HUNT_JUDGE_KEY_ENV", DEFAULT_KEY_ENV)
+    api_key = os.environ.get(key_env) if key_env else None
+    return OpenAICompatibleClient(chat_completions_endpoint(url), api_key), model
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         runs = _pairs(args.run, "run")
-        keys = _pairs(args.keys, "keys")
+        if args.cases:
+            client, model = _case_client(args.case_budget)
+            started = time.monotonic()
+            report = judge_case_runs(
+                runs,
+                client=client,
+                model=model,
+                deadline=args.case_deadline,
+                request_budget=args.case_budget,
+            )
+            if args.json:
+                print(json.dumps(report, indent=1, sort_keys=False))
+            else:
+                print(render_cases(report) + f"\n\njudged in {time.monotonic() - started:.1f}s")
+            return 0
+        keys = _pairs(args.keys or [], "keys")
         missing = sorted(set(runs) - set(keys))
         if missing:
             raise Stage2Error(f"no --keys given for {', '.join(missing)}")
