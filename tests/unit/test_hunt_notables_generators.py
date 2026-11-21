@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+
 from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.behaviours import Behaviour, behaviour_identity
+from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.generators import (
     _alert_query,
     _behaviour_bursts,
@@ -10,6 +13,7 @@ from portal.modules.security.core.hunt.notables.generators import (
     _series_by_source,
     _source_deviations,
     _unified_bursts,
+    alerts,
     exact_counts,
     generate,
     peer_rare,
@@ -62,6 +66,52 @@ def test_alert_query_drops_star_adjacent_role_values() -> None:
     assert "medium" not in query
     assert "*" not in query
     assert 'index="ix"' in query
+
+
+class _AlertExecutor:
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self.rows = rows
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del query, start, end, kind, row_cap
+        return Read([dict(row) for row in self.rows], False, None)
+
+
+def test_an_alert_without_an_action_is_a_notable_only_when_it_names_an_entity() -> None:
+    card = SourceCard(
+        index="ix",
+        sourcetype="alerts",
+        kind="alert",
+        roles={},
+        understood=True,
+        reason=None,
+        fmt="json",
+        coverage=1.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="k",
+    )
+    rows = [
+        {
+            "_raw": json.dumps({"signature": "ET SCAN", "src": "10.0.0.9"}),
+            "_time": 1.0,
+            "host": "h1",
+        },
+        {"_raw": json.dumps({"signature": "ET SCAN"}), "_time": 2.0, "host": ""},
+    ]
+    notables, receipt = alerts(
+        _AlertExecutor(rows),
+        [card],
+        {"ix:alerts": _alert_facts()},  # type: ignore[arg-type]
+    )
+
+    assert receipt["existed"] == 1
+    assert receipt["sources"][0]["events_without_entity"] > 0
+    assert [item.entities for item in notables] == [(("alert", "ET SCAN"), ("entity", "10.0.0.9"))]
 
 
 def test_peer_rare_orders_by_share_of_possible_hosts_and_actors():

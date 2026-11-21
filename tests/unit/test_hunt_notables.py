@@ -137,6 +137,46 @@ def test_is_alert_event_reads_the_event_type_property() -> None:
     assert is_alert_event({"_raw": "Mar 24 10:00:00 sshd: not json"}) is False
 
 
+def test_a_sample_of_alert_lines_is_a_detection_stream_even_when_the_model_said_activity() -> None:
+    from portal.modules.security.core.hunt.notables.cards import (
+        ModelAnswer,
+        assemble_cards,
+        prepare_cards,
+    )
+
+    flows = [
+        json.dumps({"event_type": "flow", "src_ip": "10.0.0.1", "dest_ip": "10.0.0.2"})
+        for _ in range(6)
+    ]
+    alerts = [
+        json.dumps({"event_type": "alert", "src_ip": f"10.0.1.{i}", "alert": {"signature": "s"}})
+        for i in range(6)
+    ]
+    rows = [
+        {"_raw": raw, "_time": float(index), "host": "h1"}
+        for index, raw in enumerate(flows + alerts)
+    ]
+    facts = SourceFacts("ix", "eve.json", 12, 0.0, 100.0, ("h1",), 1, ("s1",), 1)
+    prepared = prepare_cards(facts, rows, windows=1, model="test")
+    answer = ModelAnswer(
+        json.dumps({"kind": "activity", "actor": ["src_ip"], "basis": "network events"}),
+        0.0,
+        "",
+        None,
+        None,
+    )
+    cards = assemble_cards(
+        prepared, {item.given.cache_key: (answer, 1, False) for item in prepared}
+    )
+    alert_card = next(card for card in cards if card.part_value == "alert")
+    flow_card = next(card for card in cards if card.part_value == "flow")
+    assert alert_card.kind == "alert"
+    assert alert_card.kind_said == "activity"
+    assert alert_card.kind_note is not None and alert_card.kind_note.startswith("alert_structure:")
+    assert alert_card.kind_facts["alert_lines"] == 6
+    assert flow_card.kind == "activity"
+
+
 def test_sample_source_adds_probe_alerts_missed_by_the_general_sample() -> None:
     from portal.modules.security.core.hunt.executor import Read
 

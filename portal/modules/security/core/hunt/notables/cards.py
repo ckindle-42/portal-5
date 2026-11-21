@@ -211,6 +211,11 @@ def is_alert_event(row: Mapping[str, Any]) -> bool:
     return is_alert_line(str(row.get("_raw") or ""))
 
 
+def count_alert_lines(rows: Sequence[Mapping[str, Any]]) -> int:
+    """How many of a sample's events are detections, recognised by shape only."""
+    return sum(1 for row in rows if is_alert_event(row))
+
+
 class CardCache:
     """One JSON file per content key; a rerun with the same description asks nothing."""
 
@@ -589,6 +594,7 @@ class Prepared:
     part_value: str = ""
     template: TemplateModel | None = None
     alert: bool = False
+    alert_lines: int = 0
 
 
 def prepare_cards(
@@ -597,13 +603,26 @@ def prepare_cards(
     """Parse one source's sample into one prepared structure per part."""
     parsed, template = parse_sample(_raws(rows))
     if template is not None:
-        alert = bool(rows) and all(is_alert_line(_raw) for _raw in _raws(rows))
+        alert_lines = count_alert_lines(rows)
+        alert = bool(rows) and alert_lines == len(rows)
         return [
-            Prepared(facts, _Inputs(rows, parsed, windows, model), template=template, alert=alert)
+            Prepared(
+                facts,
+                _Inputs(rows, parsed, windows, model),
+                template=template,
+                alert=alert,
+                alert_lines=alert_lines,
+            )
         ]
     partition = choose_partition(parsed)
     if partition is None:
-        return [Prepared(facts, _Inputs(rows, parsed, windows, model))]
+        return [
+            Prepared(
+                facts,
+                _Inputs(rows, parsed, windows, model),
+                alert_lines=count_alert_lines(rows),
+            )
+        ]
     groups = partition_groups(parsed, rows, partition)
     prepared: list[Prepared] = []
     for value in partition.values:
@@ -611,15 +630,20 @@ def prepare_cards(
         if group is None:
             continue
         group_rows, group_parsed = group
+        alert_lines = count_alert_lines(group_rows)
         prepared.append(
             Prepared(
                 facts,
                 _Inputs(group_rows, group_parsed, windows, model),
                 partition.field,
                 value,
+                alert_lines=alert_lines,
+                alert=bool(group_rows) and alert_lines == len(group_rows),
             )
         )
-    return prepared or [Prepared(facts, _Inputs(rows, parsed, windows, model))]
+    return prepared or [
+        Prepared(facts, _Inputs(rows, parsed, windows, model), alert_lines=count_alert_lines(rows))
+    ]
 
 
 def _ordered_structures(prepared: Sequence[Prepared]) -> list[Prepared]:
@@ -766,6 +790,8 @@ def _assemble(
     """Apply one structure's answer to its card, or record exactly why it was not used."""
     facts, given = item.facts, item.given
     kind_facts = {**given.value_facts, **cadence_facts(facts)}
+    if item.alert_lines:
+        kind_facts["alert_lines"] = item.alert_lines
     if item.template is not None:
         return _template_card(item, kind_facts)
     if item.part_field:
@@ -795,7 +821,8 @@ def _assemble(
         error=answer.error or applied.error,
         prompt=given.prompt,
     )
-    if answer.error is not None or applied.error is not None or applied.rejected:
+    model_failed = answer.error is not None or applied.error is not None or applied.rejected
+    if model_failed and not item.alert:
         reason = f"model_{answer.error}" if answer.error else str(applied.error)
         if not reason or reason == "None":
             reason = "unknown_fields:" + ",".join(applied.rejected)
@@ -813,6 +840,8 @@ def _assemble(
             kind_facts=kind_facts,
         )
     kind, note = reconcile_kind(applied.kind, kind_facts)
+    if item.alert and kind != "alert":
+        kind, note = "alert", f"alert_structure:model_said_{applied.kind}"
     return SourceCard(
         index=facts.index,
         sourcetype=facts.sourcetype,
