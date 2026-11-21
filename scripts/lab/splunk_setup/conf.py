@@ -164,8 +164,10 @@ def tags_conf() -> str:
     return "\n".join(out)
 
 
-def datamodels_conf(with_change: bool = False) -> str:
+def datamodels_conf(with_change: bool = False, accelerate: bool = True) -> str:
     models = list(plan.ACCELERATED) + (list(plan.ACCELERATED_OPTIONAL) if with_change else [])
+    if not accelerate:
+        models = []
     out = [HEADER]
     for model in models:
         out.append(f"[{model}]")
@@ -220,7 +222,7 @@ def app_conf() -> str:
     )
 
 
-def conf_files(with_change: bool = False) -> dict[str, str]:
+def conf_files(with_change: bool = False, accelerate: bool = True) -> dict[str, str]:
     """filename -> text for every conf file the app ships."""
     return {
         "app.conf": app_conf(),
@@ -229,25 +231,25 @@ def conf_files(with_change: bool = False) -> dict[str, str]:
         "fields.conf": fields_conf(),
         "eventtypes.conf": eventtypes_conf(),
         "tags.conf": tags_conf(),
-        "datamodels.conf": datamodels_conf(with_change),
+        "datamodels.conf": datamodels_conf(with_change, accelerate),
         "macros.conf": macros_conf(with_change),
         "savedsearches.conf": savedsearches_conf(),
     }
 
 
-def write_app(root: Path, with_change: bool = False) -> Path:
+def write_app(root: Path, with_change: bool = False, accelerate: bool = True) -> Path:
     app_dir = root / plan.APP_NAME / "default"
     app_dir.mkdir(parents=True, exist_ok=True)
-    for name, text in conf_files(with_change).items():
+    for name, text in conf_files(with_change, accelerate).items():
         (app_dir / name).write_text(text)
     return root / plan.APP_NAME
 
 
-def diff_app(root: Path, with_change: bool = False) -> list[str]:
+def diff_app(root: Path, with_change: bool = False, accelerate: bool = True) -> list[str]:
     """Files whose committed copy differs from the renderer (empty means in sync)."""
     app_dir = root / plan.APP_NAME / "default"
     out = []
-    for name, text in conf_files(with_change).items():
+    for name, text in conf_files(with_change, accelerate).items():
         path = app_dir / name
         if not path.exists() or path.read_text() != text:
             out.append(name)

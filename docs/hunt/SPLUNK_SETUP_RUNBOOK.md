@@ -128,6 +128,11 @@ uv run python -m scripts.lab.splunk_setup apply --dry-run        # prints every 
 uv run python -m scripts.lab.splunk_setup apply
 ```
 
+`apply` renders the app with `datamodels.conf` **empty** (acceleration is stage 3, after the data
+exists — the doc's forced order). The committed tree under
+`scripts/lab/splunk_setup/app/portal5_hunt_setup/default/` is the **stage-3** state (acceleration
+on); `app --check` proves it is exactly what the renderer produces.
+
 **The conf files it installs** (committed, generated — `scripts/lab/splunk_setup/app/portal5_hunt_setup/default/`):
 
 | file | what it binds |
@@ -136,7 +141,7 @@ uv run python -m scripts.lab.splunk_setup apply
 | `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`c_method`/`c_uri`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) |
 | `fields.conf` | `INDEXED = true` for every index-time field, incl. the JSON keys the doc names (`alert.signature`, `dns.rrname`, `http.url`, …) |
 | `eventtypes.conf` + `tags.conf` | the CIM tag constraints: `authentication`, `web`, `ids`+`attack`, `network`+`communicate`, `network`+`resolution`, `endpoint`+`process`+`report` |
-| `datamodels.conf` | acceleration for the six models, `acceleration.earliest_time = -10y` |
+| `datamodels.conf` | empty at stage 1; stage 3 writes acceleration for the six models, `acceleration.earliest_time = -10y` |
 | `macros.conf` | `cim_*_indexes` for the six models, scoped to the three `_v2` indexes |
 | `savedsearches.conf` | one `collect` per tuned index (stage 4) |
 
@@ -293,8 +298,12 @@ from `/services/admin/summarization`, not before.
 **Command:**
 
 ```bash
-uv run python -m scripts.lab.splunk_setup apply      # re-render + install + restart
+uv run python -m scripts.lab.splunk_setup apply --accelerate     # re-render + install + restart
 ```
+
+`--accelerate` refuses to run until every `_v2` index holds events (it reads `eventcount` for
+each), so the "accelerate an empty index" mistake cannot happen silently. It also enables the
+`Change` model if `--with-change` is passed.
 
 **Verification:**
 
@@ -319,9 +328,9 @@ assumption with a measurement — record it.
 → **0 rows**: `botsv2` is outside the CIM macro allowlist and unaccelerated. If this returns
 rows, the macro precedence went the wrong way (stage 1's warning) — fix before continuing.
 
-**Rollback:** set `acceleration = false` for the six models (remove `datamodels.conf` from the
-app, re-apply, restart). Existing summaries stop being maintained and are removed by Splunk
-after the window; no index is touched.
+**Rollback:** re-run `apply` **without** `--accelerate` (one command: strips `datamodels.conf`,
+installs, restarts). Existing summaries stop being maintained and are removed by Splunk after the
+window; no index is touched.
 
 ---
 

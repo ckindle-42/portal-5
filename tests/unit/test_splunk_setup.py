@@ -126,6 +126,7 @@ def test_reindex_writes_only_new_indexes_and_routes_noise_out(tmp_path: Path) ->
 
 def test_acceleration_scope_window_and_control() -> None:
     """Only the doc's models are accelerated, over the whole corpus span, never the control."""
+    assert conf.datamodels_conf(accelerate=False).count("acceleration = true") == 0
     text = conf.datamodels_conf()
     assert set(re.findall(r"^\[(\w+)\]$", text, re.M)) == set(plan.ACCELERATED)
     assert text.count(f"acceleration.earliest_time = {plan.ACCEL_WINDOW}") == len(plan.ACCELERATED)

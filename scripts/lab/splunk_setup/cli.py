@@ -51,10 +51,14 @@ def cmd_inventory(args: argparse.Namespace) -> int:
 
 def cmd_app(args: argparse.Namespace) -> int:
     if args.check:
-        drift = conf.diff_app(Path(args.out), with_change=args.with_change)
+        drift = conf.diff_app(
+            Path(args.out), with_change=args.with_change, accelerate=not args.no_accelerate
+        )
         _print({"in_sync": not drift, "drift": drift})
         return 0 if not drift else 1
-    app_dir = conf.write_app(Path(args.out), with_change=args.with_change)
+    app_dir = conf.write_app(
+        Path(args.out), with_change=args.with_change, accelerate=not args.no_accelerate
+    )
     print(f"rendered {app_dir}")
     return 0
 
@@ -94,11 +98,14 @@ def _acceleration_state(svc: rest.SplunkREST) -> dict:
 def cmd_apply(args: argparse.Namespace) -> int:
     root = Path(args.app_root)
     app_dir = root / plan.APP_NAME
-    conf.write_app(root, with_change=args.with_change)
+    accelerate = args.accelerate or args.with_change
+    svc = rest.SplunkREST(transport=_transport(args))
+    if accelerate:
+        _require_indexed_families(svc)
+    conf.write_app(root, with_change=args.with_change, accelerate=accelerate)
     actions: list[dict] = []
     if not args.dry_run:
         actions.append({"changed": True, "detail": host.install_app(app_dir, lxc_id=args.lxc_id)})
-    svc = rest.SplunkREST(transport=_transport(args))
     for app in plan.APPS_ENABLE:
         actions.append(asdict(svc.ensure_app(app, enabled=True, dry_run=args.dry_run)))
     token = os.environ.get("LAB_SPLUNK_HEC_TOKEN", "")
@@ -115,6 +122,17 @@ def cmd_apply(args: argparse.Namespace) -> int:
         _wait_for_rest(svc)
     _print({"app": str(app_dir), "dry_run": args.dry_run, "actions": actions})
     return 0
+
+
+def _require_indexed_families(svc: rest.SplunkREST) -> None:
+    """Acceleration runs after stage 2: refuse to switch it on over an empty index."""
+    empty = []
+    for spec in plan.TUNED:
+        probe = svc.search(f"| eventcount summarize=false index={spec.target_index}", earliest="0")
+        if sum(int(row.get("count") or 0) for row in probe.rows) == 0:
+            empty.append(spec.target_index)
+    if empty:
+        raise SystemExit(f"stage 3 needs stage 2 first: {empty} hold no events")
 
 
 def _wait_for_rest(svc: rest.SplunkREST, attempts: int = 60) -> None:
@@ -297,6 +315,7 @@ def build_parser() -> argparse.ArgumentParser:
     app.add_argument("--out", default=str(Path(__file__).parent / "app"))
     app.add_argument("--check", action="store_true", help="compare against the committed tree")
     app.add_argument("--with-change", action="store_true", help="include the Change model")
+    app.add_argument("--no-accelerate", action="store_true", help="omit datamodels.conf")
     app.set_defaults(func=cmd_app)
 
     pre = sub.add_parser("preflight", help="read-only inventory of the live instance")
@@ -306,13 +325,18 @@ def build_parser() -> argparse.ArgumentParser:
     apply_ = sub.add_parser("apply", help="stage 1: app + TAs + indexes + HEC allowlist + restart")
     apply_.add_argument("--app-root", default=str(DEFAULT_APP_ROOT))
     apply_.add_argument("--with-change", action="store_true")
+    apply_.add_argument("--accelerate", action="store_true", help="stage 3: switch acceleration on")
     apply_.add_argument("--dry-run", action="store_true")
     apply_.add_argument("--no-restart", action="store_true")
     apply_.add_argument("--lxc-id", default=host.DEFAULT_LXC)
     apply_.add_argument("--container", default=host.DEFAULT_CONTAINER)
     apply_.add_argument("--offline", action="store_true")
     apply_.set_defaults(func=cmd_apply)
+    _stage_parsers(sub)
+    return parser
 
+
+def _stage_parsers(sub) -> None:
     plan_cmd = sub.add_parser("plan", help="stage 2 dry-run: the per-input routing plan")
     plan_cmd.add_argument("--index", required=True)
     plan_cmd.add_argument("--keep-metrics", action="store_true")
@@ -344,7 +368,6 @@ def build_parser() -> argparse.ArgumentParser:
     rollback.add_argument("--lxc-id", default=host.DEFAULT_LXC)
     rollback.add_argument("--container", default=host.DEFAULT_CONTAINER)
     rollback.set_defaults(func=cmd_rollback)
-    return parser
 
 
 def main(argv: list[str] | None = None) -> int:
