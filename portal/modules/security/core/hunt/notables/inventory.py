@@ -1019,11 +1019,14 @@ def _role_vectors(records: Sequence[Mapping[str, Any]]) -> dict[str, frozenset[t
 def _flow_steps(
     records: Sequence[Mapping[str, Any]],
 ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, str]]:
-    """Steps per casefolded value, with the label each value was written as."""
+    """Steps per casefolded value, with the label each value was written as.
+
+    A capped list proves presence, never absence: its values may carry a flow.
+    """
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     labels: dict[str, str] = {}
     for record in records:
-        if record.get("status") != "complete":
+        if record.get("status") not in ("complete", "capped"):
             continue
         part = record.get("part")
         for item in record.get("values") or ():
@@ -1050,8 +1053,8 @@ def _flow_steps(
 
 
 def _flow_digest(step: Mapping[str, Any]) -> str:
-    """A step's own aggregate: two sources reporting the same one carry the same events."""
-    raw = (step.get("field"), step.get("events"), step.get("first_seen"), step.get("last_seen"))
+    """A step's own span: two sources reporting the same one saw the same raw events."""
+    raw = (step.get("first_seen"), step.get("last_seen"))
     return hashlib.sha1(str(raw).encode()).hexdigest()[:16]
 
 
@@ -1061,13 +1064,19 @@ def _flow_pair(
     """(later, reason): the first other source that is neither a duplicate nor the same shape."""
     ingress = ordered[0]
     digest = _flow_digest(ingress)
+    start = _number(ingress.get("first_seen"))
     others = [step for step in ordered[1:] if step["source_id"] != ingress["source_id"]]
+    if not others:
+        return None, "single_source"
     distinct = [step for step in others if _flow_digest(step) != digest]
     if not distinct:
         return None, "duplicate"
+    ordered_ok = [step for step in distinct if _number(step.get("first_seen")) > start]
+    if not ordered_ok:
+        return None, "order"
     different = [
         step
-        for step in distinct
+        for step in ordered_ok
         if vectors.get(str(step["card_id"])) != vectors.get(str(ingress["card_id"]))
     ]
     if not different:
@@ -1141,7 +1150,12 @@ def _flows(
     flows: list[dict[str, Any]] = []
     skips: dict[str, int] = defaultdict(int)
     budget = [FLOW_MAX_PROBES]
-    for key, steps in grouped.items():
+    # the rarest value first: the flow budget is spent on traverses, never on ambient volume
+    order = sorted(
+        grouped, key=lambda key: (sum(_number(step.get("events")) for step in grouped[key]), key)
+    )
+    for key in order:
+        steps = grouped[key]
         value = labels[key]
         sources = {str(step["source_id"]) for step in steps}
         if not _entity_token(value):
