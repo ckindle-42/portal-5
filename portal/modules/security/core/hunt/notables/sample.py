@@ -842,7 +842,10 @@ def _file_reads(
         (
             start,
             end,
-            _file_head(_window_events(executor, facts, item.path, start, end, cache), per_read),
+            _file_head(
+                _window_events(executor, facts, item.path, start, end, cache),
+                per_window if own else per_read,
+            ),
         )
         for start, end in bounds
     ]

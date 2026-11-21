@@ -438,7 +438,7 @@ def test_a_file_is_never_read_with_a_host_it_is_not_on():
 
 
 def test_a_files_head_reflects_the_windows_density_not_its_source_share():
-    stamped = [2900.0 + number * 0.1 for number in range(800)]
+    stamped = [2500.0 + number * 0.1 for number in range(2_600)]
     facts = SourceFacts(
         "ix",
         "st",
@@ -450,17 +450,19 @@ def test_a_files_head_reflects_the_windows_density_not_its_source_share():
         ("/a", "/huge"),
         2,
         files=(
-            IndexFile("/a", 800, ("h1",), 0.0, 3000.0),
-            IndexFile("/huge", 999_200, ("h1",), 0.0, 3000.0),
+            IndexFile("/a", 6_000, ("h1",), 0.0, 3000.0),
+            IndexFile("/huge", 994_000, ("h1",), 0.0, 3000.0),
         ),
     )
     executor = _DensityExecutor(_rows_of("/a", "h1", stamped))
-    read = read_files(executor, facts, window_bounds(0.0, 3000.0, 2), per_window=2_500, kind="x")
+    read = read_files(
+        executor, facts, window_bounds(0.0, 3000.0, 2), per_window=2_500, kind="x", sub_windows=2
+    )
 
     heads = [cap for query, _start, _end, cap in executor.row_reads() if 'source="/a"' in query]
-    assert max(head or 0 for head in heads) == 800  # its own window's count, not 800/1,000,000
+    assert max(head or 0 for head in heads) == 2_500  # the window's own count, not a 0.6% share
     rows = sum(item.rows for item in read.files if item.path == "/a")
-    assert rows == 800 >= min(800, 2_500)
+    assert rows == 2_500 >= min(6_000, 2_500)
 
 
 def test_the_last_slice_of_a_file_is_always_planned():
