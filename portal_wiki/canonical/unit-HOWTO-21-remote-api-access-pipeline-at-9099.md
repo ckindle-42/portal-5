@@ -30,6 +30,8 @@ tags:
   embedder (EmbeddingGemma 2); raw passthrough, bounded batch/input, typed errors
 - `POST /v1/messages` — Anthropic-compatible message passthrough
 - `GET /v1/backends` — registry health
+- `GET /v1/tools` — `list_registered_tools`, the tool names the registry currently serves
+  (read-only, no refresh: an MCP that failed discovery is absent while config still names it)
 - `GET /health` — liveness, plus `build_sha` / `build_dirty`: the commit the running image was built
   from and how many uncommitted changes under `portal/` it included (0 is clean, -1 unknown)
 - `POST /ollama/api/chat`, `/generate`, `/embed` — authenticated, native Ollama requests; inference calls pass through the host-memory guard

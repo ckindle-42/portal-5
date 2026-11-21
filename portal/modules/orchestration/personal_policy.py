@@ -15,8 +15,9 @@ FAST_WORKSPACE = "auto-daily::fast"
 CODE_WORKSPACE = "auto-coding"
 HOP_CAP = 8
 HELD_TEXT = "held: operator must run launch.sh"
-# The local seat loses tool-selection accuracy past this many schemas.
-MAX_ROUTE_TOOLS = 18
+# The local seat loses tool-selection accuracy past this many schemas: room for the
+# always-offered core (12) plus the largest domain bundle (documents, 7).
+MAX_ROUTE_TOOLS = 19
 
 # Read-only git tools run without a confirm; every other git_ tool (commit,
 # push, ...) waits for one.
@@ -68,7 +69,7 @@ CONFIRM_TOOLS = CODE_TOOLS | frozenset(
 )
 CONFIRM_TOOL_PREFIXES = ("unifi_", "browser_")
 
-# The always-offered read bundle (11 tools). ``read_local_file`` joins it in slice S2.
+# The always-offered read bundle (12 tools). ``read_local_file`` is S2's host-file read.
 CORE_TOOLS = frozenset(
     {
         "workspace_files",
@@ -82,6 +83,7 @@ CORE_TOOLS = frozenset(
         "get_pipeline_status",
         "get_loaded_models",
         "recall",
+        "read_local_file",
     }
 )
 DOCUMENT_TOOLS = frozenset(

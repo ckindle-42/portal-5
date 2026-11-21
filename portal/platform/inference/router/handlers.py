@@ -644,6 +644,27 @@ async def list_models(authorization: str | None = Header(None)) -> dict[str, Any
     return {"object": "list", "data": models}
 
 
+async def list_registered_tools(authorization: str | None = Header(None)) -> dict[str, Any]:
+    """GET /v1/tools — the tool names the registry currently serves, without refreshing it.
+
+    A client that scopes its own tool offer (the personal lane's pre-flight) needs to know
+    which tools the Pipeline actually registered, not which disk config lists: an MCP that
+    failed discovery is absent here while ``config/portal.yaml`` still names its tools.
+
+    Authenticated because the roster reveals operational config.
+
+    Returns:
+        ``{"object": "list", "data": [name, ...]}``.
+
+    Raises:
+        HTTPException: 401 on bad auth.
+    """
+    _verify_key(authorization)
+    from portal.platform.inference.tool_registry import tool_registry
+
+    return {"object": "list", "data": tool_registry.list_tool_names()}
+
+
 async def list_backends_endpoint(authorization: str | None = Header(None)) -> dict[str, Any]:
     """GET /v1/backends — diagnostic view of every registered backend.
 
