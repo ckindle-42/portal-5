@@ -814,8 +814,9 @@ def test_the_read_plan_never_exceeds_the_remaining_request_budget():
 
     read, _executor = _planned_read(40)
     assert 0 < issued[40] < issued[200]
+    # the plan is priced probe-plus-read: 40 requests pay for 20 windows, the top five files
     assert {item.path for item in read.files if not item.reason} == {
-        item.path for item in _budget_facts().files[:10]
+        item.path for item in _budget_facts().files[:5]
     }
 
 
@@ -828,7 +829,7 @@ def test_a_window_dropped_by_the_planner_is_declared():
     read = read_behaviour_source(executor, facts, per_window=100)
 
     dropped = [item for item in read.files if item.reason]
-    assert {item.path for item in dropped} == {item.path for item in facts.files[10:]}
+    assert {item.path for item in dropped} == {item.path for item in facts.files[5:]}
     assert {item.reason for item in dropped} == {"request_budget_exhausted"}
     assert len(executor.skipped) == len(dropped)
     assert all(reason == "request_budget_exhausted" for _query, reason in executor.skipped)
