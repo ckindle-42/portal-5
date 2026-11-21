@@ -16,8 +16,8 @@ become events. On the tuned index the family's dominant sourcetype (`access_comb
 its card template basis (two templates mined from a 120-line sample of the merged source) does
 not cover the graded dirb/webshell line shape, so the 2,500 rows the localiser correctly read
 from the attack window never reach the events table — 0 events in 20:19–21:13, all 2,500
-classified out of structure. The
-consequences are measured in S3 (0/12 cases at top 50 against 3/12 in the control) and S6
+classified out of structure. The consequences are measured in S3 (0/12 cases at top 50 against
+3/12 in the control) and S6
 (the localisation win never reaches a store). S1 (enumeration on the dominant source) and S7
 (the per-notable judge's ordering) are secondary failures. S0's instrument works: the control
 reproduces the plan's §3 baseline exactly, and the `_v2` label fix is proven on this family.
@@ -108,10 +108,10 @@ with 230k and 247k rows read respectively.
   contributes exactly one list, `template`, and it is `empty`; the actor slot (`v1`) and the
   object slots (`v2…v6`) are never enumerated.
 - 16 of 32 selected fields report `empty`, a status outside the plan's
-  `complete|capped|unavailable:<mechanism>|unavailable:<name>` vocabulary; 3 of them are
-  `program` and 1 `template` on template-mined sources, 2 are slot names (`v3`, `v4`) that do
-  not exist there. In the control, all six `eve.json` `src_ip`/`event_type` lists are `empty`
-  after scanning 1,034,760 events, while a live `stats … by src_ip` on the same
+  `complete|capped|unavailable:<mechanism>|unavailable:<name>` vocabulary; 4 are `program` and
+  10 are `template` on template-mined sources, 2 are slot names (`v3`, `v4`) that do not exist
+  there. In the control, all eight `eve.json` `src_ip`/`event_type`/`alert.action` lists are
+  `empty` after scanning 1,034,760 events, while a live `stats … by src_ip` on the same
   index/sourcetype returns rows — a demonstrable unavailable-reported-as-empty.
 - What does work: the Tier-A JSON mechanism. On the tuned index the `suricata` partitions give
   16 complete `src_ip`/`event_type`/`tls.sni`/`dns.rrname` lists via `tstats` (4,515 values in
@@ -125,9 +125,10 @@ with 230k and 247k rows read respectively.
   (control 52,783, 14,383.2 s), and the receipt reports episodes and read fraction per source.
 - The acceptance fails at the input. The v2 events store contains **0** of the 406,402 graded
   lines in `/apache2/intranet.company.cyberrange.at-access.log.4` (the control contains 554),
-  so `attacker_http`, `dirb`, `foothold`, `webshell_upload`, `webshell_cmd` and `reverse_shell`
-  have no episode: `attacker_http`, `dirb` and `webshell_upload`/`cmd` are not even reachable
-  in the v2 score, while all three loud steps sit at rank 1 in the control.
+  so `attacker_http`, `dirb`, `webshell_upload`, `webshell_cmd` and `reverse_shell` have no
+  episode from it (`foothold` keeps episodes only from the OpenVPN lines, which is why it stays
+  reachable). `attacker_http`/`dirb`/`webshell_upload`/`cmd` are not reachable in the v2 score,
+  while all three loud steps sit at rank 1 in the control.
 - The mechanism, measured:
 
   1. The localiser **did** select the attack buckets. Live replay of its own query
@@ -227,7 +228,7 @@ checked before the fold table is used to seat weights.
   and S1 Tier B are outside this family's acceptance.
 - The S5 51–100 marginal rule has no instance on kyoushi.
 - The plan's §5 Step 4 held-out proof is untouched (no held-out index was read).
-- The `_v2` index was not re-shipped for the `c_host`/`vhost` fix during this dispatch; the
+- The `_v2` index was not re-shipped for the `c_ip`/`vhost` fix during this dispatch; the
   scores are on the index as built at 00:22.
 
 ## 5. OPEN / RISK (for the reviewer)
