@@ -121,12 +121,16 @@ class _Executor:
         match = re.search(r'sourcetype="([^"]+)"', query)
         return match.group(1) if match else ""
 
-    def _value_key(self, query: str) -> str:
-        group = query.rsplit(" by ", 1)[1].strip()
-        tail = query.split('sourcetype="', 1)[-1].split(" | stats", 1)[0]
-        part = re.search(r' \w+="([^"]+)"', tail)
-        suffix = f"|{part.group(1)}" if part else ""
-        return f"{self._name(query)}|{group}{suffix}"
+    @staticmethod
+    def _value_key(query: str) -> str:
+        route, _sep, by = query.partition(" by ")
+        part = re.search(r' \w+="([^"]+)"', route.split('sourcetype="', 1)[-1])
+        rare = "|rare" if " sort 0 count " in query else ""
+        return (
+            f"{_Executor._name(query)}|{by.split(' | ', 1)[0].strip()}"
+            + (f"|{part.group(1)}" if part else "")
+            + rare
+        )
 
     def read(
         self,
@@ -144,12 +148,12 @@ class _Executor:
         if query.startswith("| rest /services/admin/summarization"):
             return Read([dict(row) for row in self.accelerated])
         if query.startswith("| tstats summariesonly=true"):
-            field = query.rsplit(" by ", 1)[1].strip()
+            field = query.rsplit(" by ", 1)[1].split(" | ", 1)[0].strip()
             return Read(list(self.model_rows.get(field, [])))
         name = self._name(query)
         if query.startswith("| tstats count where "):
             if " by " in query:
-                field = query.rsplit(" by ", 1)[1].strip()
+                field = query.split(" by ", 1)[1].strip()
                 return Read([{"count": "1"}] if field in self.indexed else [])
             if self.tstats_names is None:
                 return Read([{"count": "100"}])
@@ -273,7 +277,7 @@ def test_collect_inventory_stores_values_and_records_the_stats_route() -> None:
     assert joint["status"] == "complete"
     assert joint["mechanism"] == "stats"
     assert joint["rows"][0]["first_seen"] == 1616400000.0
-    assert any(query.endswith("by uid, type") for query in executor.queries)
+    assert any(" by uid, type " in query for query in executor.queries)
 
 
 def test_a_field_list_joint_is_not_another_search() -> None:
@@ -293,15 +297,28 @@ def test_a_field_list_joint_is_not_another_search() -> None:
     assert document["joints"][0]["fields"] == [{"role": "actor", "field": "uid"}]
 
 
-def test_capped_field_is_not_a_value_list() -> None:
+def test_a_capped_field_keeps_the_volume_ends_and_its_share() -> None:
+    rows = [_row(str(index), count=index + 1) for index in range(INVENTORY_MAX_VALUES + 1)]
     executor = _Executor(
-        {"audit.log|uid": [_row(str(index)) for index in range(INVENTORY_MAX_VALUES + 1)]}
+        {
+            "audit.log|uid": rows,
+            "audit.log|uid|rare": [
+                _row("rare-a", count=1, first=7, last=8),
+                _row("rare-b", count=1, first=9, last=9),
+                _row("rare-c", count=2, first=11, last=12),
+            ],
+        }
     )
+
     document = collect_inventory(executor, [_audit_card()], "hb_kyoushi_s1", 0.0, 10.0)
     uid = next(item for item in document["fields"] if item["field"] == "uid")
 
     assert uid["status"] == "capped"
-    assert uid["values"] == []
+    assert len(uid["values"]) == INVENTORY_MAX_VALUES
+    kept = {item["value"]: item for item in uid["values"]}
+    assert {"rare-a", "rare-b", "rare-c"} <= set(kept)
+    assert kept["rare-a"]["first_seen"] == 7.0
+    assert uid["capped_share"] == round(INVENTORY_MAX_VALUES / (INVENTORY_MAX_VALUES + 1), 6)
 
 
 def test_tstats_without_a_value_column_is_unavailable_not_empty() -> None:
