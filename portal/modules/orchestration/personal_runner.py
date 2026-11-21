@@ -1026,7 +1026,13 @@ def _execute_route(
         sorted(route.tools),
         checkin,
     )
-    reason = acceptance_failure(content, called, outputs, request=task.text)
+    reason = acceptance_failure(
+        content,
+        called,
+        outputs,
+        hops=hops,
+        requires_tools=bool(route.tools),
+    )
     if reason is not None:
         raise AcceptanceError(reason)
     _finish(

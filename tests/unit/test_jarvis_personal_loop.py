@@ -385,45 +385,55 @@ def test_a_confirmed_template_row_hands_to_arm_and_rejects_external_path(
         assert len(ledger.items()) == 1, "the external path queued nothing"
 
 
-# ── J9 acceptance check ────────────────────────────────────────────────────────
+# ── J9 acceptance check: structural, no task-specific regexes ─────────────────
 
 
-def test_acceptance_check_flags_the_three_real_failures() -> None:
+def test_acceptance_rejects_only_an_unrecovered_tool_error() -> None:
     from portal.modules.orchestration.personal_policy import acceptance_failure
 
-    assert acceptance_failure("Two jobs queued.", ["queue_status"], []) is None
-    assert acceptance_failure("   ", [], []) is not None
-    tool_error = acceptance_failure(
-        "Done.", ["queue_status"], ['{"error": "Tool \'x\' in backoff"}']
+    failed = ['{"error": "Tool \'x\' in backoff"}']
+    assert "tool error" in str(acceptance_failure("Done.", ["queue_status"], failed))
+    recovered = [*failed, '{"counts": {}}']
+    assert acceptance_failure("Done.", ["queue_status"], recovered, hops=2) is None
+
+
+def test_acceptance_rejects_a_zero_hop_answer_to_a_data_request(tmp_path: Path) -> None:
+    telegram_do_reply(tmp_path, 1, "what is the Portal pipeline status")
+    caller = _Caller([Completion("The pipeline is healthy; one model loaded.", (), 0)])
+    result = poll_personal_tasks(tmp_path, _Notices(), caller)
+    assert result is not None and result.status == "retrying"
+    receipt = json.loads(next(tmp_path.glob("*/attempts/local-1/receipt.json")).read_text())
+    assert receipt["error"] == "acceptance: data request answered without a tool call"
+
+
+def test_acceptance_requires_a_created_document_to_report_its_path() -> None:
+    from portal.modules.orchestration.personal_policy import acceptance_failure
+
+    called = ["create_word_document"]
+    silent = ['{"message": "created"}']
+    assert "no path" in str(
+        acceptance_failure("Done.", called, silent, hops=1, requires_tools=True)
     )
-    assert tool_error is not None and "tool error" in tool_error
-    clean_output = acceptance_failure("Ok.", ["queue_status"], ['{"counts": {}}'])
-    assert clean_output is None
-    word = (
-        "write a one-page Word document summarising tonight's security sweep: "
-        "MAL count, critical count, and what is still open"
+    other_tool = ["read_word_document", "create_word_document"]
+    read_only = ['{"filename": "old.docx"}', '{"message": "created"}']
+    assert "no path" in str(acceptance_failure("Done.", other_tool, read_only, hops=2))
+    assert acceptance_failure("Created.", called, ['{"path": "/w/s.docx"}'], hops=1) is None
+    placeholder = acceptance_failure(
+        "[Insert MAL Count]", called, ['{"path": "/w/s.docx"}'], hops=1
     )
-    fabricated = acceptance_failure(
-        "I cannot fulfill the request. MAL Count: [Insert MAL Count]",
-        ["workspace_files"],
-        ['{"files": []}'],
-        request=word,
+    assert placeholder == "acceptance: answer is not a completed result"
+
+
+def test_arbitrary_task_classes_pass_the_structural_gate() -> None:
+    from portal.modules.orchestration.personal_policy import acceptance_failure
+
+    cases = (
+        ("| a | 1 |", ["create_excel"], ['{"path": "/w/s.xlsx"}']),
+        ("Two pages read.", ["read_pdf"], ['{"pages": 2}']),
+        ("The AP is up.", ["unifi_list_devices"], ['{"devices": []}']),
     )
-    assert fabricated == "acceptance: word document was not created"
-    review = acceptance_failure(
-        "The file does not exist in the workspace.",
-        ["workspace_files"],
-        ['{"files": [{"path": "generated/music/a.wav", "size": 1}]}'],
-        request="review scripts/engine_install_plan.py and report every code path",
-    )
-    assert review is not None and "scripts/engine_install_plan.py" in review
-    omitted = acceptance_failure(
-        "music_a.wav is 5760078 bytes",
-        ["workspace_files"],
-        ['{"files": [{"path": "generated/tasks/a.db", "size": 159576064}]}'],
-        request="List the three largest files in /workspace/generated and report their sizes.",
-    )
-    assert omitted is not None and "largest file size" in omitted
+    for content, called, outputs in cases:
+        assert acceptance_failure(content, called, outputs, hops=1, requires_tools=True) is None
 
 
 def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
@@ -475,26 +485,6 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
     assert len(receipt["local_attempts"]) == 2
     brief = Path(str(dispatcher.calls[0]["brief"]))
     assert "acceptance: empty final answer" in brief.read_text(encoding="utf-8")
-
-
-def test_a_dispatched_tool_error_is_a_retryable_failure(tmp_path: Path) -> None:
-    """J9: a tool that answered with an error object is a failed attempt."""
-    telegram_do_reply(tmp_path, 1, "summarize the git state of the repository")
-    caller = _Caller(
-        [
-            Completion(
-                "I could not read the repository.",
-                (),
-                1,
-                ("git_status",),
-                ('{"error": "Tool \'git_status\' not in registry — call ignored"}',),
-            )
-        ]
-    )
-    result = poll_personal_tasks(tmp_path, _Notices(), caller)
-    assert result is not None and result.status == "retrying"
-    receipt = json.loads(next(tmp_path.glob("*/receipt.json")).read_text(encoding="utf-8"))
-    assert "acceptance: tool error" in receipt["error"]
 
 
 def test_the_core_bundle_is_the_documented_read_set() -> None:

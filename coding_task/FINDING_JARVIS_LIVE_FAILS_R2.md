@@ -6,6 +6,11 @@ Five live Telegram tasks on the arm runner at `69f9bf0ad` (includes the merged
 This file records the root cause of each failure, the fix, and what the operator must do
 to make it land live. No live-stack action was taken from this lane (worker contract §0).
 
+> **Superseded in part (slice S4):** the task-specific regexes this finding added —
+> `_REPO_FILE`/`_repo_file_read`, `_WORD_DOC_REQUEST`, `_LARGEST_REQUEST` — were removed in
+> favour of a structural acceptance gate. See
+> `coding_task/FINDING_JARVIS_S4_STRUCTURAL_GATE.md`. The repo-read tools added here remain.
+
 ## 1. `pt-46b3e7c492af` — a repo path answered "does not exist in the workspace", accepted as done
 
 **Root cause (two defects).**

@@ -22,7 +22,6 @@ from portal.modules.orchestration.personal_policy import (
     CONFIRM_TOOLS,
     CORE_TOOLS,
     READ_TOOLS,
-    acceptance_failure,
     route_personal_task,
 )
 from portal.modules.orchestration.personal_runner import (
@@ -78,94 +77,6 @@ REVIEW_REQUEST = (
     "review scripts/engine_install_plan.py and report every code path that "
     "can downgrade a package, with line numbers"
 )
-_EMPTY_LISTING = {
-    "root": f"{_HOME}AI_Output",
-    "path": "scripts/engine_install_plan.py",
-    "count": 0,
-    "scanned": 0,
-    "truncated": False,
-    "files": [],
-}
-
-
-def test_a_workspace_listing_that_echoes_the_path_does_not_ground_it() -> None:
-    """pt-46b3e7c492af: the tool result echoed the request path, so the guard passed."""
-    reason = acceptance_failure(
-        "The file `scripts/engine_install_plan.py` does not exist in the workspace.",
-        ["workspace_files", "workspace_files"],
-        [json.dumps(_EMPTY_LISTING), json.dumps(_EMPTY_LISTING)],
-        request=REVIEW_REQUEST,
-    )
-    assert reason is not None
-    assert "repository file not in tool results: scripts/engine_install_plan.py" in reason
-
-
-def test_a_repository_read_grounds_the_answer() -> None:
-    read = {
-        "content": "12\tif version < pinned:\n13\t    downgrade(version)",
-        "path": f"{_HOME}projects/portal-5/scripts/engine_install_plan.py",
-        "lines": 2,
-    }
-    assert (
-        acceptance_failure(
-            "Line 13 downgrades when version < pinned.",
-            ["read_text_file"],
-            [json.dumps(read)],
-            request=REVIEW_REQUEST,
-        )
-        is None
-    )
-
-
-def test_a_failed_repository_read_is_not_grounding() -> None:
-    missing = {"error": "file not found: scripts/engine_install_plan.py"}
-    reason = acceptance_failure(
-        "That file does not exist.",
-        ["read_text_file"],
-        [json.dumps(missing)],
-        request=REVIEW_REQUEST,
-    )
-    # The tool error is the reason a failed read never counts as an answer.
-    assert reason is not None and "tool error" in reason
-
-
-def test_a_search_hit_grounds_the_file_it_names() -> None:
-    hits = {"matches": ["scripts/engine_install_plan.py:41: downgrade(path)"], "truncated": False}
-    assert (
-        acceptance_failure(
-            "Line 41 downgrades the package.",
-            ["search_files"],
-            [json.dumps(hits)],
-            request=REVIEW_REQUEST,
-        )
-        is None
-    )
-
-
-def test_the_live_code_review_task_is_no_longer_accepted_as_done(tmp_path: Path) -> None:
-    """The receipt's own plan, tools and answer, replayed: it must retry, not finish done."""
-    tasks = tmp_path / "tasks"
-    reply = telegram_do_reply(tasks, 1, REVIEW_REQUEST)
-    task_id = reply.removeprefix("queued ")
-    caller = _Caller(
-        [
-            Completion("", (_tool_call("workspace_files", {"path": "scripts"}),), 0),
-            Completion(
-                "The file `scripts/engine_install_plan.py` does not exist in the workspace.",
-                (),
-                0,
-            ),
-        ]
-    )
-    run = poll_personal_tasks(tasks, _Notices(), caller)
-
-    assert run is not None and run.status == "retrying"
-    receipt = _receipt(tasks, task_id)
-    assert receipt["status"] == "retrying"
-    attempt = json.loads(
-        (tasks / task_id / "attempts" / "local-1" / "receipt.json").read_text(encoding="utf-8")
-    )
-    assert "repository file not in tool results" in str(attempt["error"])
 
 
 def test_the_personal_lane_can_read_the_repository() -> None:
