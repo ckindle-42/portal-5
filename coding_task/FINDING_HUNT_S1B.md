@@ -2,7 +2,7 @@
 
 Lane `lane/hunt-s1b`, base `475e994f1` (main at dispatch). Work is on top of Tier A
 (`745475db3`). Files: `notables/inventory.py`, the inventory print in `notables/__main__.py`,
-`tests/unit/test_hunt_inventory.py`; +120 test lines, 0 removed.
+`tests/unit/test_hunt_inventory.py`; +87 test lines, 0 removed.
 
 ## What Tier B is
 
@@ -15,11 +15,11 @@ Tier A already probes the name and the field and picks `tstats` vs `stats`. What
    absent from the tsidx fell straight to a full `stats` scan — 72.8 s on the named source, or
    `unavailable:mechanism` above the 2 M-event budget. The documented stage-3 output
    (`| tstats summariesonly=true … from datamodel=…`) was unused.
-2. **The wide source could be starved at selection.** 32 selected (source, field) pairs were
-   chosen by a global `(role, cost, distinct)` sort, so 8 cheap lists from four narrow cards
-   could spend the whole budget and a wide card's list never ran.
-3. **A partition predicate was part of the name probe.** `tstats count where … <part>=<value>`
+2. **A partition predicate was part of the name probe.** `tstats count where … <part>=<value>`
    is a read filter; a source's name is not defined by its partition.
+3. **A joint could scan a wide source.** `_enumerate_joints` had no events-budget guard, so two
+   complete lists on a wide card could trigger a full `stats` scan after the field lists had
+   correctly refused it.
 
 ## What changed
 
@@ -37,12 +37,14 @@ Tier A already probes the name and the field and picks `tstats` vs `stats`. What
   a non-summary read) and `searched_window` (`[start, end]` of the query), as
   `SPLUNK_REALISM_AND_SETUP.md` §6 rule 4 requires. The document carries `accelerated` (models +
   windows) and `model_probes`; the stage print shows both.
-- **Selection.** The 32-pair budget takes every source's best list before any source's second
-  (round-robin over the per-source ranking, which is still role-first then smallest). A wide
-  source can no longer be crowded out by narrow cards.
 - **Name probe** no longer carries a partition predicate.
 - **Joint guard.** A joint that would be a `stats` scan above the 2 M-event budget is now
   `unavailable:mechanism` (`reason: events_budget`) instead of an unbounded scan.
+- **Field selection is unchanged.** The plan's budget policy is "role first, then smallest
+  list"; widening or round-robining it would change the list set on the scored botsv2 run.
+  Where the 32-search budget leaves a wide source's list out, that is visible in
+  `inventory.json` (`fields_selected`, `lists`) and is a follow-up decision, not silently
+  worked around.
 
 ## Acceptance → proof
 

@@ -200,12 +200,8 @@ def _candidates(card: SourceCard) -> list[tuple[str, str, FieldStat]]:
 
 
 def select_fields(cards: Sequence[SourceCard]) -> list[FieldChoice]:
-    """Role first then smallest list within a source; every source's best list before any second.
-
-    The round-robin is what lets a wide source be enumerated at all: a global "smallest list
-    wins" cut spends the whole budget on narrow cards and a wide card's list never runs.
-    """
-    ranked_cards: list[list[FieldChoice]] = []
+    """Role first, then smallest list, with affordable sources ahead of oversized ones."""
+    chosen: list[FieldChoice] = []
     for card in cards:
         if not card.understood:
             continue
@@ -214,35 +210,19 @@ def select_fields(cards: Sequence[SourceCard]) -> list[FieldChoice]:
             _candidates(card),
             key=lambda item: (_ROLE_ORDER[item[0]], over_budget, item[2].distinct, item[1]),
         )[:INVENTORY_FIELDS_PER_SOURCE]
-        if ranked:
-            ranked_cards.append(
-                [
-                    FieldChoice(
-                        card.source_id,
-                        card.card_id,
-                        card.sourcetype,
-                        name,
-                        role,
-                        stat.distinct,
-                        card.part_field,
-                        card.part_value,
-                    )
-                    for role, name, stat in ranked
-                ]
+        chosen.extend(
+            FieldChoice(
+                card.source_id,
+                card.card_id,
+                card.sourcetype,
+                name,
+                role,
+                stat.distinct,
+                card.part_field,
+                card.part_value,
             )
-    chosen: list[FieldChoice] = []
-    depth = 0
-    while len(chosen) < INVENTORY_MAX_FIELD_SEARCHES:
-        added = False
-        for group in ranked_cards:
-            if len(chosen) >= INVENTORY_MAX_FIELD_SEARCHES:
-                break
-            if depth < len(group):
-                chosen.append(group[depth])
-                added = True
-        if not added:
-            break
-        depth += 1
+            for role, name, stat in ranked
+        )
     ordered = sorted(
         chosen, key=lambda item: (_ROLE_ORDER[item.role], item.distinct, item.card_id, item.field)
     )

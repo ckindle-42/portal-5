@@ -11,7 +11,6 @@ import re
 from collections.abc import Iterable, Mapping
 
 from portal.modules.security.core.hunt.executor import Read
-from portal.modules.security.core.hunt.notables import inventory as inventory_module
 from portal.modules.security.core.hunt.notables.behaviours import Behaviour, MisfitShape
 from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.inventory import (
@@ -410,38 +409,6 @@ def test_a_wide_source_with_no_accelerated_model_is_unavailable_not_empty() -> N
     assert record["reason"] == "events_budget"
     assert record["values"] == []
     assert not any(" | stats " in query for query in executor.queries)
-
-
-def test_every_source_keeps_a_list_when_the_search_budget_is_short(monkeypatch) -> None:
-    monkeypatch.setattr(inventory_module, "INVENTORY_MAX_FIELD_SEARCHES", 3)
-
-    def card(name: str) -> SourceCard:
-        return SourceCard(
-            index="hb_kyoushi_s1",
-            sourcetype=name,
-            kind="activity",
-            roles={"actor": (f"{name}_a",), "action": (f"{name}_b",)},
-            understood=True,
-            reason=None,
-            fmt="kv",
-            coverage=1.0,
-            fields=(
-                _stat(f"{name}_a", 20, 1, ("a",)),
-                _stat(f"{name}_b", 20, 2, ("b", "c")),
-            ),
-            sample={"lines": 20},
-            facts={"events": 100},
-            model={},
-            cache_key=name,
-        )
-
-    chosen = select_fields([card("one"), card("two"), card("three")])
-
-    assert {item.card_id for item in chosen} == {
-        "hb_kyoushi_s1:one",
-        "hb_kyoushi_s1:two",
-        "hb_kyoushi_s1:three",
-    }
 
 
 def test_the_same_field_on_two_parts_makes_two_lists() -> None:
