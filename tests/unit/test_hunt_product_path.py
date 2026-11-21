@@ -501,3 +501,43 @@ def test_leads_view_uses_product_rerank_order_in_compact_rows(
 
     assert [lead["source"] for lead in result["leads"]] == ["source-1", "source-2"]
     assert [lead["why"] for lead in result["leads"]] == ["reason-1", "reason-2"]
+
+
+def test_progress_declares_honesty_from_the_first_stage(tmp_path: Path) -> None:
+    cards = progress_update(tmp_path, "cards", {"start": 1.0})
+    assert cards["honesty"] == {
+        "knowledge": "none loaded (similar_to_known did not run in this receipt)",
+        "merge_method": None,
+        "weights_source": None,
+        "merge_weights": {},
+    }
+    progress_update(
+        tmp_path,
+        "notables",
+        {
+            "similar_to_known": {
+                "excluded_family": "santos",
+                "loaded_families": ["kyoushi"],
+                "knowledge_items": 12,
+                "embedding_model": "unit-embed",
+                "reliability": {"auc": 0.443},
+            },
+            "merge": {
+                "method": "weighted",
+                "weights_source": "default",
+                "weights": {"deviation": 26},
+            },
+        },
+    )
+    stored = json.loads((tmp_path / "progress.json").read_text())
+    assert stored["honesty"] == {
+        "knowledge": "loaded",
+        "families": ["kyoushi"],
+        "excluded_family": "santos",
+        "knowledge_items": 12,
+        "embedding_model": "unit-embed",
+        "reliability_auc": 0.443,
+        "merge_method": "weighted",
+        "weights_source": "default",
+        "merge_weights": {"deviation": 26},
+    }
