@@ -777,3 +777,165 @@ def test_run_phases_restricts_the_cells(tmp_path, monkeypatch):
     assert [path.name for path in ctx.out_dir.glob("b[123]_*.json")] == [
         "b3_auto-coding__heavy.json"
     ]
+
+
+def _cold_payload(route: str = "bench-autodaily-qwen35-9b;omlx-general;model-a") -> dict:
+    return {
+        "route": route,
+        "timings": {"ttft_s": 1.2, "total_s": 2.0, "answer_tps": 50.0},
+        "usage": {"model_load_duration": 3.5, "completion_tokens": 40},
+        "load_duration_ns": None,
+        "response_model": "bench-autodaily-qwen35-9b",
+        "first_content_s": 1.3,
+    }
+
+
+def test_cold_cell_evicts_the_resolved_model_then_records_the_first_request(tmp_path):
+    http = (
+        FakeHttp()
+        .on("/api/ps", OLLAMA_PS_EMPTY)
+        .on("/v1/models/status", OMLX_STATUS_EMPTY)
+        .on("/admin/api/models/", {})
+    )
+    calls: list[str] = []
+    ctx = _ctx(
+        tmp_path,
+        http,
+        resolve=lambda _seat: ("omlx-general", "omlx", "model-a"),
+        cold=lambda _ctx, seat: calls.append(seat) or _cold_payload(),
+        cold_trials=1,
+    )
+
+    cell = speed_gate.run_cold_cell(ctx, "bench-autodaily-qwen35-9b")
+
+    assert cell["status"] == "ok"
+    trial = cell["instrument"]["trials"][0]
+    assert trial["engine"] == "omlx"
+    assert (trial["load_seconds"], trial["ttft_s"], trial["decode_tps"]) == (3.5, 1.2, 50.0)
+    assert calls == ["bench-autodaily-qwen35-9b"]
+    assert any("/admin/api/models/model-a/unload" in url for url in http.urls())
+
+
+def test_cold_cell_is_invalid_when_eviction_leaves_the_model_resident(tmp_path):
+    http = (
+        FakeHttp()
+        .on("/api/ps", OLLAMA_PS_EMPTY)
+        .on("/v1/models/status", OMLX_STATUS_TARGET)
+        .on("/admin/api/models/", {})
+    )
+    ctx = _ctx(
+        tmp_path,
+        http,
+        resolve=lambda _seat: ("omlx-general", "omlx", "model-a"),
+        cold=lambda _ctx, _seat: pytest.fail("must not time a resident model"),
+    )
+
+    cell = speed_gate.run_cold_cell(ctx, "bench-autodaily-qwen35-9b")
+
+    assert cell["status"] == "invalid_setup"
+    assert cell["instrument"]["trials"] == []
+    assert "still resident" in cell["problems"][0]["detail"]
+
+
+def _cold_cell(seat: str, ttft: float, status: str = "ok") -> dict:
+    return {
+        "phase": "C1",
+        "target": seat,
+        "model": f"{seat}-model",
+        "engine": "omlx",
+        "status": status,
+        "problems": [],
+        "instrument": {"trials": [{}, {}]},
+        "median": {
+            "load_seconds": 2.0,
+            "ttft_s": ttft,
+            "first_content_s": ttft + 0.1,
+            "decode_tps": 40.0,
+        },
+    }
+
+
+def test_cold_receipts_apply_the_half_the_incumbent_bar():
+    rows = speed_gate.cold_receipts(
+        [
+            _cold_cell("bench-autodaily-gemma4-12b", 11.0),
+            _cold_cell("auto-daily", 20.0),
+            _cold_cell("bench-autodaily-qwen35-9b", 9.0),
+        ],
+        "auto-daily",
+    )
+
+    by_seat = {row["seat"]: row for row in rows}
+    assert rows[0]["seat"] == "auto-daily"
+    assert by_seat["bench-autodaily-qwen35-9b"]["cold_ttft_ratio"] == 0.45
+    assert by_seat["bench-autodaily-qwen35-9b"]["cold_speed_pass"] is True
+    assert by_seat["bench-autodaily-gemma4-12b"]["cold_speed_pass"] is False
+    table = speed_gate.format_cold_receipts(rows)
+    assert "COLD" not in table and "PASS" in table and "FAIL" in table
+
+
+def test_roster_reads_the_cold_start_screen_block():
+    backends = {
+        **BACKENDS,
+        "cold_start_screen": {"incumbent": "auto-coding", "candidates": ["auto-reasoning"]},
+    }
+
+    roster = speed_gate.build_roster(backends, PORTAL)
+
+    assert roster["cold_start"] == {"incumbent": "auto-coding", "candidates": ["auto-reasoning"]}
+
+
+def test_run_c1_writes_cells_and_the_receipts_table(tmp_path, monkeypatch):
+    backends = {
+        "backends": [
+            {
+                "group": "general",
+                "type": "omlx",
+                "models": [{"id": "model-a"}],
+                "aliases": {"gguf-a": "model-a"},
+            }
+        ],
+        "workspace_routing": {"auto-daily": ["general"], "bench-cold": ["general"]},
+        "pipeline_bench_skip": [],
+        "cold_start_screen": {"incumbent": "auto-daily", "candidates": ["bench-cold"]},
+    }
+    portal = {"workspaces": {"auto-daily": {"model_hint": "gguf-a"}}}
+    http = (
+        FakeHttp()
+        .on("/api/ps", OLLAMA_PS_EMPTY)
+        .on("/v1/models/status", OMLX_STATUS_EMPTY)
+        .on("/admin/api/models/", {})
+        .on("/admin/reclaim-idle", {})
+    )
+    ctx = _ctx(
+        tmp_path / "tag",
+        http,
+        resolve=lambda _seat: ("omlx-general", "omlx", "model-a"),
+        cold=lambda _ctx, seat: (
+            _cold_payload()
+            | {
+                "timings": {
+                    "ttft_s": 5.0 if "bench" in seat else 20.0,
+                    "total_s": 6.0,
+                    "answer_tps": 50.0,
+                }
+            }
+        ),
+        cold_trials=1,
+    )
+    ctx.out_dir = tmp_path / "speed_gate" / "cold"
+    monkeypatch.setattr(speed_gate, "load_config", lambda _dir=None: (backends, portal))
+    monkeypatch.setattr(speed_gate, "context", lambda _out, _args: ctx)
+
+    args = speed_gate._parser().parse_args(
+        ["run", "cold", "--out-dir", str(tmp_path / "speed_gate"), "--phases", "C1"]
+    )
+
+    assert speed_gate.cmd_run(args) == 0
+    run = json.loads((ctx.out_dir / "run.json").read_text())
+    assert run["cold_speed_ok"] is True
+    assert [row["seat"] for row in run["cold_receipts"]] == ["auto-daily", "bench-cold"]
+    assert sorted(path.name for path in ctx.out_dir.glob("c1_*.json")) == [
+        "c1_auto-daily.json",
+        "c1_bench-cold.json",
+    ]

@@ -3,10 +3,12 @@
 
 Usage:
     uv run python scripts/speed_gate.py run <tag> [--out-dir DIR]
+    uv run python scripts/speed_gate.py run <tag> --phases C1
     uv run python scripts/speed_gate.py compare <tag> --against <tagA>[,<tagB>]
 
 Cells: B1 direct oMLX per production-seat model, B2 workspaces through bench_tps,
-B3 variant seats through speed_bench --engine pipeline. Rosters resolve from
+B3 variant seats through speed_bench --engine pipeline, C1 cold start through the
+Pipeline per seat (evict, first request, receipts table). Rosters resolve from
 config/backends.yaml and config/portal.yaml, never from a hardcoded list.
 """
 
@@ -24,7 +26,9 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from statistics import median
 from typing import Any
+from urllib.parse import quote
 
 import yaml
 
@@ -42,7 +46,14 @@ KEYS = ("PIPELINE_API_KEY", "OMLX_API_KEY")
 #: metric -> direction (+1 higher is better, -1 lower is better)
 METRICS = {"decode_tps": 1, "prefill_tps": 1, "ttft_s": -1}
 B2_METRICS = {"avg_tps": 1, "warm_ttft_s": -1}
-PHASES = ("B1", "B2", "B3")
+DEFAULT_PHASES = ("B1", "B2", "B3")
+PHASES = (*DEFAULT_PHASES, "C1")
+COLD_PROMPT = "Reply with exactly READY."
+COLD_NUM_PREDICT = 64
+DEFAULT_COLD_TRIALS = 3
+COLD_SPEED_RATIO = 0.5
+EVICT_POLLS = 20
+EVICT_POLL_S = 0.5
 _READ_ERRORS = (OSError, ValueError, TimeoutError, urllib.error.URLError)
 
 
@@ -52,6 +63,13 @@ def _now() -> str:
 
 def _failure(exc: BaseException) -> str:
     return f"{type(exc).__name__}: {exc}"
+
+
+def _as_float(value: object) -> float | None:
+    try:
+        return None if value is None else float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
 
 
 def env_value(name: str, default: str = "") -> str:
@@ -244,16 +262,22 @@ def disabled_seats(portal: dict[str, Any]) -> list[str]:
 
 
 def build_roster(backends: dict[str, Any], portal: dict[str, Any]) -> dict[str, Any]:
-    """B1 models, B2 top-level workspaces, B3 variant seats — all derived from config."""
+    """B1 models, B2 top-level workspaces, B3 variant seats, C1 cold-start seats — all from config."""
     seats = resolve_seats(portal, backends)
     routing = backends.get("workspace_routing") or {}
     skip = {str(item) for item in backends.get("pipeline_bench_skip") or []}
     workspaces = [ws for ws in routing if ws not in skip and ws in seats]
     workspaces.sort(key=lambda ws: (routing[ws][0] if routing[ws] else "", ws))
+    screen = backends.get("cold_start_screen") or {}
+    cold_start = {
+        "incumbent": str(screen.get("incumbent") or ""),
+        "candidates": [str(item) for item in screen.get("candidates") or []],
+    }
     return {
         "b1_models": sorted(set(seats.values())),
         "b2_workspaces": workspaces,
         "b3_seats": sorted(seat for seat in seats if "::" in seat),
+        "cold_start": cold_start,
         "skipped_seats": disabled_seats(portal),
         "seats": seats,
     }
@@ -601,6 +625,331 @@ def _cell_summary(cell: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _resident_names(ctx: Ctx, engine: str) -> list[str]:
+    if engine == "ollama":
+        payload = ctx.http.json(f"{ctx.ollama_url}/api/ps", timeout=10.0)
+        return [str(row["name"]) for row in ollama_residents(payload)]
+    if engine == "omlx":
+        payload = ctx.http.json(
+            f"{ctx.omlx_url}/v1/models/status", headers=_bearer(ctx.omlx_key), timeout=10.0
+        )
+        return [str(row["name"]) for row in omlx_residents(payload)]
+    raise ValueError(f"unknown engine {engine!r}")
+
+
+def _evict(ctx: Ctx, engine: str, model: str) -> dict[str, Any]:
+    """Unload ``model`` and poll until its engine no longer lists it."""
+    record: dict[str, Any] = {"engine": engine, "model": model, "ok": False}
+    try:
+        if engine == "ollama":
+            ctx.http.json(
+                f"{ctx.ollama_url}/api/generate",
+                method="POST",
+                payload={"model": model, "keep_alive": 0, "stream": False},
+                timeout=30.0,
+            )
+        elif engine == "omlx":
+            url = f"{ctx.omlx_url}/admin/api/models/{quote(model, safe='')}/unload"
+            ctx.http.json(url, method="POST", headers=_bearer(ctx.omlx_key), timeout=30.0)
+        else:
+            record["error"] = f"unknown engine {engine!r}"
+            return record
+    except _READ_ERRORS as exc:
+        record["error"] = _failure(exc)
+        return record
+    for _ in range(EVICT_POLLS):
+        try:
+            residents = _resident_names(ctx, engine)
+        except _READ_ERRORS as exc:
+            record["error"] = f"resident read failed: {_failure(exc)}"
+            return record
+        if not any(name.lower() == model.lower() for name in residents):
+            record["ok"] = True
+            record["residents"] = residents
+            return record
+        ctx.sleep(EVICT_POLL_S)
+    record["error"] = f"{model} still resident after {EVICT_POLLS} polls"
+    return record
+
+
+def _default_resolve(seat: str) -> tuple[str, str, str] | None:
+    from portal.platform.inference.config import load_portal_config
+    from scripts import speed_bench
+
+    return speed_bench.resolve_intended_seat(
+        seat, portal_config=load_portal_config(include_bench=True)
+    )
+
+
+def _cold_stream(ctx: Ctx, seat: str) -> dict[str, Any]:
+    """One un-tooled Pipeline request; return route, timings, usage and client first content."""
+    payload = {
+        "model": seat,
+        "messages": [{"role": "user", "content": COLD_PROMPT}],
+        "stream": True,
+        "stream_options": {"include_usage": True},
+        "max_tokens": COLD_NUM_PREDICT,
+        "portal_no_tools": True,
+    }
+    request = urllib.request.Request(
+        f"{ctx.pipeline_url}/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            **_bearer(ctx.pipeline_key),
+            "X-Portal-Client": "api",
+        },
+        method="POST",
+    )
+    started = time.monotonic()
+    first: float | None = None
+    timings: dict[str, Any] = {}
+    usage: dict[str, Any] = {}
+    load_ns: float | None = None
+    model: str | None = None
+    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_S) as response:  # noqa: S310
+        route = str(response.headers.get("x-portal-route") or "")
+        for raw in response:
+            line = raw.decode("utf-8").strip() if isinstance(raw, bytes) else str(raw).strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            try:
+                event = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(event.get("portal_timings"), dict):
+                timings = event["portal_timings"]
+            if isinstance(event.get("usage"), dict):
+                usage = event["usage"]
+            if event.get("load_duration") is not None:
+                load_ns = _as_float(event["load_duration"])
+            if isinstance(event.get("model"), str) and event["model"]:
+                model = event["model"]
+            choices = event.get("choices") or []
+            delta = (choices[0].get("delta") or {}) if choices else {}
+            if first is None and (
+                delta.get("content") or delta.get("reasoning_content") or delta.get("reasoning")
+            ):
+                first = time.monotonic()
+    return {
+        "route": route,
+        "timings": timings,
+        "usage": usage,
+        "load_duration_ns": load_ns,
+        "response_model": model,
+        "first_content_s": None if first is None else first - started,
+    }
+
+
+def _cold_row(seat: str, resolved: tuple[str, str, str], payload: dict[str, Any]) -> dict[str, Any]:
+    """One cold trial: route-verified engine/model plus load, TTFT and decode."""
+    backend, engine, model = resolved
+    parts = str(payload.get("route") or "").split(";")
+    served_backend = parts[1] if len(parts) >= 3 and parts[1] else None
+    served_model = parts[2] if len(parts) >= 3 and parts[2] else None
+    timings = payload.get("timings") or {}
+    usage = payload.get("usage") or {}
+    ttft = _as_float(timings.get("ttft_s"))
+    total = _as_float(timings.get("total_s"))
+    decode = _as_float(timings.get("answer_tps"))
+    completion = _as_float(usage.get("completion_tokens"))
+    if decode is None and completion and ttft is not None and total is not None and total > ttft:
+        decode = completion / (total - ttft)
+    load = _as_float(usage.get("model_load_duration"))
+    if load is None:
+        load_ns = _as_float(payload.get("load_duration_ns"))
+        load = None if load_ns is None else load_ns / 1_000_000_000
+    ok = served_backend == backend and served_model == model
+    return {
+        "seat": seat,
+        "model": model,
+        "engine": engine,
+        "route": str(payload.get("route") or ""),
+        "served_backend": served_backend,
+        "served_model": served_model,
+        "engine_ok": ok,
+        "seat_status": "ok" if ok else "wrong_engine",
+        "ttft_s": ttft,
+        "first_content_s": _as_float(payload.get("first_content_s")),
+        "decode_tps": decode,
+        "load_seconds": load,
+        "completion_tokens": completion,
+    }
+
+
+def _median(rows: list[dict[str, Any]], key: str) -> float | None:
+    values = [float(row[key]) for row in rows if row.get(key) is not None]
+    return round(median(values), 3) if values else None
+
+
+def run_cold_cell(ctx: Ctx, seat: str) -> dict[str, Any]:
+    """Evict ``seat`` then time the first Pipeline request, once per cold trial."""
+    cell: dict[str, Any] = {
+        "phase": "C1",
+        "target": seat,
+        "model": None,
+        "engine": None,
+        "started_at": _now(),
+        "finished_at": None,
+        "status": "failed",
+        "problems": [],
+        "setup": {},
+        "instrument": {"trials": []},
+    }
+    try:
+        resolved = (ctx.resolve or _default_resolve)(seat)
+    except Exception as exc:  # noqa: BLE001 - config resolution failure is a setup result
+        cell["problems"].append({"kind": "setup", "detail": f"resolve {seat}: {_failure(exc)}"})
+        cell["status"] = "invalid_setup"
+        cell["finished_at"] = _now()
+        return cell
+    if resolved is None:
+        cell["problems"].append(
+            {"kind": "setup", "detail": f"seat {seat} did not resolve in config"}
+        )
+        cell["status"] = "invalid_setup"
+        cell["finished_at"] = _now()
+        return cell
+    backend, engine, model = resolved
+    cell["model"] = model
+    cell["engine"] = engine
+    for trial in range(1, ctx.cold_trials + 1):
+        eviction = _evict(ctx, engine, model)
+        cell["setup"][f"trial_{trial}"] = eviction
+        if not eviction.get("ok"):
+            cell["problems"].append(
+                {"kind": "setup", "detail": f"trial {trial}: {eviction.get('error')}"}
+            )
+            break
+        before = capture(ctx)
+        payload = (ctx.cold or _default_cold)(ctx, seat)
+        after = capture(ctx)
+        row = _cold_row(seat, resolved, payload)
+        row["trial"] = trial
+        row["residents_before"] = [
+            f"{engine_name}/{name}"
+            for engine_name in ("ollama", "omlx")
+            for name in _names(before, engine_name)
+        ]
+        row["residents_after"] = [
+            f"{engine_name}/{name}"
+            for engine_name in ("ollama", "omlx")
+            for name in _names(after, engine_name)
+        ]
+        cell["instrument"]["trials"].append(row)
+        if not row["engine_ok"]:
+            cell["problems"].append(
+                {
+                    "kind": "engine",
+                    "detail": (
+                        f"trial {trial}: served {row['served_backend'] or '?'} / "
+                        f"{row['served_model'] or '?'} instead of {backend} / {model}"
+                    ),
+                }
+            )
+            break
+        if row["ttft_s"] is None and row["first_content_s"] is None:
+            cell["problems"].append({"kind": "failed", "detail": f"trial {trial}: no first token"})
+            break
+    trials = cell["instrument"]["trials"]
+    cell["median"] = {
+        key: _median(trials, key)
+        for key in ("load_seconds", "ttft_s", "first_content_s", "decode_tps")
+    }
+    cell["status"] = _status(cell["problems"])
+    cell["finished_at"] = _now()
+    return cell
+
+
+def _default_cold(ctx: Ctx, seat: str) -> dict[str, Any]:
+    return _cold_stream(ctx, seat)
+
+
+def cold_receipts(cells: list[dict[str, Any]], incumbent: str) -> list[dict[str, Any]]:
+    """Per-seat medians and the half-the-incumbent speed verdict."""
+    by_seat = {str(cell["target"]): cell for cell in cells}
+    base = (by_seat.get(incumbent) or {}).get("median") or {}
+    base_ttft = _as_float(base.get("ttft_s"))
+    rows = []
+    for cell in sorted(cells, key=lambda item: (item["target"] != incumbent, str(item["target"]))):
+        med = cell.get("median") or {}
+        ttft = _as_float(med.get("ttft_s"))
+        ratio = None if not base_ttft or ttft is None else round(ttft / base_ttft, 3)
+        is_incumbent = cell["target"] == incumbent
+        rows.append(
+            {
+                "seat": cell["target"],
+                "model": cell.get("model"),
+                "engine": cell.get("engine"),
+                "trials": len((cell.get("instrument") or {}).get("trials") or []),
+                "status": cell["status"],
+                "load_seconds": med.get("load_seconds"),
+                "ttft_s": ttft,
+                "first_content_s": med.get("first_content_s"),
+                "decode_tps": med.get("decode_tps"),
+                "cold_ttft_ratio": ratio,
+                "cold_speed_pass": (
+                    None
+                    if is_incumbent
+                    else bool(
+                        cell["status"] == "ok" and ratio is not None and ratio <= COLD_SPEED_RATIO
+                    )
+                ),
+            }
+        )
+    return rows
+
+
+COLD_COLUMNS = (
+    "seat",
+    "engine",
+    "trials",
+    "load_s",
+    "ttft_s",
+    "first_s",
+    "decode_tps",
+    "ratio",
+    "pass",
+)
+_COLD_SOURCES = {
+    "load_s": "load_seconds",
+    "first_s": "first_content_s",
+    "ratio": "cold_ttft_ratio",
+    "pass": "cold_speed_pass",
+}
+
+
+def _cold_cell_text(row: dict[str, Any], column: str) -> str:
+    raw = row.get(_COLD_SOURCES.get(column, column))
+    if column in ("seat", "engine", "status"):
+        return "-" if raw is None else str(raw)
+    if column == "trials":
+        return str(raw)
+    if column == "pass":
+        return "-" if raw is None else ("PASS" if raw else "FAIL")
+    return "-" if raw is None else f"{float(raw):.3f}"
+
+
+def format_cold_receipts(rows: list[dict[str, Any]]) -> str:
+    """Render the cold-start receipts table (medians, ratio against the incumbent)."""
+    cells = [[_cold_cell_text(row, column) for column in COLD_COLUMNS] for row in rows]
+    widths = [len(header) for header in COLD_COLUMNS]
+    for row in cells:
+        for index, cell in enumerate(row):
+            widths[index] = max(widths[index], len(cell))
+    lines = [
+        "  ".join(header.ljust(width) for header, width in zip(COLD_COLUMNS, widths, strict=True))
+    ]
+    lines.extend(
+        "  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True))
+        for row in cells
+    )
+    return "\n".join(lines)
+
+
 def _counts(cells: Iterable[dict[str, Any]]) -> dict[str, int]:
     counts = {"ok": 0, "invalid_setup": 0, "invalid_engine": 0, "failed": 0}
     for cell in cells:
@@ -619,10 +968,13 @@ class Ctx:
     sizes: list[int] = field(default_factory=lambda: list(DEFAULT_SIZES))
     runs: int = DEFAULT_RUNS
     cooldown: float = DEFAULT_COOLDOWN_S
+    cold_trials: int = DEFAULT_COLD_TRIALS
     http: Http = field(default_factory=Http)
     sleep: Callable[[float], None] = time.sleep
     speed: Callable[..., int] | None = None
     bench: Callable[..., int] | None = None
+    cold: Callable[..., dict[str, Any]] | None = None
+    resolve: Callable[[str], tuple[str, str, str] | None] | None = None
     host_quiet: Callable[[], dict[str, Any]] = _default_host_quiet
 
 
@@ -638,15 +990,20 @@ def context(out_dir: Path, args: argparse.Namespace) -> Ctx:
         sizes=args.sizes,
         runs=args.runs,
         cooldown=args.cooldown,
+        cold_trials=args.cold_trials,
     )
 
 
 def _phase_targets(roster: dict[str, Any]) -> list[tuple[str, list[str]]]:
-    return [
+    targets = [
         ("B1", roster["b1_models"]),
         ("B2", roster["b2_workspaces"]),
         ("B3", roster["b3_seats"]),
     ]
+    cold = roster.get("cold_start") or {}
+    if cold.get("incumbent"):
+        targets.append(("C1", [str(cold["incumbent"]), *cold.get("candidates", [])]))
+    return targets
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -655,6 +1012,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     ctx = context(out_dir, args)
     backends, portal = load_config()
     roster = build_roster(backends, portal)
+    if "C1" in args.phases and not roster["cold_start"]["incumbent"]:
+        print(
+            "ABORT: --phases C1 needs cold_start_screen.incumbent in config/backends.yaml",
+            file=sys.stderr,
+        )
+        return 3
     run: dict[str, Any] = {
         "schema": 1,
         "tag": args.tag,
@@ -663,7 +1026,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         "sizes": ctx.sizes,
         "runs": ctx.runs,
         "roster": {
-            key: roster[key] for key in ("b1_models", "b2_workspaces", "b3_seats", "skipped_seats")
+            key: roster[key]
+            for key in ("b1_models", "b2_workspaces", "b3_seats", "cold_start", "skipped_seats")
         },
         "cells": [],
     }
@@ -677,16 +1041,34 @@ def cmd_run(args: argparse.Namespace) -> int:
         _write_json(out_dir / "run.json", run)
         print(f"ABORT {args.tag}: {'; '.join(run['precondition']['problems'])}", file=sys.stderr)
         return 3
+    cold_cells: list[dict[str, Any]] = []
     for phase, targets in _phase_targets(roster):
         if phase not in args.phases:
             continue
         for target in targets:
-            model = target if phase == "B1" else roster["seats"].get(target)
-            cell = run_cell(ctx, phase, target, model)
+            if phase == "C1":
+                cell = run_cold_cell(ctx, target)
+                cold_cells.append(cell)
+            else:
+                model = target if phase == "B1" else roster["seats"].get(target)
+                cell = run_cell(ctx, phase, target, model)
             _write_json(out_dir / cell_name(phase, target), cell)
             run["cells"].append(_cell_summary(cell))
             _write_json(out_dir / "run.json", run)
             print(f"{phase} {target} {cell['status']}", flush=True)
+    if cold_cells:
+        receipts = cold_receipts(cold_cells, roster["cold_start"]["incumbent"])
+        print("\nCOLD RECEIPTS")
+        print(format_cold_receipts(receipts))
+        run["cold_receipts"] = receipts
+        run["cold_speed_ok"] = all(
+            row["cold_speed_pass"] for row in receipts if row["cold_speed_pass"] is not None
+        )
+        _write_json(
+            out_dir / "cold_receipts.json",
+            {"incumbent": roster["cold_start"]["incumbent"], "rows": receipts},
+        )
+        print(f"COLD SPEED {'PASS' if run['cold_speed_ok'] else 'FAIL'}")
     run["finished_at"] = _now()
     run["counts"] = _counts(run["cells"])
     run["ok"] = run["counts"]["ok"] == len(run["cells"])
@@ -900,7 +1282,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="oMLX speed gate (B1/B2/B3) with setup proof.")
+    parser = argparse.ArgumentParser(description="oMLX speed gate (B1/B2/B3/C1) with setup proof.")
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run", help="measure a tag")
     run.add_argument("tag")
@@ -909,11 +1291,17 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--phases",
         type=_phases,
-        default=list(PHASES),
-        help="comma-separated phases to run (default all: B1,B2,B3)",
+        default=list(DEFAULT_PHASES),
+        help="comma-separated phases to run (default: B1,B2,B3; add C1 for cold start)",
     )
     run.add_argument("--runs", type=int, default=DEFAULT_RUNS)
     run.add_argument("--cooldown", type=float, default=DEFAULT_COOLDOWN_S)
+    run.add_argument(
+        "--cold-trials",
+        type=_positive_int,
+        default=DEFAULT_COLD_TRIALS,
+        help=f"cold-start evictions per seat in C1 (default {DEFAULT_COLD_TRIALS})",
+    )
     run.set_defaults(func=cmd_run)
     compare = sub.add_parser("compare", help="compare a tag against baseline tags")
     compare.add_argument("tag")
@@ -931,6 +1319,16 @@ def _sizes(spec: str) -> list[int]:
     if not sizes or any(size <= 0 for size in sizes):
         raise argparse.ArgumentTypeError("sizes must be positive integers")
     return sizes
+
+
+def _positive_int(spec: str) -> int:
+    try:
+        value = int(spec)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"expected a positive integer, got {spec!r}") from exc
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"expected a positive integer, got {spec!r}")
+    return value
 
 
 def _tags(spec: str) -> list[str]:

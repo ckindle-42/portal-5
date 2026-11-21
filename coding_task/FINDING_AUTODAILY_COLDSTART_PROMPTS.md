@@ -76,6 +76,21 @@ Cold-start and quality are separate gates. The seat changes only when the cold-s
 
 ## Exact commands
 
+Cold start first (it needs no quality rows; run on a quiet host):
+
+```bash
+uv run python scripts/speed_gate.py run autodaily_coldstart \
+  --phases C1 --cold-trials 3
+```
+
+The receipts table prints at the end and is written to
+`~/.portal5/speed_gate/autodaily_coldstart/cold_receipts.json`: per seat, the median
+`load_s` / `ttft_s` / `first_s` / `decode_tps`, the `ratio` against the incumbent, and
+`pass`. A candidate passes the speed gate only when its row is `ok` and `ratio <= 0.5`.
+The incumbent row has no verdict (`-`) because it is the denominator.
+
+Quality second:
+
 ```bash
 CAMPAIGN=autodaily_coldstart_20261120
 uv run python -m tests.wfe.campaign --campaign-id "$CAMPAIGN" \
