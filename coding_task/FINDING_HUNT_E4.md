@@ -60,7 +60,7 @@ left on the sources whose files are the evidence.
 | `tests/unit/test_hunt_executor.py` | `test_a_slow_model_stage_does_not_consume_the_read_clock` |
 | `tests/unit/test_hunt_notables_behaviours.py` | `test_the_read_plan_never_exceeds_the_remaining_request_budget`, `test_a_window_dropped_by_the_planner_is_declared` |
 
-Net test lines: **+131** (35 executor, 96 behaviours — the behaviours file carries the shared
+Net test lines: **+134** (35 executor, 99 behaviours — the behaviours file carries the shared
 `_BudgetExecutor` / `_budget_facts` harness used by both of its tests). Three tests, one per §6 E4
 acceptance property.
 
@@ -161,5 +161,11 @@ receipt count of 0 is the expected shape, a receipt count > 0 with a ledger coun
 - **The 0-request case is silent in the ledger.** A source whose whole plan is dropped declares
   every window in the receipt and in the ledger, but `events_read` for it is 0 with no separate
   "source dropped" row; the per-window rows are the record.
+- **`RowSet.windows` still counts the planned schedule**, not the issued windows, so a partly
+  dropped plan reports the planned count while `files` names what was actually read. E0 owns the
+  receipt-honesty pass over those fields.
+- `plan_within_requests` is written in PEP 695 generic syntax because ruff's `UP047` forbids the
+  `TypeVar` form here; `notables/stage2.py` already uses the same syntax in this tree, while both
+  Dockerfiles are `python:3.11-slim`. Pre-existing, not introduced here, flagged for the reviewer.
 - The file-size priority uses `IndexFile.events` as the size proxy (the only size `read_files`
   has). E2's density-based head does not change the ordering.
