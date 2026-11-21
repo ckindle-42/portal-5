@@ -145,10 +145,12 @@ class Localisation:
     """Where a read's windows came from: a summary, the index aggregate, or neither."""
 
     windows: list[LocalWindow] = field(default_factory=list)
-    mechanism: str = ""  # accelerated | indexed | ""
+    mechanism: str = ""  # accelerated | accelerated_partial | indexed | ""
     model: str = ""
     accel_window: tuple[float, float] | None = None
-    coverage: str = "scan"  # accelerated | scan
+    covered_window: tuple[float, float] | None = None
+    scanned_window: tuple[float, float] | None = None
+    coverage: str = "scan"  # accelerated | accelerated_partial | scan
     notes: list[str] = field(default_factory=list)
 
 
@@ -166,9 +168,14 @@ def localise_width(span: float) -> float:
 
 
 def coverage_label(accel_window: Sequence[float] | None, start: float, end: float) -> str:
-    """`accelerated` only inside a model's window; everything else is a scan, never a miss."""
-    if accel_window and float(accel_window[0]) <= start and end <= float(accel_window[1]):
+    """Exact containment accelerates; a window that shares one end of the span is a partial."""
+    if not accel_window:
+        return "scan"
+    first, last = float(accel_window[0]), float(accel_window[1])
+    if first <= start and end <= last:
         return "accelerated"
+    if first < end and start < last and (first <= start or last >= end):
+        return "accelerated_partial"
     return "scan"
 
 
@@ -281,45 +288,130 @@ def accel_summaries(executor: HuntExecutor, index: str) -> tuple[list[AccelSumma
 
 
 def localise(
-    executor: HuntExecutor, index: str, start: float, end: float, *, width: float | None = None
+    executor: HuntExecutor,
+    index: str,
+    start: float,
+    end: float,
+    *,
+    width: float | None = None,
+    summaries: Sequence[AccelSummary] | None = None,
 ) -> Localisation:
-    """Rung 1 over a covering summary, else rung 2's index aggregate: where and when, never who."""
+    """Rung 1 over a covering summary, else rung 2's index aggregate: one source's own span."""
     chosen = width or localise_width(end - start)
-    summaries, notes = accel_summaries(executor, index)
-    covered = [
-        item for item in summaries if coverage_label(item.window, start, end) == "accelerated"
-    ]
-    accel_window = covered[0].window if covered else (summaries[0].window if summaries else None)
+    if summaries is None:
+        probed, notes = accel_summaries(executor, index)
+    else:
+        probed, notes = list(summaries), []
+    covered = [item for item in probed if coverage_label(item.window, start, end) == "accelerated"]
     for summary in covered:
-        rows, reason = _read_range(
-            executor,
-            accel_localise_query(summary.model, index, chosen),
-            start,
-            end,
-            kind="localise",
-            row_cap=LOCALISE_ROWS,
-        )
-        if reason:
-            notes.append(f"accel:{summary.model}:{reason}")
-            continue
-        windows = select_local_windows(rows, chosen)
+        windows = _summary_windows(executor, index, summary.model, start, end, chosen, notes)
         if windows:
             return Localisation(
-                windows, "accelerated", summary.model, summary.window, "accelerated", notes
+                windows=windows,
+                mechanism="accelerated",
+                model=summary.model,
+                accel_window=summary.window,
+                coverage="accelerated",
+                notes=notes,
             )
         notes.append(f"accel:no_windows:{summary.model}")
+    partial = _partial_summary(probed, start, end)
+    if partial is not None:
+        found = _partial_localisation(executor, index, partial, start, end, chosen, notes)
+        if found is not None:
+            return found
+    scanned_rows = _scan_windows(executor, index, start, end, chosen, notes)
+    return Localisation(
+        windows=scanned_rows,
+        mechanism="indexed",
+        model="",
+        accel_window=covered[0].window if covered else (probed[0].window if probed else None),
+        coverage="scan",
+        notes=notes,
+    )
+
+
+def _summary_windows(
+    executor: HuntExecutor,
+    index: str,
+    model: str,
+    start: float,
+    end: float,
+    width: float,
+    notes: list[str],
+) -> list[LocalWindow]:
+    """The peak buckets one model's summary answers for a sub-range."""
     rows, reason = _read_range(
         executor,
-        localise_query(index, chosen),
+        accel_localise_query(model, index, width),
         start,
         end,
         kind="localise",
         row_cap=LOCALISE_ROWS,
     )
     if reason:
+        notes.append(f"accel:{model}:{reason}")
+        return []
+    return select_local_windows(rows, width)
+
+
+def _scan_windows(
+    executor: HuntExecutor, index: str, start: float, end: float, width: float, notes: list[str]
+) -> list[LocalWindow]:
+    """The peak buckets the index aggregate answers for a sub-range no summary holds."""
+    rows, reason = _read_range(
+        executor, localise_query(index, width), start, end, kind="localise", row_cap=LOCALISE_ROWS
+    )
+    if reason:
         notes.append(f"localise:{reason}")
+    return select_local_windows(rows, width)
+
+
+def _partial_summary(
+    summaries: Sequence[AccelSummary], start: float, end: float
+) -> AccelSummary | None:
+    """The summary window that shares one end of a span it does not contain, on most overlap."""
+    best: tuple[float, AccelSummary] | None = None
+    for item in summaries:
+        if coverage_label(item.window, start, end) != "accelerated_partial":
+            continue
+        overlap = min(end, float(item.window[1])) - max(start, float(item.window[0]))
+        if best is None or overlap > best[0]:
+            best = (overlap, item)
+    return best[1] if best else None
+
+
+def _partial_localisation(
+    executor: HuntExecutor,
+    index: str,
+    summary: AccelSummary,
+    start: float,
+    end: float,
+    width: float,
+    notes: list[str],
+) -> Localisation | None:
+    """The covered sub-range is localised from the summary, the remainder from the index."""
+    first, last = float(summary.window[0]), float(summary.window[1])
+    covered = (max(start, first), min(end, last))
+    scanned = (start, covered[0]) if first > start else (covered[1], end)
+    windows = [
+        *_summary_windows(executor, index, summary.model, *covered, width, notes),
+        *_scan_windows(executor, index, *scanned, width, notes),
+    ]
+    if not windows:
+        notes.append(f"accel_partial:no_windows:{summary.model}")
+        return None
+    peaks = sorted(windows, key=lambda window: -window.events)[:LOCALISE_WINDOWS]
+    peaks.sort(key=lambda window: (window.host, window.start))
     return Localisation(
-        select_local_windows(rows, chosen), "indexed", "", accel_window, "scan", notes
+        windows=peaks,
+        mechanism="accelerated_partial",
+        model=summary.model,
+        accel_window=summary.window,
+        covered_window=covered,
+        scanned_window=scanned,
+        coverage="accelerated_partial",
+        notes=notes,
     )
 
 
