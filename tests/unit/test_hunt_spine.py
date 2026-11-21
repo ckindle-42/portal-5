@@ -107,3 +107,18 @@ def test_a_singleton_value_becomes_an_entity_but_never_a_behaviour_key(tmp_path:
     )
     assert actor_field == "user" and actor != "zoe"
     assert action_field == "image" and action == "a.exe"
+
+
+def test_the_same_stored_events_rebuild_the_same_episode_boundaries(tmp_path: Path) -> None:
+    events = [
+        _event("ix:a", 1_000.0, "10.2.2.2 one"),
+        _event("ix:a", 1_060.0, "10.2.2.2 two"),
+        _event("ix:b", 1_000.0 + 4 * 3600 - 1, "10.2.2.2 three"),
+        _event("ix:b", 1_000.0 + 30 * 3600, "10.2.2.2 four"),
+    ]
+    first = tmp_path / "first.duckdb"
+    second = tmp_path / "second.duckdb"
+    build_spine(events, first)
+    build_spine(events, second)
+    assert _episode_rows(first) == _episode_rows(second)
+    assert len(_episode_rows(first)) == 3  # both sources split beyond four hours
