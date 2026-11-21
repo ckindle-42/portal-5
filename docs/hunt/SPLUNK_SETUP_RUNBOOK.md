@@ -178,10 +178,12 @@ not eaten as a vhost and the address stays in `c_ip`. The vhost goes to its own 
 `vhost_indexed` probe fails if `vhost` never reached the tsidx.
 
 **Why not a sourcetype split:** the shape is a `LogFormat` choice, not a filename property — the
-same vhost is `combined` in `cloud.smith.santos.com-access.log` (a bare `%h` first token) and
-`vhost_combined` in `other_vhosts_access.log`. A name-matched second sourcetype would mis-route
-the first shape and would need the CIM `web` tag, an eventtype, and the index-field set duplicated
-for it; one sourcetype keeps every `sourcetype=access_combined` hunt and the Web model whole.
+same estate serves vhost access both ways: `webserver` writes
+`cloud.smith.santos.com-access.log` in `combined` (a bare `%h` first token) while `cloud_share`
+writes `other_vhosts_access.log` in `vhost_combined`. A name-matched second sourcetype would
+mis-route the first shape and would need the CIM `web` tag, an eventtype, and the index-field set
+duplicated for it; one sourcetype keeps every `sourcetype=access_combined` hunt and the Web model
+whole.
 
 The 2026-11-21 hotfix lives in the box's `local/transforms.conf`. `local/` wins over `default/`,
 so once the regenerated app is installed that copy is redundant and would silently override any
