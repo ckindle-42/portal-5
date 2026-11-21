@@ -385,20 +385,18 @@ def test_marginal_weight_folds_average_remerge_losses_and_floor_unmeasured() -> 
         [
             {
                 "family": "a",
-                "generators": {},
                 "marginal_generators": {"deviation": {"candidates": 1, "marginal@50": 2}},
             },
             {
                 "family": "b",
-                "generators": {},
                 "marginal_generators": {"deviation": {"candidates": 1, "marginal@50": 4}},
             },
         ]
     )
 
-    assert weights["marginal_folds"][0]["weights"]["deviation"] == 3
-    assert weights["marginal_folds"][1]["weights"]["deviation"] == 4
-    assert weights["marginal_folds"][0]["weights"]["peer_rare"] == board.UNMEASURED_WEIGHT
+    assert weights["folds"][0]["weights"]["deviation"] == 3
+    assert weights["folds"][1]["weights"]["deviation"] == 4
+    assert weights["folds"][0]["weights"]["peer_rare"] == board.UNMEASURED_WEIGHT
 
 
 def test_artefact_located_through_the_index_normalization_form(tmp_path: Path) -> None:
