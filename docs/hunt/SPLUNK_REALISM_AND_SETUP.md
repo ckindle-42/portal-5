@@ -479,9 +479,10 @@ Mapping (measured sourcetypes → target):
 
 | current | target sourcetype | note |
 |---|---|---|
-| `2022-01-xx-system.auth.log`, `auth.log` | `linux_secure` | sshd/sudo auth |
+| `2022-01-xx-system.auth.log`, `auth.log` | `linux_secure` | sshd/sudo auth; the dated name is a filebeat JSON re-ship **routed out** (D6) |
 | `audit.log`, `linux_audit` | `linux_audit` | auditd |
-| `2022-01-xx-system.service.log`, `system.journal.txt`, `messages`, `syslog`, `kern.log`, `user.log` | `syslog` (or `journald`) | |
+| `2022-01-xx-system.service.log`, `2022-01-xx-system.syslog.log`, `system.journal.txt` | **routed out** (D6) | filebeat `system`-module re-ship / journald system export: a second copy of `syslog`; 41.5 % of the santos index was `system.service.json` |
+| `messages`, `syslog`, `kern.log`, `user.log`, `user-<uid>.journal.txt` | `syslog` | the host's own syslog family; per-user journals are not duplicates |
 | `*access.log`, `other_vhosts_access.log`, `horde-access.log`, `access_combined` | `access_combined` | Apache/nginx/horde; `other_vhosts_access.log` is vhost_combined (`vhost:port` first) — same sourcetype, the regex skips the prefix so `c_ip` stays the client |
 | `error.log`, `apache_error` | `apache:error` | |
 | `eve.json` | `suricata` (or `suricata:eve`) | TA-suricata-4 exists; enable it |
