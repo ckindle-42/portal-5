@@ -143,7 +143,7 @@ on); `app --check` proves it is exactly what the renderer produces.
 | file | what it binds |
 |---|---|
 | `props.conf` | `INDEXED_EXTRACTIONS=json` for `suricata`; index-time `TRANSFORMS-ph_ix_*`; search-time `EVAL-*` aliases to CIM names |
-| `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`cs_method`/`cs_uri_stem`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) |
+| `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`cs_method`/`cs_uri_stem`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) — one `[ph_ix_*]` stanza per field, each with `WRITE_META = true` |
 | `fields.conf` | `INDEXED = true` for every index-time field, incl. the JSON keys the doc names (`alert.signature`, `dns.rrname`, `http.url`, …) |
 | `eventtypes.conf` + `tags.conf` | the CIM tag constraints: `authentication`, `web`, `ids`+`attack`, `network`+`communicate`, `network`+`resolution`, `endpoint`+`process`+`report` |
 | `datamodels.conf` | empty at stage 1; stage 3 writes acceleration for the six models, `acceleration.earliest_time = -10y` |
@@ -156,6 +156,26 @@ A copy under `portal5_hunt_setup` was rendered until 2026-11-21; it loses to Spl
 empty `()` default in every app context, so it was dropped. An app install left on the box by an
 earlier run may still hold it — it is inert (it loses too) and `rollback`'s app removal takes it
 out with the rest of the app.
+
+**Index-time fields need `WRITE_META = true`.** A `TRANSFORMS-*` stanza extracts the value, but
+without `WRITE_META` Splunk keeps it out of the tsidx — so `tstats` cannot group by it — and
+because `fields.conf` marks the same names `INDEXED = true`, search-time extraction does not fill
+the gap either. The failure is silent: `| tstats … by acct` returns 0 rows and no error. Measured
+live 2026-11-21 on the first `santos` reindex; the orchestrator's `WRITE_META` hotfix then
+answered `by acct exe` on a single HEC probe event. Every `[ph_ix_*]` stanza the renderer emits
+now carries the flag, and stage 5's `verify` asserts the **rows**, not the conf text. The flag is
+an index-time setting, so it cannot be applied to an index that was already built — that index has
+to be dropped and re-shipped (stage 2).
+
+The 2026-11-21 hotfix lives in the box's `local/transforms.conf`. `local/` wins over `default/`,
+so once the regenerated app is installed that copy is redundant and would silently override any
+later change to the default. Remove it, then re-install:
+
+```bash
+ssh -i $LAB_SSH_KEY root@$LAB_PROXMOX_HOST \
+  "pct exec 301 -- docker exec -u splunk splunk rm -f /opt/splunk/etc/apps/portal5_hunt_setup/local/transforms.conf"
+uv run python -m scripts.lab.splunk_setup apply      # re-installs default/ and restarts Splunk
+```
 
 **Why the window is `-10y` and not a SOC's `-30d`:** `acceleration.earliest_time` is relative to
 *now*; these corpora are 2021-03 and 2022-01. A `-90d` window would accelerate nothing at all and
@@ -174,6 +194,15 @@ ssh -i $LAB_SSH_KEY root@$LAB_PROXMOX_HOST \
   "pct exec 301 -- docker exec -u splunk splunk /opt/splunk/bin/splunk show config props" \
   | grep -c 'INDEXED_EXTRACTIONS = json'          # >= 1  (our stanza is loaded)
 ```
+
+```bash
+ssh -i $LAB_SSH_KEY root@$LAB_PROXMOX_HOST \
+  "pct exec 301 -- docker exec -u splunk splunk /opt/splunk/bin/splunk show config transforms" \
+  | grep -c 'WRITE_META = true'                   # >= the renderer's [ph_ix_*] stanza count
+```
+→ compare against `grep -c '^\[ph_ix_' scripts/lab/splunk_setup/app/portal5_hunt_setup/default/transforms.conf`.
+Fewer means the installed app (or a stale `local/` copy) lost the flag — see the `WRITE_META`
+paragraph above. This is still a conf check; the property itself is stage 5's `entity_indexed`.
 
 ```spl
 | rest /services/data/indexes | search title=*_v2 | table title maxTotalDataSizeMB frozenTimePeriodInSecs
@@ -292,6 +321,12 @@ per-day names survived) or the row count is anywhere near 126.
 ```
 → >0 rows with real account names. This is the whole point of stage 2+4: an **entity field in the
 tsidx**, which the lab has never had (`user`/`src`/`acct` were search-time only, §2.6).
+**Fail if 0 rows** — that is the 2026-11-21 failure: the transform extracted the field but did not
+write it to the metadata (`WRITE_META`), and `fields.conf`'s `INDEXED = true` stopped the
+search-time fallback from filling the gap. Fix stage 1's `transforms.conf`, then rebuild this
+index — the flag acts at index time, so `rollback --index santos` and `reindex --index santos
+--ship` again; a restart alone changes nothing already indexed. `verify --index santos` now fails
+on exactly this, by row count.
 
 ```spl
 | tstats count where index=hb_ait_santos_v2 sourcetype="suricata" by event_type
@@ -412,17 +447,19 @@ exists to remove). Then `index=summary hunt_entities_index=hb_ait_santos | head 
 uv run python -m scripts.lab.splunk_setup verify --index santos | tee coding_task/scratch/splunk_setup/verify.json
 ```
 
-It runs the six `cim_*_indexes` parser expansions, then for the chosen index the four tuned probes
-(events / sourcetypes / indexed entity / accelerated model) plus the three control probes, and
-reports `rows`, `scan_count`, `run_seconds` and the expected result for each. What "worked" looks
-like, in one place:
+It runs the six `cim_*_indexes` parser expansions, then an `entity_indexed:<index>` probe for
+**every** tuned index (the `by acct` tstats, so one pass covers all three), then — when `--index`
+is given — that index's other probes (events / sourcetypes / accelerated model), then the three
+control probes. It reports `rows`, `scan_count`, `run_seconds` and the expected result for each,
+and **fails on a probe that returned fewer rows than it declares**, not only on a failed job. What
+"worked" looks like, in one place:
 
 | probe | expected | what a failure means |
 |---|---|---|
 | `cim_macro:cim_<Model>_indexes` ×6 | the expansion names all three `_v2` indexes | the override is not in Splunk_SA_CIM's local conf — re-run `apply` |
 | `eventcount index=<i>_v2` | = the table's kept count | a file failed to ship — `--resume` |
 | `tstats … by sourcetype` on `_v2` | ≤16 rows, no date-in-filename names | mapping missed a class |
-| `tstats … by acct` on `_v2` | >0 rows | index-time extraction not applied (props not loaded / wrong stage order) |
+| `entity_indexed:<i>_v2` (`tstats … by acct`) ×3 | >0 rows | the transform did not write meta (`WRITE_META` missing) or the index predates the fix — rebuild the index, a restart cannot repair it |
 | `tstats summariesonly=true from datamodel=Authentication` | >0 rows, scan 0 | tags or acceleration missing |
 | `tstats … index=botsv2 sourcetype="WinEventLog" by host` | 0 rows | the control was normalised — stop |
 | `tstats … index=botsv2 sourcetype="wineventlog:security" by host` | >0 rows | the two-name split changed — stop |
@@ -446,6 +483,7 @@ accepted against.
 | acceleration build time | **estimate** from the doc's measured scan rates; `cron */10` adds up to 10 min of waiting |
 | summary size | **assumption** (doc's 5–15 %); replaced by `summary_size` after stage 3 |
 | macro precedence over the CIM defaults | **measured live 2026-11-21** — the app copy loses to Splunk_SA_CIM's `()` defaults in every app context, so `apply` now writes the override into Splunk_SA_CIM's local conf and `verify` asserts the parser expansion |
+| that an index-time field reaches the tsidx | **measured live 2026-11-21** by the orchestrator — without `WRITE_META` the `santos_v2` `tstats … by acct` answered 0 rows; with it, one HEC probe event answered `by acct exe`. Not yet re-measured on a full re-shipped index |
 | that the live Splunk accepts this conf | **unproven** — no stage was run |
 
 ## 7. Promotion (after stage 5 passes)
