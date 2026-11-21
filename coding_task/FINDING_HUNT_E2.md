@@ -12,11 +12,13 @@ extract (`head/`) used for the failing-first run.
 ## What changed (`portal/modules/security/core/hunt/notables/sample.py`)
 
 - **Windows.** A file with its own `first`/`last` is now sliced over **its own** range:
-  `_file_windows` → `_span_windows(item.first, item.last, count)` with `count =
-  _file_window_count(...) = max(FILE_READ_MIN_WINDOWS, ceil(min(events, per_window)/per_read))`.
-  `_span_windows` is the helper `source_windows` already used (same `+1e-6` tail widening), so the
-  file's tail slice is `[last - width, last + ε)` — its last event is always inside a planned
-  read. The caller's source schedule is used only when the file has no range (`last == 0.0`).
+  `_file_windows` → `_span_windows(item.first, item.last, count)` where `count =
+  _file_window_count(events, per_window, per_window) = max(FILE_READ_MIN_WINDOWS,
+  ceil(min(events, per_window) / per_window))` — 3 in practice; the source-schedule fallback uses
+  `per_read` in that expression instead. `_span_windows` is the helper `source_windows` already
+  used (same `+1e-6` tail widening), so the file's tail slice is `[last - width, last + ε)` — its
+  last event is always inside a planned read. The caller's source schedule is used only when the
+  file has no range (`last == 0.0`).
 - **Host.** `_plan_files` decides per file: a file whose `hosts` are known and do not contain the
   anchor host is **not issued** — it is receipted `reason: host_mismatch` with `host: ""` and
   recorded through `_omit_file` so the ledger sees it. A file whose `hosts` are unknown cannot be
