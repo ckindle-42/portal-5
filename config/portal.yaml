@@ -106,6 +106,13 @@ orchestration_arm:
       enabled: false  # off until the Jarvis rebuild (S1-S6) lands; operator 2026-11-20
       # Cloud dispatches per personal task; an interrupted/killed lane is always terminal.
       max_attempts: 1
+    # Jarvis personal tasks (S5, operator re-scope 2026-11-20): after the routed seat
+    # fails the same request twice, retry one rung at a time up this ladder over the
+    # Pipeline — same request, stronger seat, no repo worktree. auto-reasoning is the
+    # dedicated reasoning seat (K2-Horizon-MoVA-36B); auto-coding is the strongest
+    # agentic seat (Qwen3.8-27B dense, 96K, 72 tools incl. python/bash/browser/proxmox).
+    # Empty list = the routed seat only.
+    escalation_ladder: [auto-reasoning, auto-coding]
     # Telegram /jarvis control plane (default off): bot queues control_requests
     # rows, the host runner executes them. Off = /jarvis answers "not enabled".
     telegram_control:

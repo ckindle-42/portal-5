@@ -163,6 +163,7 @@ def test_a_blocked_cloud_lane_does_not_paste_its_report_at_the_cap(
     from portal.modules.orchestration import personal_runner
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
+    monkeypatch.setattr(personal_runner, "_escalation_ladder", lambda: [], raising=False)
     sink = _Notices()
     telegram_do_reply(tmp_path, 7, "help with an empty local answer")
     bad = [Completion("", (), 0), Completion("", (), 0)]

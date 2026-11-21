@@ -244,6 +244,7 @@ def test_two_empty_local_attempts_block_without_cloud(
     from portal.modules.orchestration import personal_runner
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: False)
+    monkeypatch.setattr(personal_runner, "_escalation_ladder", lambda: [], raising=False)
     reply = telegram_do_reply(tmp_path, 5388311056, "what is the queue status in one paragraph")
     task_id = reply.removeprefix("queued ")
     caller = _Caller([Completion("", (), 0), Completion("", (), 0)])
@@ -469,6 +470,7 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
     notices = _Notices()
     dispatcher = Dispatcher()
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
+    monkeypatch.setattr(personal_runner, "_escalation_ladder", lambda: [], raising=False)
 
     first = poll_personal_tasks(tmp_path, notices, caller)
     second = poll_personal_tasks(tmp_path, notices, caller, dispatcher=dispatcher)
@@ -485,6 +487,92 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
     assert len(receipt["local_attempts"]) == 2
     brief = Path(str(dispatcher.calls[0]["brief"]))
     assert "acceptance: empty final answer" in brief.read_text(encoding="utf-8")
+
+
+# ── S5: a failed local attempt escalates to a stronger Portal seat ────────────
+
+
+def test_a_failed_local_attempt_escalates_to_the_next_portal_workspace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same request, next configured workspace, one Pipeline call — no repo worktree."""
+    from portal.modules.orchestration import personal_runner
+
+    class Dispatcher:
+        calls = 0
+
+        def run(self, **kwargs: object) -> None:
+            self.calls += 1
+            raise AssertionError("a personal escalation must not create a repo worktree")
+
+    monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: False)
+    reply = telegram_do_reply(tmp_path, 1, "what is the queue status in one paragraph")
+    task_id = reply.removeprefix("queued ")
+    caller = _Caller(
+        [
+            Completion("", (), 0),
+            Completion("", (), 0),
+            Completion("The queue is idle.", (), 1, ("queue_status",), ('{"items": []}',)),
+        ]
+    )
+    notices = _Notices()
+    dispatcher = Dispatcher()
+
+    first = poll_personal_tasks(tmp_path, notices, caller)
+    second = poll_personal_tasks(tmp_path, notices, caller, dispatcher=dispatcher)
+
+    assert first is not None and first.status == "retrying"
+    assert second is not None and second.status == "done"
+    assert dispatcher.calls == 0
+    assert personal_runner._escalation_ladder() == ["auto-reasoning", "auto-coding"]
+    assert [body["model"] for body in caller.bodies] == [
+        FAST_WORKSPACE,
+        FAST_WORKSPACE,
+        "auto-reasoning",
+    ]
+    receipt = _receipt(tmp_path, task_id)
+    assert receipt["workspace"] == "auto-reasoning"
+    assert receipt["final_text"] == "The queue is idle."
+    assert receipt["escalations"] == [
+        {
+            "attempt": 1,
+            "from": FAST_WORKSPACE,
+            "to": "auto-reasoning",
+            "reason": "acceptance: empty final answer",
+            "status": "done",
+        }
+    ]
+    assert any("escalating to auto-reasoning" in message[2] for message in notices.messages)
+
+
+def test_the_escalation_ladder_is_bounded_and_records_every_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from portal.modules.orchestration import personal_runner
+
+    ladder = ["auto-reasoning", "auto-coding"]
+    monkeypatch.setattr(personal_runner, "_escalation_ladder", lambda: ladder, raising=False)
+    telegram_do_reply(tmp_path, 1, "what is the queue status in one paragraph")
+    caller = _Caller([Completion("", (), 0) for _ in range(4)])
+    notices = _Notices()
+
+    assert poll_personal_tasks(tmp_path, notices, caller).status == "retrying"  # type: ignore[union-attr]
+    result = poll_personal_tasks(tmp_path, notices, caller)
+
+    assert result is not None and result.status == "blocked"
+    receipt = _receipt(tmp_path, result.task_id)
+    assert [hop["to"] for hop in receipt["escalations"]] == ladder
+    assert [hop["status"] for hop in receipt["escalations"]] == ["failed", "failed"]
+    assert "escalation ladder exhausted (auto-reasoning, auto-coding)" in str(receipt["error"])
+    # Two local attempts plus exactly one per rung: the ladder is the bound.
+    assert len(caller.bodies) == 4
+    assert [body["model"] for body in caller.bodies][2:] == ladder
+    hops = sorted((tmp_path / result.task_id / "attempts").glob("escalation-*/receipt.json"))
+    assert [path.parent.name for path in hops] == ["escalation-1", "escalation-2"]
+    assert all(
+        json.loads(path.read_text(encoding="utf-8"))["error"] == "acceptance: empty final answer"
+        for path in hops
+    )
 
 
 def test_the_core_bundle_is_the_documented_read_set() -> None:
