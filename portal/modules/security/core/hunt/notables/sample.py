@@ -50,11 +50,13 @@ ACCEL_PROBE_ROWS = 100  # effort budget: window rows one accelerated-model probe
 
 @dataclass(frozen=True)
 class IndexFile:
-    """One indexed source path under a sourcetype: its volume and the hosts it appears on."""
+    """One indexed source path under a sourcetype: its volume, hosts and own time range."""
 
     path: str
     events: int
     hosts: tuple[str, ...] = ()
+    first: float = 0.0
+    last: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,11 @@ class SourceFacts:
     count_cv: float = 0.0
     shared_sources: tuple[str, ...] = ()
     files: tuple[IndexFile, ...] = ()
+
+
+def file_span(facts: SourceFacts, item: IndexFile) -> tuple[float, float]:
+    """A file's own range, or its source's when the run recorded none (0.0 ⇒ unknown)."""
+    return (item.first, item.last) if item.last > 0.0 else (facts.first, facts.last)
 
 
 @dataclass
@@ -385,9 +392,10 @@ def _read_range(
 
 
 def _meta_rows(
-    executor: HuntExecutor, index: str, by: str, start: float, end: float
+    executor: HuntExecutor, index: str, by: str, start: float, end: float, *, span: bool = False
 ) -> tuple[list[dict[str, Any]], str | None]:
-    query = f"| tstats count where index={_quoted(index)} {by}"
+    counted = "count min(_time) as first max(_time) as last" if span else "count"
+    query = f"| tstats {counted} where index={_quoted(index)} {by}"
     return _read_range(executor, query, start, end, kind="discovery", row_cap=METADATA_ROWS)
 
 
@@ -466,7 +474,9 @@ def index_facts(
         notes.append(f"volume_metadata:{reason}")
     if not volume:
         return [], notes + ["index_metadata_empty"]
-    sources, source_reason = _meta_rows(executor, index, "by sourcetype source host", start, end)
+    sources, source_reason = _meta_rows(
+        executor, index, "by sourcetype source host", start, end, span=True
+    )
     hosts, host_reason = _meta_rows(executor, index, "by sourcetype host", start, end)
     cadence, cadence_notes = cadence_facts(executor, index, start, end)
     notes.extend(cadence_notes)
@@ -511,42 +521,69 @@ def index_facts(
     return facts, notes
 
 
+@dataclass(frozen=True)
+class _FileRow:
+    """One host's slice of one indexed file: the events it holds and the span they cover."""
+
+    host: str
+    count: int
+    first: float = 0.0
+    last: float = 0.0
+
+
 def _group_files(
     rows: Iterable[Mapping[str, Any]],
-) -> dict[str, dict[str, list[tuple[str, int]]]]:
-    """Per sourcetype: each indexed source path with its host rows and counts."""
-    grouped: dict[str, dict[str, list[tuple[str, int]]]] = {}
+) -> dict[str, dict[str, list[_FileRow]]]:
+    """Per sourcetype: each indexed source path with its host rows, counts and own span."""
+    grouped: dict[str, dict[str, list[_FileRow]]] = {}
     for row in rows:
         owner = str(row.get("sourcetype") or "")
         path = str(row.get("source") or "")
         if not owner or not path:
             continue
         grouped.setdefault(owner, {}).setdefault(path, []).append(
-            (str(row.get("host") or ""), _count(row.get("count")))
+            _FileRow(
+                str(row.get("host") or ""),
+                _count(row.get("count")),
+                _number(row.get("first")) or 0.0,
+                _number(row.get("last")) or 0.0,
+            )
         )
     return grouped
 
 
 def _files_of(
-    entries: Mapping[str, list[tuple[str, int]]] | None, events: int
+    entries: Mapping[str, Sequence[_FileRow]] | None, events: int
 ) -> tuple[IndexFile, ...]:
     """Ranked files, or none when the file rows do not account for every event of the source."""
     if not entries:
         return ()
-    total = sum(count for pairs in entries.values() for _host, count in pairs)
+    total = sum(row.count for rows in entries.values() for row in rows)
     if total != events:
         return ()
-    files = [
-        IndexFile(path, sum(count for _host, count in pairs), _file_hosts(pairs))
-        for path, pairs in entries.items()
-        if pairs
-    ]
+    files: list[IndexFile] = []
+    for path, rows in entries.items():
+        if not rows:
+            continue
+        first, last = _rows_span(rows)
+        events_here = sum(row.count for row in rows)
+        files.append(IndexFile(path, events_here, _file_hosts(rows), first, last))
     return tuple(sorted(files, key=lambda item: (-item.events, item.path)))
 
 
-def _file_hosts(pairs: Sequence[tuple[str, int]]) -> tuple[str, ...]:
+def _rows_span(rows: Sequence[_FileRow]) -> tuple[float, float]:
+    """The file's own range across its host rows, or 0/0 when the rows carried no time."""
+    spans = [(row.first, row.last) for row in rows if row.last > 0.0]
+    if not spans:
+        return 0.0, 0.0
+    return min(first for first, _last in spans), max(last for _first, last in spans)
+
+
+def _file_hosts(rows: Sequence[_FileRow]) -> tuple[str, ...]:
     """The hosts a file appears on, or none when they are too many to be worth naming."""
-    ranked = [host for host, _count in sorted(pairs, key=lambda item: (-item[1], item[0])) if host]
+    ranked = [
+        row.host for row in sorted(rows, key=lambda item: (-item.count, item.host)) if row.host
+    ]
     if len(ranked) > MAX_HOST_NAMES:
         return ()
     return tuple(sorted(ranked))
