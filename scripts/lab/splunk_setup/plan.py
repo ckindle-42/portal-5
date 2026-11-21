@@ -90,7 +90,7 @@ class Target:
 TARGETS: dict[str, Target] = {
     "linux_secure": Target("linux_secure", "regex", ("authentication",), "sshd/sudo/pam auth"),
     "linux_audit": Target("linux_audit", "regex", ("authentication",), "auditd USER_*/SYSCALL"),
-    "syslog": Target("syslog", "", (), "syslog + journald service/syslog lines"),
+    "syslog": Target("syslog", "", (), "syslog/messages/kern user logs + user journals"),
     "access_combined": Target("access_combined", "regex", ("web",), "Apache/nginx/horde access"),
     "apache:error": Target("apache:error", "", (), "Apache error log"),
     "suricata": Target("suricata", "json", (), "eve.json (TA-suricata-4 binds `suricata`)"),
@@ -124,16 +124,18 @@ _METRICBEAT_SYSTEM = re.compile(
     r"-system\.(cpu|diskio|filesystem|fsstat|load|memory|network|process|"
     r"process\.summary|socket\.summary|uptime)\.log$"
 )
-_DATED_AUTH = re.compile(r"-system\.auth\.log$")
-_DATED_SYSLOG = re.compile(r"-system\.(syslog|service)\.log$")
+#: filebeat's `system` module re-ships another host's auth/service/syslog as JSON, and the
+#: host's journald export duplicates its own syslog/audit lines: one event family, two copies.
+_SHIPPER_COPY = re.compile(r"-system\.(auth|service|syslog)\.log$")
+_SYSTEM_JOURNAL = re.compile(r"(?:^|/)system\.journal.*\.txt$")
 _JOURNAL = re.compile(r"journal.*\.txt$")
 
 #: (pattern, route). First match wins; the order is the specificity order.
 RULES: tuple[tuple[re.Pattern[str], Route], ...] = (
     (re.compile(r"^stats\.log$"), Route(None, "noise", "suricata performance stats")),
     (_METRICBEAT_SYSTEM, Route("metricbeat:system", "measurement", "metricbeat system metrics")),
-    (_DATED_AUTH, Route("linux_secure")),
-    (_DATED_SYSLOG, Route("syslog")),
+    (_SHIPPER_COPY, Route(None, "noise", "filebeat copy of a host log: duplicate, JSON shape")),
+    (_SYSTEM_JOURNAL, Route(None, "noise", "journald export duplicating syslog/audit")),
     (_JOURNAL, Route("syslog")),
     (re.compile(r"^eve\.json$"), Route("suricata")),
     (re.compile(r"^fast\.log$"), Route("suricata:fast")),
@@ -326,6 +328,7 @@ class Probe:
     spl: str
     expect: str
     min_rows: int = 0
+    max_rows: int | None = None
 
 
 def entity_probe(spec: IndexSpec) -> Probe:
@@ -352,6 +355,27 @@ def verify_probes(spec: IndexSpec) -> tuple[Probe, ...]:
             "vhost_indexed",
             f"| tstats count where index={spec.target_index} by vhost",
             "> 0 rows (vhost is in the tsidx, not in c_ip)",
+            min_rows=1,
+        ),
+        Probe(
+            "service_log_absent",
+            f"| tstats count where index={spec.target_index} "
+            'source="*system.service.log" OR source="*system.auth.log" '
+            'OR source="*system.syslog.log" OR source="*system.journal*"',
+            "0 rows (a shipper copy or journal export was shipped: one family, one copy)",
+            max_rows=0,
+        ),
+        Probe(
+            "user_clean",
+            f"| tstats count where index={spec.target_index} sourcetype=linux_secure by user "
+            "| where length(user) > 64",
+            "0 rows (index-time user is the username, not the rest of a JSON record)",
+            max_rows=0,
+        ),
+        Probe(
+            "auid_indexed",
+            f"| tstats count where index={spec.target_index} sourcetype=linux_audit by auid",
+            "> 0 rows (auid is in the tsidx)",
             min_rows=1,
         ),
         Probe(

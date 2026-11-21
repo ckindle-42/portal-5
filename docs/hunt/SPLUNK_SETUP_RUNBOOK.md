@@ -89,6 +89,13 @@ regenerate with `uv run python -m scripts.lab.splunk_setup inventory`; the full 
 The kyoushi "kept" number reproduces the realism doc's independently measured huntable volume
 (~2.5 M) — the classifier and the doc agree.
 
+**After D6 the shipper copies and the journald system export are routed out as well** (stage 2
+below), so the `_v2` index holds less than this table's "kept" column: kyoushi 2,425,851
+(9.9 %, 211 files), santos 2,573,164 (10.2 %, 207 files), russellmitchell 2,261,780 (8.9 %,
+214 files). Those three totals come from the receipts through the same `plan.build_reindex_plan`
+the reindex uses — `plan`/`reindex` are offline, the live `eventcount` after a re-ship is the
+proof.
+
 ---
 
 ## Stage 0 — preflight (read-only)
@@ -144,7 +151,7 @@ at every stage; `app --check` proves it.
 | file | what it binds |
 |---|---|
 | `props.conf` | `INDEXED_EXTRACTIONS=json` for `suricata`; index-time `TRANSFORMS-ph_ix_*`; search-time `EVAL-*` aliases to CIM names |
-| `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`c_user`/`vhost`/`cs_method`/`cs_uri_stem`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) — one `[ph_ix_*]` stanza per field, each with `WRITE_META = true` |
+| `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`/`auid`; auth `user`/`src`; access-log `c_ip`/`c_user`/`vhost`/`cs_method`/`cs_uri_stem`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) — one `[ph_ix_*]` stanza per field, each with `WRITE_META = true` |
 | `fields.conf` | `INDEXED = true` for every index-time field, incl. the JSON keys the doc names (`alert.signature`, `dns.rrname`, `http.url`, …) |
 | `eventtypes.conf` + `tags.conf` | the CIM tag constraints: `authentication`, `web`, `ids`+`attack`, `network`+`communicate`, `network`+`resolution`+`dns`, `endpoint`+`process`+`report` |
 | `metadata/default.meta` | `export = system`: the accelerator runs in `Splunk_SA_CIM`, so app-scoped tags would be invisible (see below) |
@@ -196,6 +203,16 @@ answered `by acct exe` on a single HEC probe event. Every `[ph_ix_*]` stanza the
 now carries the flag, and stage 5's `verify` asserts the **rows**, not the conf text. The flag is
 an index-time setting, so it cannot be applied to an index that was already built — that index has
 to be dropped and re-shipped (stage 2).
+
+**The index-time `user` and `auid` are the field's value, not the rest of the record.** A
+filebeat `system` module re-ship of a host's `auth.log` is one JSON object per line, so the
+username is followed by `","@version":"1",…` with no whitespace: `\S+` after `for user ` used to
+swallow the whole remainder into `user` (measured offline on the shipper copies: 1,090 of 2,227
+captures on santos, 1,075 of 2,230 on russell). The class is now `[A-Za-z0-9_.@-]+` — a username
+never contains a quote — and 0 of those captures exceed 64 bytes. `auid` is extracted beside `uid`
+as `(?:^|\s)auid=(\d+)`: `\bauid` would also match the `old-auid=` field that precedes it in a
+`type=LOGIN` record and record the pre-change id instead. Stage 5's `user_clean` and
+`auid_indexed` assert the rows.
 
 **Access logs arrive in two Apache shapes, one sourcetype.** `other_vhosts_access.log` (the
 `cloud_share` host, all three families) is `vhost_combined` — `vhost:port client - - [date] …` —
@@ -314,7 +331,9 @@ the receipt keeps the digests identical — verified offline on one file per cor
 `cloud_share/apache2/error.log`, `cloud_share/apache2/error.log.1`). Pointing the hunt at `_v2`
 therefore needs **no** key rebuild.
 
-**Cost** (measured ingest rates from the receipts: 52 k ev/s kyoushi, 31 k ev/s santos/russell):
+**Cost** (measured ingest rates from the receipts: 52 k ev/s kyoushi, 31 k ev/s santos/russell;
+the events-shipped column is pre-D6 — after the shipper-copy routing below it is 2,425,851 /
+2,573,164 / 2,261,780, i.e. slightly faster):
 
 | stage | events shipped | duration | disk added (estimate) |
 |---|---:|---|---|
@@ -343,18 +362,30 @@ already holds events (re-running would duplicate them); `--resume` continues a s
 **Noise routing (brief item 5).** Dropped from `_v2` by default:
 `stats.log` (89 % / 81 % / 82 % of each family) and the metricbeat `system.*` metric files
 (`-system.{cpu,diskio,filesystem,fsstat,load,memory,network,process,…}.log`, the Linux analogue of
-perfmon). `botsv2`'s `perfmon:*`/`mysql:*`/`collectd` cannot be routed at index time — it is
-pre-indexed and is the untuned control; the hunt must still classify that noise structurally
-(realism doc §6 rule 9), which is a read-policy requirement, not an index setting.
-`--keep-metrics` ships the metric files into `_v2` instead (for a before/after comparison) —
-default is out.
+perfmon). **Also dropped: the filebeat `system`-module re-ships** —
+`*-system.{auth,service,syslog}.log` under `/logstash/<host>/`, one JSON object per line, a copy of
+a host log that its own `/auth.log`, `/syslog` and `journal/` already hold — **and the journald
+system export** (`system.journal.txt`), which duplicates the host's own `syslog`/`audit.log`. On
+santos the `system.service` re-ship alone is 1,856,634 events, **41.5 % of the tuned index**, all
+of it metricbeat service-state JSON indexed as `syslog`; routing it out is what takes `syslog`
+from 1,982,990 events to 84,674 and the index from 4,474,600 to 2,573,164. A **per-user** journal
+(`user-<uid>.journal.txt`) is *not* a copy — 2,161 lines on santos share no message body with the
+system journal — so it stays in `syslog`. `botsv2`'s `perfmon:*`/`mysql:*`/`collectd` cannot be
+routed at index time — it is pre-indexed and is the untuned control; the hunt must still classify
+that noise structurally (realism doc §6 rule 9), which is a read-policy requirement, not an index
+setting. `--keep-metrics` ships the metric files into `_v2` instead (for a before/after
+comparison) — default is out.
 
 **Verification** (after the index's `reindex` returns):
 
 ```spl
 | eventcount summarize=false index=hb_ait_santos_v2
 ```
-→ `count` = 4,474,600 (± a few events; HEC is exact per event, and the count settles within ~1 min).
+→ `count` = **2,573,164** (± a few events; HEC is exact per event, and the count settles within
+~1 min). The pre-D6 expectation here was 4,474,600 — the difference is the 1,863,907 filebeat-copy
+events and the 37,529 journal events the routing change drops (kyoushi 2,425,851, russellmitchell
+2,261,780; a `reindex --ship` that still lands the old total means the app on the box is the old
+one).
 
 ```spl
 | tstats count where index=hb_ait_santos_v2 by sourcetype
@@ -541,10 +572,13 @@ uv run python -m scripts.lab.splunk_setup verify --index santos --accelerate | t
 Run it once per tuned index. Each pass runs the six `cim_*_indexes` parser expansions, the six
 `acceleration:<Model>` model-endpoint probes (`--accelerate`), the acceleration window and
 summary-completeness checks, the three per-index `summary` rows, the chosen index's
-`entity_indexed:<index>` (`by acct`) and `vhost_indexed:<index>` (`by vhost`) probes, its events /
-sourcetypes / accelerated-model probes, and the three control probes. It prints one JSON row per
+`entity_indexed:<index>` (`by acct`), `vhost_indexed:<index>` (`by vhost`),
+`service_log_absent`, `user_clean` (`by user | where length(user) > 64`) and
+`auid_indexed` probes, its events / sourcetypes / accelerated-model probes, and the three
+control probes. It prints one JSON row per
 check — `{"name", "ok", "detail"}`, with the logs on stderr — and **fails on a probe that returned
-fewer rows than it declares**, not only on a failed job. A check that raises is one `"ok": false`
+fewer rows than it declares** (or, for an absence probe, more), not only on a failed job. A check
+that raises is one `"ok": false`
 row; it never aborts the pass. What "worked" looks like, in one place:
 
 | check | expected | what a failure means |
@@ -558,6 +592,9 @@ row; it never aborts the pass. What "worked" looks like, in one place:
 | `tstats … by sourcetype` on `_v2` | ≤16 rows, no date-in-filename names | mapping missed a class |
 | `entity_indexed:<i>_v2` (`tstats … by acct`) | >0 rows | the transform did not write meta (`WRITE_META` missing) or the index predates the fix — rebuild the index, a restart cannot repair it |
 | `vhost_indexed:<i>_v2` (`tstats … by vhost`) | >0 rows | the vhost was left in `c_ip` or the index predates the vhost transform — drop and re-ship it |
+| `service_log_absent` (`tstats … source="*system.service.log" …`) | 0 rows | a shipper copy or journal export was shipped — the index predates the routing change; drop and re-ship it |
+| `user_clean` (`tstats … sourcetype=linux_secure by user \| where length(user) > 64`) | 0 rows | the index-time `user` regex swallowed the record (a JSON line, or an index built before the JSON-safe class) — rebuild the index |
+| `auid_indexed` (`tstats … sourcetype=linux_audit by auid`) | >0 rows | `auid` never reached the tsidx — the index predates the transform; rebuild it |
 | `tstats summariesonly=true from datamodel=Authentication` | >0 rows, scan 0 | tags or acceleration missing |
 | `tstats … index=botsv2 sourcetype="WinEventLog" by host` | 0 rows | the control was normalised — stop |
 | `tstats … index=botsv2 sourcetype="wineventlog:security" by host` | >0 rows | the two-name split changed — stop |
@@ -584,6 +621,8 @@ accepted against.
 | acceleration precedence over the CIM defaults | **measured live 2026-11-21** — the four keys in `portal5_hunt_setup/default/datamodels.conf` left the model endpoint at `enabled: False` / `-1y`; the same keys in Splunk_SA_CIM's local conf report `enabled: True` / `-10y`, so stage 3 writes them there and `verify --accelerate` asserts the endpoint |
 | that an index-time field reaches the tsidx | **measured live 2026-11-21** by the orchestrator — without `WRITE_META` the `santos_v2` `tstats … by acct` answered 0 rows; with it, one HEC probe event answered `by acct exe`. Not yet re-measured on a full re-shipped index |
 | that the live Splunk accepts this conf | **unproven** — no stage was run |
+| that a JSON shipper copy corrupts `user` under `\S+`, and not under `[A-Za-z0-9_.@-]+` | **measured offline** on the corpora bytes (2026-11-21): 1,090 of 2,227 captures on santos and 1,075 of 2,230 on russell exceed 64 bytes under the old class, 0 under the new; no live index has been rebuilt with it yet |
+| the `auid` capture | **measured offline** on the corpora bytes: `(?:^|\s)auid=(\d+)` matches every `linux_audit` line (25,090 kyoushi / 24,034 santos / 18,692 russell, 5–6 distinct ids); `\bauid` returns the `old-auid=` value instead |
 
 ## 7. Promotion (after stage 5 passes)
 

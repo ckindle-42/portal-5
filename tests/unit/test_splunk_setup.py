@@ -26,7 +26,13 @@ REAL_LINES: dict[str, tuple[str, dict[str, str]]] = {
         "type=USER_ACCT msg=audit(1642118941.127:1320): pid=6526 uid=0 auid=4294967295 "
         'ses=4294967295 msg=\'op=PAM:accounting acct="root" exe="/usr/sbin/cron" '
         "hostname=? addr=? terminal=cron res=success'",
-        {"acct": "root", "exe": "/usr/sbin/cron", "uid": "0", "terminal": "cron"},
+        {
+            "acct": "root",
+            "exe": "/usr/sbin/cron",
+            "uid": "0",
+            "auid": "4294967295",
+            "terminal": "cron",
+        },
     ),
     "access_combined": (
         '10.229.1.182 - - [13/Jan/2022:14:45:34 +0000] "GET /login.php HTTP/1.1" 200 2458 '
@@ -56,6 +62,20 @@ REAL_LINES: dict[str, tuple[str, dict[str, str]]] = {
         {"dns_query": "_http._tcp.archive.ubuntu.com", "src": "192.42.165.180"},
     ),
 }
+
+#: One real line of the shipper copy D6 routes out (`/logstash/internal-share/2022-01-13-system.auth.log`):
+#: the username ends at the JSON quote, which is what `\S+` used to swallow.
+FILEBEAT_JSON_AUTH = (
+    '{"message":"Mar 22 15:06:01 aecid-samba-4 sudo: pam_unix(sudo:session): session closed for '
+    'user root","@version":"1","log":{"offset":0,"file":{"path":"/var/log/auth.log"}},'
+    '"service":{"type":"system"},"fileset":{"name":"auth"},"agent":{"id":'
+    '"24e81722-73d2-4687-b08f-a44872cdd879","hostname":"internal-share","ephemeral_id":'
+    '"841e5a0c-4d59-41a8-9855-d83605fdeb4f","type":"filebeat","version":"7.13.2",'
+    '"name":"internal-share"},"input":{"type":"log"},"host":{"name":"internal-share"},'
+    '"@timestamp":"2022-01-13T14:31:36.097Z","tags":["beats_input_codec_plain_applied"],'
+    '"event":{"module":"system","dataset":"system.auth","timezone":"+00:00"},'
+    '"ecs":{"version":"1.9.0"}}'
+)
 
 
 def test_every_ingested_sourcetype_normalises() -> None:
@@ -139,6 +159,26 @@ def test_vhost_combined_lines_keep_the_client_in_c_ip() -> None:
     assert "vhost_indexed" in {p.name for p in plan.verify_probes(plan.TUNED_BY_KEY["santos"])}
 
 
+def test_index_time_user_and_auid_are_the_real_values() -> None:
+    """A JSON shape stops at the quote, and `auid` reaches the tsidx beside `uid`."""
+    fields = conf.INDEX_FIELDS["linux_secure"]
+    match = re.search(fields["user"], FILEBEAT_JSON_AUTH)
+    assert match and match.group(1) == "root"
+    assert re.search(fields["user"], REAL_LINES["linux_secure"][0]).group(1) == "root"
+    audit = (
+        "type=LOGIN msg=audit(1642420697.752:2279): pid=20750 uid=0 old-auid=4294967295 "
+        "auid=1002 tty=(none) old-ses=4294967295 ses=318 res=1"
+    )
+    assert re.search(conf.INDEX_FIELDS["linux_audit"]["auid"], audit).group(1) == "1002"
+    rendered = conf.conf_files()
+    assert "[auid]\nINDEXED = true" in rendered["fields.conf"]
+    assert "ph_ix_linux_audit_auid" in rendered["props.conf"]
+    assert (
+        "[ph_ix_linux_audit_auid]\nREGEX = (?:^|\\s)auid=(\\d+)\nFORMAT = auid::$1"
+        in (rendered["transforms.conf"])
+    )
+
+
 def test_reindex_writes_only_new_indexes_and_routes_noise_out(tmp_path: Path) -> None:
     """A receipt row can only ever land in <index>_v2, and noise is counted, never shipped."""
     spec = plan.TUNED_BY_KEY["santos"]
@@ -152,14 +192,43 @@ def test_reindex_writes_only_new_indexes_and_routes_noise_out(tmp_path: Path) ->
             "sourcetype": "2022-01-13-system.cpu.log",
             "sent": 7,
         },
+        {
+            "host": "ws",
+            "source": "/logstash/ws/2022-01-13-system.service.log",
+            "sourcetype": "2022-01-13-system.service.log",
+            "sent": 5000,
+        },
+        {
+            "host": "ws",
+            "source": "/logstash/ws/2022-01-13-system.auth.log",
+            "sourcetype": "2022-01-13-system.auth.log",
+            "sent": 70,
+        },
+        {
+            "host": "ws",
+            "source": "/journal/x/system.journal.txt",
+            "sourcetype": "system.journal.txt",
+            "sent": 900,
+        },
     ]
     built = plan.build_reindex_plan(spec, files, root=tmp_path)
     shipped = [row for row in built.rows if row.sourcetype_out]
     assert {row.index for row in shipped} == {spec.target_index}
     assert spec.target_index == f"{spec.source_index}_v2"
     assert [row.sourcetype_out for row in shipped] == ["suricata", "linux_secure"]
-    assert built.noise_total == 107 and built.kept_total == 60
+    assert built.noise_total == 6077 and built.kept_total == 60
     assert built.source_total == built.kept_total + built.noise_total
+    # one event family, one copy: the shipper's JSON re-ship and the journald export are dropped
+    copies = [
+        "2022-01-13-system.service.log",
+        "2022-01-13-system.auth.log",
+        "2022-01-13-system.syslog.log",
+        "system.journal.txt",
+    ]
+    assert [plan.classify(name).target for name in copies] == [None] * len(copies)
+    assert all(plan.classify(name).kind == "noise" for name in copies)
+    # a per-user journal holds events no other file has, so it is not a duplicate
+    assert plan.classify("user-1000.journal.txt").target == "syslog"
     kept = plan.build_reindex_plan(spec, files, keep_metrics=True, root=tmp_path)
     assert "metricbeat:system" in {row.sourcetype_out for row in kept.rows}
     with pytest.raises(SystemExit):
@@ -330,6 +399,7 @@ def test_verify_fails_a_zero_row_entity_tstats(
 
     class _Svc:
         zero = spec.target_index
+        absent_rows: list[dict[str, str]] = []
 
         def macro_expansion(self, macro: str) -> str:
             return f"litsearch {plan.cim_macro_definition()}"
@@ -361,25 +431,34 @@ def test_verify_fails_a_zero_row_entity_tstats(
                 return rest.SearchResult(rows=rows)
             if "hunt_entities_index=" in spl:
                 return rest.SearchResult(rows=[{"count": "7"}])
+            if 'source="*system' in spl or "length(user) > 64" in spl:
+                return rest.SearchResult(rows=list(self.absent_rows), run_seconds=0.1)
             zero = self.zero
             rows = [] if zero and f"index={zero}" in spl and "by acct" in spl else [{"count": "1"}]
             return rest.SearchResult(rows=rows, run_seconds=0.1)
 
     monkeypatch.setattr(cli.rest, "SplunkREST", lambda transport=None: _Svc())
     for key, tuned in plan.TUNED_BY_KEY.items():
-        _Svc.zero = tuned.target_index
+        _Svc.zero, _Svc.absent_rows = tuned.target_index, [{"count": "3"}, {"count": "1"}]
         args = cli.build_parser().parse_args(["verify", "--index", key])
         assert cli.cmd_verify(args) == 1
         report = json.loads(capsys.readouterr().out)
         assert {"acceleration_window", "summaries_complete"} <= {row["name"] for row in report}
-        failed = [row for row in report if not row["ok"]]
-        assert [row["name"] for row in failed] == [f"entity_indexed:{tuned.target_index}"]
-        assert "got fewer than 1 rows" in failed[0]["detail"]
+        failed = {row["name"]: row for row in report if not row["ok"]}
+        # the absence probes fail on rows, not on a missing conf line
+        assert set(failed) == {
+            f"entity_indexed:{tuned.target_index}",
+            "service_log_absent",
+            "user_clean",
+        }
+        assert "got fewer than 1 rows" in str(failed[f"entity_indexed:{tuned.target_index}"])
+        assert "got more than 0 rows" in str(failed["service_log_absent"]["detail"])
         summaries = {row["name"]: row for row in report}["summaries_complete"]
         assert summaries["ok"] is True and "complete 6/6" in summaries["detail"]
+        assert "auid_indexed" in {row["name"] for row in report}
 
     args = cli.build_parser().parse_args(["verify", "--index", "santos"])
-    _Svc.zero = ""
+    _Svc.zero, _Svc.absent_rows = "", []
     assert cli.cmd_verify(args) == 0
 
 

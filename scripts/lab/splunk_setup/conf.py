@@ -15,7 +15,9 @@ HEADER = (
 #: Every stanza writes ``WRITE_META = true`` — without it Splunk keeps the value out of the tsidx.
 INDEX_FIELDS: dict[str, dict[str, str]] = {
     "linux_secure": {
-        "user": r"(?:Failed password for (?:invalid user )?|Accepted \S+ for |for user )(\S+)",
+        #: A username never contains `"`, so the class stops the JSON shape swallowing the record.
+        "user": r"(?:Failed password for (?:invalid user )?|Accepted \S+ for |for user )"
+        r"([A-Za-z0-9_.@-]+)",
         "src": r"\bfrom (\d{1,3}(?:\.\d{1,3}){3})",
     },
     "linux_audit": {
@@ -24,6 +26,7 @@ INDEX_FIELDS: dict[str, dict[str, str]] = {
         "addr": r'\baddr="?(\d{1,3}(?:\.\d{1,3}){3})',
         "terminal": r"\bterminal=(\S+)",
         "uid": r"\buid=(\d+)",
+        "auid": r"(?:^|\s)auid=(\d+)",
     },
     #: One sourcetype for both Apache shapes: vhost_combined is combined behind `vhost:port `.
     "access_combined": {
