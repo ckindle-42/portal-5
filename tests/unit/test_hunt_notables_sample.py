@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from portal.modules.security.core.hunt.executor import Read
+from portal.modules.security.core.hunt.notables.behaviours import _file_rows
 from portal.modules.security.core.hunt.notables.sample import (
     IndexFile,
     LocalWindow,
@@ -302,6 +303,9 @@ def test_every_indexed_file_is_read_with_its_own_head_not_by_arrival_order():
     assert sum(item.rows for item in read.files if item.path == labelled) > 0
     assert any(f'source="{labelled}"' in query for query in executor.queries)
     assert len(read.rows) <= 100 * 2 + len(files) * 2  # today's row budget plus per-read rounding
+    lines = _file_rows("ix:st", read)
+    assert {line["path"] for line in lines} == set(files)
+    assert all(line["events_available"] > 0 for line in lines)
 
 
 def test_a_capped_read_declares_every_unread_file_with_its_reason():
