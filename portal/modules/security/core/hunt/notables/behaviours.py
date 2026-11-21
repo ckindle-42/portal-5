@@ -1253,7 +1253,7 @@ def _localisation_entry(
         "coverage": located.coverage,
         "accel_window": list(located.accel_window) if located.accel_window else None,
         "covered_window": list(located.covered_window) if located.covered_window else None,
-        "scanned_window": list(located.scanned_window) if located.scanned_window else None,
+        "scanned_window": [list(piece) for piece in located.scanned_window],
         "notes": located.notes,
     }
 

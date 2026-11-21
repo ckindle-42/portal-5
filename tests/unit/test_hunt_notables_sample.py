@@ -196,18 +196,19 @@ def test_a_range_outside_the_acceleration_window_is_localised_by_a_scan_not_empt
 
 
 def test_a_partially_covered_source_declares_the_covered_and_scanned_ranges():
-    executor = _SummaryExecutor((3000.0, 7200.0), _burst_series(300, 24, 21, 121, 4))
+    executor = _SummaryExecutor((3000.0, 6000.0), _burst_series(300, 24, 21, 121, 4))
     found = localise(executor, "ix", 0.0, 7200.0)
 
     assert found.mechanism == "accelerated_partial"
     assert found.model == "Authentication"
     assert found.coverage == "accelerated_partial"
-    assert found.covered_window == (3000.0, 7200.0)
-    assert found.scanned_window == (0.0, 3000.0)
+    assert found.covered_window == (3000.0, 6000.000001)
+    assert found.scanned_window == [(0.0, 3000.0), (6000.000001, 7200.0)]
     assert found.windows
-    # the summary read covers the covered sub-range, the index aggregate the remainder
-    assert (3000.0, 7200.0) in executor.bounds
+    # the summary read covers the covered sub-range, the scan reads the two remainders
+    assert (3000.0, 6000.000001) in executor.bounds
     assert (0.0, 3000.0) in executor.bounds
+    assert (6000.000001, 7200.0) in executor.bounds
 
 
 class _QueryExecutor:

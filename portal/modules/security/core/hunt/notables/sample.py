@@ -149,7 +149,7 @@ class Localisation:
     model: str = ""
     accel_window: tuple[float, float] | None = None
     covered_window: tuple[float, float] | None = None
-    scanned_window: tuple[float, float] | None = None
+    scanned_window: list[tuple[float, float]] = field(default_factory=list)
     coverage: str = "scan"  # accelerated | accelerated_partial | scan
     notes: list[str] = field(default_factory=list)
 
@@ -168,13 +168,13 @@ def localise_width(span: float) -> float:
 
 
 def coverage_label(accel_window: Sequence[float] | None, start: float, end: float) -> str:
-    """Exact containment accelerates; a window that shares one end of the span is a partial."""
+    """Exact containment accelerates; any smaller overlap is a declared partial, never a miss."""
     if not accel_window:
         return "scan"
     first, last = float(accel_window[0]), float(accel_window[1])
     if first <= start and end <= last:
         return "accelerated"
-    if first < end and start < last and (first <= start or last >= end):
+    if first < end and start < last:
         return "accelerated_partial"
     return "scan"
 
@@ -370,7 +370,7 @@ def _scan_windows(
 def _partial_summary(
     summaries: Sequence[AccelSummary], start: float, end: float
 ) -> AccelSummary | None:
-    """The summary window that shares one end of a span it does not contain, on most overlap."""
+    """The summary window with the largest overlap of a span it does not contain."""
     best: tuple[float, AccelSummary] | None = None
     for item in summaries:
         if coverage_label(item.window, start, end) != "accelerated_partial":
@@ -390,14 +390,13 @@ def _partial_localisation(
     width: float,
     notes: list[str],
 ) -> Localisation | None:
-    """The covered sub-range is localised from the summary, the remainder from the index."""
+    """The covered sub-range is localised from the summary, each remainder from the index."""
     first, last = float(summary.window[0]), float(summary.window[1])
     covered = (max(start, first), min(end, last))
-    scanned = (start, covered[0]) if first > start else (covered[1], end)
-    windows = [
-        *_summary_windows(executor, index, summary.model, *covered, width, notes),
-        *_scan_windows(executor, index, *scanned, width, notes),
-    ]
+    scanned = [piece for piece in ((start, first), (last, end)) if piece[0] < piece[1]]
+    windows = _summary_windows(executor, index, summary.model, *covered, width, notes)
+    for piece in scanned:
+        windows.extend(_scan_windows(executor, index, *piece, width, notes))
     if not windows:
         notes.append(f"accel_partial:no_windows:{summary.model}")
         return None
