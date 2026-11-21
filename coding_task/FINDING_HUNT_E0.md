@@ -1,16 +1,17 @@
 # FINDING — Hunt E0: receipt honesty (measurement plumbing)
 
 **Lane:** `lane/hunt-e0` · **Slice:** E0 of `docs/hunt/ORCACYBER_DEEP_DIVE_3.md` §6 ·
-**Base:** `main` at `614368b30`, merged with `origin/main` at `0b63ea782` (E1, E3, E5, E6) ·
-**Scope:** `sample.py`, `executor.py`, `behaviours.py`, two unit test files. No live Splunk run,
-no `launch.sh`, no `.env`, no held-out set.
+**Base:** `main` at `614368b30`, merged with `origin/main` at `0b63ea782` (E1, E3, E5, E6) and
+then at `444bed720` (E7) · **Scope:** `sample.py`, `executor.py`, `behaviours.py`, two unit test
+files. No live Splunk run, no `launch.sh`, no `.env`, no held-out set.
 
-**Merge (E1/E3/E5/E6):** the only conflicts were the `sample.py` import list and one test hunk in
-`test_hunt_notables_sample.py`; both kept every side. Against `origin/main` this lane's diff is
-still exactly its six files (+371/−51), and the added/removed lines of `sample.py` and
-`test_hunt_notables_sample.py` are byte-identical to the pre-merge patch — nothing of E1's
-per-file ranges, E3's per-source localisation (`accelerated_partial`, `covered_window`,
-`scanned_window`) or E5/E6's notables contract was dropped.
+**Merge (E1/E3/E5/E6, then E7):** the only conflicts were the `sample.py` import list and one
+test hunk in `test_hunt_notables_sample.py`; both kept every side. The E7 merge was clean and
+touches none of E0's files. Against `origin/main` this lane's diff is now exactly its six files
+(+384/−51), and the added/removed lines of `sample.py` and `test_hunt_notables_sample.py` are
+byte-identical to the pre-merge patch — nothing of E1's per-file ranges, E3's per-source
+localisation (`accelerated_partial`, `covered_window`, `scanned_window`), E5/E6's notables
+contract or E7's judge separation was dropped.
 
 ## What the slice asked for, and what the code now does
 
@@ -61,11 +62,11 @@ property_3_coverage:
 (Scratch is gitignored under `coding_task/scratch/`; it drives the real production functions
 through a fake `Search`, not a hand-built record shape.)
 
-Gates, on this merged tree (post `origin/main` @ `0b63ea782`):
+Gates, on this merged tree (post `origin/main` @ `444bed720`):
 
 ```
 $ uv run pytest tests/unit/ -q
-3072 passed, 22 skipped, 2 warnings in 84.01s (0:01:24)
+3075 passed, 22 skipped, 2 warnings in 89.46s (0:01:29)
 
 $ uv run ruff check .
 All checks passed!
@@ -76,7 +77,7 @@ $ uv run ruff format --check .
 $ python3 scripts/complexity_report.py --gate
 [complexity] GATE OK — totals within the declared ceilings:
   data_lines: 12,291 <= 13,370 (headroom 1,079)
-  god_lines: 68,660 <= 71,202 (headroom 2,542)
+  god_lines: 68,665 <= 71,202 (headroom 2,537)
   unwired_scripts: 25 <= 25 (headroom 0)
   identical_pairs: 0 <= 0 (headroom 0)
   committed_blob_bytes: 1,792,894 <= 1,873,616 (headroom 80,722)
