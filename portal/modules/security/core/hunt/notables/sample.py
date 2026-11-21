@@ -833,7 +833,7 @@ def _file_reads(
     """One file's (window, head) plan: its own range sliced, else the source schedule."""
     if item.events <= per_window:
         bounds = _file_windows(item, 1) or [(facts.first, facts.last + 0.000001)]
-        return [(bounds[0][0], bounds[-1][1], item.events)]
+        return [(bounds[0][0], bounds[-1][1], max(1, item.events))]
     own = _file_windows(item, _file_window_count(item.events, per_window, per_window))
     bounds = own or _spread_windows(
         source_bounds, _file_window_count(item.events, per_window, per_read)
