@@ -43,6 +43,27 @@ operational groups below; `sync-config` regenerates derived artifacts from
 `start-speech` / `start-transcribe` pairs and the embedding installers in
 `scripts/lib/services.sh`.
 
+## Discovering commands, and the worktree guard
+
+```bash
+./launch.sh help            # list every subcommand; touches nothing
+```
+
+`help` (also `-h`, `--help`) is the only subcommand that is safe to run from a
+lane worktree, and the only way to discover the surface without risking the
+stack: it prints the usage block and exits. Every other subcommand — including a
+bare `./launch.sh`, which resolves to `up` — is refused from a git worktree that
+is not the live checkout. The guard lives at the top of `launch.sh`, backed by
+`_portal_is_lane_worktree` / `_portal_refuse_lane_worktree` in
+`scripts/lib/util.sh`: a linked worktree (`git rev-parse --git-common-dir` ≠
+`--absolute-git-dir`), or any checkout whose toplevel is not
+`PORTAL_LIVE_CHECKOUT` (default `$HOME/projects/portal-5`), exits non-zero with
+an explanatory message. The allowlist is default-deny, so a command added later
+is guarded without being listed. `PORTAL_ALLOW_STACK_FROM_WORKTREE=1` lifts the
+guard for the orchestrator; lanes have no reason to set it. The refusal exists
+because compose's project name is shared: on 2026-11-20 a lane's bare
+`./launch.sh` ran `up` from its worktree and destroyed every live container.
+
 ## Test everything is working
 
 ```bash
