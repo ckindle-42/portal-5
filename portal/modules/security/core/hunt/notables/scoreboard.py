@@ -18,6 +18,7 @@ import unicodedata
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -749,6 +750,23 @@ def _cost(progress: Mapping[str, Any], directory: Path) -> dict[str, Any]:
     }
 
 
+def _corpus_family(label: str, run_index: str, excluded: str) -> str:
+    """A label naming a tuned `_v2` index is that index's corpus family, not another one."""
+    try:
+        plan = import_module("scripts.lab.splunk_setup.plan")
+    except ImportError:  # no setup registry on this path: keep the label, keep the guard strict
+        return label
+    spec = getattr(plan, "TUNED_BY_TARGET", {}).get(run_index)
+    if spec is None:
+        return label
+    names = {spec.key, spec.source_index, spec.target_index}
+    names |= {name.removeprefix("hb_") for name in names}
+    if label.removesuffix("_v2") not in names:
+        return label
+    shortened = bool(excluded) and spec.key.casefold().startswith(str(excluded).casefold())
+    return str(excluded) if shortened else label
+
+
 def _honesty(progress: Mapping[str, Any], family: str) -> dict[str, Any]:
     stages = progress.get("stages")
     notables = stages.get("notables") if isinstance(stages, Mapping) else None
@@ -761,6 +779,7 @@ def _honesty(progress: Mapping[str, Any], family: str) -> dict[str, Any]:
         # A dataset the store has never seen has nothing of its own to leave out; the loader's
         # leak guard already refused rows carrying the run's index (2026-11-18, botsv2).
         excluded = family
+    family = _corpus_family(family, str(detail.get("run_index") or ""), str(excluded or ""))
     if excluded is None or str(excluded) != family:
         raise ScoreboardError(
             f"the notables receipt excludes {excluded!r}, not {family!r}: the run under test "
