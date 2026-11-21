@@ -192,10 +192,11 @@ placement, the template model is the `cards` sample, and the per-line credit rul
   "transport reported incomplete coverage" signal, in a stage whose `searches` block reports no
   censored reads. Unseen-candidate discovery may be incomplete; it does not touch the E2 numbers
   (which come from `progress.json` file rows, the ledger and the store).
-- **`files_omitted 73` is 251 receipt rows for far fewer files**: each anchored host round re-emits
-  one `host_mismatch` row per file that is not on that host (5 anchors × 4 graded files = 20 rows for
-  one file family). E0 is satisfied (every zero row has a reason); the counter overstates distinct
-  files.
+- **`files_omitted 73` counts files that were read anyway**: all 21 `access_combined` files carry
+  row receipts, and 20 of them *also* carry a `host_mismatch` row from each anchored host round they
+  are not on (251 such rows over 73 distinct paths; the counter is the distinct-path set). E0's
+  property holds — every zero row names a reason — but the receipt counter reads as a loss where
+  none occurred.
 
 ## 6. Reproduce
 
