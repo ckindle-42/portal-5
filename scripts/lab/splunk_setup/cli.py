@@ -108,6 +108,17 @@ def cmd_apply(args: argparse.Namespace) -> int:
         actions.append({"changed": True, "detail": host.install_app(app_dir, lxc_id=args.lxc_id)})
     for app in plan.APPS_ENABLE:
         actions.append(asdict(svc.ensure_app(app, enabled=True, dry_run=args.dry_run)))
+    for macro in plan.cim_macros(args.with_change):
+        actions.append(
+            asdict(
+                svc.ensure_macro(
+                    plan.CIM_APP,
+                    macro,
+                    plan.cim_macro_definition(),
+                    dry_run=args.dry_run,
+                )
+            )
+        )
     token = os.environ.get("LAB_SPLUNK_HEC_TOKEN", "")
     for spec in plan.TUNED:
         actions.append(
@@ -241,7 +252,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     probes = list(plan.CONTROL_PROBES)
     if args.index:
         probes = list(plan.verify_probes(_spec(args.index))) + probes
-    report = []
+    report = _cim_macro_probes(svc)
     for probe in probes:
         earliest = "0" if probe.name == "events" else "-10y"
         if probe.name == "control_model_scope":
@@ -266,8 +277,44 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 0 if not any(item["failed"] for item in report) else 1
 
 
+def _cim_macro_probes(svc: rest.SplunkREST) -> list[dict[str, object]]:
+    """The property is the parser's expansion, not the conf row: `()` means the scope lost."""
+    expected = plan.cim_macro_definition()
+    report = []
+    for macro in plan.cim_macros():
+        expansion = svc.macro_expansion(macro)
+        missing = [spec.target_index for spec in plan.TUNED if spec.target_index not in expansion]
+        report.append(
+            {
+                "probe": f"cim_macro:{macro}",
+                "spl": f"search `{macro}`",
+                "expect": expected,
+                "expansion": expansion,
+                "rows": [],
+                "row_count": 0,
+                "scan_count": 0,
+                "run_seconds": 0.0,
+                "failed": bool(missing),
+                "messages": [f"expansion does not name {missing}"] if missing else [],
+            }
+        )
+    return report
+
+
 def cmd_rollback(args: argparse.Namespace) -> int:
     spec = _spec(args.index) if args.index else plan.TUNED[0]
+    svc = rest.SplunkREST(transport=_transport(args))
+    restores = [
+        asdict(
+            svc.ensure_macro(
+                plan.CIM_APP,
+                macro,
+                plan.CIM_DEFAULT_DEFINITION,
+                dry_run=args.dry_run,
+            )
+        )
+        for macro in plan.cim_macros(with_change=True)
+    ]
     commands = {
         "app": [
             f"ssh -i $LAB_SSH_KEY root@$LAB_PROXMOX_HOST 'pct exec {args.lxc_id} -- "
@@ -289,7 +336,7 @@ def cmd_rollback(args: argparse.Namespace) -> int:
             f"index={spec.source_index} is never written by any stage; no rollback is needed for it"
         ),
     }
-    _print(commands)
+    _print({"dry_run": args.dry_run, "cim_macros": restores, "commands": commands})
     return 0
 
 
@@ -363,10 +410,11 @@ def _stage_parsers(sub) -> None:
     verify.add_argument("--offline", action="store_true")
     verify.set_defaults(func=cmd_verify)
 
-    rollback = sub.add_parser("rollback", help="print the rollback commands for a stage")
+    rollback = sub.add_parser("rollback", help="restore the CIM macro defaults; print the rest")
     rollback.add_argument("--index")
     rollback.add_argument("--lxc-id", default=host.DEFAULT_LXC)
     rollback.add_argument("--container", default=host.DEFAULT_CONTAINER)
+    rollback.add_argument("--dry-run", action="store_true")
     rollback.set_defaults(func=cmd_rollback)
 
 

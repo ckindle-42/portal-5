@@ -41,6 +41,7 @@ class SearchResult:
     run_seconds: float = 0.0
     failed: bool = False
     messages: list[str] = field(default_factory=list)
+    normalized_search: str = ""
 
 
 def _httpx_transport(method: str, path: str, data: dict[str, str] | None) -> dict[str, Any]:
@@ -145,6 +146,21 @@ class SplunkREST:
             "HEC token with LAB_SPLUNK_HEC_TOKEN not found in /services/data/inputs/http"
         )
 
+    # -- macros --------------------------------------------------------------------
+    def ensure_macro(
+        self, app: str, name: str, definition: str, *, dry_run: bool = False
+    ) -> Action:
+        """Write a macro into ``app``'s local conf, and only when it differs from ``definition``."""
+        path = (
+            f"/servicesNS/nobody/{quote(app, safe='')}/configs/conf-macros/{quote(name, safe='')}"
+        )
+        entry = self.entry(path)
+        if str((entry or {}).get("content", {}).get("definition")) == definition:
+            return Action(False, f"{app} {name} already matches")
+        if not dry_run:
+            self.request("POST", path, {"definition": definition})
+        return Action(True, f"{app} {name} set")
+
     # -- searches ------------------------------------------------------------------
     def search(
         self,
@@ -182,7 +198,17 @@ class SplunkREST:
         result.scan_count = int(content.get("scanCount") or 0)
         result.run_seconds = float(content.get("runDuration") or 0.0)
         result.messages = [str(m.get("text", m)) for m in content.get("messages") or []]
+        result.normalized_search = str(
+            content.get("normalizedSearch") or content.get("optimizedSearch") or ""
+        )
         if not result.failed:
             results = self.request("GET", f"/services/search/jobs/{sid}/results?count=0")
             result.rows = list(results.get("results") or [])
         return result
+
+    def macro_expansion(self, macro: str) -> str:
+        """What the parser makes of a macro invocation: the search it actually runs."""
+        result = self.search(f"search `{macro}` | head 0", earliest="-1s", max_wait=120.0)
+        if not result.normalized_search:
+            raise SplunkError(f"no parser expansion returned for `{macro}`")
+        return result.normalized_search
