@@ -305,6 +305,75 @@ def test_lofo_infers_excluded_family_from_the_store_when_omitted(
     assert detail["loaded_families"] == ["fam_a", "fam_b"]
 
 
+def test_notables_completes_with_an_alert_card_candidate_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out, store = _prepare(tmp_path, monkeypatch)
+    alert = SourceCard(
+        index="runidx",
+        sourcetype="pan:threat",
+        kind="alert",
+        roles={"object": ("dest",)},
+        understood=True,
+        reason=None,
+        fmt="json",
+        coverage=1.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="alert",
+    )
+    sources = json.loads((out / "sources.json").read_text())
+    sources["cards"].append(alert.as_dict())
+    (out / "sources.json").write_text(json.dumps(sources))
+    (out / "inventory.json").write_text(
+        json.dumps(
+            {
+                "joints": [
+                    {
+                        "source_id": "runidx:pan:threat",
+                        "sourcetype": "pan:threat",
+                        "status": "complete",
+                        "fields": [{"role": "object", "field": "dest"}],
+                        "rows": [
+                            {
+                                "values": {"dest": "203.0.113.99"},
+                                "events": 2,
+                                "first_seen": 30.0,
+                                "last_seen": 40.0,
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+    )
+
+    code = main(
+        [
+            "--index",
+            "runidx",
+            "--out",
+            str(out),
+            "--stage",
+            "notables",
+            "--generators",
+            "similar_to_known",
+            "--knowledge-store",
+            str(store),
+        ],
+        search=_RecordingSearch(),
+    )
+
+    assert code == 0
+    assert (out / "notables.jsonl").exists()
+    progress = json.loads((out / "progress.json").read_text())
+    receipt = progress["stages"]["notables"]
+    assert receipt["skipped_sources"] == {}
+    assert receipt["inventory"]["candidates"] == 0
+
+
 def test_lofo_guard_holds_on_the_real_run_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
