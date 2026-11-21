@@ -50,11 +50,13 @@ ACCEL_PROBE_ROWS = 100  # effort budget: window rows one accelerated-model probe
 
 @dataclass(frozen=True)
 class IndexFile:
-    """One indexed source path under a sourcetype: its volume and the hosts it appears on."""
+    """One indexed source path under a sourcetype: its volume, hosts and own time range."""
 
     path: str
     events: int
     hosts: tuple[str, ...] = ()
+    first: float = 0.0
+    last: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -97,6 +99,11 @@ class SourceFacts:
     count_cv: float = 0.0
     shared_sources: tuple[str, ...] = ()
     files: tuple[IndexFile, ...] = ()
+
+
+def file_span(facts: SourceFacts, item: IndexFile) -> tuple[float, float]:
+    """A file's own range, or its source's when the run recorded none (0.0 ⇒ unknown)."""
+    return (item.first, item.last) if item.last > 0.0 else (facts.first, facts.last)
 
 
 @dataclass
@@ -153,10 +160,12 @@ class Localisation:
     """Where a read's windows came from: a summary, the index aggregate, or neither."""
 
     windows: list[LocalWindow] = field(default_factory=list)
-    mechanism: str = ""  # accelerated | indexed | ""
+    mechanism: str = ""  # accelerated | accelerated_partial | indexed | ""
     model: str = ""
     accel_window: tuple[float, float] | None = None
-    coverage: str = "scan"  # accelerated | scan
+    covered_window: tuple[float, float] | None = None
+    scanned_window: list[tuple[float, float]] = field(default_factory=list)
+    coverage: str = "scan"  # accelerated | accelerated_partial | scan
     notes: list[str] = field(default_factory=list)
 
 
@@ -174,9 +183,14 @@ def localise_width(span: float) -> float:
 
 
 def coverage_label(accel_window: Sequence[float] | None, start: float, end: float) -> str:
-    """`accelerated` only inside a model's window; everything else is a scan, never a miss."""
-    if accel_window and float(accel_window[0]) <= start and end <= float(accel_window[1]):
+    """Exact containment accelerates; any smaller overlap is a declared partial, never a miss."""
+    if not accel_window:
+        return "scan"
+    first, last = float(accel_window[0]), float(accel_window[1])
+    if first <= start and end <= last:
         return "accelerated"
+    if first < end and start < last:
+        return "accelerated_partial"
     return "scan"
 
 
@@ -289,45 +303,129 @@ def accel_summaries(executor: HuntExecutor, index: str) -> tuple[list[AccelSumma
 
 
 def localise(
-    executor: HuntExecutor, index: str, start: float, end: float, *, width: float | None = None
+    executor: HuntExecutor,
+    index: str,
+    start: float,
+    end: float,
+    *,
+    width: float | None = None,
+    summaries: Sequence[AccelSummary] | None = None,
 ) -> Localisation:
-    """Rung 1 over a covering summary, else rung 2's index aggregate: where and when, never who."""
+    """Rung 1 over a covering summary, else rung 2's index aggregate: one source's own span."""
     chosen = width or localise_width(end - start)
-    summaries, notes = accel_summaries(executor, index)
-    covered = [
-        item for item in summaries if coverage_label(item.window, start, end) == "accelerated"
-    ]
-    accel_window = covered[0].window if covered else (summaries[0].window if summaries else None)
+    if summaries is None:
+        probed, notes = accel_summaries(executor, index)
+    else:
+        probed, notes = list(summaries), []
+    covered = [item for item in probed if coverage_label(item.window, start, end) == "accelerated"]
     for summary in covered:
-        rows, reason = _read_range(
-            executor,
-            accel_localise_query(summary.model, index, chosen),
-            start,
-            end,
-            kind="localise",
-            row_cap=LOCALISE_ROWS,
-        )
-        if reason:
-            notes.append(f"accel:{summary.model}:{reason}")
-            continue
-        windows = select_local_windows(rows, chosen)
+        windows = _summary_windows(executor, index, summary.model, start, end, chosen, notes)
         if windows:
             return Localisation(
-                windows, "accelerated", summary.model, summary.window, "accelerated", notes
+                windows=windows,
+                mechanism="accelerated",
+                model=summary.model,
+                accel_window=summary.window,
+                coverage="accelerated",
+                notes=notes,
             )
         notes.append(f"accel:no_windows:{summary.model}")
+    partial = _partial_summary(probed, start, end)
+    if partial is not None:
+        found = _partial_localisation(executor, index, partial, start, end, chosen, notes)
+        if found is not None:
+            return found
+    scanned_rows = _scan_windows(executor, index, start, end, chosen, notes)
+    return Localisation(
+        windows=scanned_rows,
+        mechanism="indexed",
+        model="",
+        accel_window=covered[0].window if covered else (probed[0].window if probed else None),
+        coverage="scan",
+        notes=notes,
+    )
+
+
+def _summary_windows(
+    executor: HuntExecutor,
+    index: str,
+    model: str,
+    start: float,
+    end: float,
+    width: float,
+    notes: list[str],
+) -> list[LocalWindow]:
+    """The peak buckets one model's summary answers for a sub-range."""
     rows, reason = _read_range(
         executor,
-        localise_query(index, chosen),
+        accel_localise_query(model, index, width),
         start,
         end,
         kind="localise",
         row_cap=LOCALISE_ROWS,
     )
     if reason:
+        notes.append(f"accel:{model}:{reason}")
+        return []
+    return select_local_windows(rows, width)
+
+
+def _scan_windows(
+    executor: HuntExecutor, index: str, start: float, end: float, width: float, notes: list[str]
+) -> list[LocalWindow]:
+    """The peak buckets the index aggregate answers for a sub-range no summary holds."""
+    rows, reason = _read_range(
+        executor, localise_query(index, width), start, end, kind="localise", row_cap=LOCALISE_ROWS
+    )
+    if reason:
         notes.append(f"localise:{reason}")
+    return select_local_windows(rows, width)
+
+
+def _partial_summary(
+    summaries: Sequence[AccelSummary], start: float, end: float
+) -> AccelSummary | None:
+    """The summary window with the largest overlap of a span it does not contain."""
+    best: tuple[float, AccelSummary] | None = None
+    for item in summaries:
+        if coverage_label(item.window, start, end) != "accelerated_partial":
+            continue
+        overlap = min(end, float(item.window[1])) - max(start, float(item.window[0]))
+        if best is None or overlap > best[0]:
+            best = (overlap, item)
+    return best[1] if best else None
+
+
+def _partial_localisation(
+    executor: HuntExecutor,
+    index: str,
+    summary: AccelSummary,
+    start: float,
+    end: float,
+    width: float,
+    notes: list[str],
+) -> Localisation | None:
+    """The covered sub-range is localised from the summary, each remainder from the index."""
+    first, last = float(summary.window[0]), float(summary.window[1])
+    covered = (max(start, first), min(end, last))
+    scanned = [piece for piece in ((start, first), (last, end)) if piece[0] < piece[1]]
+    windows = _summary_windows(executor, index, summary.model, *covered, width, notes)
+    for piece in scanned:
+        windows.extend(_scan_windows(executor, index, *piece, width, notes))
+    if not windows:
+        notes.append(f"accel_partial:no_windows:{summary.model}")
+        return None
+    peaks = sorted(windows, key=lambda window: -window.events)[:LOCALISE_WINDOWS]
+    peaks.sort(key=lambda window: (window.host, window.start))
     return Localisation(
-        select_local_windows(rows, chosen), "indexed", "", accel_window, "scan", notes
+        windows=peaks,
+        mechanism="accelerated_partial",
+        model=summary.model,
+        accel_window=summary.window,
+        covered_window=covered,
+        scanned_window=scanned,
+        coverage="accelerated_partial",
+        notes=notes,
     )
 
 
@@ -393,9 +491,10 @@ def _read_range(
 
 
 def _meta_rows(
-    executor: HuntExecutor, index: str, by: str, start: float, end: float
+    executor: HuntExecutor, index: str, by: str, start: float, end: float, *, span: bool = False
 ) -> tuple[list[dict[str, Any]], str | None]:
-    query = f"| tstats count where index={_quoted(index)} {by}"
+    counted = "count min(_time) as first max(_time) as last" if span else "count"
+    query = f"| tstats {counted} where index={_quoted(index)} {by}"
     return _read_range(executor, query, start, end, kind="discovery", row_cap=METADATA_ROWS)
 
 
@@ -474,7 +573,9 @@ def index_facts(
         notes.append(f"volume_metadata:{reason}")
     if not volume:
         return [], notes + ["index_metadata_empty"]
-    sources, source_reason = _meta_rows(executor, index, "by sourcetype source host", start, end)
+    sources, source_reason = _meta_rows(
+        executor, index, "by sourcetype source host", start, end, span=True
+    )
     hosts, host_reason = _meta_rows(executor, index, "by sourcetype host", start, end)
     cadence, cadence_notes = cadence_facts(executor, index, start, end)
     notes.extend(cadence_notes)
@@ -519,42 +620,69 @@ def index_facts(
     return facts, notes
 
 
+@dataclass(frozen=True)
+class _FileRow:
+    """One host's slice of one indexed file: the events it holds and the span they cover."""
+
+    host: str
+    count: int
+    first: float = 0.0
+    last: float = 0.0
+
+
 def _group_files(
     rows: Iterable[Mapping[str, Any]],
-) -> dict[str, dict[str, list[tuple[str, int]]]]:
-    """Per sourcetype: each indexed source path with its host rows and counts."""
-    grouped: dict[str, dict[str, list[tuple[str, int]]]] = {}
+) -> dict[str, dict[str, list[_FileRow]]]:
+    """Per sourcetype: each indexed source path with its host rows, counts and own span."""
+    grouped: dict[str, dict[str, list[_FileRow]]] = {}
     for row in rows:
         owner = str(row.get("sourcetype") or "")
         path = str(row.get("source") or "")
         if not owner or not path:
             continue
         grouped.setdefault(owner, {}).setdefault(path, []).append(
-            (str(row.get("host") or ""), _count(row.get("count")))
+            _FileRow(
+                str(row.get("host") or ""),
+                _count(row.get("count")),
+                _number(row.get("first")) or 0.0,
+                _number(row.get("last")) or 0.0,
+            )
         )
     return grouped
 
 
 def _files_of(
-    entries: Mapping[str, list[tuple[str, int]]] | None, events: int
+    entries: Mapping[str, Sequence[_FileRow]] | None, events: int
 ) -> tuple[IndexFile, ...]:
     """Ranked files, or none when the file rows do not account for every event of the source."""
     if not entries:
         return ()
-    total = sum(count for pairs in entries.values() for _host, count in pairs)
+    total = sum(row.count for rows in entries.values() for row in rows)
     if total != events:
         return ()
-    files = [
-        IndexFile(path, sum(count for _host, count in pairs), _file_hosts(pairs))
-        for path, pairs in entries.items()
-        if pairs
-    ]
+    files: list[IndexFile] = []
+    for path, rows in entries.items():
+        if not rows:
+            continue
+        first, last = _rows_span(rows)
+        events_here = sum(row.count for row in rows)
+        files.append(IndexFile(path, events_here, _file_hosts(rows), first, last))
     return tuple(sorted(files, key=lambda item: (-item.events, item.path)))
 
 
-def _file_hosts(pairs: Sequence[tuple[str, int]]) -> tuple[str, ...]:
+def _rows_span(rows: Sequence[_FileRow]) -> tuple[float, float]:
+    """The file's own range across its host rows, or 0/0 when the rows carried no time."""
+    spans = [(row.first, row.last) for row in rows if row.last > 0.0]
+    if not spans:
+        return 0.0, 0.0
+    return min(first for first, _last in spans), max(last for _first, last in spans)
+
+
+def _file_hosts(rows: Sequence[_FileRow]) -> tuple[str, ...]:
     """The hosts a file appears on, or none when they are too many to be worth naming."""
-    ranked = [host for host, _count in sorted(pairs, key=lambda item: (-item[1], item[0])) if host]
+    ranked = [
+        row.host for row in sorted(rows, key=lambda item: (-item.count, item.host)) if row.host
+    ]
     if len(ranked) > MAX_HOST_NAMES:
         return ()
     return tuple(sorted(ranked))

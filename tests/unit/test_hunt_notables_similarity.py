@@ -2,14 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-import pytest
-
 from portal.modules.security.core.hunt.notables.behaviours import Behaviour
 from portal.modules.security.core.hunt.notables.cards import SourceCard
-from portal.modules.security.core.hunt.notables.similar import (
-    SimilarityError,
-    _ranked_notables,
-)
+from portal.modules.security.core.hunt.notables.similar import _ranked_notables
 
 
 def _behaviour() -> Behaviour:
@@ -55,11 +50,18 @@ def _card() -> SourceCard:
     )
 
 
-def test_similarity_error_names_source_and_actual_card_kind() -> None:
-    measurement = replace(_card(), kind="measurement", roles={})
+def test_similar_skips_a_source_no_generator_consumes_and_records_it() -> None:
+    alert = replace(_card(), kind="alert", roles={"object": ("dest",)})
 
-    with pytest.raises(SimilarityError, match=r"run:activity.*measurement"):
-        _ranked_notables(None, [_behaviour()], [measurement], {}, {"score": "known_bad"})  # type: ignore[arg-type]
+    class _UnusedPool:
+        connection = None  # every behaviour is skipped, so nothing is matched
+
+    notables, skipped = _ranked_notables(  # type: ignore[arg-type]
+        _UnusedPool(), [_behaviour()], [alert], {}, {"score": "known_bad"}
+    )
+
+    assert notables == []
+    assert skipped == {"run:activity": 1}
 
 
 def test_similarity_diversifies_repeating_numeric_patterns() -> None:

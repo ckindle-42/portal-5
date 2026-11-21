@@ -22,10 +22,12 @@ from .sample import (
     BEHAVIOUR_SOURCES,
     EMPTY_WINDOW,
     LOCALISE_WINDOWS,
+    AccelSummary,
     Localisation,
     LocalWindow,
     RowSet,
     SourceFacts,
+    accel_summaries,
     file_omitted,
     localise,
     localise_width,
@@ -1199,39 +1201,29 @@ def _localise_sources(
     scheduled: Sequence[tuple[str, list[SourceCard], SourceFacts, float]],
     per_window: int,
 ) -> tuple[dict[str, Localisation], dict[str, Any]]:
-    """Rung 1/2 once per index: the host/time windows each wide source is narrowed to."""
+    """Rung 1/2 once per wide source, over that source's own span: the windows it is narrowed to."""
     sampled = [
-        facts for _sid, _grp, facts, _st in scheduled if not _is_complete_source(facts, per_window)
+        (source_id, facts)
+        for source_id, _grp, facts, _st in scheduled
+        if not _is_complete_source(facts, per_window)
     ]
     if not sampled:
         return {}, {"windows": 0, "events": 0, "indexes": [], "notes": []}
-    by_index: dict[str, list[SourceFacts]] = {}
-    for facts in sampled:
-        by_index.setdefault(facts.index, []).append(facts)
+    by_index: dict[str, list[tuple[str, SourceFacts]]] = {}
+    for source_id, facts in sampled:
+        by_index.setdefault(facts.index, []).append((source_id, facts))
     anchors: dict[str, Localisation] = {}
     indexes: list[dict[str, Any]] = []
     notes: list[str] = []
-    for index, facts_list in sorted(by_index.items()):
-        start = min(facts.first for facts in facts_list)
-        end = max(facts.last for facts in facts_list) + 0.000001
-        located = localise(executor, index, start, end)
-        notes.extend(located.notes)
-        if located.windows:
-            anchors[index] = located
-        indexes.append(
-            {
-                "index": index,
-                "width": localise_width(end - start),
-                "hosts": len({window.host for window in located.windows}),
-                "windows": len(located.windows),
-                "events": sum(window.events for window in located.windows),
-                "mechanism": located.mechanism,
-                "model": located.model,
-                "coverage": located.coverage,
-                "accel_window": list(located.accel_window) if located.accel_window else None,
-                "notes": located.notes,
-            }
-        )
+    for index, sources in sorted(by_index.items()):
+        summaries, probe_notes = accel_summaries(executor, index)
+        notes.extend(probe_notes)
+        for source_id, facts in sources:
+            located = _localise_one(executor, index, facts, summaries)
+            notes.extend(located.notes)
+            if located.windows:
+                anchors[source_id] = located
+            indexes.append(_localisation_entry(source_id, facts, located))
     return anchors, {
         "windows": sum(item["windows"] for item in indexes),
         "events": sum(item["events"] for item in indexes),
@@ -1240,9 +1232,46 @@ def _localise_sources(
     }
 
 
-def _localisation_of(anchors: Mapping[str, Localisation], index: str) -> Localisation:
-    """A missing index has no windows; it is never an error."""
-    return anchors.get(index) or Localisation()
+def _localise_one(
+    executor: HuntExecutor, index: str, facts: SourceFacts, summaries: Sequence[AccelSummary]
+) -> Localisation:
+    """A source's own `[first, last]` is the operand; the summary probe is shared per index."""
+    width = localise_width(facts.last - facts.first)
+    return localise(
+        executor,
+        index,
+        facts.first,
+        facts.last + 0.000001,
+        width=width,
+        summaries=summaries,
+    )
+
+
+def _localisation_entry(
+    source_id: str, facts: SourceFacts, located: Localisation
+) -> dict[str, Any]:
+    """One receipt row per wide source: a window here is that source's, never its index's."""
+    return {
+        "source": source_id,
+        "sourcetype": facts.sourcetype,
+        "index": facts.index,
+        "width": localise_width(facts.last - facts.first),
+        "hosts": len({window.host for window in located.windows}),
+        "windows": len(located.windows),
+        "events": sum(window.events for window in located.windows),
+        "mechanism": located.mechanism,
+        "model": located.model,
+        "coverage": located.coverage,
+        "accel_window": list(located.accel_window) if located.accel_window else None,
+        "covered_window": list(located.covered_window) if located.covered_window else None,
+        "scanned_window": [list(piece) for piece in located.scanned_window],
+        "notes": located.notes,
+    }
+
+
+def _localisation_of(anchors: Mapping[str, Localisation], source_id: str) -> Localisation:
+    """A missing source has no windows; it is never an error."""
+    return anchors.get(source_id) or Localisation()
 
 
 def _schedule_sources(
@@ -1387,15 +1416,15 @@ def collect_behaviours(
         create_events(con)
         create_misfits(con)
         scheduled = _schedule_sources(grouped, facts_by_source, skipped)
-        anchors_by_index, localisation = _localise_sources(executor, scheduled, per_window)
+        anchors_by_source, localisation = _localise_sources(executor, scheduled, per_window)
         burst_plan = (
-            {} if anchors_by_index else _burst_windows_by_source(executor, scheduled, per_window)
+            {} if anchors_by_source else _burst_windows_by_source(executor, scheduled, per_window)
         )
         concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
         with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
             futures = []
             for source_id, _group, facts, _started in scheduled:
-                located = _localisation_of(anchors_by_index, facts.index)
+                located = _localisation_of(anchors_by_source, source_id)
                 futures.append(
                     pool.submit(
                         read_behaviour_source,
@@ -1411,7 +1440,7 @@ def collect_behaviours(
                 )
             reads = [future.result() for future in futures]
         for (source_id, group, facts, started), read in zip(scheduled, reads, strict=True):
-            located = _localisation_of(anchors_by_index, facts.index)
+            located = _localisation_of(anchors_by_source, source_id)
             found, count, found_overrides, misfits, misfit_stats, file_lines = _key_source(
                 con,
                 group,
