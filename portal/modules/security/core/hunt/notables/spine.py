@@ -197,13 +197,9 @@ def class_token(kind: str, value: str) -> str:
     if kind == FILE:
         base = re.split(r"[/\\]", value.split("?", 1)[0].rstrip("/\\"))[-1]
         stem, dot, ext = base.rpartition(".")
-        if dot and ext.isalpha():
-            return f".{ext.casefold()}"
-        return ""
+        return f".{ext.casefold()}" if dot and stem and ext.isalpha() and len(ext) <= 8 else ""
     if kind == PROCESS:
         return re.split(r"[/\\]", value)[-1].casefold()
-    if kind in (HOSTNAME, DOMAIN):
-        return ""
     return ""
 
 

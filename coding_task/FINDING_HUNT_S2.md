@@ -150,8 +150,8 @@ uv run python -m "$hunt".spine --out "$run/russell" --family russell \
   behaviour receipts' `events_parsed` is larger than `events_keyed`; keyless lines are not in the
   spine. All three families' graded read lines are in it.
 - **Entity precision** is structural but not perfect: a bare dotted token is hostname-vs-file
-  ambiguous (`system.cpu.log` reads as a hostname; `Type.php` as a file). Card field names resolve
-  it where they exist.
+  ambiguous (`system.cpu.log` reads as a hostname; `Type.php` as a file), and a registry key is
+  recognised from two separators up. Card field names resolve it where they exist.
 - **Cost**: the spine re-parses the store; on botsv2 that is 131 s on top of the behaviours stage.
   Feeding the spine from the already-parsed events would remove the second parse.
 - **botsv2 5/20 keys** is the S0 baseline (5/14 steps), not the plan's older C0.1 8/24; S2 does not
