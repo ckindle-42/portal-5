@@ -396,12 +396,12 @@ disk and unchanged).
 **What it does:** re-renders and installs the app, restarts, then writes each model's acceleration
 into **Splunk_SA_CIM**'s local `datamodels.conf` over REST — `acceleration = true`,
 `acceleration.earliest_time = -10y`, `acceleration.cron_schedule = */10 * * * *`,
-`acceleration.max_concurrent = 1` so the build is serial on a 14-core VM — and waits for the first
-build. The row goes where the model object lives, because a copy in `portal5_hunt_setup` loses to
-the CIM app's own defaults (measured 2026-11-21). The write is idempotent: `apply` reads the model
-endpoint first and writes only when that does not already report enabled over `-10y`. `Change` is
-opt-in (`--with-change`) and is **not** recommended here: its volume is `winregistry`, which only
-exists in `botsv2`, which is the control.
+`acceleration.max_concurrent = 1` so the build is serial on a 14-core VM. The write goes where the
+model object lives, because a copy in `portal5_hunt_setup` loses to the CIM app's own defaults
+(measured 2026-11-21). It is idempotent: `apply` reads the model endpoint first and writes only
+when that does not already report enabled over `-10y`. The `*/10` cron then builds the summaries —
+`apply` does not wait for the build. `Change` is opt-in (`--with-change`) and is **not**
+recommended here: its volume is `winregistry`, which only exists in `botsv2`, which is the control.
 
 **Cost:** a build is one search per model over its events. Measured `tstats`-class scan rates put
 each family's six-model build at ~10 s per model (doc §5.3), so **~3 min of compute** plus up to
