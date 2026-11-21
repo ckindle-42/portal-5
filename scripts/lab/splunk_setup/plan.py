@@ -300,6 +300,17 @@ class Probe:
     name: str
     spl: str
     expect: str
+    min_rows: int = 0
+
+
+def entity_probe(spec: IndexSpec) -> Probe:
+    """The property is rows from tstats: an indexed entity field must be answered by the tsidx."""
+    return Probe(
+        f"entity_indexed:{spec.target_index}",
+        f"| tstats count where index={spec.target_index} by {spec.entity_field}",
+        f"> 0 rows ({spec.entity_field} is in the tsidx)",
+        min_rows=1,
+    )
 
 
 def verify_probes(spec: IndexSpec) -> tuple[Probe, ...]:
@@ -311,15 +322,12 @@ def verify_probes(spec: IndexSpec) -> tuple[Probe, ...]:
             f"| tstats count where index={spec.target_index} by sourcetype",
             "<= 20 rows, no date-in-filename names",
         ),
-        Probe(
-            "entity_indexed",
-            f"| tstats count where index={spec.target_index} by acct",
-            "> 0 rows (index-time acct present)",
-        ),
+        entity_probe(spec),
         Probe(
             "auth_model",
             "| tstats summariesonly=true count from datamodel=Authentication by Authentication.user",
             "> 0 rows (tags + acceleration)",
+            min_rows=1,
         ),
     )
 
@@ -334,6 +342,7 @@ CONTROL_PROBES = (
         "control_tsidx_name",
         '| tstats count where index=botsv2 sourcetype="wineventlog:security" by host',
         "> 0 rows — this path still answers on the control",
+        min_rows=1,
     ),
     Probe(
         "control_model_scope",

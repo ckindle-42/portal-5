@@ -92,6 +92,9 @@ def test_shipped_conf_is_rendered_from_the_plan_and_extracts() -> None:
         for field, value in expected.items():
             match = re.search(conf.INDEX_FIELDS[sourcetype][field], line)
             assert match and match.group(1) == value, (sourcetype, field)
+    # an index-time value only reaches the tsidx (and so tstats) when the transform writes meta
+    assert transforms.count("WRITE_META = true") == sum(len(f) for f in conf.INDEX_FIELDS.values())
+    assert transforms.count("WRITE_META = true") == transforms.count("[ph_ix_")
 
 
 def test_reindex_writes_only_new_indexes_and_routes_noise_out(tmp_path: Path) -> None:
@@ -246,6 +249,38 @@ def test_stage_one_apply_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
     restored = svc.ensure_macro(plan.CIM_APP, macro, plan.CIM_DEFAULT_DEFINITION)
     assert restored.changed and fake.macros[macro] == plan.CIM_DEFAULT_DEFINITION
     assert reindex.make_plan  # the driver is importable without a live Splunk
+
+
+def test_verify_fails_a_zero_row_entity_tstats(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The property is tstats rows, not the conf text: a `by acct` that returns nothing fails."""
+    spec = plan.TUNED_BY_KEY["santos"]
+
+    class _Svc:
+        zero = spec.target_index
+
+        def macro_expansion(self, macro: str) -> str:
+            return f"litsearch {plan.cim_macro_definition()}"
+
+        def search(self, spl: str, **_kwargs) -> rest.SearchResult:
+            zero = self.zero
+            rows = [] if zero and f"index={zero}" in spl and "by acct" in spl else [{"count": "1"}]
+            return rest.SearchResult(rows=rows, run_seconds=0.1)
+
+    monkeypatch.setattr(cli.rest, "SplunkREST", lambda transport=None: _Svc())
+    args = cli.build_parser().parse_args(["verify", "--index", "santos"])
+    assert cli.cmd_verify(args) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert {f"entity_indexed:{s.target_index}" for s in plan.TUNED} <= {
+        row["probe"] for row in report
+    }
+    failed = [row for row in report if row["failed"]]
+    assert [row["probe"] for row in failed] == [f"entity_indexed:{spec.target_index}"]
+    assert "expected >= 1 rows, got 0" in failed[0]["messages"][-1]
+
+    _Svc.zero = ""
+    assert cli.cmd_verify(args) == 0
 
 
 def test_verify_judges_the_parser_expansion_not_the_conf_row() -> None:

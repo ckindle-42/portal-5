@@ -249,32 +249,43 @@ def cmd_summary(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     svc = rest.SplunkREST(transport=_transport(args))
-    probes = list(plan.CONTROL_PROBES)
+    probes = [plan.entity_probe(spec) for spec in plan.TUNED]
     if args.index:
-        probes = list(plan.verify_probes(_spec(args.index))) + probes
+        extra = [
+            probe
+            for probe in plan.verify_probes(_spec(args.index))
+            if probe.name not in {p.name for p in probes}
+        ]
+        probes = extra + probes
+    probes += list(plan.CONTROL_PROBES)
     report = _cim_macro_probes(svc)
     for probe in probes:
-        earliest = "0" if probe.name == "events" else "-10y"
-        if probe.name == "control_model_scope":
-            earliest, latest = "2017-08-01T00:00:00", "2018-10-30T00:00:00"
-        else:
-            latest = "now"
-        result = svc.search(probe.spl, earliest=earliest, latest=latest)
-        report.append(
-            {
-                "probe": probe.name,
-                "spl": probe.spl,
-                "expect": probe.expect,
-                "rows": result.rows[:20],
-                "row_count": len(result.rows),
-                "scan_count": result.scan_count,
-                "run_seconds": round(result.run_seconds, 1),
-                "failed": result.failed,
-                "messages": result.messages,
-            }
-        )
+        report.append(_probe_result(svc, probe))
     _print(report)
     return 0 if not any(item["failed"] for item in report) else 1
+
+
+def _probe_result(svc: rest.SplunkREST, probe: plan.Probe) -> dict[str, object]:
+    """One probe row: `failed` covers both a failed job and a probe that returned too few rows."""
+    earliest, latest = "0" if probe.name == "events" else "-10y", "now"
+    if probe.name == "control_model_scope":
+        earliest, latest = "2017-08-01T00:00:00", "2018-10-30T00:00:00"
+    result = svc.search(probe.spl, earliest=earliest, latest=latest)
+    short = len(result.rows) < probe.min_rows
+    messages = list(result.messages)
+    if short:
+        messages.append(f"expected >= {probe.min_rows} rows, got {len(result.rows)}")
+    return {
+        "probe": probe.name,
+        "spl": probe.spl,
+        "expect": probe.expect,
+        "rows": result.rows[:20],
+        "row_count": len(result.rows),
+        "scan_count": result.scan_count,
+        "run_seconds": round(result.run_seconds, 1),
+        "failed": result.failed or short,
+        "messages": messages,
+    }
 
 
 def _cim_macro_probes(svc: rest.SplunkREST) -> list[dict[str, object]]:
