@@ -30,6 +30,7 @@ from .knowledge import PROOF_INDEXES
 from .merge import (
     DEFAULT_MERGE,
     DEFAULT_WEIGHTS,
+    MEASURED_SOURCE,
     UNMEASURED_WEIGHT,
     marginal_weights,
     remerge_without,
@@ -1996,6 +1997,16 @@ def _remerge_without(
     return [originals[id(candidate)] for candidate in merged]
 
 
+def _head_composition(rows: Sequence[dict[str, Any]]) -> Counter[str]:
+    """How many of the merged head's first 50 slots each generator holds."""
+    return Counter(str(row.get("generator") or "") for row in rows[:50])
+
+
+def _used_weight(used: Mapping[str, Any], name: str) -> int | None:
+    value = used.get(name)
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def _line_generator_table(
     rows: Sequence[dict[str, Any]],
     progress: Mapping[str, Any],
@@ -2010,6 +2021,9 @@ def _line_generator_table(
     relate_stage = relate_stage if isinstance(relate_stage, Mapping) else {}
     merge_receipt = notables_stage.get("merge")
     merge_receipt = merge_receipt if isinstance(merge_receipt, Mapping) else {}
+    used = merge_receipt.get("weights")
+    used = used if isinstance(used, Mapping) else {}
+    head = _head_composition(rows)
     names = set(RECALL_GENERATORS) | {str(row.get("generator") or "") for row in rows}
     kept_counts = Counter(str(row.get("generator") or "") for row in rows)
     with50 = {step.label for step in steps.values() if _cut(step.first_rank, 50)}
@@ -2043,6 +2057,7 @@ def _line_generator_table(
         result[name] = {
             "candidates": existed,
             "kept": kept,
+            "head@50": head[name],
             "attribution@50": {
                 "steps": attribution[name],
                 "share": round(attribution[name] / len(with50), 6) if with50 else None,
@@ -2050,6 +2065,7 @@ def _line_generator_table(
             "marginal@50": marginal50,
             "marginal@100": marginal100,
             "merge_weight": max(UNMEASURED_WEIGHT, marginal50),
+            "used_weight": _used_weight(used, name),
         }
     return result
 
@@ -2097,6 +2113,9 @@ def _generator_table(
     notables_stage = notables_stage if isinstance(notables_stage, Mapping) else {}
     merge_receipt = notables_stage.get("merge")
     merge_receipt = merge_receipt if isinstance(merge_receipt, Mapping) else {}
+    used = merge_receipt.get("weights")
+    used = used if isinstance(used, Mapping) else {}
+    head = _head_composition(rows)
     names = set(RECALL_GENERATORS) | {str(row.get("generator") or "") for row in rows}
     kept_counts = Counter(str(row.get("generator") or "") for row in rows)
     covered = {step.label for step in strict_steps.values() if _cut(step.first_rank, 50)}
@@ -2128,6 +2147,7 @@ def _generator_table(
         result[name] = {
             "candidates": existed,
             "kept": kept,
+            "head@50": head[name],
             "attribution@50": {
                 "steps": attribution[name],
                 "share": round(attribution[name] / len(covered), 6) if covered else None,
@@ -2135,6 +2155,7 @@ def _generator_table(
             "marginal@50": marginal50,
             "marginal@100": marginal100,
             "merge_weight": max(UNMEASURED_WEIGHT, marginal50),
+            "used_weight": _used_weight(used, name),
         }
     return result
 
@@ -2726,15 +2747,23 @@ def _render_entity(report: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _line_generator_lines(report: Mapping[str, Any]) -> list[str]:
-    lines = ["generator marginal (candidates kept attribution@50 marginal@50/@100 weight)"]
+def _generator_lines(report: Mapping[str, Any]) -> list[str]:
+    """Each generator's head share beside its measured marginal and the weight the run used."""
+    lines = [
+        "generator marginal (candidates kept head@50 attribution@50 marginal@50/@100 measured used)"
+    ]
     lines.extend(
-        f"  {name:<18}{detail['candidates']:>10}{detail['kept']:>7} "
+        f"  {name:<18}{detail['candidates']:>10}{detail['kept']:>7}{detail['head@50']:>7} "
         f"{detail['attribution@50']['steps']:>7} {detail['marginal@50']:>10}/"
         f"{detail['marginal@100']:<4} {detail['merge_weight']:>6}"
+        f"{detail['used_weight'] if detail['used_weight'] is not None else '-':>6}"
         for name, detail in report["generators"].items()
     )
     return lines
+
+
+def _line_generator_lines(report: Mapping[str, Any]) -> list[str]:
+    return _generator_lines(report)
 
 
 def _entity_measure_lines(report: Mapping[str, Any]) -> list[str]:
@@ -2749,14 +2778,8 @@ def _entity_measure_lines(report: Mapping[str, Any]) -> list[str]:
         f"{promotion['without']['strict_recall']['overall']['50']} with/without; "
         f"case top50 {promotion['with']['case_recall']['overall']['50']}/"
         f"{promotion['without']['case_recall']['overall']['50']} with/without",
-        "generator marginal (candidates kept attribution@50 marginal@50/@100 weight)",
+        *_generator_lines(report),
     ]
-    lines.extend(
-        f"  {name:<18}{detail['candidates']:>10}{detail['kept']:>7} "
-        f"{detail['attribution@50']['steps']:>7} {detail['marginal@50']:>10}/"
-        f"{detail['marginal@100']:<4} {detail['merge_weight']:>6}"
-        for name, detail in report["generators"].items()
-    )
     return lines
 
 
@@ -2982,6 +3005,20 @@ def _weights_block(evidence: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _write_weights_out(path: Path, block: Mapping[str, Any]) -> None:
+    """The measured vector a hunt consumes through ``PORTAL_HUNT_MERGE_WEIGHTS``."""
+    folds = block["folds"]
+    payload = {
+        "source": MEASURED_SOURCE,
+        "rule": block["rule"],
+        "families": [item["family"] for item in block["evidence"]],
+        "weights": folds[0]["weights"],
+        "folds": folds,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def score(
     out: Path,
     key_args: Sequence[str],
@@ -2992,6 +3029,7 @@ def score(
     causes: Sequence[str] | None = None,
     weights: bool = False,
     baseline: Path | None = None,
+    weights_out: Path | None = None,
 ) -> dict[str, Any]:
     targets = _targets(out)
     families = [family for family, _directory in targets]
@@ -3012,9 +3050,13 @@ def score(
             }
         reports.append(report)
     result: dict[str, Any] = {"families": reports}
-    if weights:
+    if weights or weights_out is not None:
         evidence = [_weight_evidence(report) for report in reports]
-        result["weights"] = _weights_block(evidence)
+        block = _weights_block(evidence)
+        result["weights"] = block
+        if weights_out is not None:
+            _write_weights_out(weights_out, block)
+            result["weights_out"] = str(weights_out)
     return result
 
 
@@ -3054,6 +3096,12 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="report the measured marginal generator weights and their leave-one-family-out folds",
     )
+    parser.add_argument(
+        "--weights-out",
+        type=Path,
+        help="write the measured weights to this file, the form PORTAL_HUNT_MERGE_WEIGHTS "
+        "takes (implies --weights)",
+    )
     parser.add_argument("--logs", type=Path, help="raw log tree holding the labelled lines")
     parser.add_argument("--year", type=int, help="year for a timestamp that carries none")
     parser.add_argument(
@@ -3081,6 +3129,8 @@ def _weights_lines(report: Mapping[str, Any]) -> list[str]:
         label = "all" if fold["held_out"] is None else str(fold["held_out"])
         cells = "  ".join(f"{fold['weights'].get(name, 0):<16}" for name in names)
         lines.append(f"  {label:<10} {cells}")
+    if report.get("weights_out"):
+        lines.append(f"  written    {report['weights_out']}")
     return lines
 
 
@@ -3097,6 +3147,7 @@ def main(argv: list[str] | None = None) -> int:
             causes=args.causes,
             weights=args.weights,
             baseline=args.baseline,
+            weights_out=args.weights_out,
         )
     except ScoreboardError as error:
         print(f"scoreboard: {error}", file=sys.stderr)

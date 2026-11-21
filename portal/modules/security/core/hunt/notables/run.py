@@ -46,7 +46,7 @@ from .inventory import (
     load_inventory,
 )
 from .judge_notables import judge_all
-from .merge import DEFAULT_MERGE, merge_notables
+from .merge import DEFAULT_MERGE, MEASURED_SOURCE, merge_notables
 from .misfit import MISFIT_GENERATOR, generate_misfit
 from .parse import MIN_PARTITION_LINES, FieldStat, TemplateModel
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
@@ -150,20 +150,46 @@ def default_search() -> SplunkWindowSource:
     return SplunkWindowSource()
 
 
-def merge_weights_from_env() -> dict[str, int] | None:
-    """A per-run weight vector (``PORTAL_HUNT_MERGE_WEIGHTS``); absent leaves DEFAULT_WEIGHTS."""
-    raw = os.environ.get("PORTAL_HUNT_MERGE_WEIGHTS")
+def merge_weights_from_env() -> tuple[dict[str, int] | None, str]:
+    """Merge weights and their provenance from ``PORTAL_HUNT_MERGE_WEIGHTS``.
+
+    A JSON object is a hand-set override; anything else names a scoreboard ``--weights-out``
+    file, whose weights are the measured marginal.
+    """
+    raw = (os.environ.get("PORTAL_HUNT_MERGE_WEIGHTS") or "").strip()
     if not raw:
-        return None
+        return None, "default"
+    if raw.startswith("{"):
+        return _weight_vector(raw, "PORTAL_HUNT_MERGE_WEIGHTS"), "override"
+    return _weights_file(Path(raw))
+
+
+def _weight_vector(raw: str, label: str) -> dict[str, int]:
     stored = json.loads(raw)
     if not isinstance(stored, Mapping):
-        raise ValueError("PORTAL_HUNT_MERGE_WEIGHTS must be a JSON object of generator: weight")
+        raise ValueError(f"{label} must be a JSON object of generator: weight")
     weights: dict[str, int] = {}
     for name, value in stored.items():
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise ValueError(f"PORTAL_HUNT_MERGE_WEIGHTS[{name!r}] is not a non-negative integer")
+            raise ValueError(f"{label}[{name!r}] is not a non-negative integer")
         weights[str(name)] = value
     return weights
+
+
+def _weights_file(path: Path) -> tuple[dict[str, int], str]:
+    """A measured-weight receipt; a file that is present but unparsable fails loud, never defaults."""
+    if not path.is_file():
+        raise ValueError(f"PORTAL_HUNT_MERGE_WEIGHTS names {path}, which is not a file")
+    try:
+        stored = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"PORTAL_HUNT_MERGE_WEIGHTS file {path} is not JSON: {error}") from error
+    receipt = stored if isinstance(stored, Mapping) else {}
+    vector = receipt.get("weights", stored)
+    return (
+        _weight_vector(json.dumps(vector), str(path)),
+        str(receipt.get("source") or MEASURED_SOURCE),
+    )
 
 
 def _sources_payload(
@@ -541,6 +567,7 @@ def notables_stage(
     """Raise notables from each independent generator, bounded and ordered, to notables.jsonl."""
     began = time.monotonic()
     configure_ledger(search, out, "notables")
+    weights, weights_source = merge_weights_from_env()
     cards = load_cards(out)
     store = out / STORE_FILE
     if not store.exists():
@@ -592,7 +619,11 @@ def notables_stage(
         receipt[SIMILAR_GENERATOR] = detail
         receipt["seconds"][SIMILAR_GENERATOR] = detail["seconds"]
     merged, merge_receipt = merge_notables(
-        notables, MERGE_PRIORITY, DEFAULT_MERGE, weights=merge_weights_from_env()
+        notables,
+        MERGE_PRIORITY,
+        DEFAULT_MERGE,
+        weights=weights,
+        weights_source=weights_source,
     )
     if "deviation" in enabled:
         receipt["source_windows"] = resolve_source_windows(merged, executor, cards, source_facts)

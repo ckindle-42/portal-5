@@ -241,6 +241,8 @@ def _print_notables(receipt: dict[str, Any]) -> None:
     merge = _mapping(receipt.get("merge"))
     print(
         f"notables: enabled={receipt.get('enabled')} merge={merge.get('method')} "
+        f"weights_source={merge.get('weights_source')} weights={merge.get('weights')} "
+        f"defaulted={merge.get('weights_defaulted')} "
         f"fused={merge.get('fused', 0)} total={receipt.get('total', 0)} "
         f"wall={seconds.get('total')}s "
         f"peak={receipt.get('peak_memory_mb')}MB -> {receipt.get('file')}"

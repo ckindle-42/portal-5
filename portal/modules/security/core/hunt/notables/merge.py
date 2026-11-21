@@ -17,6 +17,7 @@ DEFAULT_WEIGHTS = {
     "peer_rare": 0,
 }  # measured LOFO step coverage at top 50 x100; docs/hunt/GENERATOR_WEIGHTS_REPORT.md
 UNMEASURED_WEIGHT = 1  # a generator the weights were never measured for keeps a unit share
+MEASURED_SOURCE = "measured"  # the vector came from the scoreboard's marginal pass
 RRF_K = 60  # reciprocal-rank fusion constant (Cormack et al. 2009); never per-corpus
 
 
@@ -135,22 +136,50 @@ def _rrf(groups: Sequence[Sequence[Notable]]) -> tuple[list[Notable], int]:
     return [notable for _score, _group_position, _rank, notable in scored], fused
 
 
+def _chosen_weights(
+    weights: Mapping[str, int] | None,
+    weights_source: str | None,
+    names: Sequence[str],
+) -> tuple[dict[str, int], list[str]]:
+    """The vector a run merges with, and the generators it had no measured weight for.
+
+    A declared vector that is empty fails loud: merging on defaults while claiming a
+    measured file is how a run silently threw the marginal away (RC6).
+    """
+    if weights is None:
+        return dict(DEFAULT_WEIGHTS), []
+    if not weights:
+        raise ValueError(
+            f"merge weights are declared {weights_source or 'override'} but none parsed; "
+            f"refusing to merge on defaults"
+        )
+    chosen = dict(weights)
+    defaulted = sorted({name for name in names if name not in chosen})
+    for name in defaulted:
+        chosen[name] = DEFAULT_WEIGHTS.get(name, UNMEASURED_WEIGHT)
+    return chosen, defaulted
+
+
 def merge_notables(
     notables: Sequence[Notable],
     priority: Sequence[str],
     method: str,
     weights: Mapping[str, int] | None = None,
+    weights_source: str | None = None,
 ) -> tuple[list[Notable], dict[str, Any]]:
     """Merge every generator's ranked list into one final ranking, declaring how."""
     groups = group_by_generator(notables, priority)
     fused = 0
     chosen: dict[str, int] = {}
+    defaulted: list[str] = []
     if method == "blocks":
         merged = [notable for group in groups for notable in group]
     elif method == "interleave":
         merged = _interleave(groups, sum(len(group) for group in groups))
     elif method == "weighted":
-        chosen = dict(DEFAULT_WEIGHTS if weights is None else weights)
+        chosen, defaulted = _chosen_weights(
+            weights, weights_source, [group[0].generator for group in groups if group]
+        )
         merged = _weighted(
             groups, [chosen.get(group[0].generator, UNMEASURED_WEIGHT) for group in groups]
         )
@@ -167,5 +196,9 @@ def merge_notables(
     }
     if chosen:
         receipt["weights"] = dict(sorted(chosen.items()))
-        receipt["weights_source"] = "default" if weights is None else "override"
+        receipt["weights_source"] = (
+            "default" if weights is None else str(weights_source or "override")
+        )
+        if defaulted:
+            receipt["weights_defaulted"] = defaulted
     return merged, receipt
