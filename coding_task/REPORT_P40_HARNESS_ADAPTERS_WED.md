@@ -359,6 +359,20 @@ is only 1.74 GiB on this architecture (2 × 868 MiB), so half-precision costs 86
 about one percent. The per-run server timings agree: median `tg` 11.48 tok/s over 44 generation
 steps with q8_0 against 11.72 tok/s over 94 with f16 (**2 %**).
 
+The same probe on the incumbent (Ollama, `/api/generate`, 1 210-token prompt, greedy, 256 out,
+`num_ctx` 131072: `prompt_eval_count` 1 210, reps 2–3 hit the prompt cache) gives the other half
+of the comparison:
+
+| Seat | prefill tok/s | decode tok/s (3 reps) |
+| --- | --- | --- |
+| incumbent `qwen3.6-35b-a3b:q3code` | 1 226.7 (cold) | 49.42 / 49.45 / 49.49 |
+| `qwen38-27b-pi-lora`, KV f16 | 243.1 | 12.70 / 12.68 / 12.68 |
+
+**3.9× fewer tokens per second and 5.1× slower prefill** — the same decode ratio §6 already
+claimed, now measured directly instead of inferred from wall clock. That is why the effective
+rate in §9.1 falls 4.7–5.8×: the dense 27B pays twice, once per generated token and again per
+prompt token.
+
 This does not say `brain_mode.sh`'s comment is wrong about some dense Qwen config — it says it
 does not reproduce here, for this model, at 32k, on this build. **Reasoned, not measured:** the
 28.7 → 20 tok/s note predates this serving path and most likely describes a much longer context,
@@ -376,11 +390,13 @@ decode** in both runs, i.e. the first run's adapter speed was never anomalous.
 | incumbent | 456 s | 375 s | 29–35 → 34–40 (−18 % wall) |
 | pi-lora | 504 s | 467 s | 7.6–8.7 → 3.5–9.4 (noisy, −7 % wall) |
 
-So yes, the incumbent arm was contended in the first run — it was measurably faster once
-`tgdl-faces` was down and the drop-in enforced one slot. That makes the incumbent look *better*,
-not worse, and leaves the recommendation where it was. The adapter's wall time barely moved,
-and its run-to-run output volume swung by 60 % (2 924 vs 4 738 tokens for identical tasks), which
-is itself the reason three tasks can only separate seats that differ by several-fold.
+So yes, the incumbent arm was contended in the first run — and it is not an artefact of doing
+less work: the same three tasks produced **17 % more output tokens (12 812 vs 10 962) in 18 %
+less wall time**, with pi's own per-task model rate rising 29–35 → 34–40 tok/s. That makes the
+incumbent look *better*, not worse, and leaves the recommendation where it was. The adapter's
+wall time barely moved, and its run-to-run output volume swung by 60 % (2 924 vs 4 738 tokens for
+identical tasks), which is itself the reason three tasks can only separate seats that differ by
+several-fold.
 
 ### 9.4 Verdict
 
