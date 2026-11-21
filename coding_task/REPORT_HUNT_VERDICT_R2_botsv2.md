@@ -26,7 +26,8 @@ Three runs, one working tree, one lab box:
 
 Timings (wall): cards 573.2 s (113 model requests, 887.1 model-seconds), behaviours 632.2 s
 (inventory 265.9 s, 1,813 behaviour reads), notables 32.9 s, relate 93.7 s, judge 464.8 s,
-case rerank 199.4 s. Scoreboard total 1,129.8 s.
+case rerank 199.4 s. The scoreboard's cost block totals 1,129.8 s for C (behaviours +
+notables + judge; the cards stage is reused from A and is not re-run in C).
 
 Environment: Pipeline `:9099` root (the brief's `PORTAL_HUNT_JUDGE_URL=http://localhost:9099`;
 the judge client appends `/v1/chat/completions`, and the doubled `/v1/v1/chat/completions`
