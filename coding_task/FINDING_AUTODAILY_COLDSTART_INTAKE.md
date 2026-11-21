@@ -76,6 +76,8 @@ uv run python scripts/settings_audit.py --tag gemma4:12b-it-q4_K_M-ctx16k --beha
 
 The oMLX host settings (`~/.omlx/model_settings.json`, host-owned) need `max_context_window: 16384` on each candidate and a finite `ttl_seconds` (300 s is the prior proposal); do not pin them. The pipeline drops request-time `num_ctx`; the window must be set at the model, not the workspace.
 
+The cold-start phase targets the two `bench-autodaily-*` seats, so the Pipeline process must have the eval/bench workspaces merged for the run (`PORTAL_ENABLE_EVAL=true` on the Pipeline service — the explicit opt-in path). With eval off, the seat id is a 404 by design; that is not a candidate failure. The real-use quality run does not depend on this: it addresses `auto-daily` with a `?model=` arm by tag.
+
 ## What the intake does not prove
 
 - Cold first-token latency on either engine/model. No load was run.
