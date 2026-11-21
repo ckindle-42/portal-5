@@ -79,9 +79,9 @@ uv run python -m scripts.lab.splunk_setup verify --index santos
 
 Expect (`verify` rows, plus the deep dive's own SPL):
 
-- `service_log_absent:hb_ait_santos_v2` → `ok: true`, `rows=0`.
-- `user_clean:hb_ait_santos_v2` → `ok: true`, `rows=0`.
-- `auid_indexed:hb_ait_santos_v2` → `ok: true`, `rows>0`.
+- `service_log_absent` → `ok: true`, `rows=0`.
+- `user_clean` → `ok: true`, `rows=0`.
+- `auid_indexed` → `ok: true`, `rows>0`.
 - `| tstats count where index=hb_ait_santos_v2 by sourcetype` → `syslog` **84,674** (< 300 k),
   total **2,573,164** (< 2.7 M), 14 rows, no `2022-…` names.
 - `| tstats count where index=hb_ait_santos_v2 sourcetype=linux_secure by user | where length(user) > 64` → 0 rows.

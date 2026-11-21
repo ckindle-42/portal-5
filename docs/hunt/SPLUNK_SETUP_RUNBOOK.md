@@ -567,8 +567,8 @@ Run it once per tuned index. Each pass runs the six `cim_*_indexes` parser expan
 `acceleration:<Model>` model-endpoint probes (`--accelerate`), the acceleration window and
 summary-completeness checks, the three per-index `summary` rows, the chosen index's
 `entity_indexed:<index>` (`by acct`), `vhost_indexed:<index>` (`by vhost`),
-`service_log_absent:<index>`, `user_clean:<index>` (`by user | where length(user) > 64`) and
-`auid_indexed:<index>` probes, its events / sourcetypes / accelerated-model probes, and the three
+`service_log_absent`, `user_clean` (`by user | where length(user) > 64`) and
+`auid_indexed` probes, its events / sourcetypes / accelerated-model probes, and the three
 control probes. It prints one JSON row per
 check — `{"name", "ok", "detail"}`, with the logs on stderr — and **fails on a probe that returned
 fewer rows than it declares** (or, for an absence probe, more), not only on a failed job. A check
@@ -586,9 +586,9 @@ row; it never aborts the pass. What "worked" looks like, in one place:
 | `tstats … by sourcetype` on `_v2` | ≤16 rows, no date-in-filename names | mapping missed a class |
 | `entity_indexed:<i>_v2` (`tstats … by acct`) | >0 rows | the transform did not write meta (`WRITE_META` missing) or the index predates the fix — rebuild the index, a restart cannot repair it |
 | `vhost_indexed:<i>_v2` (`tstats … by vhost`) | >0 rows | the vhost was left in `c_ip` or the index predates the vhost transform — drop and re-ship it |
-| `service_log_absent:<i>_v2` (`tstats … source="*system.service.log" …`) | 0 rows | a shipper copy or journal export was shipped — the index predates the routing change; drop and re-ship it |
-| `user_clean:<i>_v2` (`tstats … sourcetype=linux_secure by user \| where length(user) > 64`) | 0 rows | the index-time `user` regex swallowed the record (a JSON line, or an index built before the JSON-safe class) — rebuild the index |
-| `auid_indexed:<i>_v2` (`tstats … sourcetype=linux_audit by auid`) | >0 rows | `auid` never reached the tsidx — the index predates the transform; rebuild it |
+| `service_log_absent` (`tstats … source="*system.service.log" …`) | 0 rows | a shipper copy or journal export was shipped — the index predates the routing change; drop and re-ship it |
+| `user_clean` (`tstats … sourcetype=linux_secure by user \| where length(user) > 64`) | 0 rows | the index-time `user` regex swallowed the record (a JSON line, or an index built before the JSON-safe class) — rebuild the index |
+| `auid_indexed` (`tstats … sourcetype=linux_audit by auid`) | >0 rows | `auid` never reached the tsidx — the index predates the transform; rebuild it |
 | `tstats summariesonly=true from datamodel=Authentication` | >0 rows, scan 0 | tags or acceleration missing |
 | `tstats … index=botsv2 sourcetype="WinEventLog" by host` | 0 rows | the control was normalised — stop |
 | `tstats … index=botsv2 sourcetype="wineventlog:security" by host` | >0 rows | the two-name split changed — stop |
