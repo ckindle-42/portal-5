@@ -9,6 +9,7 @@ from portal.modules.security.core.hunt.notables.relate import (
     _entities,
     _entity_supported,
     _identity_role,
+    _novelty_units,
     _query,
     _route,
     _seed_records,
@@ -211,23 +212,76 @@ def test_an_entity_chain_censors_the_gap_and_the_day() -> None:
     assert windowed["window"] >= 1
 
 
-def test_promotion_never_lifts_an_unjudged_row_into_a_judged_view() -> None:
+def test_promotion_lifts_only_verified_members_and_never_an_unjudged_row() -> None:
     rows = [
-        {"notable_id": f"n{index}", "generator": "deviation", "p_yes": 0.9} for index in range(60)
+        {
+            "notable_id": f"n{index}",
+            "generator": "deviation",
+            "p_yes": 0.9,
+            "source_id": "ix:auth",
+            "entities": [{"role": "actor", "value": "abe"}],
+            "evidence": [{"line": f"stored event line {index}", "query": "search index=ix"}],
+        }
+        for index in range(60)
     ]
-    rows[55] = {"notable_id": "n55", "generator": "deviation", "p_yes": None}
-    cases = [{"case_id": "c1", "seed_notables": ["n0", "n55"], "related_notables": []}]
+    rows[55] = {**rows[55], "p_yes": None}  # unjudged but verified
+    rows[56] = {**rows[56], "evidence": [{"line": "never read", "query": "search index=ix"}]}
+    cases = [{"case_id": "c1", "seed_notables": ["n0", "n55", "n56"], "related_notables": []}]
+    raws = {"auth": tuple(f"stored event line {index} abe".casefold() for index in range(60))}
 
-    judged, receipt = promote_case_members(rows, cases, [], judged_only=True)
+    judged, receipt = promote_case_members(rows, cases, [], judged_only=True, raws=raws)
 
     assert receipt["lifted"] == 0
     assert [row["notable_id"] for row in judged[:3]] == ["n0", "n1", "n2"]
 
-    open_view, unjudged_receipt = promote_case_members(rows, cases, [], judged_only=False)
+    open_view, ids = promote_case_members(rows, cases, [], judged_only=False, raws=raws)
 
-    assert unjudged_receipt["lifted"] == 1
-    assert unjudged_receipt["ids"][0]["unjudged"] is True
+    # only the verified, judged row can be lifted; the unverified one never is
+    assert ids["lifted"] == 1
+    assert ids["ids"][0]["notable_id"] == "n55"
+    assert ids["ids"][0]["judged"] is False
+    assert ids["ids"][0]["unjudged"] is False
     assert open_view[1]["notable_id"] == "n55"
+    assert all(row["notable_id"] != "n56" for row in open_view[:3])
+
+
+def test_a_two_event_episode_holds_a_case_through_its_class_set_signal() -> None:
+    novelty = _novelty_units(
+        [
+            {
+                "notable_id": "set-novelty-1",
+                "generator": "set_novelty",
+                "basis": "class_set_novelty",
+                "host": "internal_share",
+                "source_id": "ix:linux_audit",
+                "first_seen": START,
+                "last_seen": START,
+                "measure": {"name": "class_set_novelty", "value": 2},
+                "event_ids": ["e1", "e2"],
+                "entities": [{"role": "object", "value": "ut"}],
+                "evidence": [{"line": "type=SERVICE_START unit=ut", "query": "search index=ix"}],
+            }
+        ]
+    )[0]
+    episode = CaseUnit(
+        "ep-1",
+        "episode",
+        "process:systemd",
+        "systemd",
+        "ix:linux_audit",
+        "internal_share",
+        START,
+        START,
+        event_ids=("e1", "e2"),
+    )
+
+    groups, _counters = _case_groups([episode, novelty])
+
+    assert len(groups) == 1
+    case = _case_from_members(groups[0], EVENTS, {novelty.notable_id})
+    assert case is not None
+    assert case["set_novelty"] == 1
+    assert case["why"].startswith("1 sources")
 
 
 def test_seed_records_rank_by_identity_not_file_order() -> None:
