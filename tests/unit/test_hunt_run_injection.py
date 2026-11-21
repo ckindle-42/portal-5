@@ -342,6 +342,9 @@ def test_main_hunts_an_unseen_index_against_every_store_family(
     )
     monkeypatch.delenv("PORTAL_HUNT_JUDGE_URL", raising=False)
     monkeypatch.delenv("PORTAL_HUNT_JUDGE_MODEL", raising=False)
+    measured = tmp_path / "merge_weights.json"
+    measured.write_text(json.dumps({"source": "measured", "weights": {"similar_to_known": 3}}))
+    monkeypatch.setenv("PORTAL_HUNT_MERGE_WEIGHTS", str(measured))
 
     code = main(
         [
@@ -365,6 +368,9 @@ def test_main_hunts_an_unseen_index_against_every_store_family(
     assert detail["index_unseen"] is True
     assert detail["excluded_families"] == []
     assert detail["loaded_families"] == ["fam_a", "fam_b"]
+    merge = progress["stages"]["notables"]["merge"]
+    assert merge["weights_source"] == "measured"
+    assert merge["weights"] == {"similar_to_known": 3}
     rows = [
         json.loads(line)
         for line in (out / "notables.jsonl").read_text().splitlines()
@@ -377,15 +383,26 @@ def test_main_hunts_an_unseen_index_against_every_store_family(
     assert "excluded families: none — index unseen by the store" in capsys.readouterr().out
 
 
-def test_merge_weights_env_parses_a_vector_and_refuses_a_non_integer(
-    monkeypatch: pytest.MonkeyPatch,
+def test_merge_weights_env_parses_a_vector_and_measures_a_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from portal.modules.security.core.hunt.notables.run import merge_weights_from_env
 
     monkeypatch.delenv("PORTAL_HUNT_MERGE_WEIGHTS", raising=False)
-    assert merge_weights_from_env() is None
+    assert merge_weights_from_env() == (None, "default")
     monkeypatch.setenv("PORTAL_HUNT_MERGE_WEIGHTS", '{"deviation": 26, "alerts": 0}')
-    assert merge_weights_from_env() == {"deviation": 26, "alerts": 0}
+    assert merge_weights_from_env() == ({"deviation": 26, "alerts": 0}, "override")
     monkeypatch.setenv("PORTAL_HUNT_MERGE_WEIGHTS", '{"deviation": 1.5}')
     with pytest.raises(ValueError, match="non-negative integer"):
+        merge_weights_from_env()
+
+    measured = tmp_path / "merge_weights.json"
+    measured.write_text(json.dumps({"source": "measured", "weights": {"deviation": 9}}))
+    monkeypatch.setenv("PORTAL_HUNT_MERGE_WEIGHTS", str(measured))
+    assert merge_weights_from_env() == ({"deviation": 9}, "measured")
+    measured.write_text("{not json")
+    with pytest.raises(ValueError, match="is not JSON"):
+        merge_weights_from_env()
+    monkeypatch.setenv("PORTAL_HUNT_MERGE_WEIGHTS", str(tmp_path / "absent.json"))
+    with pytest.raises(ValueError, match="which is not a file"):
         merge_weights_from_env()

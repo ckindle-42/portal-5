@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import pytest
+
 from portal.modules.security.core.hunt.notables.generators import Notable, _make
 from portal.modules.security.core.hunt.notables.merge import (
     DEFAULT_MERGE,
     DEFAULT_WEIGHTS,
+    MEASURED_SOURCE,
     RRF_K,
     UNMEASURED_WEIGHT,
     duplicate_key,
@@ -156,6 +159,16 @@ def test_weighted_merge_shares_slots_by_the_measured_weight() -> None:
     ]
     assert receipt["weights"] == {"deviation": 1, "similar_to_known": 3}
     assert receipt["merged"] == 6
+
+    _head, measured = merge_notables(
+        notables, PRIORITY, "weighted", {"similar_to_known": 3}, weights_source=MEASURED_SOURCE
+    )
+    assert measured["weights_source"] == "measured"
+    assert measured["weights_defaulted"] == ["deviation"]
+    # a key the vector never measured keeps its default rather than a unit share
+    assert measured["weights"]["deviation"] == DEFAULT_WEIGHTS["deviation"]
+    with pytest.raises(ValueError, match="refusing to merge on defaults"):
+        merge_notables(notables, PRIORITY, "weighted", {}, weights_source=MEASURED_SOURCE)
 
 
 def test_weighted_merge_puts_a_zero_weight_generator_after_the_measured_ones() -> None:

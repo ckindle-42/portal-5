@@ -32,6 +32,24 @@ for required in \
     [[ -f "$required" ]] || { printf 'missing required input: %s\n' "$required" >&2; exit 2; }
 done
 
+keys=(
+    --keys "botsv2=$data/corpora/botsv2_keys/keys.jsonl"
+    --keys "kyoushi=$data/corpora/hunt_bed/kyoushi_s1_ingest/keys.jsonl"
+    --keys "santos=$data/corpora/ait_lds_v21/santos_ingest/keys.jsonl"
+    --keys "russell=$data/corpora/ait_lds_v21/russellmitchell_ingest/keys.jsonl"
+)
+
+# The merge consumes the measured marginal: score an earlier run of these families first and
+# hand its vector to this one. Without HUNT_WEIGHTS_FROM the run merges on DEFAULT_WEIGHTS.
+if [[ -n "${HUNT_WEIGHTS_FROM:-}" ]]; then
+    uv run python -m "$hunt.scoreboard" --out "$HUNT_WEIGHTS_FROM" "${keys[@]}" \
+        --weights --weights-out "$run_dir/merge_weights.json" 2>&1 | tee "$run_dir/weights.log"
+    export PORTAL_HUNT_MERGE_WEIGHTS="$run_dir/merge_weights.json"
+    echo "Merge weights: measured, from $HUNT_WEIGHTS_FROM"
+else
+    echo "Merge weights: DEFAULT_WEIGHTS; set HUNT_WEIGHTS_FROM=<scored run> for the measured marginal" >&2
+fi
+
 while read -r family index knowledge; do
     uv run python -m "$hunt" --index "$index" --out "$run_dir/$family" --stage all \
         --family "$family" --knowledge-store "$store" --knowledge-families "$knowledge" \
@@ -43,9 +61,5 @@ santos hb_ait_santos kyoushi,russell
 russell hb_ait_russellmitchell kyoushi,santos
 FAMILIES
 
-uv run python -m "$hunt.scoreboard" --out "$run_dir" \
-    --keys "botsv2=$data/corpora/botsv2_keys/keys.jsonl" \
-    --keys "kyoushi=$data/corpora/hunt_bed/kyoushi_s1_ingest/keys.jsonl" \
-    --keys "santos=$data/corpora/ait_lds_v21/santos_ingest/keys.jsonl" \
-    --keys "russell=$data/corpora/ait_lds_v21/russellmitchell_ingest/keys.jsonl" \
+uv run python -m "$hunt.scoreboard" --out "$run_dir" "${keys[@]}" --weights \
     | tee "$run_dir/score.log"

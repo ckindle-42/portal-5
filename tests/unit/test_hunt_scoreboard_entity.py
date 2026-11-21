@@ -360,6 +360,9 @@ def test_generator_marginal_counts_top50_and_top100_loss(tmp_path: Path) -> None
 
     scored_50 = score(family_50, [str(family_50 / "keys.jsonl")])["families"][0]
     assert scored_50["generators"]["deviation"]["marginal@50"] == 1
+    assert scored_50["generators"]["deviation"]["head@50"] == 1
+    assert scored_50["generators"]["peer_rare"]["head@50"] == 49
+    assert scored_50["generators"]["deviation"]["used_weight"] == 0
 
     at_51 = [
         _notable("peer_rare", f"noise {index}", content_key=f"late-noise-{index}")
