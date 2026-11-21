@@ -89,10 +89,10 @@ case in the top 50 that contains a B/P member naming an artefact (strict rule)".
 at rank 827, behind 827 false cases. The case builder assembles 5,867 structurally valid cases
 (`evidence_pieces min 2 violations 0`) but its head is benign. The relate stage's own
 re-verification did not run: all 40 seeds' evidence reads are `censored` with 0 rows over the
-30-day case window against `mysql:transaction:details` (26.7 M events) because the
-`| eval _relate_delta=… | sort limit=20` read exceeds the bounded search; the same query
-through the transport with a narrow window returns 20 rows. So `related notables 0` and
-`coverage_complete False`.
+30-day case window against two wide mysql sources (`mysql:transaction:details` 30,
+`mysql:server:stats` 10) because the `| eval _relate_delta=… | sort limit=20` read exceeds the
+bounded search; the same query through the transport with a narrow window returns 20 rows. So
+`related notables 0` and `coverage_complete False`.
 
 **S1 — enumeration wiring.** The enumeration half works (13 complete lists, 26 `stats`
 mechanisms, 538 values, 10.1 M events scanned, `two_names: 1`), but it does not change a
