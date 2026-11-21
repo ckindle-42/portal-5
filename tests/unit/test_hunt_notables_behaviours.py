@@ -724,17 +724,24 @@ def _budget_facts(count: int = 20) -> SourceFacts:
     )
 
 
-def test_the_read_plan_never_exceeds_the_remaining_request_budget():
+def _planned_read(remaining: int) -> tuple[Any, _BudgetExecutor]:
     from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
 
-    facts = _budget_facts()
-    executor = _BudgetExecutor(remaining=60)
+    executor = _BudgetExecutor(remaining=remaining)
+    return read_behaviour_source(executor, _budget_facts(), per_window=100), executor
 
-    read = read_behaviour_source(executor, facts, per_window=100)
 
-    assert 0 < len(executor.reads) <= 60
+def test_the_read_plan_never_exceeds_the_remaining_request_budget():
+    issued = {}
+    for remaining in (0, 10, 25, 30, 60, 200):
+        _read, executor = _planned_read(remaining)
+        issued[remaining] = len(executor.reads)
+        assert len(executor.reads) <= remaining, remaining
+
+    read, _executor = _planned_read(30)
+    assert 0 < issued[30] < issued[200]
     assert {item.path for item in read.files if not item.reason} == {
-        item.path for item in facts.files[:2]
+        item.path for item in _budget_facts().files[:10]
     }
 
 
@@ -742,12 +749,12 @@ def test_a_window_dropped_by_the_planner_is_declared():
     from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
 
     facts = _budget_facts()
-    executor = _BudgetExecutor(remaining=60)
+    executor = _BudgetExecutor(remaining=30)
 
     read = read_behaviour_source(executor, facts, per_window=100)
 
     dropped = [item for item in read.files if item.reason]
-    assert len(dropped) == len(facts.files) - 2
+    assert {item.path for item in dropped} == {item.path for item in facts.files[10:]}
     assert {item.reason for item in dropped} == {"request_budget_exhausted"}
     assert len(executor.skipped) == len(dropped)
     assert all(reason == "request_budget_exhausted" for _query, reason in executor.skipped)

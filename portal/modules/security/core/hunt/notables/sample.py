@@ -11,7 +11,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..engine import _search_literal
-from ..executor import HuntBudgetExceededError, HuntExecutor, budgeted_file_cap
+from ..executor import (
+    REQUEST_BUDGET_EXHAUSTED,
+    HuntBudgetExceededError,
+    HuntExecutor,
+    plan_within_requests,
+)
 
 SAMPLE_WINDOWS = 3  # effort budget: raw reads spread across each source's own time range
 SAMPLE_LINES = 40  # effort budget: events read per window for a source card
@@ -677,15 +682,24 @@ def read_files(
     )
     planned: list[tuple[IndexFile, list[tuple[float, float]], int]] = []
     per_read = max(1, per_window // parts)
-    max_files, cap_reason = budgeted_file_cap(executor, max_files, len(slice_bounds))
     full = (facts.first, facts.last + 0.000001)
     on_host = [item for item in facts.files if not host or not item.hosts or host in item.hosts]
     for index, item in enumerate(on_host or facts.files):
         budget = _file_budget(item.events, total, per_window, len(slice_bounds))
         if index >= max_files:
-            _omit_file(executor, facts, item, host, min(budget, per_read), source_id, cap_reason)
+            _omit_window(
+                executor,
+                facts,
+                item,
+                host,
+                facts.first,
+                facts.last,
+                min(budget, per_read),
+                source_id,
+                "read_files_cap",
+            )
             found.files.append(
-                FileRead(item.path, host, item.events, 0.0, 0.0, 0, cap_reason, item.hosts)
+                FileRead(item.path, host, item.events, 0.0, 0.0, 0, "read_files_cap", item.hosts)
             )
             continue
         if budget >= item.events:
@@ -695,6 +709,27 @@ def read_files(
         head = _file_head(item.events, total, per_window, len(slice_bounds), take, per_read)
         planned.append((item, _spread_windows(slice_bounds, take), head))
     requests = [(item, start, end, head) for item, chosen, head in planned for start, end in chosen]
+    requests, dropped = plan_within_requests(
+        requests,
+        _remaining_requests(executor),
+        priority=lambda request: (-request[0].events, request[0].path, -request[1]),
+    )
+    for item, start, end, head in dropped:
+        _omit_window(
+            executor, facts, item, host, start, end, head, source_id, REQUEST_BUDGET_EXHAUSTED
+        )
+        found.files.append(
+            FileRead(
+                item.path,
+                host,
+                item.events,
+                start,
+                end,
+                0,
+                REQUEST_BUDGET_EXHAUSTED,
+                item.hosts,
+            )
+        )
     if requests:
         found.query = f"search index={_quoted(facts.index)} {file_route(facts, planned[0][0].path)} | head {planned[0][2]}"
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
@@ -772,23 +807,31 @@ def _spread_windows(bounds: Sequence[tuple[float, float]], take: int) -> list[tu
     return [bounds[number] for number in picks]
 
 
-def _omit_file(
+def _omit_window(
     executor: HuntExecutor,
     facts: SourceFacts,
     item: IndexFile,
     host: str,
+    start: float,
+    end: float,
     head: int,
     source_id: str,
     reason: str,
 ) -> None:
-    """Declare an unread file in the ledger through the same observer every read uses."""
+    """Declare an unread file window in the ledger through the same observer every read uses."""
     record = getattr(executor, "record_skipped_read", None)
     if not callable(record):
         return
     query = (
         f"search index={_quoted(facts.index)} {file_route(facts, item.path, host)} | head {head}"
     )
-    record(query, facts.first, facts.last, source_id=source_id, reason=reason)
+    record(query, start, end, source_id=source_id, reason=reason)
+
+
+def _remaining_requests(executor: HuntExecutor) -> int | None:
+    """The unspent request ceiling, or None when the read path carries no shared budget."""
+    counter = getattr(getattr(executor, "budget", None), "remaining_requests", None)
+    return int(counter()) if callable(counter) else None
 
 
 def read_anchors(

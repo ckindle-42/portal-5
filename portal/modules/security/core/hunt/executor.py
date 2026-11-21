@@ -9,7 +9,7 @@ import os
 import re
 import threading
 import time
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
@@ -33,6 +33,7 @@ DEFAULT_BUDGETS: dict[str, float] = {
 QUERY_BOUND = "query_bound"  # cut by the query's own time bound
 ROW_CAP = "row_cap"  # cut by the query's own row cap
 CENSORED = "censored"  # the transport reported incomplete coverage
+REQUEST_BUDGET_EXHAUSTED = "request_budget_exhausted"  # the shared request ceiling is spent
 CANCEL_WAIT_SECONDS = 0.2  # how long a read gets to answer after its own time bound
 RETRY_ATTEMPTS = 3  # total attempts for bounded Splunk back-pressure
 RETRY_DELAY_SECONDS = 0.1  # initial delay before a bounded retry
@@ -97,15 +98,21 @@ def per_sample_cap(query: str) -> int | None:
     return int(head.group(1)) if head else None
 
 
-def budgeted_file_cap(executor: object, max_files: int, reads_per_file: int) -> tuple[int, str]:
-    """The files one read can pay for out of the unspent request ceiling, and why it stopped."""
-    counter = getattr(getattr(executor, "budget", None), "remaining_requests", None)
-    if not callable(counter) or reads_per_file < 1:
-        return max_files, "read_files_cap"
-    affordable = int(counter()) // reads_per_file
-    if affordable >= max_files:
-        return max_files, "read_files_cap"
-    return max(0, affordable), "request_budget_exhausted"
+def plan_within_requests[T](
+    plan: Sequence[T], remaining: int | None, *, priority: Callable[[T], Any]
+) -> tuple[list[T], list[T]]:
+    """Keep the highest-priority planned reads the unspent ceiling pays for; declare the rest."""
+    if remaining is None or remaining >= len(plan):
+        return list(plan), []
+    keep = set(
+        sorted(range(len(plan)), key=lambda index: (priority(plan[index]), index))[
+            : max(0, remaining)
+        ]
+    )
+    return (
+        [item for index, item in enumerate(plan) if index in keep],
+        [item for index, item in enumerate(plan) if index not in keep],
+    )
 
 
 @dataclass(frozen=True)
@@ -576,7 +583,7 @@ class HuntExecutor:
                     raise HuntDeadlineExceededError(budget.exhausted)
                 raise HuntBudgetExceededError(budget.exhausted)
             if budget.queries >= budget.limits["requests"]:
-                budget.exhausted = "request_budget_exhausted"
+                budget.exhausted = REQUEST_BUDGET_EXHAUSTED
                 raise HuntBudgetExceededError(budget.exhausted)
             spend = query_budget_kind(query, budget.phase)
             shared = {
@@ -712,6 +719,7 @@ __all__ = [
     "CENSORED",
     "DEFAULT_BUDGETS",
     "QUERY_BOUND",
+    "REQUEST_BUDGET_EXHAUSTED",
     "ROW_CAP",
     "HuntBudget",
     "HuntBudgetExceededError",
@@ -720,7 +728,7 @@ __all__ = [
     "HuntExecutor",
     "HuntSearchFailedError",
     "Read",
-    "budgeted_file_cap",
+    "plan_within_requests",
     "executor_for",
     "per_sample_cap",
     "query_budget_kind",
