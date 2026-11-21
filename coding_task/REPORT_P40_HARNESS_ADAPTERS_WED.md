@@ -56,6 +56,23 @@ dispatcher alone.
 
 ## 3. Setup proof per candidate (measured)
 
+### 3.0 Intake check — is there anything newer in the family?
+
+Read from the `harness-hub` org listing on 2026-11-21 (34 repos, creation dates via the HF API):
+
+- The Qwen3.8 adapter family is the newest thing there: `pi-adapted`/`opencode-adapted`/
+  `hermes-adapted` created 2026-11-16, `super-adapter` 2026-11-16. Their GGUF repos were last
+  modified 2026-11-18/20, and those later commits are README only (the weights blob dates are
+  unchanged). **No v2 of either specialist exists.**
+- `Qwen3.8-27B-super-adapter` (one LoRA merging pi + Hermes + opencode) is the only newer Qwen3.8
+  harness adapter, and its own card says it should be run with **thinking on** and is worse than
+  each specialist on that specialist's harness with thinking off. Not a substitute here.
+- `LFM2.5-24B-A2B-pi-v2` (2026-11-09) is the newest pi variant for that base — `-pi` v1 was
+  2026-10-30, `-pi-v2` 2026-11-09, no v3. `LFM3-1.7B-pi` exists but is 1.7 B, not a brain seat.
+- `TwIL-8B-pi` (2026-11-09) has no v2.
+
+So the brief's named candidates are the current ones.
+
 Common: base GGUFs are read straight from Ollama's blob store, so no second copy of any weights
 exists on disk. Adapters live in `/usr/share/ollama/adapters/` (833 MB, world-readable;
 `/home/jarvis` is mode 750 and not reachable by the `ollama` user).
