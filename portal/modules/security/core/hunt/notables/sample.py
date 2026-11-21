@@ -545,7 +545,11 @@ def _files_of(
 
 
 def _file_hosts(pairs: Sequence[tuple[str, int]]) -> tuple[str, ...]:
-    return tuple(sorted({host for host, _count in pairs if host}))
+    """The hosts a file appears on, or none when they are too many to be worth naming."""
+    ranked = [host for host, _count in sorted(pairs, key=lambda item: (-item[1], item[0])) if host]
+    if len(ranked) > MAX_HOST_NAMES:
+        return ()
+    return tuple(sorted(ranked))
 
 
 def route_filter(facts: SourceFacts, max_sources: int = SAMPLE_SOURCES) -> tuple[str, str]:
