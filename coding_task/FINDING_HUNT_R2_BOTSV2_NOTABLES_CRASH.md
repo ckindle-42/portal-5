@@ -48,12 +48,13 @@ notables stage.
 ## Why this is new on `main`, not a pre-existing condition
 
 The 2026-11-21 morning verdict run (`REPORT_HUNT_VERDICT_botsv2.md`, HEAD `83f72271e`)
-completed `--stage notables` and wrote 876 notables; its inventory had 13 complete lists and
-`pan:threat` was not among them (`unavailable:mechanism` for the wide lists). The R2 slice D2
-gave the inventory a field vocabulary and 32 complete lists, `pan:threat`'s included; D2/D3's
-candidate path then feeds an alert card into `similar_to_known`. Both the vocabulary growth
-(`fields: complete 32` vs 13) and the candidate count (`candidates 32` vs 13) are in this
-run's receipts.
+completed `--stage notables` and wrote 876 notables; that report records 13 complete inventory
+lists and 6 `unavailable:mechanism` (wide lists) on botsv2, i.e. no complete list for
+`pan:threat` — a reasoned inference from its receipts, not a re-run of the old tree. The R2
+slice D2 gave the inventory a field vocabulary and 32 complete lists, `pan:threat`'s included;
+D2/D3's candidate path then feeds an alert card into `similar_to_known`. Both the vocabulary
+growth (`fields: complete 32` vs 13) and the candidate count (`candidates 32` vs 13) are in
+this run's receipts.
 
 ## What it blocks
 
