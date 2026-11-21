@@ -9,7 +9,7 @@ unit test files. No live Splunk run, no `launch.sh`, no `.env`, no held-out set.
 | # | acceptance property | change |
 |---|---|---|
 | 1 | every planned `(source, file, window)` read with `rows == 0` carries a non-empty `reason` (`empty_window`) | `sample.py:738` `FileRead(..., reason or (EMPTY_WINDOW if not rows else ""), ...)` |
-| 2 | a read refused by the shared request budget emits one `ledger.jsonl` row with `reason: request_budget_exhausted` | `executor.py:376-414`: the observer call and `record_rows` moved into a `finally`, with a `refused` flag set by the budget exception; `_reserve` keeps raising with `budget.exhausted` as the reason, so `str(exc)` is `request_budget_exhausted` |
+| 2 | a read refused by the shared request budget emits one `ledger.jsonl` row with `reason: request_budget_exhausted` | `executor.py:376-416`: the observer call and `record_rows` moved into a `finally`, with a `refused` flag set by the budget exception; `_reserve` keeps raising with `budget.exhausted` as the reason, so `str(exc)` is `request_budget_exhausted` |
 | 3 | a `RowSet` from a covering summary reports `coverage: accelerated` (+`accel_window`), from a scan `coverage: scan` | `sample.py:819` `read_anchors(..., coverage=...)`; `behaviours.py:902` `_merge_anchored(..., coverage, accel_window)`; `read_behaviour_source`/`_read_anchored_source` take `coverage`; the scheduled caller passes `located.coverage`/`located.accel_window` (`behaviours.py:1405-1408`) |
 
 Two consequences handled rather than left implicit:
@@ -18,9 +18,11 @@ Two consequences handled rather than left implicit:
   read is omitted. `sample.file_omitted()` and `behaviours._files_omitted()` exclude
   `empty_window` from the omission count, so a routed-but-empty file does not turn
   `files_routed 21 / files_omitted 0` into `files_omitted 21`.
-- **A mid-stream budget error keeps `reason: censored`.** `executor.py:408` records
+- **A mid-stream budget error keeps `reason: censored`.** `executor.py:410` records
   `censored` when rows had already arrived and the budget reason when nothing was returned;
-  this preserves `tests/unit/test_hunt_run_injection.py::test_ledger_records_partial_rows_before_a_search_budget_error`.
+  `executor.py:390` keeps the same label for a failed read whose observer now runs in the
+  `finally`. This preserves
+  `tests/unit/test_hunt_run_injection.py::test_ledger_records_partial_rows_before_a_search_budget_error`.
 
 ## Tests (the regression net — one per property, plus the executor property)
 
@@ -55,7 +57,7 @@ Gates, on this tree:
 
 ```
 $ uv run pytest tests/unit/ -q
-3061 passed, 22 skipped, 2 warnings in 84.36s
+3061 passed, 22 skipped, 2 warnings in 85.96s
 
 $ uv run ruff check .
 All checks passed!
