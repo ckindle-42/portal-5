@@ -14,8 +14,9 @@ The failing design layer is **S2 — spine and episodes**, at its input: the rea
 become events. On the tuned index the family's dominant sourcetype (`access_combined`,
 727,925 events, 99.6 % of the 408,038 graded lines) is a consolidation of five access files;
 its card template basis (two templates mined from a 120-line sample of the merged source) does
-not cover the graded dirb/webshell line shape, so all 2,500 rows the localiser correctly read
-from the attack window are classified out of structure and dropped before the spine. The
+not cover the graded dirb/webshell line shape, so the 2,500 rows the localiser correctly read
+from the attack window never reach the events table — 0 events in 20:19–21:13, all 2,500
+classified out of structure. The
 consequences are measured in S3 (0/12 cases at top 50 against 3/12 in the control) and S6
 (the localisation win never reaches a store). S1 (enumeration on the dominant source) and S7
 (the per-notable judge's ordering) are secondary failures. S0's instrument works: the control
@@ -144,8 +145,9 @@ with 230k and 247k rows read respectively.
      'v4': '/wp-content/themes/go/calender', 'v5': '404', 'v6': '363'}`.
   4. The count matches the loss: `events_read 18,786, events_parsed 14,330,
      events_out_of_structure 4,456` (23.7 %); the misfits table holds 90 shapes whose sampled
-     examples are attack lines at 21:12–21:13, and the events table holds 2 rows in
-     20:40–21:20. No event → no entity → no episode → no case member.
+     examples are attack lines at 21:12–21:13, and the events table holds **0** rows in
+     20:19–21:13 (2 rows in the wider 20:40–21:20). No event → no entity → no episode → no case
+     member.
 
 The trigger is the tuned index's consolidation (five access files → one `access_combined`
 sourcetype, so the per-card 120-line sample changed), not the label, the store or the judge.
