@@ -15,7 +15,10 @@ looked up `row["datamodel_name"]`, so every model read `absent` and the count wa
 five roots were `complete = 1`.
 
 Fix: key the rows on `summary.id` and read the exact root id `DM_<CIM_APP>_<Model>`; the child ids
-are ignored. Verified live 2026-11-21: 10 rows, `Network_Resolution` the only `complete = 0`.
+are ignored. Verified live 2026-11-21: 10 rows, `Network_Resolution` the only `complete = 0`, and
+re-running the worktree's fixed `verify` read-only against the lab reported **13 of 14 rows ok**
+with `summaries_complete = complete 5/6; ... not complete {'Network_Resolution': '0'}` — the one
+remaining fail is defect 2, not the parse.
 
 ## 2. `Network_Resolution` was blocked three ways
 
@@ -64,6 +67,12 @@ via the global export. Field aliases were added so the object is not all-null:
 `Endpoint`'s root summary is the `Ports` object (`tag=listening tag=port`) and stays empty; the
 verification property is completeness, not size, so `verify` accepts it.
 
+**A completed summary is not rescanned just because a tag becomes visible.** `Endpoint.Processes`
+is already `complete = 1, size = 0`; Splunk only re-runs a summary when the model search is
+considered outdated or the window advances. The orchestrator's rebuild must therefore disable and
+re-enable acceleration (`rollback` then `apply --accelerate`) rather than only waiting for the
+`*/10` cron; the rollback drops the rows and the re-enable discards and rebuilds the summaries.
+
 ## Files
 
 - `scripts/lab/splunk_setup/plan.py` — `dns` tag on both DNS eventtypes; CIM lookup filename.
@@ -79,3 +88,5 @@ verification property is completeness, not size, so `verify` accepts it.
 - That the copy restores the lookup and the model then completes: needs a live `apply` + rebuild.
 - That `export = system` makes the accelerator see the tags: proved only as a context difference in
   searches, not by an accelerator run after the metadata is loaded.
+- That `Endpoint.Processes` becomes non-zero: the sources match (28 events in the app context), but
+  no rebuild has run.
