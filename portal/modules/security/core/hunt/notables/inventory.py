@@ -31,6 +31,7 @@ INVENTORY_MAX_MODEL_PROBES = 8  # effort budget: accelerated models tried for on
 INVENTORY_ACCEL_MIN_EVENTS = 250_000  # effort budget: below this a scan beats an acceleration probe
 INVENTORY_PROBE_EVENTS = 1_000  # effort budget: events one source's vocabulary probe reads
 INVENTORY_MAX_PROBE_FIELDS = 96  # effort budget: names one presence probe resolves
+INVENTORY_MAX_PRESENCE_PROBES = 48  # effort budget: sources one run samples for a vocabulary
 FLOW_MAX_SOURCES = 12  # effort budget: a value in more sources is ambient, not one entity
 # The documented output of setup stage 3: one row per model, with the window its summary covers.
 ACCEL_QUERY = (
@@ -262,6 +263,8 @@ def select_fields(
     for card in cards:
         if not card.understood:
             continue
+        if present is not None and card.card_id not in known:
+            continue  # no presence probe for this source: it contributes no list and no claim
         seen = known.get(card.card_id)
         candidates = _candidates(card)
         owned = {name for _role, name, _stat in candidates}
@@ -306,6 +309,24 @@ def select_fields(
         *(choice for _rank, choice in ordered[:INVENTORY_MAX_FIELD_SEARCHES]),
         *sorted(labelled, key=lambda item: (item.card_id, _ROLE_ORDER[item.role], item.field)),
     ]
+
+
+def _probe_order(cards: Sequence[SourceCard]) -> list[SourceCard]:
+    """Understood sources, the ones whose best card-owned candidate ranks first first."""
+    ranked: list[tuple[tuple[int, int, str, str], SourceCard]] = []
+    for card in cards:
+        if not card.understood:
+            continue
+        candidates = sorted(
+            _candidates(card), key=lambda item: (_ROLE_ORDER[item[0]], item[2].distinct, item[1])
+        )
+        if candidates:
+            role, name, stat = candidates[0]
+            key = (_ROLE_ORDER[role], stat.distinct, card.card_id, name)
+        else:
+            key = (len(_ROLE_ORDER), 0, card.card_id, "")
+        ranked.append((key, card))
+    return [card for _key, card in sorted(ranked, key=lambda item: item[0])]
 
 
 def _choice(
@@ -1093,7 +1114,10 @@ def collect_inventory(
     began = time.monotonic()
     prober = _Prober(executor, index, start, end)
     vocabulary = prober.vocabulary()
-    known = {card.card_id: prober.present(card, vocabulary) for card in cards if card.understood}
+    known = {
+        card.card_id: prober.present(card, vocabulary)
+        for card in _probe_order(cards)[:INVENTORY_MAX_PRESENCE_PROBES]
+    }
     choices = select_fields(cards, known, vocabulary)
     cards_by_id = {card.card_id: card for card in cards}
     fields = _enumerate_fields(prober, index, choices, cards_by_id)
