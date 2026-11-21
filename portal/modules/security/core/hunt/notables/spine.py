@@ -81,7 +81,22 @@ _FILE_FIELDS = frozenset(
     }
 )
 _USER_FIELDS = frozenset(
-    {"user", "username", "account", "acct", "src_user", "dest_user", "account_name", "user_name"}
+    {
+        "user",
+        "username",
+        "account",
+        "acct",
+        "src_user",
+        "dest_user",
+        "account_name",
+        "user_name",
+        # identity and group ids auditd, Windows and VPN records carry instead of a name
+        "uid",
+        "auid",
+        "gid",
+        "euid",
+        "sid",
+    }
 )
 _HOST_FIELDS = frozenset(
     {"host", "hostname", "host_name", "src_host", "dest_host", "computer", "computer_name"}

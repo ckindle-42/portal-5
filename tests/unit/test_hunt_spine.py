@@ -109,6 +109,32 @@ def test_a_singleton_value_becomes_an_entity_but_never_a_behaviour_key(tmp_path:
     assert action_field == "image" and action == "a.exe"
 
 
+def test_an_audit_record_whose_only_identity_is_numeric_carries_an_entity(
+    tmp_path: Path,
+) -> None:
+    raw = (
+        "type=LOGIN msg=audit(1642420697.752:2279): pid=20750 uid=0 old-auid=4294967295"
+        " auid=1002 tty=(none) old-ses=4294967295 ses=318 res=1"
+    )
+    named = (
+        "type=USER_START msg=audit(1642420697.752:2280): pid=20750 uid=0 auid=1002 ses=318"
+        ' msg=\'op=PAM:session_open acct="gmorgan" exe="/lib/systemd/systemd" res=success\''
+    )
+    build_spine(
+        [_event("ix:linux_audit", 1_000.0, raw), _event("ix:linux_audit", 1_060.0, named)],
+        tmp_path / "entities.duckdb",
+    )
+    con = duckdb.connect(str(tmp_path / "entities.duckdb"), read_only=True)
+    try:
+        entities = set(con.execute("SELECT entity_kind, value FROM entities").fetchall())
+        episodes = set(con.execute("SELECT entity_kind, value FROM episodes").fetchall())
+    finally:
+        con.close()
+    assert ("user", "1002") in entities
+    assert ("user", "1002") in episodes
+    assert ("user", "gmorgan") in entities
+
+
 def test_the_same_stored_events_rebuild_the_same_episode_boundaries(tmp_path: Path) -> None:
     events = [
         _event("ix:a", 1_000.0, "10.2.2.2 one"),
