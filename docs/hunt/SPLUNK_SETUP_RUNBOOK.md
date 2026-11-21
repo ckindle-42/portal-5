@@ -143,7 +143,7 @@ on); `app --check` proves it is exactly what the renderer produces.
 | file | what it binds |
 |---|---|
 | `props.conf` | `INDEXED_EXTRACTIONS=json` for `suricata`; index-time `TRANSFORMS-ph_ix_*`; search-time `EVAL-*` aliases to CIM names |
-| `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`cs_method`/`cs_uri_stem`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) — one `[ph_ix_*]` stanza per field, each with `WRITE_META = true` |
+| `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`c_user`/`vhost`/`cs_method`/`cs_uri_stem`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) — one `[ph_ix_*]` stanza per field, each with `WRITE_META = true` |
 | `fields.conf` | `INDEXED = true` for every index-time field, incl. the JSON keys the doc names (`alert.signature`, `dns.rrname`, `http.url`, …) |
 | `eventtypes.conf` + `tags.conf` | the CIM tag constraints: `authentication`, `web`, `ids`+`attack`, `network`+`communicate`, `network`+`resolution`, `endpoint`+`process`+`report` |
 | `datamodels.conf` | empty at stage 1; stage 3 writes acceleration for the six models, `acceleration.earliest_time = -10y` |
@@ -166,6 +166,22 @@ answered `by acct exe` on a single HEC probe event. Every `[ph_ix_*]` stanza the
 now carries the flag, and stage 5's `verify` asserts the **rows**, not the conf text. The flag is
 an index-time setting, so it cannot be applied to an index that was already built — that index has
 to be dropped and re-shipped (stage 2).
+
+**Access logs arrive in two Apache shapes, one sourcetype.** `other_vhosts_access.log` (the
+`cloud_share` host, all three families) is `vhost_combined` — `vhost:port client - - [date] …` —
+while every other `*access.log` is plain `combined` — `client - - [date] …`. Both stay
+`access_combined` (the runbook mapping and the CIM `web` tag are per data type, not per LogFormat)
+and the `c_ip`/`c_user` regexes carry an optional `vhost:port ` prefix. The prefix is
+`[^\s:]+:\d+ `, not `\S+:\d+ `, so an IPv6 client (`::1`, 21,963 lines in the three families) is
+not eaten as a vhost and the address stays in `c_ip`. The vhost goes to its own indexed field
+`vhost`, aliased to the CIM Web `site` field (`EVAL-site`); `dest` is still `host`. Stage 5's
+`vhost_indexed` probe fails if `vhost` never reached the tsidx.
+
+**Why not a sourcetype split:** the shape is a `LogFormat` choice, not a filename property — the
+same vhost is `combined` in `cloud.smith.santos.com-access.log` (a bare `%h` first token) and
+`vhost_combined` in `other_vhosts_access.log`. A name-matched second sourcetype would mis-route
+the first shape and would need the CIM `web` tag, an eventtype, and the index-field set duplicated
+for it; one sourcetype keeps every `sourcetype=access_combined` hunt and the Web model whole.
 
 The 2026-11-21 hotfix lives in the box's `local/transforms.conf`. `local/` wins over `default/`,
 so once the regenerated app is installed that copy is redundant and would silently override any
@@ -329,6 +345,21 @@ index — the flag acts at index time, so `rollback --index santos` and `reindex
 on exactly this, by row count.
 
 ```spl
+| tstats count where index=hb_ait_santos_v2 by c_ip | sort - count | head 5
+```
+→ client addresses only (`10.…`, `172.…`, `::1`). **Fail if** a value carries a `host:port` —
+that is the vhost, and the index was built before the vhost-aware `c_ip` transform: drop and
+re-ship it (stage 1, "Access logs arrive in two Apache shapes").
+
+```spl
+| tstats count where index=hb_ait_santos_v2 by vhost
+```
+→ the three `cloud.dmz.*` vhosts and their ports (44,244 events on santos; 54,349 on kyoushi;
+27,500 on russellmitchell). **Fail if** 0 rows — `vhost` never reached the tsidx, same index-time
+rule as above. Only `other_vhosts_access.log` has the field; the plain `combined` logs have no
+vhost to record.
+
+```spl
 | tstats count where index=hb_ait_santos_v2 sourcetype="suricata" by event_type
 ```
 → rows for `alert`, `flow`, `dns`, `http` (JSON index-time extraction working).
@@ -448,10 +479,10 @@ uv run python -m scripts.lab.splunk_setup verify --index santos | tee coding_tas
 ```
 
 Run it once per tuned index. Each pass runs the six `cim_*_indexes` parser expansions, the chosen
-index's `entity_indexed:<index>` probe (the `by acct` tstats), its events / sourcetypes /
-accelerated-model probes, and the three control probes. It reports `rows`, `scan_count`,
-`run_seconds` and the expected result for each, and **fails on a probe that returned fewer rows
-than it declares**, not only on a failed job. What "worked" looks like, in one place:
+index's `entity_indexed:<index>` (`by acct`) and `vhost_indexed:<index>` (`by vhost`) probes, its
+events / sourcetypes / accelerated-model probes, and the three control probes. It reports `rows`,
+`scan_count`, `run_seconds` and the expected result for each, and **fails on a probe that returned
+fewer rows than it declares**, not only on a failed job. What "worked" looks like, in one place:
 
 | probe | expected | what a failure means |
 |---|---|---|
@@ -459,6 +490,7 @@ than it declares**, not only on a failed job. What "worked" looks like, in one p
 | `eventcount index=<i>_v2` | = the table's kept count | a file failed to ship — `--resume` |
 | `tstats … by sourcetype` on `_v2` | ≤16 rows, no date-in-filename names | mapping missed a class |
 | `entity_indexed:<i>_v2` (`tstats … by acct`) | >0 rows | the transform did not write meta (`WRITE_META` missing) or the index predates the fix — rebuild the index, a restart cannot repair it |
+| `vhost_indexed:<i>_v2` (`tstats … by vhost`) | >0 rows | the vhost was left in `c_ip` or the index predates the vhost transform — drop and re-ship it |
 | `tstats summariesonly=true from datamodel=Authentication` | >0 rows, scan 0 | tags or acceleration missing |
 | `tstats … index=botsv2 sourcetype="WinEventLog" by host` | 0 rows | the control was normalised — stop |
 | `tstats … index=botsv2 sourcetype="wineventlog:security" by host` | >0 rows | the two-name split changed — stop |

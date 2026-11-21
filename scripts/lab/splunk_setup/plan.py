@@ -324,6 +324,12 @@ def verify_probes(spec: IndexSpec) -> tuple[Probe, ...]:
         ),
         entity_probe(spec),
         Probe(
+            "vhost_indexed",
+            f"| tstats count where index={spec.target_index} by vhost",
+            "> 0 rows (vhost is in the tsidx, not in c_ip)",
+            min_rows=1,
+        ),
+        Probe(
             "auth_model",
             "| tstats summariesonly=true count from datamodel=Authentication by Authentication.user",
             "> 0 rows (tags + acceleration)",
