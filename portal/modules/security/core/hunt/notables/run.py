@@ -518,6 +518,11 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
     configure_ledger(search, out, "behaviours")
     executor = executor_for(search)
     executor.budget.restart_clock()  # cards is model-bound: its wall time is not a read cost
+    clock = {
+        "job_seconds": executor.budget.limits["job_seconds"],
+        "remaining_s": round(executor.budget.job_remaining(), 1),
+        "requests_spent": executor.budget.queries,
+    }
     before = executor.stats()
     inventory = collect_inventory(
         executor,
@@ -531,6 +536,7 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
         executor, cards, facts_by_source(cards), out / STORE_FILE, inventory
     )
     receipt["inventory"] = inventory_summary(inventory)
+    receipt["clock"] = clock
     receipt["spine"] = spine_from_store(out, receipts=receipt.get("receipts") or ())
     receipt["searches"] = _search_cost(executor, before)
     _write_role_overrides(out, receipt.get("identity_overrides") or {})
