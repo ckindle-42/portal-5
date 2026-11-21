@@ -1130,8 +1130,8 @@ def build_cases(
         "weights": list(CASE_WEIGHTS),
         "seconds": round(time.monotonic() - began, 3),
     }
-    payload = json.dumps({"receipt": receipt, "cases": cases})
-    (out / CASES_FILE).write_text(payload)
+    # compact, not write_json: a run's case payload is large and only machines read it
+    (out / CASES_FILE).write_text(json.dumps({"receipt": receipt, "cases": cases}))
     return {"receipt": receipt, "cases": cases, "flows": flows}
 
 
