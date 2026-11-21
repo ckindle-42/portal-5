@@ -504,6 +504,31 @@ def test_rung_1_lists_from_a_covering_summary_before_the_indexed_route() -> None
     assert not any(" by user" in query for query in executor.queries)
 
 
+def test_a_parse_only_name_never_reaches_a_summary_aggregate() -> None:
+    """D2's rule survives the merge: a name the events do not carry is labelled, not queried."""
+    executor = _Executor(
+        tstats_names={"wineventlog:security": 2_200_000},
+        search_names={"WinEventLog"},
+        accelerated=[
+            {
+                "title": "tstats:DM_Splunk_SA_CIM_Authentication",
+                "summary.complete": "1",
+                "summary.earliest_time": 1.4e9,
+                "summary.latest_time": 2.0e9,
+            }
+        ],
+        absent={"user"},
+    )
+
+    document = collect_inventory(executor, [_wide_card()], "botsv2", 0.0, 1_790_000_000.0)
+
+    record = document["fields"][0]
+    assert record["status"] == "parse_only"
+    assert record["values"] == []
+    assert document["model_probes"] == 0
+    assert not any("summariesonly=true" in query for query in executor.queries)
+
+
 def test_a_wide_source_with_no_accelerated_model_is_unavailable_not_empty() -> None:
     executor = _Executor(
         tstats_names={"wineventlog:security": 2_200_000},
