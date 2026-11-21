@@ -402,7 +402,7 @@ accepted against.
 | number | status |
 |---|---|
 | events in / kept / dropped per index; file counts | **measured** from the three ingest receipts |
-| the sourcetype → data-type mapping (227 names → 16) | **measured** against those receipts; every name classified, none unmapped |
+| the sourcetype → data-type mapping (227 names → 15 data types) | **measured** against those receipts; every name classified, none unmapped; 14 are shipped (`stats.log` dropped, `metricbeat:system` opt-in) |
 | digest parity with `digests.jsonl` | **checked** on one real file per corpus (3 of 3 match) |
 | ship duration | **estimated** from each corpus's own measured ingest rate |
 | `_v2` disk use | **estimate** (104 B/event proxy, +40–100 % extraction) until `dbinspect` after stage 2 |
