@@ -802,6 +802,33 @@ def test_honesty_accepts_an_index_unseen_by_the_store() -> None:
         board._honesty(leaked, "botsv2")
 
 
+def test_honesty_scores_a_tuned_v2_index_under_its_corpus_family() -> None:
+    # 2026-11-21: a santos `_v2` run scored from a `santos_v2` run dir. The store rightly excluded
+    # santos, so the label alone must not read as the run learning from its own family.
+    for label, index, excluded in (
+        ("santos_v2", "hb_ait_santos_v2", "santos"),
+        ("kyoushi_s1_v2", "hb_kyoushi_s1_v2", "kyoushi"),
+        ("russellmitchell_v2", "hb_ait_russellmitchell_v2", "russell"),
+    ):
+        progress = {
+            "stages": {
+                "notables": {
+                    "similar_to_known": {
+                        "excluded_family": excluded,
+                        "excluded_families": [excluded],
+                        "index_unseen": True,
+                        "loaded_families": ["kyoushi", "russell"],
+                        "run_index": index,
+                    }
+                }
+            }
+        }
+        assert board._honesty(progress, label)["excluded_family"] == excluded
+        assert board._honesty(progress, excluded)["knowledge"] == "loaded"
+        with pytest.raises(board.ScoreboardError):
+            board._honesty(progress, "botsv2")
+
+
 def test_line_ceiling_counts_only_labelled_lines_the_run_actually_read(tmp_path: Path) -> None:
     source = "/apache2/access.log.4"
     read = _line("10.0.0.5", "/scan")
