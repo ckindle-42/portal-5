@@ -36,6 +36,45 @@ _json_get() {
     fi
 }
 
+# ── Worktree guard ────────────────────────────────────────────────────────────
+# A lane worktree shares the live compose project name, so a stack command run
+# there stops or recreates the LIVE containers (2026-10-20 seed, 2026-11-20 up).
+
+# Returns 0 when ROOT is a git worktree other than the live checkout.
+_portal_is_lane_worktree() {
+    local root="${1:-$PORTAL_ROOT}" live gitdir common toplevel
+    git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || return 1
+    gitdir="$(cd "$root" && cd "$(git -C "$root" rev-parse --absolute-git-dir)" && pwd -P)" || return 1
+    common="$(cd "$root" && cd "$(git -C "$root" rev-parse --git-common-dir)" && pwd -P)" || return 1
+    [ "$common" = "$gitdir" ] || return 0
+    live="${PORTAL_LIVE_CHECKOUT:-$HOME/projects/portal-5}"
+    [ -d "$live" ] || return 1
+    toplevel="$(cd "$root" && cd "$(git -C "$root" rev-parse --show-toplevel)" && pwd -P)" || return 1
+    [ "$toplevel" != "$(cd "$live" && pwd -P)" ]
+}
+
+# Refuses CMD from a lane worktree; returns 0 when the caller may proceed.
+_portal_refuse_lane_worktree() {
+    local cmd="${1:-up}" root="${2:-$PORTAL_ROOT}" live
+    if [ "${PORTAL_ALLOW_STACK_FROM_WORKTREE:-}" = "1" ]; then
+        return 0
+    fi
+    _portal_is_lane_worktree "$root" || return 0
+    live="${PORTAL_LIVE_CHECKOUT:-$HOME/projects/portal-5}"
+    cat >&2 <<EOF
+[portal-5] REFUSED: '$cmd' from a lane worktree ($root).
+
+This worktree shares the live Docker Compose project name, so a stack command
+here stops or recreates the LIVE Portal 5 containers (2026-11-20: a lane's bare
+'./launch.sh' ran 'up' and destroyed the stack).
+
+Run stack commands from the live checkout: $live
+Lanes may run './launch.sh help' to list commands (it touches nothing).
+Override, orchestrator only: PORTAL_ALLOW_STACK_FROM_WORKTREE=1
+EOF
+    exit 1
+}
+
 # ── Secret generation ─────────────────────────────────────────────────────────
 generate_secret() {
     # Works on macOS (LibreSSL) and Linux (OpenSSL)
