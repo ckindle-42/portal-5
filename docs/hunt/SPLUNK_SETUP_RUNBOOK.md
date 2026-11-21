@@ -406,9 +406,15 @@ tsidx**, which the lab has never had (`user`/`src`/`acct` were search-time only,
 **Fail if 0 rows** — that is the 2026-11-21 failure: the transform extracted the field but did not
 write it to the metadata (`WRITE_META`), and `fields.conf`'s `INDEXED = true` stopped the
 search-time fallback from filling the gap. Fix stage 1's `transforms.conf`, then rebuild this
-index — the flag acts at index time, so `rollback --index santos` and `reindex --index santos
---ship` again; a restart alone changes nothing already indexed. `verify --index santos` now fails
-on exactly this, by row count.
+index — the flag acts at index time, so `rollback --index santos` (run the printed `DELETE`),
+then **`apply`** (recreates the index a `DELETE` removed), then `reindex --index santos --ship`
+again; a restart alone changes nothing already indexed. `verify --index santos` now fails
+on exactly this, by row count. `reindex --ship` refuses to run until the index is back: measured
+2026-11-21, a rebuild that shipped 7,260,795 events into the three deleted `_v2` indexes read
+`shipped == expected` in its receipts while the indexer dropped every batch
+(`Received event for unconfigured/disabled/deleted index=… Dropping them as lastChanceIndex …
+is not configured`, 09:30:37–09:38:10 UTC) — HEC 200-acks a batch for an index the box no longer
+has, so the receipt can never prove landing.
 
 ```spl
 | tstats count where index=hb_ait_santos_v2 by c_ip | sort - count | head 5
@@ -438,7 +444,8 @@ uv run python -m scripts.lab.splunk_setup rollback --index santos
 ```
 
 Re-running the stage after a rollback is a clean re-ingest from the corpus (the corpus is on
-disk and unchanged).
+disk and unchanged) — but the `DELETE` above removes the index, and only `apply` recreates it:
+re-run `apply` before `reindex --ship`, which now refuses a target the box does not have.
 
 ---
 
