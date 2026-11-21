@@ -10,7 +10,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
@@ -215,7 +215,9 @@ def poll_personal_tasks(
                 error=str(exc),
             )
             return PersonalRun(claimed.id, "rejected")
-        return _record_local_failure(root, store, claimed, notices, exc, dispatcher, checkin)
+        return _record_local_failure(
+            root, store, claimed, notices, exc, dispatcher, checkin, caller
+        )
     finally:
         checkin.finish()
 
@@ -245,6 +247,7 @@ def _record_local_failure(
     exc: Exception,
     dispatcher: Any,
     checkin: _CheckIn,
+    caller: PipelineCaller | None = None,
 ) -> PersonalRun:
     task_dir = root / task.id
     attempt_dir = task_dir / "attempts"
@@ -278,9 +281,127 @@ def _record_local_failure(
         )
         _send_notice(notices, task.id, f"Local attempt 1 failed; retrying: {exc}")
         return PersonalRun(task.id, "retrying")
+    escalated = _escalate_up(root, store, task, notices, record, local_paths, caller, checkin)
+    if escalated is not None:
+        return escalated
     if _personal_cloud_enabled():
         return _run_cloud_attempt(root, store, task, notices, dispatcher, checkin, local_paths)
     return _finish_local_block(root, store, task, notices, record, local_paths)
+
+
+def _escalate_up(
+    root: Path,
+    store: PersonalStore,
+    task: PersonalTask,
+    notices: Any,
+    record: dict[str, Any],
+    local_paths: list[Path],
+    caller: PipelineCaller | None,
+    checkin: _CheckIn,
+) -> PersonalRun | None:
+    """Retry one rung at a time up the configured Portal ladder; None when none is left."""
+    ladder = _escalation_ladder()
+    task_dir = root / task.id
+    route = _route_from_receipt(record)
+    tried = len(_escalation_paths(task_dir))
+    if route is None or tried >= len(ladder):
+        return None
+    previous, reason = route.workspace, str(record["error"])
+    escalations: list[dict[str, Any]] = []
+    last_hops, last_called = int(record["hops"]), list(record["tool_calls"])
+    for number, workspace in enumerate(ladder[tried:], start=tried + 1):
+        if workspace == previous:
+            continue
+        escalated = replace(route, workspace=workspace)
+        hop = {"attempt": number, "from": previous, "to": workspace, "reason": reason}
+        _send_notice(notices, task.id, f"{task.id}: {reason}; escalating to {workspace}.")
+        try:
+            return _execute_route(
+                root,
+                store,
+                task,
+                escalated,
+                _caller(caller),
+                notices,
+                checkin,
+                extra={
+                    "local_attempts": [str(path) for path in local_paths],
+                    "escalations": [*escalations, {**hop, "status": "done"}],
+                },
+            )
+        except ToolsUnavailableError as exc:
+            return _finish_unavailable(root, store, task, notices, exc)
+        except Exception as exc:  # noqa: BLE001 — a hop's failure is the next hop's reason
+            retryable = _retryable_failure(exc)
+            _record_escalation_hop(task_dir, number, escalated, exc, previous, reason)
+            escalations.append({**hop, "status": "failed" if retryable else "rejected"})
+            if not retryable:
+                _finish(
+                    root,
+                    store,
+                    task,
+                    "rejected",
+                    str(exc),
+                    workspace,
+                    0,
+                    [],
+                    notices,
+                    error=str(exc),
+                    route=escalated.as_receipt(),
+                    extra={
+                        "local_attempts": [str(path) for path in local_paths],
+                        "escalations": escalations,
+                    },
+                )
+                return PersonalRun(task.id, "rejected")
+            previous, reason = workspace, str(exc)
+            last_hops, last_called = int(getattr(exc, "hops", 0)), list(getattr(exc, "called", []))
+    record["error"] = f"escalation ladder exhausted ({', '.join(ladder)}): {reason}"
+    record["workspace"] = previous
+    record["hops"] = last_hops
+    record["tool_calls"] = last_called
+    record["escalations"] = escalations
+    return _finish_local_block(root, store, task, notices, record, local_paths)
+
+
+def _record_escalation_hop(
+    task_dir: Path,
+    number: int,
+    route: PersonalRoute,
+    exc: Exception,
+    previous: str,
+    reason: str,
+) -> None:
+    """One failed escalated hop: its own seat, hops and the reason it was tried."""
+    _write_receipt(
+        task_dir / "attempts" / f"escalation-{number}" / "receipt.json",
+        {
+            "status": "local-failed",
+            "workspace": route.workspace,
+            "hops": int(getattr(exc, "hops", 0)),
+            "final_text": "",
+            "tool_calls": list(getattr(exc, "called", [])),
+            "route": route.as_receipt(),
+            "escalated_from": previous,
+            "reason": reason,
+            "error": str(exc),
+        },
+    )
+
+
+def _route_from_receipt(record: dict[str, Any]) -> PersonalRoute | None:
+    raw = record.get("route")
+    if not isinstance(raw, dict) or not isinstance(raw.get("tools"), list):
+        return None
+    return PersonalRoute(
+        workspace=str(raw.get("workspace") or ""),
+        tools=frozenset(name for name in raw["tools"] if isinstance(name, str)),
+        bundle_name=str(raw.get("bundle") or "core"),
+    )
+
+
+def _escalation_paths(task_dir: Path) -> list[Path]:
+    return list((task_dir / "attempts").glob("escalation-*/receipt.json"))
 
 
 def _finish_local_block(
@@ -292,6 +413,8 @@ def _finish_local_block(
     local_paths: list[Path],
 ) -> PersonalRun:
     extra = {"local_attempts": [str(path) for path in local_paths]}
+    if record.get("escalations"):
+        extra["escalations"] = record["escalations"]
     _finish(
         root,
         store,
@@ -1033,6 +1156,7 @@ def _execute_route(
     caller: PipelineCaller,
     notices: Any,
     checkin: _CheckIn,
+    extra: dict[str, Any] | None = None,
 ) -> PersonalRun:
     checkin.preflight = _preflight(caller, route)
     content, hops, called, outputs = _hop_loop(
@@ -1051,7 +1175,7 @@ def _execute_route(
         requires_tools=bool(route.tools),
     )
     if reason is not None:
-        raise AcceptanceError(reason)
+        raise AcceptanceError(reason, hops=hops, called=called)
     _finish(
         root,
         store,
@@ -1063,7 +1187,7 @@ def _execute_route(
         called,
         notices,
         route=route.as_receipt(),
-        extra={"preflight": checkin.preflight},
+        extra={**(extra or {}), "preflight": checkin.preflight},
     )
     return PersonalRun(task.id, "done")
 
@@ -1172,6 +1296,16 @@ def _personal_cloud_enabled() -> bool:
     return _personal_cloud_queue().get("enabled") is True
 
 
+def _escalation_ladder() -> list[str]:
+    """The workspaces a failed personal task is retried up, in configured order."""
+    arm = _portal_config().get("orchestration_arm")
+    queue = arm.get("queue") if isinstance(arm, dict) else None
+    raw = queue.get("escalation_ladder") if isinstance(queue, dict) else None
+    if not isinstance(raw, list):
+        return []
+    return [name for name in raw if isinstance(name, str) and name]
+
+
 def _personal_cloud_cap() -> int:
     """Cloud dispatches allowed per personal task; operator cap in orchestration_arm.yaml."""
     raw = _personal_cloud_queue().get("max_attempts")
@@ -1271,6 +1405,17 @@ def _signal_cloud_lane(record: dict[str, Any]) -> bool:
 
 class AcceptanceError(RuntimeError):
     """A finished local attempt that failed its J9 acceptance check."""
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        hops: int = 0,
+        called: list[str] | tuple[str, ...] = (),
+    ) -> None:
+        super().__init__(reason)
+        self.hops = hops
+        self.called = list(called)
 
 
 def _hop_loop(

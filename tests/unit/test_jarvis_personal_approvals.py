@@ -219,6 +219,7 @@ def test_personal_cloud_handoff_follows_two_local_failure_receipts(
     sink = _Sink(tmp_path / "telegram.sqlite3")
     dispatcher = Dispatcher()
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
+    monkeypatch.setattr(personal_runner, "_escalation_ladder", lambda: [], raising=False)
 
     first = poll_personal_tasks(tmp_path, sink, caller)
     second = poll_personal_tasks(tmp_path, sink, caller, dispatcher=dispatcher)
@@ -256,6 +257,7 @@ def test_personal_cloud_retry_stops_if_flag_is_disabled(
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: enabled, raising=False)
     # Cap 2 keeps the retry path reachable; the shipped default cap is 1 (one cloud try).
     monkeypatch.setattr(personal_runner, "_personal_cloud_cap", lambda: 2, raising=False)
+    monkeypatch.setattr(personal_runner, "_escalation_ladder", lambda: [], raising=False)
 
     assert poll_personal_tasks(tmp_path, sink, caller).status == "retrying"  # type: ignore[union-attr]
     assert (

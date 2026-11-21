@@ -70,6 +70,9 @@ queue:
   personal_cloud:
     enabled: false
     max_attempts: 1
+  escalation_ladder:
+  - auto-reasoning
+  - auto-coding
   telegram_control:
     enabled: true
 disciplines:

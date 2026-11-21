@@ -73,6 +73,8 @@ def _cloud_attempt(
     from portal.modules.orchestration import personal_runner
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
+    # The cloud path is tested on its own; S5's Portal ladder is exercised elsewhere.
+    monkeypatch.setattr(personal_runner, "_escalation_ladder", lambda: [], raising=False)
     telegram_do_reply(tmp_path, 7, "help with an invalid local plan")
     first = poll_personal_tasks(tmp_path, sink, _Caller())
     assert first is not None and first.status == "retrying"
@@ -198,6 +200,8 @@ def test_operator_cancel_stops_a_running_cloud_lane(
     from portal.modules.orchestration import personal_runner
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
+    # The cloud path is tested on its own; S5's Portal ladder is exercised elsewhere.
+    monkeypatch.setattr(personal_runner, "_escalation_ladder", lambda: [], raising=False)
     first = poll_personal_tasks(tmp_path, sink, _Caller())
     assert first is not None and first.status == "retrying"
     second = poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
@@ -343,6 +347,8 @@ def _handed_off(
     from portal.modules.orchestration import personal_runner
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
+    # The cloud path is tested on its own; S5's Portal ladder is exercised elsewhere.
+    monkeypatch.setattr(personal_runner, "_escalation_ladder", lambda: [], raising=False)
     sink = _Sink(tmp_path / "telegram.sqlite3")
     telegram_do_reply(tmp_path, 7, "what is the Portal pipeline status")
     first = poll_personal_tasks(tmp_path, sink, _Caller())
