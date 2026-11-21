@@ -291,7 +291,7 @@ def test_render_judge_pairs_candidate_with_incumbent(tmp_path):
 def test_render_judge_reports_video_streams(tmp_path):
     results = [
         _receipt("ltx25-q4", "incumbent", has_video=1, has_audio=1),
-        _receipt("fastmetal13", "candidate", has_video=1, has_audio=0),
+        _receipt("silent-candidate", "candidate", has_video=1, has_audio=0),
     ]
     text = screen._render_judge(CATALOG, "video", results, tmp_path)
     assert "streams: candidate v=1 a=0 | incumbent v=1 a=1" in text
@@ -308,7 +308,7 @@ def test_status_derivation():
 def test_install_pins_and_paths_come_from_the_catalog():
     assert CATALOG["pins"] == install.PINS
     assert install.PATHS["hf_cache"] == Path(CATALOG["paths"]["hf_cache"])
-    assert install.PATHS["weights_root"] == Path(CATALOG["paths"]["weights_root"])
+    assert install.PATHS["ace_root"] == Path(CATALOG["paths"]["ace_root"])
 
 
 def test_hf_size_gb_parses_api_payload(monkeypatch):
@@ -410,112 +410,3 @@ def test_catalog_copy_is_deep_enough_for_mutation_tests():
     mutated = copy.deepcopy(CATALOG)
     mutated["media"]["image"]["rows"].pop()
     screen._validate_catalog(CATALOG)  # the shipped catalog still validates
-
-
-def test_catalog_heartlib_row_is_a_ranked_music_candidate():
-    rows = CATALOG["media"]["music"]["rows"]
-    row = next(r for r in rows if r["id"] == "heartmula3b")
-    assert row["kind"] == "heartlib" and row["role"] == "candidate" and row["rank"] == 3
-    assert CATALOG["pins"]["heartlib-mlx"] == "02dd2e22f6a1"
-    default_ids = [r["id"] for r in screen.select_rows(rows, None)]
-    assert default_ids == ["ace-xl17", "ace-turbo2b-lm06", "ace-turbo2b-nolm", "heartmula3b"]
-
-
-def test_validate_rejects_heartlib_row_outside_music():
-    catalog = _tiny_catalog(
-        [{"id": "a", "role": "incumbent", "argv": ["g", "{prompt}", "{output}"]}]
-    )
-    catalog["media"]["image"]["rows"].append({"id": "h", "role": "candidate", "kind": "heartlib"})
-    with pytest.raises(ValueError, match="music-only"):
-        screen._validate_catalog(catalog)
-
-
-def test_plan_heartlib_spec_argv_and_output(tmp_path):
-    row = next(r for r in CATALOG["media"]["music"]["rows"] if r["id"] == "heartmula3b")
-    plan = screen._plan_prompt(CATALOG, "music", row, 2, tmp_path, tmp_path / "music")
-    src = Path(CATALOG["paths"]["heartlib_src"])
-    assert plan.argv[0] == str(src / ".venv" / "bin" / "python")
-    assert plan.argv[1] == str(tmp_path / "heartlib_run" / "runner.py")
-    assert plan.argv[2:] == [
-        "--spec",
-        str(tmp_path / "heartlib_run" / "heartmula3b-p2" / "spec.json"),
-    ]
-    assert plan.cwd == src
-    assert plan.output == tmp_path / "music" / "heartmula3b-p2.wav"
-    assert plan.env_add == {"HF_HUB_CACHE": CATALOG["paths"]["hf_cache"]}
-    spec = plan.spec
-    assert spec["checkpoint"] == str(Path(CATALOG["paths"]["heartlib_root"]) / "ckpt-mlx")
-    assert spec["caption"].startswith("upbeat") and "Streetlight" in spec["lyrics"]
-    assert spec["duration"] == 30.0 and spec["seed"] == 42
-    assert spec["output"] == str(plan.output)
-
-
-def test_materialize_heartlib_runner_and_spec(tmp_path):
-    row = next(r for r in CATALOG["media"]["music"]["rows"] if r["id"] == "heartmula3b")
-    plan = screen._plan_prompt(CATALOG, "music", row, 1, tmp_path, tmp_path / "music")
-    screen._materialize_plan(plan)
-    runner = tmp_path / "heartlib_run" / "runner.py"
-    text = runner.read_text()
-    assert "mx.random.seed" in text and "OUTPUT_PATHS: " in text and "generate.py" in text
-    assert "{prompt}" not in text and "{output}" not in text
-    spec = json.loads((tmp_path / "heartlib_run" / "heartmula3b-p1" / "spec.json").read_text())
-    assert spec["lyrics"] == "" and spec["caption"].startswith("sparse acoustic")
-    assert plan.output.parent.is_dir()
-    assert not (tmp_path / "ace_run").exists()
-
-
-@pytest.mark.parametrize("prompt_index", [1, 2])
-def test_heartlib_runner_seeds_and_delegates_to_generate(
-    tmp_path, monkeypatch, capsys, prompt_index
-):
-    """Generation is mocked: the runner must seed MLX and hand the port's CLI the spec."""
-    catalog = copy.deepcopy(CATALOG)
-    catalog["paths"]["heartlib_src"] = str(tmp_path / "heartlib-src")
-    catalog["paths"]["heartlib_root"] = str(tmp_path / "heartlib-weights")
-    row = next(r for r in catalog["media"]["music"]["rows"] if r["id"] == "heartmula3b")
-    plan = screen._plan_prompt(catalog, "music", row, prompt_index, tmp_path, tmp_path / "music")
-    screen._materialize_plan(plan)
-    spec = plan.spec
-    generate = Path(spec["src"]) / "generate.py"
-    generate.parent.mkdir(parents=True, exist_ok=True)
-    generate.write_text("# stub\n")
-
-    seeds: list[int] = []
-    mlx = ModuleType("mlx")
-    core = ModuleType("mlx.core")
-    core.random = SimpleNamespace(seed=seeds.append)
-    mlx.core = core
-    monkeypatch.setitem(sys.modules, "mlx", mlx)
-    monkeypatch.setitem(sys.modules, "mlx.core", core)
-
-    calls: dict = {}
-    real_run_path = runpy.run_path
-
-    def fake_generate(path, run_name=None):
-        calls["path"] = path
-        calls["run_name"] = run_name
-        calls["argv"] = list(sys.argv)
-        out = Path(sys.argv[sys.argv.index("--output") + 1])
-        out.write_bytes(b"audio")
-
-    monkeypatch.setattr(runpy, "run_path", fake_generate)
-    runner = str(tmp_path / "heartlib_run" / "runner.py")
-    spec_path = str(Path(spec["save_dir"]) / "spec.json")
-    monkeypatch.setattr(sys, "argv", [runner, "--spec", spec_path])
-    real_run_path(runner, run_name="__main__")
-
-    assert seeds == [42]
-    assert calls["path"] == str(Path(spec["src"]) / "generate.py")
-    assert calls["run_name"] == "__main__"
-    argv = calls["argv"]
-    assert argv[argv.index("--tags") + 1] == spec["caption"]
-    assert argv[argv.index("--duration") + 1] == "30.0"
-    assert argv[argv.index("--checkpoint") + 1] == spec["checkpoint"]
-    assert argv[argv.index("--dtype") + 1] == "bfloat16"
-    assert argv[argv.index("--output") + 1] == str(plan.output)
-    if spec["lyrics"]:
-        assert argv[argv.index("--lyrics") + 1] == spec["lyrics"]
-    else:
-        assert "--lyrics" not in argv
-    assert plan.output.exists()
-    assert screen.parse_output_paths(capsys.readouterr().out) == [str(plan.output)]

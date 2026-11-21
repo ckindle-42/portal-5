@@ -2,12 +2,11 @@
 """Install helper for the media variant screen: candidate venvs and weights.
 
 Apple-silicon only (CLAUDE.md rule 14) and data01-first: weight downloads run with
-HF_HUB_CACHE=/Volumes/data01/hf-cache and unpack under the catalog's weights_root
-(/Volumes/data01/media-screen). Hugging Face API sizes print before anything downloads.
+HF_HUB_CACHE=/Volumes/data01/hf-cache. Hugging Face API sizes print before anything downloads.
 Without --yes it prints the plan and sizes and stops; with it, steps run idempotently —
 existing artifacts are left alone.
 
-    uv run python scripts/proofs/media_variant_screen_install.py --medium video --yes
+    uv run python scripts/proofs/media_variant_screen_install.py --medium music --yes
 """
 
 from __future__ import annotations
@@ -33,10 +32,6 @@ from media_variant_screen import GIB  # noqa: E402
 _CATALOG = yaml.safe_load((_HERE / "media_screen_catalog.yaml").read_text())
 PINS = _CATALOG["pins"]
 PATHS = {k: Path(v).expanduser() for k, v in _CATALOG["paths"].items()}
-WEIGHT_REPOS = (
-    ("FastVideo/FastMetal-1.3B-QAD", "FastMetal-1.3B-QAD"),
-    ("FastVideo/FastMetal-5B-QAD", "FastMetal-5B-QAD"),
-)
 LM_REPO = "ACE-Step/acestep-5Hz-lm-0.6B"
 SIZE_REPOS = (
     (
@@ -101,17 +96,6 @@ def _dir_populated(path: Path) -> bool:
     )
 
 
-def _git_head(checkout: Path) -> str | None:
-    out = subprocess.run(
-        ["git", "-C", str(checkout), "rev-parse", "HEAD"],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=30,
-    )
-    return out.stdout.strip()[:12] or None
-
-
 def _download(repo_id: str, local_dir: Path, venv_python: Path, yes: bool) -> int:
     """snapshot_download through a venv python that already has huggingface_hub."""
     code = (
@@ -148,56 +132,6 @@ def _install_image(opts: argparse.Namespace) -> int:
         "[image] z-image/qwen repo ids resolve inside mflux at first generate;"
         " those sizes stream to the HF cache then."
     )
-    return 0
-
-
-def _install_video(opts: argparse.Namespace) -> int:
-    _need_apple_silicon()
-    if not Path("/Volumes/data01").exists():
-        raise SystemExit("/Volumes/data01 is not mounted — the screen keeps weights on data01")
-    data_root = PATHS["weights_root"]
-    checkout = data_root / "FastVideo"
-    venv = checkout / ".venv"
-    pin = PINS["fastvideo"]
-    if not (checkout / ".git").exists() and _maybe(
-        [
-            "git",
-            "clone",
-            "--branch",
-            "main",
-            "https://github.com/hao-ai-lab/FastVideo.git",
-            str(checkout),
-        ],
-        yes=opts.yes,
-    ):
-        return 1
-    head = _git_head(checkout) if (checkout / ".git").exists() else None
-    if (
-        head is not None
-        and head != pin
-        and _maybe(["git", "-C", str(checkout), "checkout", pin], yes=opts.yes)
-    ):
-        return 1
-    if not (venv / "bin/python").exists() and _maybe(
-        ["uv", "venv", "--python", "3.12", str(venv)], yes=opts.yes
-    ):
-        return 1
-    if not next(venv.glob("lib/python3*/site-packages/fastvideo"), None):
-        if _maybe(
-            ["uv", "pip", "install", "--python", str(venv / "bin/python"), "-e", ".[mlx]"],
-            cwd=checkout,
-            yes=opts.yes,
-        ):
-            return 1
-    _print_sizes(tuple((f"FastMetal weights ({repo_id})", repo_id) for repo_id, _ in WEIGHT_REPOS))
-    for repo_id, dirname in WEIGHT_REPOS:
-        local = data_root / dirname
-        if _dir_populated(local):
-            print(f"[video] {local} already populated — leaving it alone")
-            continue
-        if _download(repo_id, local, venv / "bin/python", opts.yes):
-            return 1
-    print(f"[video] screen commands use --model-root/--mlx-checkpoint under {data_root}")
     return 0
 
 
@@ -246,13 +180,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--medium", choices=("image", "video", "music", "all"), default="all")
+    parser.add_argument("--medium", choices=("image", "music", "all"), default="all")
     parser.add_argument(
         "--yes", action="store_true", help="execute; without it print the plan and sizes only"
     )
     opts = parser.parse_args()
-    mediums = ("image", "video", "music") if opts.medium == "all" else (opts.medium,)
-    installers = {"image": _install_image, "video": _install_video, "music": _install_music}
+    mediums = ("image", "music") if opts.medium == "all" else (opts.medium,)
+    installers = {"image": _install_image, "music": _install_music}
     rc = 0
     for medium in mediums:
         rc = rc or installers[medium](opts)

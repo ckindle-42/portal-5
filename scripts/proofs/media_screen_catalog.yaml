@@ -6,15 +6,10 @@ source: docs/media/MEDIA_VARIANT_SCREEN_202611.md
 pins:
   mflux: 014252f22408
   ltx-2-mlx: 747b30ef10e9
-  fastvideo: c938a8aa2b85
-  heartlib-mlx: 02dd2e22f6a1
 paths:
-  weights_root: /Volumes/data01/media-screen
   hf_cache: /Volumes/data01/hf-cache
   ace_root: ~/.portal5/music/ACE-Step-1.5
   video_venv: ~/.portal5/video-mlx/ltx-2-mlx/.venv
-  heartlib_src: ~/.portal5/music/heartlib-mlx
-  heartlib_root: /Volumes/data01/media-screen/heartlib
 media:
   image:
     canvas: 1024x1024, seed 42, the candidate's distilled default steps
@@ -183,62 +178,6 @@ media:
           - "42"
           - --output
           - "{output}"
-      - id: fastmetal13
-        role: candidate
-        rank: 1
-        ext: mp4
-        silent: true
-        expected_peak_gb: 3.87
-        expected_note: Vendor — 3.87 GiB at 480x832x81 on an M4 Max 36 GB (fast mode 3.20 GiB); the screen canvas 512x320x97 is NOT the lab's canvas. Silent.
-        cwd: "{weights_root}/FastVideo"
-        argv:
-          - .venv/bin/python
-          - examples/inference/basic/mlx_wan_prompt_to_video.py
-          - --model-root
-          - "{weights_root}/FastMetal-1.3B-QAD"
-          - --mlx-checkpoint
-          - "{weights_root}/FastMetal-1.3B-QAD"
-          - --height
-          - "320"
-          - --width
-          - "512"
-          - --num-frames
-          - "97"
-          - --seed
-          - "42"
-          - --prompt
-          - "{prompt}"
-          - --output-path
-          - "{output}"
-      - id: fastmetal5b
-        role: candidate
-        rank: 2
-        ext: mp4
-        silent: true
-        expected_peak_gb: 9.34
-        expected_note: Vendor — 9.34 GiB at 704x1280x81 (fast 7.97 GiB); at the matched 512x320 canvas the peak is the unknown this screen answers. Silent. If this script rejects --seed or --output-path, run it with --help and keep 320/512/97; never fall back to 720p for the scored row.
-        cwd: "{weights_root}/FastVideo"
-        argv:
-          - .venv/bin/python
-          - examples/inference/basic/mlx_wan22_generate.py
-          - --mlx-checkpoint
-          - "{weights_root}/FastMetal-5B-QAD"
-          - --text-encoder-root
-          - "{weights_root}/FastMetal-5B-QAD"
-          - --vae-root
-          - "{weights_root}/FastMetal-5B-QAD/vae"
-          - --height
-          - "320"
-          - --width
-          - "512"
-          - --num-frames
-          - "97"
-          - --seed
-          - "42"
-          - --prompt
-          - "{prompt}"
-          - --output-path
-          - "{output}"
   music:
     canvas: 30.0 s, 48 kHz stereo wav, seed 42, 8 steps for every ACE-Step turbo
     criteria: >-
@@ -291,9 +230,3 @@ media:
         dit: acestep-v15-turbo
         load_lm: false
         expected_note: Vendor — LM off is the <=6 GB tier and loses planning; lyrics and structure get worse, prompt 2 (vocal) is the check
-      - id: heartmula3b
-        role: candidate
-        rank: 3
-        kind: heartlib
-        expected_peak_gb: 11.0
-        expected_note: Vendor — porter table ~11 GB resident for a 1-min song, bf16, M2 Max 32 GB (not this host); happy-new-year LM + HeartCodec-oss-20260123 via ./launch.sh install-heartmula; output is 48 kHz mono (the port's detokenize) and audio EOS may end a clip before 30 s

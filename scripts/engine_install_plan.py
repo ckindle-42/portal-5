@@ -75,8 +75,6 @@ SERVICE_DEPS: dict[str, tuple[str, ...]] = {
         "httpx>=0.26.0",
         "pyyaml>=6.0.1",
     ),
-    # Screen arm, no MCP service: engine deps come from the heartlib-mlx lock.
-    "heartlib": (),
 }
 
 

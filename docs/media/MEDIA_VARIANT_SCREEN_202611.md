@@ -22,7 +22,7 @@ Record, per prompt: wall time, `/usr/bin/time -l` maximum resident set size (byt
 |---|---|---|---|
 | Image | 1024×1024 | 42 | the candidate's distilled default (table) |
 | Video | 512×320, 97 frames, 24 fps | 42 | distilled / the model's own 3-step schedule |
-| Music | 30.0 s, 48 kHz stereo wav | 42 | 8 for every ACE-Step turbo; HeartMuLa's own default |
+| Music | 30.0 s, 48 kHz stereo wav | 42 | 8 for every ACE-Step turbo |
 
 97 = 4×24+1 and 512×320 divides by 32, so Wan-family runners accept the video canvas. FastMetal's published times are at 480×832 or 704×1280; those are **not** this screen's pass line.
 
@@ -211,7 +211,7 @@ Vendor weight table (ACE-Step README / DeepWiki, not a Mac RSS): 2B turbo DiT **
 |---|---|---|---|---|---|---|---|---|
 | 1 | `acestep-v15-turbo` + `acestep-5Hz-lm-0.6B` | bf16/MLX as the runtime ships them, 8 steps, LM on | Weights suggest a cut vs XL+1.7B. No 64 GB RSS found. 原野's DiT-only load hit 20.75 GB on a 48 GB Mac | Vendor: turbo is the fast default. 原野 ~9 s for 30 s BGM, DiT-only | MIT | existing ACE-Step tree, `use_mlx_dit=True`, `backend=mlx` | Vendor AudioBox ranks **XL** above the 2B line. This screen exists to see whether the drop is audible | Weights **Vendor**. 20.75 GB **User** (different config) |
 | 2 | same 2B turbo, `ACESTEP_INIT_LLM` off | 8 steps, no planner | Smaller than rank 1 by the 0.6B LM. Lyrics and structure get worse; prompt 2 is the check | — | MIT | same, skip `LLMHandler.initialize` | Vendor: LM off is the ≤6 GB tier and loses planning | **Vendor** |
-| 3 | HeartMuLa-3B via `Acelogic/heartlib-mlx` @ `02dd2e2` | bf16 | Porter table: **~11 GB** for 1 min, **~15 GB** for 5 min, on an M2 Max 32 GB (load 0.82 s, 50 frames / 4 s of audio in 13.4 s total) | far from realtime (0.30× in that 50-frame test) | Apache-2.0 | `heartlib-mlx` | Porter says quality comparable to Suno. The overhaul note's AudioBox figures put HeartMuLa under ACE-Step XL. No 2026-10/11 user RSS found. Last commit **2026-01-21** | **Vendor**, and the port is stale |
+| 3 | ~~HeartMuLa-3B via `Acelogic/heartlib-mlx` @ `02dd2e2`~~ **withdrawn 2026-11-20 — rejected** | bf16 | Porter table: **~11 GB** for 1 min, **~15 GB** for 5 min, on an M2 Max 32 GB (load 0.82 s, 50 frames / 4 s of audio in 13.4 s total) | far from realtime (0.30× in that 50-frame test) | Apache-2.0 | `heartlib-mlx` | Porter says quality comparable to Suno. The overhaul note's AudioBox figures put HeartMuLa under ACE-Step XL. No 2026-10/11 user RSS found. Last commit **2026-01-21**. Installed 2026-11-20 but produced no row and no clip; the installer, catalog row and harness branch are removed | **Vendor**, and the port is stale |
 | reject | `acestep-v15-xl-turbo` 4-bit re-quant, YuE2, MiniMax-Music3 8-bit | — | XL is the incumbent. A new 4-bit XL with no published Mac RSS is not a candidate. YuE2 is CC-BY-NC and no MLX one-shot was verified. MiniMax is the previous, heavier engine | — | — | — | — | — |
 
 `mlx-community/ACE-Step1.5-MLX-4bit` (card updated 2026-04-14) is a **2.2 GB** 4-bit decoder for the older mlx-audio loader, not a drop-in for `AceStepHandler`. Leave it out unless rank 1 still pins free memory near 22%.
@@ -272,7 +272,10 @@ print("success", getattr(result, "success", None), getattr(result, "audios", Non
 PY
 ```
 
-HeartMuLa is a seated screen arm (operator, 2026-11-20), not a conditional fallback: `./launch.sh install-heartmula` installs `Acelogic/heartlib-mlx` @ `02dd2e22f6a1` under `~/.portal5/music/heartlib-mlx` (own venv, upstream lock) and downloads `HeartMuLa/HeartMuLa-oss-3B-happy-new-year` + `HeartMuLa/HeartCodec-oss-20260123` + the `HeartMuLa/HeartMuLaGen` tokenizer to `/Volumes/data01/media-screen/heartlib`, converted once to MLX bf16. The catalog row `heartmula3b` (`kind: heartlib`) runs the port's `generate.py` under a seed-42 runner; the port's detokenize emits 48 kHz **mono**, and audio EOS may end a clip before 30 s. Record RSS. Do not treat the ~11 GB table as this host's number. Intake and install evidence: `coding_task/FINDING_HEARTMULA_ARM.md`.
+HeartMuLa was withdrawn on 2026-11-20 (operator decision, final): it installed but produced
+no screen row and no clip, and the `ace-xl17` incumbent stays. The `install-heartmula` target,
+its installer, the `kind: heartlib` catalog row and harness branch were removed. Intake and
+install evidence remain in `coding_task/FINDING_HEARTMULA_ARM.md`.
 
 **Pass:** free % stays well above the incumbent's 22% on the same resident-LLM background, RSS is lower than the XL+1.7B re-run, and the operator accepts prompts 1–3 (prompt 3 must stay a solo guitar). **Fail:** free % still collapses, prompt 2 has no intelligible vocal, or prompt 3 grows a kit.
 
@@ -283,7 +286,7 @@ HeartMuLa is a seated screen arm (operator, 2026-11-20), not a conditional fallb
 1. Re-measure the three incumbents at the fixed canvas. That is the bar.
 2. Image rank 1 (Iris q8), then rank 2, then rank 3. Stop the image lane when one candidate is both smaller and not worse.
 3. Video rank 1, then rank 2, at 512×320×97. Keep LTX-2.5 q4 as the audio model unless a silent clip is explicitly enough.
-4. Music rank 1, then rank 2. HeartMuLa last.
+4. Music rank 1, then rank 2.
 5. Write the RSS, free %, time, and the look/listen note next to each row. A missing note means the row did not run.
 
 Do not enable modules, edit `config/portal.yaml`, or restart launchd from this plan. A winner is an orchestrator decision after the listen/look.
@@ -321,8 +324,7 @@ Do not enable modules, edit `config/portal.yaml`, or restart launchd from this p
 - Whether FastMetal at 512×320×97 stays near its 480p/720p published peaks, and whether `--height/--width/--num-frames` on `mlx_wan22_generate.py` match the help text at pin `c938a8a`.
 - Whether Phosphene's 5.7 GB path exists in ltx-2-mlx `747b30e`. The README does not state it.
 - Process RSS of XL+1.7B vs 2B+0.6B on this host. Free-memory 22% was a system figure.
-- HeartMuLa quality against ACE-Step on these three prompts, and its RSS in 2026. The MLX port has not moved since 2026-01-21.
-- The look/listen questions in the bullets above are answered, where a run landed, in the judged-results section. HeartMuLa still has no clip.
+- HeartMuLa was withdrawn before it produced a clip: rejected 2026-11-20 and removed from the repo (installer, catalog row, harness branch). Its quality against ACE-Step on these prompts is therefore unmeasured.
 
 ## Judged results — 2026-11-20
 
@@ -347,7 +349,7 @@ Listeners and viewers:
 
 Added after these scores were taken (2026-11-20), so it did not score the original run:
 **Xiaomi MiMo v2.6 Pro** (`mimo-v2.6-pro`, Xiaomi direct) is wired as the music judge step's
-non-Google audio lineage — see "Second listener and HeartMuLa's state" below.
+non-Google audio lineage — see "Second listener and the HeartMuLa verdict" below.
 
 Image and video therefore have two lineages (Gemini and Claude). Music's two full listeners are both Gemini 4. The xAI transcript is a second lineage for whether words are present.
 
@@ -454,9 +456,9 @@ Prompt 2, both listeners, both candidates: XL-Turbo sings the verse and the chor
 
 Prompt 3: both listeners say the 0.6B-LM turbo adds drums and bass, which is a miss. Both say the no-LM turbo is the better solo nylon guitar, and that XL-Turbo's take is simpler block chords.
 
-Need more evidence before a seat change. The 0.6B-LM turbo fails the solo-guitar constraint. The no-LM turbo fails the verse. XL-Turbo is the better vocal and the one that swaps the host to a 7–8% free floor, which is a UX veto against keeping it on sound alone. A later candidate has to clear the vocal and the solo guitar without that swap. HeartMuLa was not in this run.
+Need more evidence before a seat change. The 0.6B-LM turbo fails the solo-guitar constraint. The no-LM turbo fails the verse. XL-Turbo is the better vocal and the one that swaps the host to a 7–8% free floor, which is a UX veto against keeping it on sound alone. A later candidate has to clear the vocal and the solo guitar without that swap. HeartMuLa was not in this run and was subsequently rejected.
 
-### Second listener and HeartMuLa's state — 2026-11-20, after the judgments
+### Second listener and the HeartMuLa verdict — 2026-11-20, after the judgments
 
 Music's two full listeners were both Gemini 4. `scripts/proofs/media_screen_listen.py` is now
 the screen's judge step for a non-Google lineage: it pairs each candidate clip against the
@@ -475,12 +477,12 @@ qwen/qwen3.8-omni-flash --base-url https://openrouter.ai/api/v1`, is accurate on
 checklist but looser on lyric text. The model survey, the `CANNOT_PERCEIVE` results and the
 smoke transcripts are in `coding_task/FINDING_MUSIC_SECOND_LISTENER.md`.
 
-HeartMuLa is **not installed** on this host: no `ckpt/`, no `ckpt-mlx/`, no weights under
-`~/.portal5` or `/Volumes/data01`, and nothing audio-capable in `ollama list`. Its MLX port is
-cloned at `coding_task/scratch/heartlib-mlx` but unbuilt. Installing it is `uv sync`, the
-`HeartMuLa-oss-3B` + `HeartCodec-oss` Hugging Face downloads into `./ckpt`,
-`python -m heartlib_mlx.utils.convert --src ./ckpt --dst ./ckpt-mlx`, and then a
-`kind: heartlib` catalog row. Until that runs, HeartMuLa has no clip and no row.
+**HeartMuLa verdict (final):** rejected, and `ace-xl17` stays. HeartMuLa was installed on
+2026-11-20 (`~/.portal5/music/heartlib-mlx` at `02dd2e2`, weights under
+`/Volumes/data01/media-screen/heartlib`) but produced no screen row and no clip; the operator's
+2026-11-20 decision kept the incumbent. Its code path is removed from the repo — weights, venv,
+`./launch.sh install-heartmula`, the `kind: heartlib` catalog row and harness branch are gone.
+`coding_task/FINDING_HEARTMULA_ARM.md` is the historical intake record.
 
 ## Operator verdicts (2026-11-20)
 
