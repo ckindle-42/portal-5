@@ -127,7 +127,7 @@ _METRICBEAT_SYSTEM = re.compile(
 #: filebeat's `system` module re-ships another host's auth/service/syslog as JSON, and the
 #: host's journald export duplicates its own syslog/audit lines: one event family, two copies.
 _SHIPPER_COPY = re.compile(r"-system\.(auth|service|syslog)\.log$")
-_SYSTEM_JOURNAL = re.compile(r"^system\.journal.*\.txt$")
+_SYSTEM_JOURNAL = re.compile(r"(?:^|/)system\.journal.*\.txt$")
 _JOURNAL = re.compile(r"journal.*\.txt$")
 
 #: (pattern, route). First match wins; the order is the specificity order.
