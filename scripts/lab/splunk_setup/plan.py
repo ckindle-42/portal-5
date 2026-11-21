@@ -187,10 +187,14 @@ EVENTTYPES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("ph_web_suricata_http", 'sourcetype="suricata" event_type=http', ("web",)),
 )
 
-#: CIM index allowlist macros live in Splunk_SA_CIM, whose empty `()` defaults win over any
-#: other app's copy, so the scope of the tuned indexes is written there.
+#: CIM index allowlist macros and the acceleration of every CIM model live in Splunk_SA_CIM,
+#: whose own defaults win over any other app's copy, so both are written there.
 CIM_APP = "Splunk_SA_CIM"
 CIM_DEFAULT_DEFINITION = "()"
+
+#: Files an earlier release shipped and this one does not; a tar install overwrites but never
+#: deletes, so the installer removes them by name.
+LEGACY_CONF_FILES = ("datamodels.conf",)
 
 #: Accelerated models (the doc's six cheap ones); Change is opt-in and needs winregistry.
 ACCELERATED = (
@@ -204,10 +208,24 @@ ACCELERATED = (
 ACCELERATED_OPTIONAL = ("Change",)
 
 
+def accelerated_models(with_change: bool = False) -> tuple[str, ...]:
+    """The data models stage 3 switches acceleration on for."""
+    return ACCELERATED + (ACCELERATED_OPTIONAL if with_change else ())
+
+
+def accel_settings() -> dict[str, str]:
+    """The conf-datamodels keys that switch a model's acceleration on over the corpus span."""
+    return {
+        "acceleration": "true",
+        "acceleration.earliest_time": ACCEL_WINDOW,
+        "acceleration.cron_schedule": "*/10 * * * *",
+        "acceleration.max_concurrent": "1",
+    }
+
+
 def cim_macros(with_change: bool = False) -> tuple[str, ...]:
     """The index-allowlist macros of every model acceleration is switched on for."""
-    models = ACCELERATED + (ACCELERATED_OPTIONAL if with_change else ())
-    return tuple(f"cim_{model}_indexes" for model in models)
+    return tuple(f"cim_{model}_indexes" for model in accelerated_models(with_change))
 
 
 def cim_macro_definition() -> str:
