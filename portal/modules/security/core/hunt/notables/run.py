@@ -261,6 +261,8 @@ def _fact_dict(card: SourceCard) -> SourceFacts:
                 str(item.get("path") or ""),
                 int(item.get("events") or 0),
                 tuple(str(name) for name in item.get("hosts") or ()),
+                float(item.get("first") or 0.0),
+                float(item.get("last") or 0.0),
             )
             for item in facts.get("files") or ()
             if isinstance(item, Mapping)
@@ -553,7 +555,7 @@ def _stored_inventory(
     """Apply the stored value lists in memory. The behaviour table stays sample-based."""
     source_facts = facts_by_source(cards)
     updated, receipt = apply_inventory(
-        behaviours, load_inventory(out / INVENTORY_FILE), source_facts
+        behaviours, load_inventory(out / INVENTORY_FILE), source_facts, cards
     )
     return updated, source_facts, receipt
 
@@ -599,6 +601,7 @@ def notables_stage(
         if "deviation" in standard_enabled
         else None,
     )
+    receipt["skipped_sources"] = {}
     if MISFIT_GENERATOR in enabled:
         started = time.monotonic()
         misfits, misfit_stats, misfit_notes = load_misfits(store)
@@ -625,6 +628,7 @@ def notables_stage(
         notables = [*similar, *notables]
         receipt[SIMILAR_GENERATOR] = detail
         receipt["seconds"][SIMILAR_GENERATOR] = detail["seconds"]
+        receipt["skipped_sources"] = detail["skipped_sources"]
     merged, merge_receipt = merge_notables(
         notables,
         MERGE_PRIORITY,

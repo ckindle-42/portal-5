@@ -405,42 +405,45 @@ class HuntExecutor:
         query_deadline: float | None = None
         spend = "discovery"
         queries_before = self.budget.queries
-        for attempt in range(RETRY_ATTEMPTS):
-            if query_deadline is not None and time.monotonic() >= query_deadline:
-                reason = QUERY_BOUND
-                break
-            rows, reason, retry_error, error, spend, query_deadline = self._read_attempt(
-                query, start, end, kind, row_cap, query_deadline
-            )
-            if retry_error is None:
-                if isinstance(error, (SearchBudgetExceededError, HuntSearchFailedError)):
-                    if self.read_observer is not None and self.budget.queries > queries_before:
-                        self.read_observer(
-                            query,
-                            start,
-                            end,
-                            Read(rows, True, reason or CENSORED, error),
-                            source_id,
-                            part,
-                        )
-                    raise error
-                break
-            if rows or attempt + 1 >= RETRY_ATTEMPTS:
-                error = retry_error
-                reason = self._reason(retry_error)
-                break
-            delay = min(
-                RETRY_DELAY_SECONDS * (attempt + 1),
-                max(0.0, (query_deadline or time.monotonic()) - time.monotonic()),
-            )
-            if delay <= 0:
-                reason = QUERY_BOUND
-                break
-            time.sleep(delay)
-        result = Read(rows, reason is not None, reason, error)
-        if self.read_observer is not None:
-            self.read_observer(query, start, end, result, source_id, part)
-        self.budget.record_rows(spend, len(rows))
+        refused = False
+        result = Read(rows, False, None, None)
+        try:
+            for attempt in range(RETRY_ATTEMPTS):
+                if query_deadline is not None and time.monotonic() >= query_deadline:
+                    reason = QUERY_BOUND
+                    break
+                rows, reason, retry_error, error, spend, query_deadline = self._read_attempt(
+                    query, start, end, kind, row_cap, query_deadline
+                )
+                if retry_error is None:
+                    if isinstance(error, (SearchBudgetExceededError, HuntSearchFailedError)):
+                        reason = reason or CENSORED
+                        result = Read(rows, True, reason, error)
+                        raise error
+                    break
+                if rows or attempt + 1 >= RETRY_ATTEMPTS:
+                    error = retry_error
+                    reason = self._reason(retry_error)
+                    break
+                delay = min(
+                    RETRY_DELAY_SECONDS * (attempt + 1),
+                    max(0.0, (query_deadline or time.monotonic()) - time.monotonic()),
+                )
+                if delay <= 0:
+                    reason = QUERY_BOUND
+                    break
+                time.sleep(delay)
+            result = Read(rows, reason is not None, reason, error)
+        except HuntBudgetExceededError as exc:
+            refused = True
+            error = exc
+            reason = reason or (CENSORED if rows else str(exc) or CENSORED)
+            result = Read(rows, True, reason, error)
+            raise
+        finally:
+            if self.read_observer is not None and (refused or self.budget.queries > queries_before):
+                self.read_observer(query, start, end, result, source_id, part)
+            self.budget.record_rows(spend, len(rows))
         return result
 
     def _read_attempt(

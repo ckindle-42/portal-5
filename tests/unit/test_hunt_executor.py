@@ -8,6 +8,12 @@ from typing import Any
 import pytest
 
 from portal.modules.security.core.hunt import jobs as hunt_jobs
+from portal.modules.security.core.hunt.executor import (
+    HuntBudget,
+    HuntBudgetExceededError,
+    HuntExecutor,
+    Read,
+)
 from portal.modules.security.core.review.window import SplunkWindowSource, WindowFetchError
 
 
@@ -106,3 +112,34 @@ def test_one_capped_evidence_read_does_not_end_the_job(
     assert any(slot.get("censored") for slot in job["progress"]["request_kinds"].values()), job[
         "progress"
     ]["request_kinds"]
+
+
+class _EmptySearch:
+    """A transport whose reads would answer if the shared budget ever let one through."""
+
+    def iter_post_bounded(
+        self,
+        query: str,
+        start: float,
+        end: float,
+        *,
+        timeout_seconds: float = 0,
+        max_results: int | None = None,
+    ) -> list[dict[str, Any]]:
+        del query, start, end, timeout_seconds, max_results
+        return []
+
+
+def test_the_observer_sees_a_request_budget_refusal() -> None:
+    budget = HuntBudget(
+        {"query_seconds": 30.0, "job_seconds": 60.0, "requests": 0, "cells": 10, "events": 10}
+    )
+    executor = HuntExecutor(_EmptySearch(), budget)
+    seen: list[Read] = []
+    executor.read_observer = lambda query, start, end, read, source_id, part: seen.append(read)
+
+    with pytest.raises(HuntBudgetExceededError):
+        executor.read("search index=ix | head 1", 0.0, 1.0, kind="discovery")
+
+    assert [read.reason for read in seen] == ["request_budget_exhausted"]
+    assert seen[0].rows == [] and seen[0].censored

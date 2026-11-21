@@ -286,31 +286,26 @@ def _ranked_notables(
     cards: Sequence[SourceCard],
     scores: Mapping[int, Mapping[str, float]],
     reliability: Mapping[str, Any],
-) -> list[Notable]:
+) -> tuple[list[Notable], dict[str, int]]:
     """Make the strongest measured known-bad similarities into normal notable records."""
-    kinds_by_source: dict[str, set[str]] = defaultdict(set)
-    eligible_sources: set[str] = set()
-    for card in cards:
-        kinds_by_source[card.source_id].add(card.kind)
-        if "similar_to_known" in card_consumers(card):
-            eligible_sources.add(card.source_id)
-    invalid = sorted({item.source_id for item in behaviours} - eligible_sources)
-    if invalid:
-        invalid_details = [
-            f"{source} (kinds: {', '.join(sorted(kinds_by_source[source])) or 'none'})"
-            for source in invalid[:3]
-        ]
-        raise SimilarityError(
-            "behaviour sources need an activity card with roles: " + "; ".join(invalid_details)
-        )
+    eligible_sources = {
+        card.source_id for card in cards if "similar_to_known" in card_consumers(card)
+    }
+    skipped: dict[str, int] = defaultdict(int)
     score_mode = str(reliability["score"])
+    margins: dict[int, float] = {}
     ranked: list[tuple[float, int, Behaviour]] = []
     for index, behaviour in enumerate(behaviours):
+        if behaviour.source_id not in eligible_sources:
+            skipped[behaviour.source_id] += 1
+            continue
         pair = scores.get(index, {})
         if "known_bad" not in pair or "known_good" not in pair:
             raise SimilarityError(f"missing known-bad or known-good match for behaviour {index}")
         bad_score = pair["known_bad"]
-        score = bad_score - pair["known_good"] if score_mode.endswith("minus_good") else bad_score
+        margin = bad_score - pair["known_good"]
+        margins[index] = margin
+        score = margin if score_mode.endswith("minus_good") else bad_score
         ranked.append((score, index, behaviour))
     ranked.sort(
         key=lambda row: (
@@ -325,7 +320,7 @@ def _ranked_notables(
     top = _diversify_ranked(ranked)[:SIMILAR_NOTABLE_BUDGET]
     details = _matches(pool, [index for _score, index, _behaviour in top])
     notables = []
-    for score, index, behaviour in top:
+    for _score, index, behaviour in top:
         match_pair = details.get(index, {})
         bad: list[Mapping[str, Any]] = list(match_pair.get("known_bad") or ())
         good: list[Mapping[str, Any]] = list(match_pair.get("known_good") or ())
@@ -352,11 +347,13 @@ def _ranked_notables(
                     "hosts": behaviour.hosts,
                     "actors": behaviour.actors,
                 },
-                measure_name=score_mode,
-                measure_value=score,
+                measure_name="known_bad_minus_good",
+                measure_value=margins[index],
                 why=(
-                    f"nearest known-bad {bad[0]['label']} from {bad[0]['family']} "
-                    f"at cosine {bad[0]['similarity']:.3f}; measured AUC {reliability['auc']:.3f}"
+                    f"nearest known reference from {bad[0]['family']} "
+                    f"at cosine {float(bad[0]['similarity']):.3f}; "
+                    f"margin {margins[index]:.3f} (threshold 0); "
+                    f"measured AUC {reliability['auc']:.3f}"
                 ),
                 evidence=(
                     {
@@ -370,7 +367,7 @@ def _ranked_notables(
                 generator_reliability=float(reliability["auc"]),
             )
         )
-    return notables
+    return notables, dict(sorted(skipped.items()))
 
 
 def generate_similar(
@@ -401,14 +398,15 @@ def generate_similar(
         if scored:
             _insert_behaviours(pool, scored, embedder)
             scores = _scores(pool, len(scored))
-            notables = _ranked_notables(pool, scored, cards, scores, reliability)
+            notables, skipped = _ranked_notables(pool, scored, cards, scores, reliability)
         else:
-            notables = []
+            notables, skipped = [], {}
         receipt = {
             "existed": len(behaviours),
             "scored": len(scored),
             "uninformative": len(behaviours) - len(scored),
             "kept": len(notables),
+            "skipped_sources": skipped,
             "store": str(store_path),
             "run_index": pool.run_index,
             "excluded_family": pool.excluded_family,

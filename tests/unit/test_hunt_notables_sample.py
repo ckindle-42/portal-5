@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
-from portal.modules.security.core.hunt.executor import Read
+from portal.modules.security.core.hunt.executor import (
+    HuntBudget,
+    HuntExecutor,
+    Read,
+)
 from portal.modules.security.core.hunt.notables.behaviours import _file_rows
+from portal.modules.security.core.hunt.notables.cards import _facts as card_facts
+from portal.modules.security.core.hunt.notables.run import _fact_dict, card_from_dict
 from portal.modules.security.core.hunt.notables.sample import (
     IndexFile,
+    Localisation,
     LocalWindow,
     SourceFacts,
+    file_span,
+    index_facts,
     localise,
     read_anchors,
     read_files,
@@ -155,12 +166,14 @@ class _SummaryExecutor:
         self.window = window
         self.buckets = buckets
         self.queries: list[str] = []
+        self.bounds: list[tuple[float, float]] = []
 
     def read(
         self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
     ) -> Read:
-        del start, end, kind, row_cap
+        del kind, row_cap
         self.queries.append(query)
+        self.bounds.append((start, end))
         if "summariesonly=true count min(_time)" in query:
             model = query.split("from datamodel=", 1)[1].split(" ", 1)[0]
             if model == "Authentication" and self.window:
@@ -191,6 +204,22 @@ def test_a_range_outside_the_acceleration_window_is_localised_by_a_scan_not_empt
     assert found.accel_window == (0.0, 500.000001)
     assert len(found.windows) == 1
     assert any(query.startswith("| tstats count where") for query in executor.queries)
+
+
+def test_a_partially_covered_source_declares_the_covered_and_scanned_ranges():
+    executor = _SummaryExecutor((3000.0, 6000.0), _burst_series(300, 24, 21, 121, 4))
+    found = localise(executor, "ix", 0.0, 7200.0)
+
+    assert found.mechanism == "accelerated_partial"
+    assert found.model == "Authentication"
+    assert found.coverage == "accelerated_partial"
+    assert found.covered_window == (3000.0, 6000.000001)
+    assert found.scanned_window == [(0.0, 3000.0), (6000.000001, 7200.0)]
+    assert found.windows
+    # the summary read covers the covered sub-range, the scan reads the two remainders
+    assert (3000.0, 6000.000001) in executor.bounds
+    assert (0.0, 3000.0) in executor.bounds
+    assert (6000.000001, 7200.0) in executor.bounds
 
 
 class _QueryExecutor:
@@ -250,6 +279,8 @@ class _FileExecutor:
         del kind
         self.queries.append(query)
         inside = [row for row in self.rows_for(query) if start <= float(row["_time"]) < end]
+        if query.startswith("| tstats"):
+            return Read([{"count": str(len(inside))}], False, None)
         return Read(inside[: row_cap or len(inside)], False, None)
 
     def record_skipped_read(
@@ -302,7 +333,9 @@ def test_every_indexed_file_is_read_with_its_own_head_not_by_arrival_order():
     assert all(item.rows > 0 for item in read.files)
     assert sum(item.rows for item in read.files if item.path == labelled) > 0
     assert any(f'source="{labelled}"' in query for query in executor.queries)
-    assert len(read.rows) <= 100 * 2 + len(files) * 2  # today's row budget plus per-read rounding
+    # each file is capped per read by what its own window holds, not by its share of the source
+    assert len(read.rows) <= 100 * 2 * len(files)
+    assert sum(item.rows for item in read.files if item.path == "a00") == 200
     lines = _file_rows("ix:st", read)
     assert {line["path"] for line in lines} == set(files)
     assert all(line["events_available"] > 0 for line in lines)
@@ -320,3 +353,363 @@ def test_a_capped_read_declares_every_unread_file_with_its_reason():
     assert {item.reason for item in omitted} == {"read_files_cap"}
     assert len(executor.skipped) == 18
     assert all(reason == "read_files_cap" for _query, reason in executor.skipped)
+
+
+def _wide_file_facts() -> SourceFacts:
+    return SourceFacts(
+        "ix", "st", 500, 0.0, 1_000.0, ("h1",), 1, ("a",), 1, files=(IndexFile("a", 500, ("h1",)),)
+    )
+
+
+def test_a_zero_row_file_read_declares_an_empty_window() -> None:
+    read = read_files(
+        _NewestExecutor(_rows()),
+        _wide_file_facts(),
+        [(2_000.0, 3_000.0)],
+        per_window=100,
+        kind="x",
+    )
+
+    assert read.files
+    assert all(item.rows == 0 for item in read.files)
+    assert {item.reason for item in read.files} == {"empty_window"}
+
+
+class _RefusingSearch:
+    """A transport that never answers: the shared request ceiling refuses before it can."""
+
+    executor: HuntExecutor | None = None
+
+    def iter_post_bounded(
+        self,
+        query: str,
+        start: float,
+        end: float,
+        *,
+        timeout_seconds: float = 0,
+        max_results: int | None = None,
+    ) -> list[dict[str, object]]:
+        del query, start, end, timeout_seconds, max_results
+        return []
+
+
+def test_a_budget_refused_read_writes_a_ledger_row(tmp_path: Path) -> None:
+    from portal.modules.security.core.hunt.notables.run import configure_ledger
+
+    search = _RefusingSearch()
+    budget = HuntBudget(
+        {"query_seconds": 30.0, "job_seconds": 60.0, "requests": 0, "cells": 10, "events": 10}
+    )
+    search.executor = HuntExecutor(search, budget)
+    executor = configure_ledger(search, tmp_path, "behaviours")
+
+    read = read_files(executor, _wide_file_facts(), [(0.0, 1_000.0)], per_window=100, kind="x")
+
+    assert {item.reason for item in read.files} == {"request_budget_exhausted"}
+    ledger = [
+        json.loads(line)
+        for line in (tmp_path / "ledger.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    # the density probe (E2) and the window read are both issued reads, so both are declared
+    assert [row["reason"] for row in ledger] == ["request_budget_exhausted"] * 2
+    assert sum(row["query"].startswith("| tstats") for row in ledger) == 1
+
+
+def test_a_read_from_a_covering_summary_reports_accelerated_coverage() -> None:
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    located = Localisation(
+        windows=[LocalWindow("h1", 300.0, 600.0, 1_000)],
+        mechanism="accelerated",
+        model="Web",
+        accel_window=(0.0, 600.000001),
+        coverage="accelerated",
+    )
+    facts = SourceFacts("ix", "st", 55_000_000, 0.0, 600.0, ("h1",), 1, ("s1",), 1)
+    executor = _QueryExecutor([{"_time": 350.0, "host": "h1", "count": 1}])
+
+    merged = read_behaviour_source(
+        executor,
+        facts,
+        per_window=10,
+        anchors=located.windows,
+        accel_window=located.accel_window,
+        coverage=located.coverage,
+    )
+    direct = read_anchors(
+        executor,
+        facts,
+        located.windows,
+        per_window=10,
+        kind="x",
+        accel_window=located.accel_window,
+        coverage=located.coverage,
+    )
+
+    assert merged.coverage == "accelerated"
+    assert merged.accel_window == located.accel_window
+    assert direct.coverage == "accelerated"
+
+
+class _DensityExecutor:
+    """Splunk-like: honour source/host/time filters, answer `tstats count`, head newest-first."""
+
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self.rows = rows
+        self.calls: list[tuple[str, float, float, int | None]] = []
+        self.skipped: list[tuple[str, str]] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del kind
+        self.calls.append((query, start, end, row_cap))
+        inside = [row for row in self.rows if start <= float(row["_time"]) < end]
+        for path in re.findall(r'source="([^"]+)"', query):
+            inside = [row for row in inside if row["source"] == path]
+        for host in re.findall(r'host="([^"]+)"', query):
+            inside = [row for row in inside if row["host"] == host]
+        if query.startswith("| tstats"):
+            return Read([{"count": str(len(inside))}], False, None)
+        inside.sort(key=lambda row: float(row["_time"]), reverse=True)
+        return Read([dict(row) for row in inside[: row_cap or len(inside)]], False, None)
+
+    def row_reads(self) -> list[tuple[str, float, float, int | None]]:
+        return [call for call in self.calls if not call[0].startswith("| tstats")]
+
+    def record_skipped_read(
+        self, query: str, start: float, end: float, *, source_id=None, part=None, reason: str
+    ) -> None:
+        del start, end, source_id, part
+        self.skipped.append((query, reason))
+
+
+def _rows_of(path: str, host: str, times: list[float]) -> list[dict[str, object]]:
+    return [
+        {"_raw": f"{path} {stamp}", "_time": stamp, "host": host, "source": path} for stamp in times
+    ]
+
+
+def test_a_files_windows_land_on_the_files_own_burst_not_the_sources():
+    burst = [3400.0 + number * 1.0 for number in range(60)]
+    facts = SourceFacts(
+        "ix",
+        "st",
+        13_000,
+        0.0,
+        5_000.0,
+        ("web1",),
+        1,
+        ("/a", "/b"),
+        2,
+        files=(
+            IndexFile("/a", 9_000, ("web1",), 3000.0, 4000.0),
+            IndexFile("/b", 4_000, ("web1",), 0.0, 5000.0),
+        ),
+    )
+    executor = _DensityExecutor(
+        _rows_of("/a", "web1", burst)
+        + _rows_of("/b", "web1", [float(n) for n in range(0, 5000, 5)])
+    )
+    read_files(executor, facts, window_bounds(0.0, 5_000.0, 3), per_window=2_500, kind="x")
+
+    planned = [call for call in executor.row_reads() if 'source="/a"' in call[0]]
+    assert planned
+    assert min(start for _query, start, _end, _cap in planned) == 3000.0
+    assert all(start >= 3000.0 and end <= 4000.000001 for _query, start, end, _cap in planned)
+    assert any(start <= 3400.0 and end > 3459.0 for _query, start, end, _cap in planned)
+
+
+def test_a_file_is_never_read_with_a_host_it_is_not_on():
+    facts = SourceFacts(
+        "ix",
+        "st",
+        1_200,
+        0.0,
+        1_000.0,
+        ("web1", "web2"),
+        2,
+        ("/a", "/b", "/c"),
+        3,
+        files=(
+            IndexFile("/a", 500, ("web1",), 0.0, 1000.0),
+            IndexFile("/b", 500, ("web2",), 0.0, 1000.0),
+            IndexFile("/c", 200, (), 0.0, 1000.0),
+        ),
+    )
+    executor = _DensityExecutor(
+        _rows_of("/a", "web1", [float(n) for n in range(500)])
+        + _rows_of("/b", "web2", [float(n) for n in range(500)])
+        + _rows_of("/c", "web1", [float(n) for n in range(200)])
+    )
+    read = read_files(
+        executor, facts, window_bounds(0.0, 1_000.0, 2), per_window=2_500, kind="x", host="web1"
+    )
+
+    issued = executor.row_reads()
+    assert issued
+    assert all('host="web1"' in query for query, _start, _end, _cap in issued if "/a" in query)
+    assert not any('source="/b"' in query for query, _start, _end, _cap in issued)
+    receipts = {item.path: item for item in read.files}
+    assert receipts["/a"].host == "web1"
+    assert (receipts["/b"].host, receipts["/b"].reason) == ("", "host_mismatch")
+    assert (receipts["/c"].host, receipts["/c"].reason) == ("", "")
+    assert any('source="/c"' in query and "host=" not in query for query, _s, _e, _c in issued)
+    assert "host_mismatch" in {reason for _query, reason in executor.skipped}
+
+
+def test_a_files_head_reflects_the_windows_density_not_its_source_share():
+    stamped = [2500.0 + number * 0.1 for number in range(2_600)]
+    facts = SourceFacts(
+        "ix",
+        "st",
+        1_000_000,
+        0.0,
+        3000.0,
+        ("h1",),
+        1,
+        ("/a", "/huge"),
+        2,
+        files=(
+            IndexFile("/a", 6_000, ("h1",), 0.0, 3000.0),
+            IndexFile("/huge", 994_000, ("h1",), 0.0, 3000.0),
+        ),
+    )
+    executor = _DensityExecutor(_rows_of("/a", "h1", stamped))
+    read = read_files(
+        executor, facts, window_bounds(0.0, 3000.0, 2), per_window=2_500, kind="x", sub_windows=2
+    )
+
+    heads = [cap for query, _start, _end, cap in executor.row_reads() if 'source="/a"' in query]
+    assert max(head or 0 for head in heads) == 2_500  # the window's own count, not a 0.6% share
+    rows = sum(item.rows for item in read.files if item.path == "/a")
+    assert rows == 2_500 >= min(6_000, 2_500)
+
+
+def test_the_last_slice_of_a_file_is_always_planned():
+    facts = SourceFacts(
+        "ix",
+        "st",
+        9_000,
+        0.0,
+        4_000.0,
+        ("h1",),
+        1,
+        ("/a", "/b"),
+        2,
+        files=(
+            IndexFile("/a", 5_000, ("h1",), 1000.0, 4000.0),
+            IndexFile("/b", 4_000, ("h1",)),
+        ),
+    )
+    executor = _DensityExecutor(_rows_of("/a", "h1", [float(n) for n in range(1000, 1100)]))
+    read_files(executor, facts, window_bounds(0.0, 4_000.0, 6), per_window=2_500, kind="x")
+
+    planned = [
+        (start, end) for query, start, end, _cap in executor.row_reads() if 'source="/a"' in query
+    ]
+    assert (3000.0, 4000.000001) in planned  # the file's own tail slice, last event included
+    assert any(start <= 4000.0 < end for start, end in planned)
+
+    fallback = [
+        (start, end) for query, start, end, _cap in executor.row_reads() if 'source="/b"' in query
+    ]
+    assert window_bounds(0.0, 4_000.0, 6)[-1][0] in {start for start, _end in fallback}
+
+
+class _EstateExecutor:
+    """Answers the estate map's own tstats queries: volume, per-file rows, hosts, cadence."""
+
+    def __init__(
+        self,
+        volume: list[dict[str, object]],
+        sources: list[dict[str, object]],
+        hosts: list[dict[str, object]],
+    ) -> None:
+        self.volume = volume
+        self.sources = sources
+        self.hosts = hosts
+        self.queries: list[str] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del start, end, kind, row_cap
+        self.queries.append(query)
+        if "span=1d" in query:
+            return Read([], False, None)
+        if "by sourcetype source host" in query:
+            return Read([dict(row) for row in self.sources], False, None)
+        if "by sourcetype host" in query:
+            return Read([dict(row) for row in self.hosts], False, None)
+        return Read([dict(row) for row in self.volume], False, None)
+
+
+def _file_row(path: str, host: str, count: int, first: float, last: float) -> dict[str, object]:
+    return {
+        "sourcetype": "stream:http",
+        "source": path,
+        "host": host,
+        "count": str(count),
+        "first": first,
+        "last": last,
+    }
+
+
+def _estate_rows() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    volume = [{"sourcetype": "stream:http", "count": "35", "first": 0.0, "last": 5000.0}]
+    sources = [
+        _file_row("/a/access.log", "web1", 20, 1000.0, 2199.0),
+        _file_row("/a/access.log", "web2", 5, 3000.0, 4000.0),
+        _file_row("/a/old.log", "web1", 10, 200.0, 900.0),
+    ]
+    return volume, sources
+
+
+def test_estate_map_carries_each_files_own_time_range():
+    volume, sources = _estate_rows()
+    executor = _EstateExecutor(volume, sources, [{"sourcetype": "stream:http", "host": "web1"}])
+    facts, _notes = index_facts(executor, "ix", 0.0, 5000.0)
+
+    graded = {item.path: item for item in facts[0].files}["/a/access.log"]
+    assert (graded.events, graded.first, graded.last) == (25, 1000.0, 4000.0)
+    assert (graded.first, graded.last) != (facts[0].first, facts[0].last)
+
+    source_queries = [query for query in executor.queries if "by sourcetype source host" in query]
+    assert len(source_queries) == 1
+    assert "min(_time) as first max(_time) as last" in source_queries[0]
+
+    raw = card_facts(facts[0])
+    assert {item["path"]: item for item in raw["files"]}["/a/access.log"]["first"] == 1000.0
+    restored = _fact_dict(
+        card_from_dict({"index": "ix", "sourcetype": "stream:http", "facts": raw})
+    )
+    back = {item.path: item for item in restored.files}["/a/access.log"]
+    assert (back.first, back.last) == (1000.0, 4000.0)
+
+
+def test_a_file_without_a_time_range_falls_back_to_its_source_span():
+    facts = SourceFacts(
+        "ix",
+        "st",
+        15,
+        100.0,
+        900.0,
+        ("h1",),
+        1,
+        ("/a.log", "/b.log"),
+        2,
+        files=(IndexFile("/a.log", 10, ("h1",)), IndexFile("/b.log", 5, ("h1",), 700.0, 800.0)),
+    )
+    assert file_span(facts, facts.files[0]) == (facts.first, facts.last)
+    assert file_span(facts, facts.files[1]) == (700.0, 800.0)
+
+
+def test_the_estate_map_still_declares_no_files_when_the_counts_do_not_add_up():
+    volume, sources = _estate_rows()
+    volume[0]["count"] = "36"
+    executor = _EstateExecutor(volume, sources, [])
+    facts, notes = index_facts(executor, "ix", 0.0, 5000.0)
+
+    assert facts[0].files == ()
+    assert "files_incomplete:stream:http" in notes

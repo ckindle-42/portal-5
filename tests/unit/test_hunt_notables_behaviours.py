@@ -5,6 +5,7 @@ from typing import Any
 
 import duckdb
 
+from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.behaviours import (
     _INSERT,
     ExampleEvent,
@@ -609,7 +610,7 @@ def test_the_localisation_receipt_carries_the_window_a_range_outside_it_is_a_sca
             rows = [{"_time": index * 300.0, "host": "h1", "count": "21"} for index in range(24)]
             return Read(rows, False, None)
 
-    facts = SourceFacts("ix", "st", 55_000_000, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)
+    facts = SourceFacts("ix", "st", 55_000_000, 600.0, 7200.0, ("h1",), 1, ("s1",), 1)
     anchors, block = _localise_sources(_Exec(), [("ix:st", [_card()], facts, 0.0)], 100)
 
     entry = block["indexes"][0]
@@ -617,6 +618,74 @@ def test_the_localisation_receipt_carries_the_window_a_range_outside_it_is_a_sca
     assert entry["coverage"] == "scan"
     assert entry["accel_window"] == [0.0, 500.000001]
     assert anchors == {}
+
+
+class _ModelWindowExecutor:
+    """One model's summary holds `window`; every bucket read answers inside its own bounds."""
+
+    def __init__(self, window: tuple[float, float]) -> None:
+        self.window = window
+        self.calls: list[tuple[str, float, float]] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del kind, row_cap
+        self.calls.append((query, start, end))
+        if "summariesonly=true count min(_time)" in query:
+            if "datamodel=Authentication" in query:
+                return Read(
+                    [{"count": "9", "first": self.window[0], "last": self.window[1]}], False, None
+                )
+            return Read([], False, None)
+        rows = [
+            {"_time": stamp, "host": "h1", "count": "1"}
+            for stamp in (start + 300.0 * step for step in range(int((end - start) // 300.0) + 1))
+            if start <= stamp < end
+        ]
+        if rows:
+            rows[-1]["count"] = "50"
+        return Read(rows, False, None)
+
+
+def test_a_source_inside_one_models_window_localises_accelerated():
+    from portal.modules.security.core.hunt.notables.behaviours import _localise_sources
+
+    inside = SourceFacts("ix", "linux_secure", 55_000_000, 0.0, 7000.0, ("h1",), 1, ("s1",), 1)
+    beyond = SourceFacts("ix", "syslog", 55_000_000, 0.0, 9000.0, ("h1",), 1, ("s2",), 1)
+    anchors, block = _localise_sources(
+        _ModelWindowExecutor((0.0, 7000.0)),
+        [("ix:linux_secure", [_card()], inside, 0.0), ("ix:syslog", [_card()], beyond, 0.0)],
+        100,
+    )
+
+    entries = {entry["source"]: entry for entry in block["indexes"]}
+    assert entries["ix:linux_secure"]["mechanism"] == "accelerated"
+    assert entries["ix:linux_secure"]["coverage"] == "accelerated"
+    assert entries["ix:syslog"]["mechanism"] == "accelerated_partial"
+    assert set(anchors) == {"ix:linux_secure", "ix:syslog"}
+
+
+def test_a_sources_span_is_never_compared_to_the_index_union():
+    from portal.modules.security.core.hunt.notables.behaviours import _localise_sources
+
+    early = SourceFacts("ix", "linux_secure", 55_000_000, 1000.0, 2000.0, ("h1",), 1, ("s1",), 1)
+    late = SourceFacts("ix", "syslog", 55_000_000, 5000.0, 9000.0, ("h2",), 1, ("s2",), 1)
+    executor = _ModelWindowExecutor((0.0, 10_000.0))
+    _localise_sources(
+        executor,
+        [("ix:linux_secure", [_card()], early, 0.0), ("ix:syslog", [_card()], late, 0.0)],
+        100,
+    )
+
+    bounds = {
+        (start, end)
+        for query, start, end in executor.calls
+        if "summariesonly=true count min(_time)" not in query
+    }
+    assert (1000.0, 2000.000001) in bounds
+    assert (5000.0, 9000.000001) in bounds
+    assert (1000.0, 9000.000001) not in bounds
 
 
 def test_collect_behaviours_keeps_s2_value_spans_when_localisation_finds_nothing(tmp_path):
@@ -731,15 +800,20 @@ def _planned_read(remaining: int) -> tuple[Any, _BudgetExecutor]:
     return read_behaviour_source(executor, _budget_facts(), per_window=100), executor
 
 
+def _evidence_reads(executor: _BudgetExecutor) -> list[str]:
+    """Evidence reads only; E2's per-window density probes spend from the same request counter."""
+    return [query for query in executor.reads if not query.startswith("| tstats")]
+
+
 def test_the_read_plan_never_exceeds_the_remaining_request_budget():
     issued = {}
-    for remaining in (0, 10, 25, 30, 60, 200):
+    for remaining in (0, 10, 20, 30, 40, 200):
         _read, executor = _planned_read(remaining)
-        issued[remaining] = len(executor.reads)
-        assert len(executor.reads) <= remaining, remaining
+        issued[remaining] = len(_evidence_reads(executor))
+        assert issued[remaining] <= remaining, remaining
 
-    read, _executor = _planned_read(30)
-    assert 0 < issued[30] < issued[200]
+    read, _executor = _planned_read(40)
+    assert 0 < issued[40] < issued[200]
     assert {item.path for item in read.files if not item.reason} == {
         item.path for item in _budget_facts().files[:10]
     }
@@ -749,7 +823,7 @@ def test_a_window_dropped_by_the_planner_is_declared():
     from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
 
     facts = _budget_facts()
-    executor = _BudgetExecutor(remaining=30)
+    executor = _BudgetExecutor(remaining=40)
 
     read = read_behaviour_source(executor, facts, per_window=100)
 

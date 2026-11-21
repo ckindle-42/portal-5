@@ -415,7 +415,8 @@ def test_judge_separation_uses_covered_notables_as_labelled_bad(tmp_path: Path) 
     judge = family["judge"]
     assert judge is not None
     assert judge["bad"] == 2 and judge["good"] == 2
-    assert judge["auc"] == 1.0
+    assert judge["auc_all"] == 1.0
+    assert judge["auc_pooled"] == 1.0
     assert judge["yes_rate_bad"] == 1.0
     assert judge["yes_rate_good"] == 0.0
 
@@ -444,7 +445,8 @@ def test_judge_cache_supplies_p_yes_when_the_receipts_carry_none(tmp_path: Path)
     judge = family["judge"]
     assert judge is not None
     assert judge["judged"] == 4
-    assert judge["auc"] == 1.0
+    assert judge["auc_all"] == 1.0
+    assert judge["auc_pooled"] == 1.0
 
 
 def test_judge_block_is_omitted_without_any_judge_result(tmp_path: Path) -> None:
@@ -457,6 +459,60 @@ def test_judge_block_is_omitted_without_any_judge_result(tmp_path: Path) -> None
     )
     assert family["judge"] is None
     assert "judge: no judge result" in board.render(family)
+
+
+def test_judge_separation_is_reported_per_generator(tmp_path: Path) -> None:
+    source = "/apache2/access.log.4"
+    keys = _keys(source, "web", {1: ["dirb"]})
+    family = _family(
+        tmp_path,
+        notables=[
+            _notable("alerts", source, ["10.0.0.5"], p_yes=0.9, content_key="bad1"),
+            _notable("alerts", source, ["10.0.0.5"], p_yes=0.8, content_key="bad2"),
+            _notable("peer_rare", "/other/access.log", ["nomatch"], p_yes=0.1, content_key="good1"),
+            _notable("peer_rare", "/other/access.log", ["nomatch"], p_yes=0.2, content_key="good2"),
+        ],
+        keys=keys,
+        files={("web", source): [_line("10.0.0.5", "/x")]},
+    )
+    by_generator = family["judge"]["auc_by_generator"]
+    assert by_generator["alerts"] == {
+        "judged": 2,
+        "bad": 2,
+        "good": 0,
+        "auc": None,
+        "yes_rate": 1.0,
+    }
+    assert by_generator["peer_rare"] == {
+        "judged": 2,
+        "bad": 0,
+        "good": 2,
+        "auc": None,
+        "yes_rate": 0.0,
+    }
+
+
+def test_the_pooled_judge_auc_excludes_a_rank_list_generator(tmp_path: Path) -> None:
+    source = "/apache2/access.log.4"
+    keys = _keys(source, "web", {1: ["dirb"]})
+    family = _family(
+        tmp_path,
+        notables=[
+            _notable("alerts", source, ["10.0.0.5"], p_yes=0.9, content_key="bad1"),
+            _notable("peer_rare", "/other/access.log", ["nomatch"], p_yes=0.1, content_key="good1"),
+            _notable("similar_to_known", "/ranked/access.log", ["nomatch"], p_yes=0.99),
+            _notable("similar_to_known", "/ranked/access.log", ["nomatch"], p_yes=0.98),
+        ],
+        keys=keys,
+        files={("web", source): [_line("10.0.0.5", "/x")]},
+    )
+    judge = family["judge"]
+    assert judge["auc_pooled"] == 1.0
+    assert judge["auc_all"] < judge["auc_pooled"]
+    assert "similar_to_known" not in judge["auc_pooled_generators"]
+    assert judge["ranked_judged"] == 2
+    assert judge["ranked_yes_rate"] == 1.0
+    assert judge["auc_by_generator"]["similar_to_known"]["judged"] == 2
 
 
 def test_cost_rolls_up_stages_requests_and_peak_memory(tmp_path: Path) -> None:
@@ -631,7 +687,7 @@ def test_json_output_carries_the_rule_and_every_section(
     }
     assert family["keys"]["labelled_lines"] == 1
     assert family["steps"][0]["step"] == "dirb"
-    assert family["judge"]["auc"] is None  # one class only: no separation to report
+    assert family["judge"]["auc_all"] is None  # one class only: no separation to report
     assert family["rule"].startswith("a notable covers a labelled line")
 
 
@@ -925,6 +981,87 @@ def test_a_step_whose_file_the_index_lacks_is_evidence_absent_not_unreachable(
     assert "C0 ceiling  steps 1/1 reachable" in printed
     assert "C0 evidence absent (excluded from the step denominator)  crack 2/2" in printed
     assert "  reachable   lost -  gained dirb" in printed
+
+
+def _estate_map(run: Path, values: list[str], *, capped: bool = False) -> None:
+    (run / "ledger.jsonl").write_text(
+        json.dumps(
+            {
+                "stage": "cards",
+                "capped": capped,
+                "query": '| tstats count where index="idx" by sourcetype source host',
+                "rows": 3,
+                "values_extracted": values,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_the_estate_map_reads_a_three_field_sourcetype_source_host_row(tmp_path: Path) -> None:
+    present = "/apache2/access.log.4"
+    dropped = "/logstash/intranet-server/2022-01-17-system.cpu.log"
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", present, ["10.0.0.5"])],
+        keys=_keys(present, "web", {1: ["dirb"]})
+        + _keys(dropped, "mon", {1: ["crack"], 2: ["crack"]}),
+        files={
+            ("web", present): [_line("10.0.0.5", "/scan")],
+            ("mon", dropped): [_line("10.0.0.7", "/guess"), _line("10.0.0.7", "/guess2")],
+        },
+        indexed=[present],
+    )
+    _estate_map(run, [present, "web", "db", present, present])
+    family = score(run, [str(run / "keys.jsonl")], logs=tmp_path / "corpus" / "fam" / "gather")[
+        "families"
+    ][0]
+    ceiling = family["ceiling"]
+    assert ceiling["index_map"] == "ledger estate map, 1 source paths"
+    assert ceiling["evidence_absent"] == [{"step": "crack", "absent": 2, "lines": 2}]
+    assert ceiling["steps"] == 1 and ceiling["steps_all"] == 2
+
+
+def test_a_capped_estate_map_row_is_still_rejected(tmp_path: Path) -> None:
+    source = "/apache2/access.log.4"
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", source, ["10.0.0.5"])],
+        keys=_keys(source, "web", {1: ["dirb"]}),
+        files={("web", source): [_line("10.0.0.5", "/scan")]},
+        indexed=[source],
+    )
+    _estate_map(run, [source, "web"], capped=True)
+    family = score(run, [str(run / "keys.jsonl")], logs=tmp_path / "corpus" / "fam" / "gather")[
+        "families"
+    ][0]
+    ceiling = family["ceiling"]
+    assert ceiling["evidence_absent"] is None
+    assert ceiling["keys_present"] is None
+    assert "the run recorded no complete per-source index map" in board.render(family)
+
+
+def test_a_complete_map_that_misses_a_declared_source_is_rejected(tmp_path: Path) -> None:
+    present = "/apache2/access.log.4"
+    declared = "/apache2/access.log.5"
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", present, ["10.0.0.5"])],
+        keys=_keys(present, "web", {1: ["dirb"]}),
+        files={("web", present): [_line("10.0.0.5", "/scan")]},
+        indexed=[present, declared],
+    )
+    _estate_map(run, [present, "web"])
+    family = score(run, [str(run / "keys.jsonl")], logs=tmp_path / "corpus" / "fam" / "gather")[
+        "families"
+    ][0]
+    ceiling = family["ceiling"]
+    assert ceiling["evidence_absent"] is None
+    assert ceiling["keys_present"] is None
+    assert "C0 evidence absent  n/a (the run's estate map misses 1 of 2 declared sources)" in (
+        board.render(family)
+    )
 
 
 def test_a_line_family_names_a_cause_for_every_step(tmp_path: Path) -> None:

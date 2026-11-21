@@ -29,7 +29,7 @@ The stage receipt now carries the measurement the live proof needs:
 requests, dropped = plan_within_requests(
     requests,
     _remaining_requests(executor),
-    priority=lambda request: (-request[0].events, request[0].path, -request[1]),
+    priority=lambda request: (-request[0].events, request[0].path, -request[2]),
 )
 ```
 
@@ -54,37 +54,59 @@ left on the sources whose files are the evidence.
 | file | change |
 |---|---|
 | `portal/modules/security/core/hunt/executor.py` | `HuntBudget.restart_clock()`, `HuntBudget.remaining_requests()`, `REQUEST_BUDGET_EXHAUSTED`, pure `plan_within_requests()` |
-| `portal/modules/security/core/hunt/notables/sample.py` | `read_files` filters its own plan against the unspent ceiling and declares each dropped window (`_omit_window`, `_remaining_requests`); `_omit_file` folded into `_omit_window` |
+| `portal/modules/security/core/hunt/notables/sample.py` | `read_files` filters its own plan against the unspent ceiling and declares each dropped window (`_omit_window`, `_remaining_requests`); `_omit_file` kept and delegating to `_omit_window` |
 | `portal/modules/security/core/hunt/notables/behaviours.py` | `_read_priority` + the schedule sorted by it |
 | `portal/modules/security/core/hunt/notables/run.py` | `restart_clock()` at the head of `behaviours_stage`, and the `clock` receipt block |
 | `tests/unit/test_hunt_executor.py` | `test_a_slow_model_stage_does_not_consume_the_read_clock` |
 | `tests/unit/test_hunt_notables_behaviours.py` | `test_the_read_plan_never_exceeds_the_remaining_request_budget`, `test_a_window_dropped_by_the_planner_is_declared` |
 
-Net test lines: **+134** (35 executor, 99 behaviours — the behaviours file carries the shared
-`_BudgetExecutor` / `_budget_facts` harness used by both of its tests). Three tests, one per §6 E4
-acceptance property.
+Net test lines over `origin/main`: **+139** (35 executor, 104 behaviours — the behaviours file
+carries the shared `_BudgetExecutor` / `_budget_facts` harness used by both of its tests). Three
+tests, one per §6 E4 acceptance property.
 
 **Scope note.** §6 E4 names `read_files`' plan, and `read_files` lives in `sample.py`, which the
 brief's file list does not include (it says `behaviours.py` — read planner). The filter has to sit
 where the plan is built, so `sample.py` is touched: one import, one two-line filter, and the
-`_omit_file` → `_omit_window` generalisation. No other behaviour of `read_files` changes. Rows
-E0/E2 rewrite the same function; the hunks here are the plan/`dropped` filter and the omit helper
-only.
+`_omit_window` generalisation/`_omit_file` delegate. No other behaviour of `read_files` changes.
+Rows E2 rewrite the same function; after the rebase the filter sits on E2's flattened
+`(file, host, start, end, head)` request list and the hunks here are the filter/`dropped` loop and
+the omit helpers only.
 
-## Offline proof (run by this lane)
+## Rebase onto `origin/main` (E0–E3, E5–E7)
+
+Two textual conflicts, both on the E2 rewrite of the read planner:
+
+- `behaviours.py` — E4's `sorted(..., key=_read_priority)` on the schedule, E2's
+  `anchors_by_index` → `anchors_by_source` rename and per-source localisation. Resolved by keeping
+  E2's `anchors_by_source` block and E4's sort (`_read_priority` itself auto-merged).
+- `sample.py` — E4's inline plan/filter vs E2's extracted `_plan_files`/`_file_reads` plan with a
+  per-request `file_host`. Resolved by keeping E2's `_plan_files` structure and applying E4's
+  `plan_within_requests` step to the flattened 5-tuple request list; the omit helper keeps E4's
+  `_omit_window(..., start, end, ...)` and `_omit_file` now delegates to it (E2 calls it for
+  `host_mismatch` / `read_files_cap`).
+
+**E2's density probe shares the request counter (open, see below).** `_file_reads` issues one
+`| tstats` probe per planned window to size its `head` *before* the filter runs, so the probes are
+spent from the same 2,000-request ceiling first. The filter is still exact over the evidence reads
+it keeps and each drop is still declared, but a starved file source can spend what is left on
+probes and then have every evidence window dropped. Priced properly, the probe is a cost of the
+plan and must be restricted to kept windows — that is a change to E2's planner, not a rebase
+resolution, so it is reported rather than made here.
+
+## Offline proof (run by this lane, post-rebase onto `origin/main`)
 
 ```bash
 uv run pytest tests/unit/test_hunt_executor.py tests/unit/test_hunt_notables_behaviours.py \
   tests/unit/test_hunt_notables_sample.py -q
-# 44 passed
+# 58 passed
 
 uv run pytest tests/unit/ -q
-# 3060 passed, 22 skipped
+# 3082 passed, 22 skipped
 
 uv run ruff check .            # All checks passed!
 uv run ruff format --check .   # 1737 files already formatted
 python3 scripts/complexity_report.py --gate
-# [complexity] GATE OK — data_lines 12,289 <= 13,370; god_lines 68,582 <= 71,202;
+# [complexity] GATE OK — data_lines 12,291 <= 13,370; god_lines 68,678 <= 71,202;
 #   unwired_scripts 25 <= 25; identical_pairs 0 <= 0; committed_blob_bytes 1,792,894 <= 1,873,616
 ```
 
@@ -94,10 +116,12 @@ What the three tests actually pin down (offline, mocked executor — a merge gat
   stale, whose deadline sentinel is already spent, and whose request counter is at 17; after
   `restart_clock()` the read succeeds, `job_remaining() > 59`, and `queries == 18` (the ceiling
   advanced by exactly one request, it did not reset).
-- `test_the_read_plan_never_exceeds_the_remaining_request_budget` — a 20-file, 12-window,
-  2-sub-window source (a 60-request plan) at remaining 0/10/25/30/60/200 issues at most that
-  many requests each time, and at 30 the ten largest files are the ones kept.
-- `test_a_window_dropped_by_the_planner_is_declared` — at remaining 30 the ten smallest files'
+- `test_the_read_plan_never_exceeds_the_remaining_request_budget` — a 20-file source (4 windows
+  per file after E2's `_spread_windows`, an 80-read plan) at remaining 0/10/20/30/40/200 keeps at
+  most that many evidence reads each time, and at 40 the ten largest files are the ones kept.
+  Density probes are excluded from the count because they are spent before the filter sees the
+  ceiling (see the rebase note).
+- `test_a_window_dropped_by_the_planner_is_declared` — at remaining 40 the ten smallest files'
   windows come back as receipt rows with `reason: request_budget_exhausted`, and the executor's
   `record_skipped_read` observer saw exactly one row per dropped window with the same reason.
 

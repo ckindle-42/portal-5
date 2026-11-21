@@ -79,18 +79,47 @@ def _lines(notable: Mapping[str, Any]) -> list[str]:
 
 
 def _known_lines(notable: Mapping[str, Any]) -> list[str]:
-    """Compact the nearest labelled behaviours for the judge prompt."""
+    """Show the nearest labelled behaviours as a score and family, never the label itself."""
     nearest = notable.get("nearest_known")
     if not isinstance(nearest, list):
         return []
-    lines = []
+    lines: list[str] = []
     for item in nearest[:JUDGE_MAX_KNOWN_MATCHES]:
-        if isinstance(item, Mapping):
-            lines.append(
-                f"- {item.get('label')} ({item.get('label_kind')}, basis={item.get('label_basis')}, "
-                f"similarity={item.get('similarity')}, family={item.get('family')})"
-            )
+        if not isinstance(item, Mapping):
+            continue
+        raw = item.get("similarity")
+        if raw is None:
+            continue
+        try:
+            similarity = float(raw)
+        except (TypeError, ValueError):
+            continue
+        line = f"- matched item {similarity:.3f} ({item.get('family')})"
+        if line not in lines:
+            lines.append(line)
     return lines
+
+
+def _number(value: Any) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    return f"{number:.4f}".rstrip("0").rstrip(".") or "0"
+
+
+def _measure_line(notable: Mapping[str, Any]) -> str:
+    """The statistic that made the row rank, with the similar generator's zero threshold."""
+    measure = notable.get("measure")
+    if not isinstance(measure, Mapping):
+        return ""
+    name = str(measure.get("name") or "")
+    value = measure.get("value")
+    if not name or value is None:
+        return ""
+    if str(notable.get("generator") or "") == "similar_to_known":
+        return f"margin = {_number(value)} (threshold 0)"
+    return f"measure: {name} = {_number(value)}"
 
 
 def notable_body(notable: Mapping[str, Any]) -> str:
@@ -115,6 +144,7 @@ def notable_body(notable: Mapping[str, Any]) -> str:
             f"entities: {entities}" if entities else "",
             f"generator: {notable.get('generator')} / {notable.get('basis')}",
             reliability_line,
+            _measure_line(notable),
             f"why raised: {notable.get('why')}",
             "nearest known items:",
             *_known_lines(notable),

@@ -614,7 +614,7 @@ def test_joint_replaces_sample_first_seen_and_adds_the_unseen_pair() -> None:
         )
     }
 
-    behaviours, receipt = apply_inventory([_behaviour()], document, facts)
+    behaviours, receipt = apply_inventory([_behaviour()], document, facts, [_audit_card()])
 
     assert behaviours[0].first_seen == 1616400000.0
     assert behaviours[0].actor == "0"
@@ -622,6 +622,48 @@ def test_joint_replaces_sample_first_seen_and_adds_the_unseen_pair() -> None:
     assert receipt["candidates"] == 1
     assert behaviours[1].action == "USER_ROLE"
     assert "USER_ROLE" in behaviours[1].example_query
+
+
+def test_a_complete_list_on_an_alert_card_mints_no_candidate() -> None:
+    document = {
+        "flows": [],
+        "joints": [
+            {
+                "source_id": "botsv2:pan:threat",
+                "sourcetype": "pan:threat",
+                "status": "complete",
+                "fields": [{"role": "object", "field": "dest"}],
+                "rows": [
+                    {
+                        "values": {"dest": "203.0.113.99"},
+                        "events": 2,
+                        "first_seen": 1616400000.0,
+                        "last_seen": 1616400010.0,
+                    }
+                ],
+            }
+        ],
+    }
+    alert = SourceCard(
+        index="botsv2",
+        sourcetype="pan:threat",
+        kind="alert",
+        roles={"object": ("dest",)},
+        understood=True,
+        reason=None,
+        fmt="json",
+        coverage=1.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="threat",
+    )
+
+    behaviours, receipt = apply_inventory([], document, {}, [alert])
+
+    assert behaviours == []
+    assert receipt["candidates"] == 0
 
 
 def test_value_flow_orders_ingress_before_the_later_source() -> None:
