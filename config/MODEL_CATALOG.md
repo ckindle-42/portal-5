@@ -2561,3 +2561,77 @@ the intake finding is `coding_task/FINDING_AUTODAILY_COLDSTART_INTAKE.md`.
 ### `gemma-4-12B-it-oQ4e-mtp`
 
 `gemma-4-12B-it-oQ4e-mtp` is the oMLX oQ4e checkpoint of Gemma 4 12B Unified (`Jundot/gemma-4-12B-it-oQ4e-mtp`, oMLX 0.7.3, updated 2026-10-29): 8.072 GB / 7.517 GiB, 5.215 effective bits/weight, MTP head merged from the Gemma 4 assistant. `config/backends.yaml` registers it in `omlx-general` with `supports_tools: false` until the probe; oMLX documents a Gemma `<start_function_call>` parser, and the model card documents native function calling, but neither substitutes for a typed tool-call result on this host.
+
+## oMLX 0.8.1 intake (2026-11-20)
+
+Research, weights and the full configuration trail: `coding_task/FINDING_OMLX081_INTAKE.md`. These
+three ids are bench-scoped candidates in the `bench`/`omlx-bench` holding group — no production
+workspace, variant or persona names them, and none is seated. `PROMOTE_POLICY=confirm`.
+
+### `Qwen3.8-27B-oQ4e-mtp:opencode`
+
+`harness-hub/Qwen3.8-27B-opencode-adapted` applied as an **oMLX 0.8.1 LoRA profile** on the
+existing `Qwen3.8-27B-oQ4e-mtp` checkpoint, exposed as `<model dir>:<api_name>` (`expose_as_model`
+in `~/.omlx/model_profiles.json`; the profile's `settings.lora_adapter` is the adapter folder
+path). PEFT LoRA, r=32 / alpha=64 on q,k,v,o,gate,up,down; adapter_model.safetensors is 608 MiB
+on disk, 304 MiB resident, and shares the base's 16 GiB of weights — nothing extra was
+downloaded for a 27B model. The adapter is never served on its own: requests to
+`Qwen3.8-27B-oQ4e-mtp` are unchanged. Adapters cannot combine with DFlash, VLM MTP, ANE
+prefill, MoE expert offload, the Prefill Accelerator or an external engine; Lightning MTP is
+fine and stays on.
+
+The vendor card's numbers are OpenCode harness runs on 2× B200 with thinking off at
+temperature 0.8 / top-p 1.0: SWE-bench Pro (hard 51) 35.3% → 51.0%, Terminal-Bench 2.1
+46.4% → 52.4%, 6–8× fewer generated tokens than the base at `xhigh` thinking. None of that is
+this host's measurement. `bench-qwen38-opencode-adapter` in `config/bench_workspaces.yaml`
+carries the same sampling and `think: false` for the bench lane. `supports_tools: true` carries
+over from the base seat (same template and tool parser; the adapter does not touch either) —
+the adapter id itself has not been probed live. GGUF fallback recipe (base GGUF + the F16
+adapter) in `config/modelfiles/qwen38-27b-opencode-lora-ctx32k.Modelfile`.
+
+### `Qwen3.8-27B-oQ4e-mtp:pi`
+
+`harness-hub/Qwen3.8-27B-pi-adapted` on the same base and the same adapter shape, exposed as
+`Qwen3.8-27B-oQ4e-mtp:pi` for the **pi** harness. Same sampling (thinking off, temperature 0.8,
+top-p 1.0). Card: SWE-bench Pro 39.2% → 64.7%, Terminal-Bench 2.1 39.5% → 55.8% under pi on
+B200s. Bench lane `bench-qwen38-pi-adapter`. The card's pi configuration requires
+`"api": "openai-completions"` in `~/.pi/agent/models.json`; without it pi calls the Responses
+API, which the adapter was not trained or evaluated with. GGUF fallback recipe in
+`config/modelfiles/qwen38-27b-pi-lora-ctx32k.Modelfile` (that repo's own `Qwen3.8-27B-pi-Q8_0.gguf`
+base is 28.6 GB and does not fit a 24 GB card, so the recipe uses Q4_K_M and the card's numbers
+do not transfer).
+
+The family also publishes `harness-hub/Qwen3.8-27B-super-adapter` (one LoRA merging the pi,
+Hermes and opencode adapters). It is not a substitute here: its card recommends thinking **on**,
+and with thinking off it scores below each specialist on that specialist's harness.
+
+### `Inkling-2-Mini-oQ4e-mtp`
+
+`mlx-community/Inkling-2-Mini-oQ4e-mtp` — Thinking Machines Lab **Inkling 2 Mini**
+(`thinkingmachines/Inkling-2-Mini`, released 2026-11-20, Apache 2.0): 26.4B total / 3.4B active
+looped MoE, text **and image** in, 1M-token context. oQ mixed-precision built with oMLX 0.8.1
+(4.915 bits/weight; NVFP4 experts in layers 0–19, affine-4 in 20–23, affine-8 attention and
+embeddings, BF16 vision tower and DSpark draft), 15.69 GiB on disk including the bundled
+`mtp.safetensors`, and it needs oMLX 0.8.1+. oMLX serves it on the VLM engine (`inkling2_loop`)
+and runs Lightning MTP on the DSpark draft; its output parser already implements Inkling's
+channel protocol (thinking / text / tool), so tool calls come back structured.
+
+Sampling: the card publishes **no** sampling row. The only first-party values are
+`generation_config.json` (`temperature 1.0`, `do_sample true`, no top_p/top_k); oMLX's
+`top_p 0.95` is oMLX's global default, not a vendor value. Reasoning is controlled by the
+template's `reasoning_effort` kwarg (`none/minimal/low/medium/high/xhigh/max` → 0.0…0.99,
+**default 0.9 = high** when unset); there is no `enable_thinking` switch, so a Portal
+`think: false` is inert on it. Card caveats: repetitive reasoning loops (it recommends output
+and turn limits), weaker instruction fidelity on project conventions, and minimum effort does
+not disable reasoning. Bench lane `bench-inkling-2-mini` (`temperature 1.0`, `top_p 0.95`,
+`emits_reasoning: true`). No Ollama build is installed anywhere on this host; `unsloth` and
+`ggml-org` GGUF re-quants appeared 2026-11-20 for the Ollama path in its next release.
+
+## Why
+
+All three are 0.8.1-only capabilities the operator asked to have in use without seating them:
+two adapters that cost 608 MiB each on top of a checkpoint already on disk, and a 26B/3.4B-active
+multimodal model that fits beside the existing fleet. Registering them as bench candidates keeps
+the intake reversible (delete the group + workspaces, or the profile) and keeps the card numbers
+from being mistaken for this host's evidence — every one of them was measured on B200s, and none
+has been re-measured here yet.

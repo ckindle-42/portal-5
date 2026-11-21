@@ -1,0 +1,26 @@
+# qwen38-27b-opencode-lora:ctx32k — GGUF LoRA fallback for the
+# `Qwen3.8-27B-oQ4e-mtp:opencode` oMLX 0.8.1 seat (openCode harness adapter).
+#
+# Adapter: harness-hub/Qwen3.8-27B-opencode-adapted-GGUF,
+#          Qwen3.8-27B-opencode-lora-F16.gguf (318,802,400 bytes).
+# Base:    hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M — already registered in this
+#          repo's coding/general groups (supports_tools probed there).
+# Card:    thinking off, temperature 0.8, top_p 1.0 (the adapter's training
+#          sampling). The card recommends a Q8_0 base as the closest GGUF to the
+#          BF16 weights it was trained on; Q8_0 (~28.6 GB) does not fit a 24 GB
+#          card, so this recipe uses Q4_K_M and the card's SWE-bench Pro /
+#          Terminal-Bench numbers (which are not re-evaluated for any GGUF) do
+#          not carry over.
+#
+# Create on the box that serves it, with the adapter file in the same directory:
+#   ollama create qwen38-27b-opencode-lora:ctx32k \
+#     -f config/modelfiles/qwen38-27b-opencode-lora-ctx32k.Modelfile
+# Do not run this against the live Mac Ollama (the oMLX seat is the production
+# path there; this tag exists for the GPU-lane fallback).
+# The harness must request thinking off (`think: false` on /api/chat, or
+# `enable_thinking: false` through a /v1 client that forwards template kwargs).
+FROM hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
+ADAPTER ./Qwen3.8-27B-opencode-lora-F16.gguf
+PARAMETER temperature 0.8
+PARAMETER top_p 1.0
+PARAMETER num_ctx 32768

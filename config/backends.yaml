@@ -747,6 +747,37 @@ backends:
     supports_tools: false
   - id: gemma-4-12B-it-oQ4e-mtp
     supports_tools: false
+  # oMLX 0.8.1 intake candidates (2026-11-20) — registered here, not in their
+  # own group, because every bench-* workspace routes to `general` and a hint
+  # outside its routed groups is rejected by
+  # tests/unit/test_variant_hints_resolve_in_routing.py (same reason the
+  # S8 screen challengers above sit in `general`). Nothing but the three
+  # bench workspaces in config/bench_workspaces.yaml names these ids; they are
+  # appended after the existing entries so `models[0]`, which the last-resort
+  # substitution uses, is unchanged.
+  # The two adapter ids are oMLX 0.8.1 *exposed profile* ids: the profile named
+  # `opencode` / `pi` on the `Qwen3.8-27B-oQ4e-mtp` entry in
+  # ~/.omlx/model_profiles.json carries `expose_as_model: true`, so oMLX serves
+  # <model dir>:<api_name>. The adapter weights sit beside the base checkpoint
+  # (one copy of Qwen3.8-27B), so these are extra oMLX seats with no separate
+  # GGUF weights tag; see keep_reason.
+  - id: Qwen3.8-27B-oQ4e-mtp:opencode
+    # OpenCode harness LoRA (harness-hub/Qwen3.8-27B-opencode-adapted, r32/a64 on
+    # q,k,v,o,gate,up,down) on the MTP base. The adapter changes neither the chat
+    # template nor the tool parser, so the base seat's supports_tools probe
+    # carries over — but the adapter id itself has not been probed live yet.
+    supports_tools: true
+    keep_reason: "LoRA profile on the Qwen3.8-27B-oQ4e-mtp checkpoint (0 extra base bytes); GGUF LoRA recipe in config/modelfiles/qwen38-27b-opencode-lora-ctx32k.Modelfile"
+  - id: Qwen3.8-27B-oQ4e-mtp:pi
+    supports_tools: true
+    keep_reason: "LoRA profile on the Qwen3.8-27B-oQ4e-mtp checkpoint (0 extra base bytes); GGUF LoRA recipe in config/modelfiles/qwen38-27b-pi-lora-ctx32k.Modelfile"
+  # mlx-community/Inkling-2-Mini-oQ4e-mtp (oQ mixed-precision, 15.7 GiB incl. the
+  # bundled DSpark draft in mtp.safetensors). oMLX 0.8.1's output parser already
+  # speaks Inkling's channel protocol (`inkling2_loop` in _INKLING_MODEL_TYPES),
+  # so tool calls surface as structured tool_calls; not probed live yet.
+  - id: Inkling-2-Mini-oQ4e-mtp
+    supports_tools: true
+    keep_reason: "no Ollama build of Inkling 2 Mini exists on this host yet (Ollama support is in its next release; unsloth GGUF published 2026-11-20)"
   # P5-FANOUT-001 lane-alignment audit (2026-09-25): granite4.1:30b-ctx96k is
   # deliberately NOT aliased here — the granite-4.1-30b-4bit conversion
   # returned EMPTY output on an 85k-token needle probe (400 correctly at 132k,
@@ -1103,4 +1134,10 @@ workspace_routing:
   bench-autodaily-qwen35-9b:
   - general
   bench-autodaily-gemma4-12b:
+  - general
+  bench-qwen38-opencode-adapter:
+  - general
+  bench-qwen38-pi-adapter:
+  - general
+  bench-inkling-2-mini:
   - general
