@@ -52,7 +52,7 @@ The conf row is not the property. The property is what
 | `verify` asserts the model endpoint, not the conf row | `tests/unit/test_splunk_setup.py::test_verify_fails_a_model_that_reports_no_acceleration` — `-1y` fails even with `enabled: true`; `-3mon` fails; enabled/`-10y` passes |
 | the dead `datamodels.conf` is gone from the app, the renderer and the next install | `test_shipped_conf_is_rendered_from_the_plan_and_extracts` — not rendered, not in the committed tree, a stale copy is unlinked, `install_command` names the `rm -f` |
 
-Net test lines: **+103 / −8**, two tests added, none deleted.
+Net test lines: **+102 / −9**, two tests added, none deleted.
 
 ## Unproven (live only)
 
