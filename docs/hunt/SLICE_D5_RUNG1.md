@@ -73,7 +73,7 @@ summary's `user` differs from the indexed field was not established.
 ## Cost — the finding of this slice
 
 Running the whole `collect_inventory` stage on the stored santos `_v2` cards, post-merge with
-D3, read-only:
+D3 and **before D2 merged**, read-only:
 
 ```
 228 searches + 57 probes = 285 queries, 88.0 s of server time, 99.9 s wall
@@ -87,6 +87,13 @@ So rung 1 tried before rung 2 doubles the stage's wall time and multiplies its s
 on this corpus, for **zero** answered lists — because the stored cards' field names are parser
 slots (`template`, `program`, `v1..v6`), which is D2's defect, not this one. Against the whole
 run (785 searches on santos `_v2`) the increase is +24 %.
+
+That receipt predates D2's merge: D2 replaces the parse-slot selection with the estate's
+41-name vocabulary and one presence probe per source, so a re-run on the merged tree selects
+different fields and pays a different rung-1 cost. The direction is unchanged — one blind model
+aggregate per selected field before the indexed probe — and the receipt above must be re-taken
+to price it; this slice's own proof (a covering summary answered first, on a real card whose
+field is indexed) does not depend on the selection.
 
 A cheap mitigation exists and was proved with three queries, not implemented here (out of this
 slice's files): the summary answers `by sourcetype`, so one probe per model gives the
