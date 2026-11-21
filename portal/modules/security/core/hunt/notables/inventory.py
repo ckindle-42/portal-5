@@ -219,12 +219,25 @@ class _Prober:
             route += f" {_field_token(card.part_field)}={_search_literal(card.part_value)}"
         return route
 
-    def read(self, query: str, row_cap: int | None = None) -> tuple[list[dict[str, Any]], str]:
+    def read(
+        self,
+        query: str,
+        row_cap: int | None = None,
+        *,
+        source_id: str | None = None,
+        part: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str]:
         """One read; a transport failure is a recorded reason, not an empty answer."""
         self.queries += 1
         try:
             result = self.executor.read(
-                query, self.start, self.end, kind="discovery", row_cap=row_cap
+                query,
+                self.start,
+                self.end,
+                kind="discovery",
+                row_cap=row_cap,
+                source_id=source_id,
+                part=part,
             )
         except Exception as exc:  # noqa: BLE001 -- one failed aggregate is coverage, not a crash
             return [], f"read_failed:{type(exc).__name__}"
@@ -232,9 +245,15 @@ class _Prober:
         # A censored aggregate's rows are partial: the reason travels with them.
         return rows, (str(result.reason) if result.reason else "")
 
-    def _probe(self, query: str, row_cap: int | None = None) -> tuple[list[dict[str, Any]], str]:
+    def _probe(
+        self,
+        query: str,
+        row_cap: int | None = None,
+        *,
+        source_id: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str]:
         self.probe_queries += 1
-        return self.read(query, row_cap)
+        return self.read(query, row_cap, source_id=source_id)
 
     def source(self, card: SourceCard) -> SourcePaths:
         key = (card.index, card.sourcetype)
@@ -252,7 +271,9 @@ class _Prober:
         tstats_name, tstats_events = "", 0
         failed = False
         for name in names:
-            rows, problem = self._probe(f"| tstats count where {self._route(name)}")
+            rows, problem = self._probe(
+                f"| tstats count where {self._route(name)}", source_id=card.source_id
+            )
             if problem:
                 failed = True
                 self.failures.append(f"name:tstats:{problem}")
@@ -263,7 +284,9 @@ class _Prober:
                 break
         search_name = ""
         for name in names:
-            rows, problem = self._probe(f"search {self._route(name)} | head 1")
+            rows, problem = self._probe(
+                f"search {self._route(name)} | head 1", source_id=card.source_id
+            )
             if problem:
                 failed = True
                 self.failures.append(f"name:search:{problem}")
@@ -279,7 +302,8 @@ class _Prober:
         found = self._fields.get(key)
         if found is None:
             rows, problem = self._probe(
-                f"| tstats count where {self._route(name)} by {_field_token(field)}"
+                f"| tstats count where {self._route(name)} by {_field_token(field)}",
+                source_id=card.source_id,
             )
             if problem:
                 self.failures.append(f"field:{field}:{problem}")
@@ -323,10 +347,11 @@ def _value_query(
 
 
 def _read_values(
-    prober: _Prober, query: str, row_cap: int | None
+    prober: _Prober, query: str, row_cap: int | None, card: SourceCard
 ) -> tuple[list[dict[str, Any]], str, float]:
+    part = f"{card.part_field}={card.part_value}" if card.part_field else None
     began = time.monotonic()
-    rows, problem = prober.read(query, row_cap)
+    rows, problem = prober.read(query, row_cap, source_id=card.source_id, part=part)
     return rows, problem, round(time.monotonic() - began, 3)
 
 
@@ -449,6 +474,7 @@ def _enumerate_fields(
             prober,
             _value_query(index, name, mechanism, (choice.field,), card),
             INVENTORY_MAX_VALUES + 1,
+            card,
         )
         status, values = _values(rows, (choice.field,), mechanism, problem)
         records.append(
@@ -532,6 +558,7 @@ def _enumerate_joints(
             prober,
             _value_query(index, name, mechanism, names, card),
             INVENTORY_MAX_VALUES + 1,
+            card,
         )
         status, values = _values(rows, names, mechanism, problem)
         available = int(_number(card.facts.get("events")))

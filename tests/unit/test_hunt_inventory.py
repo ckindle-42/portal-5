@@ -131,8 +131,10 @@ class _Executor:
         *,
         kind: str,
         row_cap: int | None = None,
+        source_id: str | None = None,
+        part: str | None = None,
     ) -> Read:
-        del start, end, kind, row_cap
+        del start, end, kind, row_cap, source_id, part
         self.queries.append(query)
         name = self._name(query)
         if query.startswith("| tstats count where "):
