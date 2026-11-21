@@ -179,3 +179,14 @@ non-null). Two steps the control could not reach — `attacker_change_user` and
 - `linux_audit:exe` (the deep dive's fourth example list) was not selected under the declared
   40-list budget — a documented D2 budget decision, not a regression.
 - Held-out sets untouched; no `.env` sourcing; no launch.sh; no code or Splunk changes.
+
+## 8. Artifact locations and reproduce
+
+The run artifacts moved off-repo after grading (so the tree-walking wiki-truth test does not walk
+them under xdist): `/Volumes/data01/portal5_hunt/hunt_proof_r2_santos/v2/santos` — pointer at
+`coding_task/scratch/hunt_proof_r2_santos/POINTER.txt`. The receipts quoted above were read from
+these files. Re-run the scoreboard or the spine verify with `--out
+/Volumes/data01/portal5_hunt/hunt_proof_r2_santos/v2/santos` and the same flags shown in §1.
+Scratch grading scripts (`grade.py`, `diag_rung1.py`, `counterfactual_merge.py`), the D6 verify
+JSON, the measured-weights file, the spine verify output and the score JSONs remain in
+`coding_task/scratch/hunt_proof_r2_santos/`.
