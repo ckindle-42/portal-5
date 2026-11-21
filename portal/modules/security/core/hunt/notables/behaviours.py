@@ -20,8 +20,14 @@ from .cards import SourceCard, card_consumers
 from .parse import parse_row
 from .sample import (
     BEHAVIOUR_SOURCES,
+    LOCALISE_WINDOWS,
+    LocalWindow,
     RowSet,
     SourceFacts,
+    localise,
+    localise_width,
+    read_anchors,
+    read_mode,
     read_windows,
     route_filter,
     source_windows,
@@ -44,6 +50,8 @@ BEHAVIOUR_BURST_SERIES_ROWS = 40_000  # effort budget: per-period tstats rows fo
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
 BEHAVIOUR_TOTAL_EVENTS = 400_000  # effort budget: parsed events across the whole stage
 BEHAVIOUR_ANCHOR_MERGE_SECONDS = 300  # value spans closer than this are one anchor window
+STRUCTURED_FORMATS = frozenset({"json", "xml", "kv", "delimited"})
+UNSTRUCTURED_RAW_CHARS = 400  # effort budget: raw prefix kept for an unstructured event
 IDENTITY_RECURRENCE = 2.0  # an identity is seen at least twice on average
 IDENTITY_BUCKET_SECONDS = 3600  # identities recur across hours, not inside one burst
 IDENTITY_MIN_BUCKETS = 12  # a short sample is cut into at least this many time buckets
@@ -426,6 +434,7 @@ def _extract(
     found: list[ExampleEvent] = []
     matched: set[int] = set()
     unparsed = 0
+    keep = EXAMPLE_CHARS if card.fmt in STRUCTURED_FORMATS else UNSTRUCTURED_RAW_CHARS
     for index, row in enumerate(rows):
         parsed = parse_row(str(row.get("_raw") or ""), card.fmt, card.columns, card.template_model)
         if not parsed.fields:
@@ -444,7 +453,7 @@ def _extract(
                 card.source_id,
                 str(row.get("host") or ""),
                 ts,
-                str(row.get("_raw") or "")[:EXAMPLE_CHARS],
+                str(row.get("_raw") or "")[:keep],
                 parsed.fields,
                 earliest,
                 latest,
@@ -689,6 +698,7 @@ def _source_receipt(
         "read_mode": read_mode,
         "events_available": facts.events,
         "events_read": len(read.rows),
+        "events_scanned": read.events_scanned,
         "events_parsed": events,
         "events_keyed": keyed,
         "events_keyless": max(0, events - keyed),
@@ -698,15 +708,22 @@ def _source_receipt(
         "per_window": per_window,
         "selection": read.selection,
         "route": read.route,
+        "rung": read.rung,
+        "coverage": read.coverage,
+        "accel_window": list(read.accel_window) if read.accel_window else None,
         "share_of_source": round(len(read.rows) / facts.events, 6) if facts.events else None,
+        "read_fraction": round(len(read.rows) / facts.events, 6) if facts.events else None,
         "seconds": round(seconds, 3),
         "notes": read.notes,
     }
 
 
 def _is_complete_source(facts: SourceFacts, per_window: int) -> bool:
-    return 0 < facts.events <= per_window * BEHAVIOUR_WINDOWS and facts.source_count <= min(
-        len(facts.sources), BEHAVIOUR_SOURCES
+    """Whole-range read only when the source fits the row budget and the wide-source ceiling."""
+    return (
+        0 < facts.events <= per_window * BEHAVIOUR_WINDOWS
+        and facts.source_count <= min(len(facts.sources), BEHAVIOUR_SOURCES)
+        and read_mode(facts.events) == "whole"
     )
 
 
@@ -747,10 +764,8 @@ def _time_value(value: Any) -> float:
         return 0.0
 
 
-def read_mode_of(
-    facts: SourceFacts, per_window: int, anchors: Sequence[tuple[float, float]]
-) -> str:
-    """whole when the budget covered the source, anchored on its own value spans, else sampled."""
+def read_mode_of(facts: SourceFacts, per_window: int, anchors: Sequence[object]) -> str:
+    """whole when the budget covered the source, anchored on any anchor windows, else sampled."""
     if _is_complete_source(facts, per_window):
         return "whole"
     return "anchored" if anchors else "sampled"
@@ -860,21 +875,66 @@ def _merge_row_sets(
     )
 
 
+def _merge_anchored(uniform: RowSet, anchored: RowSet, anchors: Sequence[LocalWindow]) -> RowSet:
+    """Uniform baseline plus rung-3 reads; a row an anchor already read is not counted twice."""
+    rows = [
+        row
+        for row in uniform.rows
+        if not any(
+            anchor.host == str(row.get("host") or "")
+            and anchor.start <= _row_time(row) < anchor.end
+            for anchor in anchors
+        )
+    ]
+    kept_uniform = len(rows)
+    rows.extend(anchored.rows)
+    rows.sort(
+        key=lambda row: (_row_time(row), str(row.get("host") or ""), str(row.get("_raw") or ""))
+    )
+    found = RowSet(
+        rows=rows,
+        windows=uniform.windows + anchored.windows,
+        route=uniform.route,
+        notes=[*uniform.notes, *anchored.notes],
+        selection="uniform baseline plus localised host/time windows",
+        query=uniform.query,
+    )
+    found.read_mode = "anchored"
+    found.rung = "narrowed_scan"
+    found.events_scanned = anchored.events_scanned + kept_uniform
+    found.coverage = "scan"
+    return found
+
+
 def _behaviour_read_windows(
     facts: SourceFacts,
     per_window: int,
     burst_windows: Sequence[tuple[float, float]],
-    anchors: Sequence[tuple[float, float]] = (),
+    anchors: Sequence[LocalWindow] = (),
+    value_spans: Sequence[tuple[float, float]] = (),
 ) -> list[tuple[float, float]]:
     if _is_complete_source(facts, per_window):
         return source_windows(facts, 1)
     if anchors:
-        return list(anchors)
+        localised = anchors[:LOCALISE_WINDOWS]
+        return [
+            *_anchored_uniform_windows(facts, len(localised)),
+            *((anchor.start, anchor.end) for anchor in localised),
+        ]
+    if value_spans:
+        return list(value_spans)
     if not burst_windows:
         return source_windows(facts, BEHAVIOUR_WINDOWS)
     peaks = list(burst_windows[:BEHAVIOUR_BURST_WINDOWS])
     uniform_count = max(1, BEHAVIOUR_WINDOWS - len(peaks))
     return [*source_windows(facts, uniform_count), *peaks]
+
+
+def _anchored_uniform_windows(facts: SourceFacts, peaks: int) -> list[tuple[float, float]]:
+    """Baseline slices that leave the per-source request ceiling to the anchored windows."""
+    budget = BEHAVIOUR_WINDOWS * BEHAVIOUR_SUB_WINDOWS - peaks
+    count = max(1, budget // BEHAVIOUR_SUB_WINDOWS)
+    return source_windows(facts, count)
 
 
 def read_behaviour_source(
@@ -883,37 +943,82 @@ def read_behaviour_source(
     per_window: int,
     *,
     burst_windows: Sequence[tuple[float, float]] = (),
-    anchors: Sequence[tuple[float, float]] = (),
+    anchors: Sequence[LocalWindow] = (),
+    value_spans: Sequence[tuple[float, float]] = (),
 ) -> RowSet:
-    """Read a source whole when it fits, on its own value spans, else uniform plus bursts."""
+    """Whole when it fits, else rung-2 windows, the source's value spans, bursts, uniform."""
     complete = _is_complete_source(facts, per_window)
-    if complete or not (burst_windows or anchors):
+    if complete:
         read = read_windows(
             executor,
             facts,
-            source_windows(facts, 1 if complete else BEHAVIOUR_WINDOWS),
-            per_window=facts.events if complete else per_window,
-            kind="behavior_events",
-            max_sources=BEHAVIOUR_SOURCES,
-            sub_windows=1 if complete else BEHAVIOUR_SUB_WINDOWS,
-        )
-        if complete:
-            read.selection = "full source range within allocated row budget"
-            if len(read.rows) != facts.events:
-                read.notes.append(f"source_count_mismatch:{len(read.rows)}/{facts.events}")
-        return read
-    if anchors:
-        read = read_windows(
-            executor,
-            facts,
-            anchors,
-            per_window=per_window,
+            source_windows(facts, 1),
+            per_window=facts.events,
             kind="behavior_events",
             max_sources=BEHAVIOUR_SOURCES,
             sub_windows=1,
         )
-        read.selection = "inventory value spans"
+        read.selection = "full source range within allocated row budget"
+        read.read_mode = "whole"
+        read.rung = "whole"
+        read.events_scanned = facts.events
+        read.coverage = "whole"
+        if len(read.rows) != facts.events:
+            read.notes.append(f"source_count_mismatch:{len(read.rows)}/{facts.events}")
         return read
+    if anchors:
+        return _read_anchored_source(executor, facts, per_window, anchors)
+    if value_spans:
+        return _read_value_span_source(executor, facts, per_window, value_spans)
+    if burst_windows:
+        return _read_burst_source(executor, facts, per_window, burst_windows)
+    read = read_windows(
+        executor,
+        facts,
+        source_windows(facts, BEHAVIOUR_WINDOWS),
+        per_window=per_window,
+        kind="behavior_events",
+        max_sources=BEHAVIOUR_SOURCES,
+        sub_windows=BEHAVIOUR_SUB_WINDOWS,
+    )
+    return read
+
+
+def _read_anchored_source(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    per_window: int,
+    anchors: Sequence[LocalWindow],
+) -> RowSet:
+    """Uniform baseline plus the host/time windows rung 2 selected."""
+    peaks = list(anchors[:LOCALISE_WINDOWS])
+    uniform_read = read_windows(
+        executor,
+        facts,
+        _anchored_uniform_windows(facts, len(peaks)),
+        per_window=per_window,
+        kind="behavior_events",
+        max_sources=BEHAVIOUR_SOURCES,
+        sub_windows=BEHAVIOUR_SUB_WINDOWS,
+    )
+    anchored_read = read_anchors(
+        executor,
+        facts,
+        peaks,
+        per_window=per_window,
+        kind="behavior_events",
+        max_sources=BEHAVIOUR_SOURCES,
+    )
+    return _merge_anchored(uniform_read, anchored_read, peaks)
+
+
+def _read_burst_source(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    per_window: int,
+    burst_windows: Sequence[tuple[float, float]],
+) -> RowSet:
+    """Uniform baseline plus peak four-hour slices when no rung-2 windows were produced."""
     peaks = list(burst_windows[:BEHAVIOUR_BURST_WINDOWS])
     uniform_count = max(1, BEHAVIOUR_WINDOWS - len(peaks))
     uniform_read = read_windows(
@@ -934,7 +1039,34 @@ def read_behaviour_source(
         max_sources=BEHAVIOUR_SOURCES,
         sub_windows=BEHAVIOUR_BURST_SUB_WINDOWS,
     )
-    return _merge_row_sets(uniform_read, burst_read, peaks)
+    found = _merge_row_sets(uniform_read, burst_read, peaks)
+    found.read_mode = "sampled"
+    found.rung = "indexed_aggregate"
+    found.events_scanned = len(found.rows)
+    found.coverage = "scan"
+    return found
+
+
+def _read_value_span_source(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    per_window: int,
+    value_spans: Sequence[tuple[float, float]],
+) -> RowSet:
+    """S2's anchored read: the source's own inventory value spans, one read each."""
+    read = read_windows(
+        executor,
+        facts,
+        value_spans,
+        per_window=per_window,
+        kind="behavior_events",
+        max_sources=BEHAVIOUR_SOURCES,
+        sub_windows=1,
+    )
+    read.selection = "inventory value spans"
+    read.read_mode = "anchored"
+    read.rung = "value_spans"
+    return read
 
 
 def _key_source(
@@ -946,15 +1078,21 @@ def _key_source(
     started: float,
     read: RowSet | None = None,
     burst_windows: Sequence[tuple[float, float]] = (),
-    anchors: Sequence[tuple[float, float]] = (),
+    anchors: Sequence[LocalWindow] = (),
+    value_spans: Sequence[tuple[float, float]] = (),
 ) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]], list[MisfitShape], dict[str, int]]:
     """Read one source once, key each structure's events, and keep its out-of-structure lines."""
-    windows = _behaviour_read_windows(facts, per_window, burst_windows, anchors)
+    windows = _behaviour_read_windows(facts, per_window, burst_windows, anchors, value_spans)
     if read is None:
         read = read_behaviour_source(
-            executor, facts, per_window, burst_windows=burst_windows, anchors=anchors
+            executor,
+            facts,
+            per_window,
+            burst_windows=burst_windows,
+            anchors=anchors,
+            value_spans=value_spans,
         )
-    mode = read_mode_of(facts, per_window, anchors)
+    mode = read_mode_of(facts, per_window, anchors or value_spans)
     receipts: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, Any]] = {}
     total = 0
@@ -987,6 +1125,48 @@ def _key_source(
         receipts.append(receipt)
     misfits, misfit_stats = collect_misfits(source_id, read.rows, windows, claimed)
     return receipts, total, overrides, misfits, misfit_stats
+
+
+def _localise_sources(
+    executor: HuntExecutor,
+    scheduled: Sequence[tuple[str, list[SourceCard], SourceFacts, float]],
+    per_window: int,
+) -> tuple[dict[str, list[LocalWindow]], dict[str, Any]]:
+    """Rung 2 once per index: the host/time windows each wide source is narrowed to."""
+    sampled = [
+        facts for _sid, _grp, facts, _st in scheduled if not _is_complete_source(facts, per_window)
+    ]
+    if not sampled:
+        return {}, {"windows": 0, "events": 0, "indexes": [], "notes": []}
+    by_index: dict[str, list[SourceFacts]] = {}
+    for facts in sampled:
+        by_index.setdefault(facts.index, []).append(facts)
+    anchors: dict[str, list[LocalWindow]] = {}
+    indexes: list[dict[str, Any]] = []
+    notes: list[str] = []
+    for index, facts_list in sorted(by_index.items()):
+        start = min(facts.first for facts in facts_list)
+        end = max(facts.last for facts in facts_list) + 0.000001
+        windows, reasons = localise(executor, index, start, end)
+        notes.extend(reasons)
+        if windows:
+            anchors[index] = windows
+        indexes.append(
+            {
+                "index": index,
+                "width": localise_width(end - start),
+                "hosts": len({window.host for window in windows}),
+                "windows": len(windows),
+                "events": sum(window.events for window in windows),
+                "notes": reasons,
+            }
+        )
+    return anchors, {
+        "windows": sum(item["windows"] for item in indexes),
+        "events": sum(item["events"] for item in indexes),
+        "indexes": indexes,
+        "notes": notes,
+    }
 
 
 def _schedule_sources(
@@ -1036,6 +1216,7 @@ def _behaviour_receipt(
     misfit_receipts: list[dict[str, Any]],
     store_path: Path,
     began: float,
+    localisation: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the behaviour-stage receipt from its stored results."""
     counts: dict[str, int] = {}
@@ -1064,6 +1245,12 @@ def _behaviour_receipt(
         "misfit_lines": sum(int(item.get("misfit_lines") or 0) for item in misfit_receipts),
         "misfit_shapes": sum(int(item.get("shapes_kept") or 0) for item in misfit_receipts),
         "misfit_sources": sum(1 for item in misfit_receipts if int(item.get("misfit_lines") or 0)),
+        "localisation": dict(localisation or {}),
+        "events_scanned": sum(int(item.get("events_scanned") or 0) for item in receipts),
+        "read_modes": {
+            mode: sum(1 for item in receipts if item.get("read_mode") == mode)
+            for mode in ("whole", "anchored", "sampled")
+        },
         "store": str(store_path),
         "seconds": round(time.monotonic() - began, 3),
     }
@@ -1094,14 +1281,17 @@ def collect_behaviours(
     con = duckdb.connect(str(store_path))
     total = 0
     misfit_receipts: list[dict[str, Any]] = []
-    anchors: dict[str, list[tuple[float, float]]] = {
+    value_spans: dict[str, list[tuple[float, float]]] = {
         source_id: anchor_windows(stored_lists, source_id) for source_id in grouped
     }
     try:
         create_events(con)
         create_misfits(con)
         scheduled = _schedule_sources(grouped, facts_by_source, skipped)
-        burst_plan = _burst_windows_by_source(executor, scheduled, per_window)
+        anchors_by_index, localisation = _localise_sources(executor, scheduled, per_window)
+        burst_plan = (
+            {} if anchors_by_index else _burst_windows_by_source(executor, scheduled, per_window)
+        )
         concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
         with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
             futures = [
@@ -1111,7 +1301,8 @@ def collect_behaviours(
                     facts,
                     per_window,
                     burst_windows=burst_plan.get(facts.sourcetype, ()),
-                    anchors=anchors.get(source_id, ()),
+                    anchors=anchors_by_index.get(facts.index, ()),
+                    value_spans=value_spans.get(source_id, ()),
                 )
                 for source_id, _group, facts, _started in scheduled
             ]
@@ -1126,7 +1317,8 @@ def collect_behaviours(
                 started,
                 read,
                 burst_windows=burst_plan.get(facts.sourcetype, ()),
-                anchors=anchors.get(source_id, ()),
+                anchors=anchors_by_index.get(facts.index, ()),
+                value_spans=value_spans.get(source_id, ()),
             )
             receipts.extend(found)
             overrides.update(found_overrides)
@@ -1147,6 +1339,7 @@ def collect_behaviours(
         misfit_receipts,
         store_path,
         began,
+        localisation,
     )
     return behaviours, receipt
 

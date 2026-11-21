@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import statistics
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -24,6 +26,13 @@ CADENCE_ROWS = 40_000  # effort budget: per-period sourcetype counts read for ca
 EMPTY_SAMPLE_WINDOWS = (
     48  # effort budget: fixed windows per source when its own time range is unknown
 )
+WHOLE_READ_MAX_EVENTS = 10_000_000  # a wider source is localised before it is read
+LOCALISE_MIN_WIDTH = 300  # effort budget: finest tstats span the localiser considers
+LOCALISE_MAX_WIDTH = 3600  # effort budget: coarsest span that still separates a short burst
+LOCALISE_BUCKETS = 288  # effort budget: time buckets one localiser aggregates a range into
+LOCALISE_ROWS = 40_000  # effort budget: host/time bucket rows read by one localiser
+LOCALISE_WINDOWS = 4  # effort budget: peak windows one anchored read narrows to
+LOCALISE_Z = 2.0  # a bucket is a peak this many robust deviations above the source baseline
 
 
 @dataclass(frozen=True)
@@ -55,9 +64,120 @@ class RowSet:
     notes: list[str] = field(default_factory=list)
     selection: str = "newest events of each equal time slice"
     query: str = ""
+    read_mode: str = ""  # whole | anchored | sampled
+    rung: str = ""  # whole | indexed_aggregate | narrowed_scan | equal_slice
+    events_scanned: int = 0
+    coverage: str = ""  # whole | accelerated | scan (never "empty")
+    accel_window: tuple[float, float] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {"rows": len(self.rows), "windows": self.windows, "route": self.route}
+        return {
+            "rows": len(self.rows),
+            "windows": self.windows,
+            "route": self.route,
+            "read_mode": self.read_mode,
+            "rung": self.rung,
+            "events_scanned": self.events_scanned,
+            "coverage": self.coverage,
+        }
+
+
+@dataclass(frozen=True)
+class LocalWindow:
+    """One host/time bucket the indexed aggregate says carries the events: where and when."""
+
+    host: str
+    start: float
+    end: float
+    events: int
+
+
+def read_mode(events: int, *, whole_budget: int = WHOLE_READ_MAX_EVENTS) -> str:
+    """A whole-range read is allowed only for a source small enough to finish in one pass."""
+    return "whole" if events <= whole_budget else "anchored"
+
+
+def localise_width(span: float) -> float:
+    """The finest span that keeps a source's range inside the localiser's bucket budget."""
+    if span <= 0:
+        return float(LOCALISE_MIN_WIDTH)
+    width = round(span / LOCALISE_BUCKETS)
+    return float(min(LOCALISE_MAX_WIDTH, max(LOCALISE_MIN_WIDTH, width)))
+
+
+def coverage_label(accel_window: Sequence[float] | None, start: float, end: float) -> str:
+    """`accelerated` only inside a model's window; everything else is a scan, never a miss."""
+    if accel_window and float(accel_window[0]) <= start and end <= float(accel_window[1]):
+        return "accelerated"
+    return "scan"
+
+
+def localise_query(index: str, width: float) -> str:
+    """Rung 2: the default indexed fields say where and when, never who."""
+    return f"| tstats count where index={_quoted(index)} by host _time span={int(width)}s"
+
+
+def select_local_windows(
+    rows: Iterable[Mapping[str, Any]], width: float, *, limit: int = LOCALISE_WINDOWS
+) -> list[LocalWindow]:
+    """Peak buckets of one host/time series, coalesced: every other bucket is a baseline."""
+    grouped: dict[tuple[str, float], int] = {}
+    for row in rows:
+        host = str(row.get("host") or "")
+        stamp = _number(row.get("_time"))
+        count = _count(row.get("count"))
+        if not host or stamp is None or count <= 0:
+            continue
+        key = (host, stamp)
+        grouped[key] = grouped.get(key, 0) + count
+    if not grouped:
+        return []
+    logs = [math.log1p(count) for count in grouped.values()]
+    middle = statistics.median(logs)
+    spread = statistics.median(abs(value - middle) for value in logs)
+    scored = [
+        ((math.log1p(count) - middle) / (spread + 0.5), stamp, host, count)
+        for (host, stamp), count in grouped.items()
+    ]
+    peaks = sorted(
+        (item for item in scored if item[0] >= LOCALISE_Z), key=lambda item: (-item[0], item[1])
+    )[:limit]
+    windows = sorted(
+        (LocalWindow(host, stamp, stamp + width, count) for _score, stamp, host, count in peaks),
+        key=lambda window: (window.host, window.start),
+    )
+    return _coalesce(windows, width)
+
+
+def _coalesce(windows: Sequence[LocalWindow], width: float) -> list[LocalWindow]:
+    """Adjacent peak buckets of one host are one readable window."""
+    merged: list[LocalWindow] = []
+    for window in windows:
+        last = merged[-1] if merged else None
+        if last is not None and last.host == window.host and last.end == window.start:
+            merged[-1] = LocalWindow(
+                last.host, last.start, window.start + width, last.events + window.events
+            )
+            continue
+        merged.append(window)
+    return merged
+
+
+def localise(
+    executor: HuntExecutor, index: str, start: float, end: float, *, width: float | None = None
+) -> tuple[list[LocalWindow], list[str]]:
+    """Rung 2: one indexed aggregate locates the source's busy host/time windows."""
+    chosen = width or localise_width(end - start)
+    rows, reason = _read_range(
+        executor,
+        localise_query(index, chosen),
+        start,
+        end,
+        kind="localise",
+        row_cap=LOCALISE_ROWS,
+    )
+    notes = [f"localise:{reason}"] if reason else []
+    return select_local_windows(rows, chosen), notes
 
 
 def _number(value: Any) -> float | None:
@@ -311,6 +431,63 @@ def read_windows(
             str(row.get("_raw") or ""),
         )
     )
+    found.read_mode = "sampled"
+    found.rung = "equal_slice"
+    found.events_scanned = len(found.rows)
+    found.coverage = "scan"
+    return found
+
+
+def read_anchors(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    anchors: Sequence[LocalWindow],
+    *,
+    per_window: int,
+    kind: str,
+    max_sources: int = SAMPLE_SOURCES,
+) -> RowSet:
+    """Rung 3: read only the host/time windows rung 2 produced, capped per window."""
+    route, route_name = route_filter(facts, max_sources)
+    readable = [anchor for anchor in anchors if anchor.end > anchor.start]
+    found = RowSet(
+        windows=len(readable),
+        route=route_name,
+        selection="localised host/time windows from the indexed aggregate",
+        query=f"search index={_quoted(facts.index)} {route} host=<localised host> | head {per_window}",
+    )
+    found.read_mode = "anchored"
+    found.rung = "narrowed_scan"
+    found.events_scanned = sum(anchor.events for anchor in readable)
+    found.coverage = "scan"
+    concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+    with ThreadPoolExecutor(max_workers=min(len(readable) or 1, concurrency)) as pool:
+        futures = [
+            pool.submit(
+                _read_range,
+                executor,
+                f"search index={_quoted(facts.index)} {route} host={_quoted(anchor.host)}"
+                f" | head {per_window}",
+                anchor.start,
+                anchor.end,
+                kind=kind,
+                row_cap=per_window,
+                source_id=f"{facts.index}:{facts.sourcetype}",
+            )
+            for anchor in readable
+        ]
+        for future in futures:
+            rows, reason = future.result()
+            found.rows.extend(rows)
+            if reason:
+                found.notes.append(reason)
+    found.rows.sort(
+        key=lambda row: (
+            _number(row.get("_time")) or 0.0,
+            str(row.get("host") or ""),
+            str(row.get("_raw") or ""),
+        )
+    )
     return found
 
 
@@ -337,18 +514,30 @@ def read_alert_rows(
         row_cap=per_window,
         source_id=f"{facts.index}:{facts.sourcetype}",
     )
-    return RowSet([dict(row) for row in rows], 1, route_name, [reason] if reason else [])
+    found = RowSet([dict(row) for row in rows], 1, route_name, [reason] if reason else [])
+    found.read_mode = "sampled"
+    found.events_scanned = len(found.rows)
+    found.coverage = "scan"
+    return found
 
 
 __all__ = [
     "ALERT_TERM",
+    "LocalWindow",
     "RowSet",
     "SourceFacts",
     "cadence_facts",
+    "coverage_label",
     "index_facts",
+    "localise",
+    "localise_query",
+    "localise_width",
     "read_alert_rows",
+    "read_anchors",
+    "read_mode",
     "read_windows",
     "route_filter",
     "sample_windows",
+    "select_local_windows",
     "window_bounds",
 ]

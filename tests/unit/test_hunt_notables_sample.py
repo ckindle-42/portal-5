@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.sample import (
+    LocalWindow,
     SourceFacts,
+    coverage_label,
+    read_anchors,
+    read_mode,
     read_windows,
     route_filter,
     sample_windows,
+    select_local_windows,
     window_bounds,
 )
 
@@ -108,3 +113,72 @@ def test_small_source_read_includes_events_clustered_in_one_slice():
     read = read_behaviour_source(executor, facts, per_window=383)
     assert len(read.rows) == facts.events
     assert read.windows == len(executor.calls) == 1
+    assert read.read_mode == "whole"
+
+
+def test_read_mode_reads_whole_only_below_the_wide_source_ceiling():
+    assert read_mode(47_000) == "whole"
+    assert read_mode(55_000_000) == "anchored"
+
+
+def _burst_series(
+    width: float, buckets: int, baseline: int, burst: int, burst_buckets: int
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = [
+        {"_time": index * width, "host": "h1", "count": str(baseline)} for index in range(buckets)
+    ]
+    for index in range(2, 2 + burst_buckets):
+        rows[index]["count"] = str(burst)
+    return rows
+
+
+def test_twenty_minute_burst_is_selected_by_five_minutes_and_missed_by_four_hours():
+    narrow = select_local_windows(_burst_series(300, 288, 21, 121, 4), 300)
+    wide = select_local_windows(_burst_series(14400, 24, 1008, 1408, 1), 14400)
+    assert len(narrow) == 1
+    assert narrow[0].end - narrow[0].start == 1200
+    assert narrow[0].events == 484
+    assert wide == []
+
+
+def test_read_outside_the_acceleration_window_is_a_scan_not_an_empty_result():
+    assert coverage_label(None, 0.0, 10.0) == "scan"
+    assert coverage_label((0.0, 100.0), 0.0, 200.0) == "scan"
+    assert coverage_label((0.0, 200.0), 0.0, 100.0) == "accelerated"
+
+
+class _QueryExecutor:
+    """Answers each read with the rows its own host and time bounds select."""
+
+    def __init__(self, rows: list[dict[str, object]]) -> None:
+        self.rows = rows
+        self.queries: list[str] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del kind
+        self.queries.append(query)
+        inside = [
+            row
+            for row in self.rows
+            if start <= float(row["_time"]) < end and f'host="{row["host"]}"' in query
+        ]
+        return Read([dict(row) for row in inside[: row_cap or len(inside)]], False, None)
+
+
+def test_narrowed_scan_reads_one_host_window_and_reports_events_scanned():
+    rows = [
+        {"_time": 350.0, "host": "h1", "count": 1},
+        {"_time": 350.0, "host": "h2", "count": 1},
+    ]
+    executor = _QueryExecutor(rows)
+    facts = SourceFacts("ix", "st", 55_000_000, 0.0, 600.0, ("h1", "h2"), 2, ("s1",), 1)
+    read = read_anchors(
+        executor, facts, [LocalWindow("h1", 300.0, 600.0, 1000)], per_window=10, kind="x"
+    )
+    assert [row["host"] for row in read.rows] == ["h1"]
+    assert read.events_scanned == 1000
+    assert read.read_mode == "anchored"
+    assert read.rung == "narrowed_scan"
+    assert 'host="h1"' in executor.queries[0]

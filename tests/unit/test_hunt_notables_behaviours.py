@@ -381,6 +381,41 @@ def test_extract_preserves_structured_raw_beyond_400_chars():
     assert "secret.docx" in events[0].raw
 
 
+def test_wide_source_read_narrows_to_the_localised_host_window():
+    from portal.modules.security.core.hunt.executor import Read
+    from portal.modules.security.core.hunt.notables.behaviours import (
+        BEHAVIOUR_WINDOWS,
+        read_behaviour_source,
+    )
+    from portal.modules.security.core.hunt.notables.sample import LocalWindow
+
+    class _Exec:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del kind, row_cap
+            self.queries.append(query)
+            label = "anchored" if 'host="h1"' in query else "base"
+            return Read([{"_time": start + 1.0, "host": "h1", "_raw": label}], False, None)
+
+    facts = SourceFacts("ix", "st", 55_000_000, 0.0, 2_000_000.0, ("h1",), 1, ("s1",), 1)
+    executor = _Exec()
+    read = read_behaviour_source(
+        executor,
+        facts,
+        per_window=100,
+        anchors=[LocalWindow("h1", 1000.0, 4600.0, 5000)],
+    )
+    assert read.read_mode == "anchored"
+    assert read.rung == "narrowed_scan"
+    assert read.events_scanned >= 5000
+    assert read.windows == BEHAVIOUR_WINDOWS
+    assert any('host="h1"' in query for query in executor.queries)
+
+
 def test_burst_guided_behaviour_read_combines_uniform_and_peak_windows():
     from portal.modules.security.core.hunt.executor import Read
     from portal.modules.security.core.hunt.notables.behaviours import (
@@ -555,3 +590,46 @@ def test_the_read_receipt_reports_whole_anchored_and_sampled():
     }
     # the two spans on the same source merge; the other source's list is not an anchor here
     assert anchor_windows(inventory, "ix:big") == [(1_000.0, 1_200.000001), (9_000.0, 9_000.000001)]
+
+
+def test_collect_behaviours_keeps_s2_value_spans_when_localisation_finds_nothing(tmp_path):
+    from portal.modules.security.core.hunt.executor import Read
+    from portal.modules.security.core.hunt.notables.behaviours import collect_behaviours
+
+    class _EmptyLocaliser:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del kind, row_cap
+            self.queries.append(query)
+            if query.startswith("| tstats"):
+                return Read([], False, None)
+            raw = '{"user": "bob", "image": "cmd.exe", "path": "/tmp/x"}'
+            return Read([{"_time": start + 1.0, "host": "h1", "_raw": raw}], False, None)
+
+    facts = SourceFacts("ix", "st", 40_000_000, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)
+    inventory = {
+        "fields": [
+            {
+                "source_id": "ix:st",
+                "status": "complete",
+                "values": [
+                    {"value": "a", "events": 9, "first_seen": 4_000.0, "last_seen": 4_600.0},
+                ],
+            }
+        ]
+    }
+    executor = _EmptyLocaliser()
+    _behaviours, receipt = collect_behaviours(
+        executor, [_card()], {"ix:st": facts}, tmp_path / "behaviours.duckdb", inventory
+    )
+
+    assert receipt["localisation"]["windows"] == 0
+    assert any(query.startswith("| tstats") for query in executor.queries)
+    source = receipt["receipts"][0]
+    assert source["read_mode"] == "anchored"
+    assert source["rung"] == "value_spans"
+    assert not any('host="h1"' in query for query in executor.queries)
