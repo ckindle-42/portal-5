@@ -171,10 +171,14 @@ class FieldStat:
 
 
 def _clean(cell: str) -> str:
-    text = cell.strip()
+    return _unquote(cell.strip())[0]
+
+
+def _unquote(text: str) -> tuple[str, bool]:
+    """Strip one matched outer quote pair; True when one was stripped."""
     if len(text) >= 2 and text[:1] in {'"', "'"} and text[-1:] == text[:1]:
-        text = text[1:-1]
-    return text
+        return text[1:-1], True
+    return text, False
 
 
 def split_record(line: str, delimiter: str) -> list[str]:
@@ -210,9 +214,19 @@ def split_record(line: str, delimiter: str) -> list[str]:
     return cells
 
 
+def _cells(line: str) -> list[tuple[str, bool]]:
+    """Whitespace tokens with whether each was a quoted string: quoted values are variables."""
+    marked: list[tuple[str, bool]] = []
+    for cell in split_record(line, " "):
+        text, quoted = _unquote(cell.strip())
+        if text:
+            marked.append((text, quoted))
+    return marked
+
+
 def words(line: str) -> list[str]:
-    """Whitespace positions: a [bracketed] value stays whole, a quoted phrase is split into words."""
-    return [clean for cell in split_record(line.replace('"', " "), " ") if (clean := _clean(cell))]
+    """Whitespace positions: a [bracketed] or "quoted" value stays whole."""
+    return [token for token, _quoted in _cells(line)]
 
 
 def _program_stem(token: str) -> str:
@@ -249,9 +263,20 @@ def _header_shape(rows: Sequence[Sequence[str]]) -> tuple[int, int]:
     return 0, 0
 
 
-def _mine(program: str, messages: Sequence[Sequence[str]]) -> list[Template]:
-    """Length-bucketed positional templates: a position constant across the bucket stays literal."""
-    buckets: dict[int, list[Sequence[str]]] = {}
+def _constant(group: Sequence[Sequence[tuple[str, bool]]], position: int) -> str | None:
+    """The position's value when every line shares one unquoted value, else None (a slot)."""
+    values = {message[position] for message in group}
+    if len(values) != 1:
+        return None
+    value, quoted = next(iter(values))
+    if quoted or _VAR_TOKEN.match(value):
+        return None
+    return value
+
+
+def _mine(program: str, messages: Sequence[Sequence[tuple[str, bool]]]) -> list[Template]:
+    """Length-bucketed positional templates: an unquoted position constant across the bucket stays literal."""
+    buckets: dict[int, list[Sequence[tuple[str, bool]]]] = {}
     for message in messages:
         if len(message) >= MIN_TEMPLATE_TOKENS:
             buckets.setdefault(len(message), []).append(message)
@@ -259,11 +284,7 @@ def _mine(program: str, messages: Sequence[Sequence[str]]) -> list[Template]:
     for length, group in sorted(buckets.items()):
         if len(group) < MIN_TEMPLATE_LINES:
             continue
-        tokens: list[str | None] = []
-        for position in range(length):
-            values = {message[position] for message in group}
-            sole = next(iter(values)) if len(values) == 1 else None
-            tokens.append(None if sole is None or _VAR_TOKEN.match(sole) else sole)
+        tokens = [_constant(group, position) for position in range(length)]
         templates.append(Template(program, tuple(tokens), len(group)))
     return templates
 
@@ -279,14 +300,15 @@ def _slot_fields(template: Template) -> Template:
 
 def learn_templates(lines: Sequence[str]) -> TemplateModel | None:
     """Header plus per-program templates, both learned from how tokens repeat across lines."""
-    rows = [words(line) for line in lines]
+    marked = [_cells(line) for line in lines]
+    rows = [[token for token, _quoted in row] for row in marked]
     if not rows:
         return None
     header_tokens, program_position = _header_shape(rows)
-    by_program: dict[str, list[Sequence[str]]] = {}
-    for row in rows:
+    by_program: dict[str, list[Sequence[tuple[str, bool]]]] = {}
+    for row, marked_row in zip(rows, marked, strict=True):
         program = _program_of(row, program_position, header_tokens)
-        by_program.setdefault(program, []).append(row[header_tokens:])
+        by_program.setdefault(program, []).append(marked_row[header_tokens:])
     mined: list[Template] = []
     for program, messages in sorted(by_program.items()):
         if len(messages) >= MIN_PROGRAM_LINES:

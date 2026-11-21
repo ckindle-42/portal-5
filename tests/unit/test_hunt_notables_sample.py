@@ -21,10 +21,12 @@ from portal.modules.security.core.hunt.notables.sample import (
     index_facts,
     localise,
     read_anchors,
+    read_card_sample,
     read_files,
     read_mode,
     read_windows,
     route_filter,
+    sample_files,
     sample_windows,
     select_local_windows,
     window_bounds,
@@ -359,6 +361,74 @@ def _wide_file_facts() -> SourceFacts:
     return SourceFacts(
         "ix", "st", 500, 0.0, 1_000.0, ("h1",), 1, ("a",), 1, files=(IndexFile("a", 500, ("h1",)),)
     )
+
+
+def _card_sample_facts() -> tuple[SourceFacts, dict[str, list[dict[str, object]]]]:
+    """26 files on 4 hosts, kyoushi-shaped: the graded intranet file holds no newest events."""
+    files: dict[str, list[dict[str, object]]] = {}
+    stamp = 0.0
+    for index in range(26):
+        kind, host = (
+            ("intranet", "intranet_server"),
+            ("horde", "acme_mail"),
+            ("mail", "webserver"),
+            ("cloud", "cloud_share"),
+        )[index % 4]
+        path = f"/apache2/{kind}.company.log.{index // 4}"
+        if path in files:
+            path = f"/apache2/{kind}.company.log"
+        files.setdefault(
+            path, _rows_of(path, host, [stamp + number for number in range(0, 1_000, 20)])
+        )
+        stamp += 0.1
+    ranked = sorted(files, key=lambda path: (-len(files[path]), path))
+    facts = SourceFacts(
+        "ix",
+        "access_combined",
+        sum(len(rows) for rows in files.values()),
+        0.0,
+        1_000.0,
+        ("intranet_server", "acme_mail", "webserver", "cloud_share"),
+        4,
+        tuple(ranked),
+        26,
+        files=tuple(
+            IndexFile(path, len(files[path]), (files[path][0]["host"],)) for path in ranked
+        ),
+    )
+    return facts, files
+
+
+def test_a_card_sample_spreads_across_files_and_hosts():
+    facts, files = _card_sample_facts()
+    windows = window_bounds(0.0, 1_000.0, 3)
+    pooled_executor = _FileExecutor(files)
+    pooled = read_windows(pooled_executor, facts, windows, per_window=40, kind="source_sample")
+    collapse = {str(row["host"]) for row in pooled.rows}
+    # today: a pooled head only reaches the route's top-2 files, so most hosts go unsampled
+    assert "intranet_server" not in collapse
+    assert len(collapse) <= 2
+
+    executor = _FileExecutor(files)
+    read = read_card_sample(executor, facts, kind="source_sample")
+
+    read_hosts = {str(row["host"]) for row in read.rows}
+    assert {"intranet_server", "acme_mail", "webserver", "cloud_share"} <= read_hosts
+    files_read = {item.path for item in read.files if item.rows}
+    assert len(files_read) > 2
+    assert any("intranet" in path for path in files_read)
+    assert len(executor.queries) == 6
+    spread = sample_files(facts)
+    assert spread == sample_files(facts)
+    assert [item.path for item in read.files] == [item.path for item in spread]
+
+
+def test_a_single_file_source_still_samples_through_the_pooled_read():
+    facts = SourceFacts("ix", "st", 90, 0.0, 100.0, ("h1",), 1, ("s1",), 1)
+    executor = _NewestExecutor(_rows())
+    read = read_card_sample(executor, facts, kind="source_sample")
+    assert read.rows
+    assert len(executor.calls) == 3  # the three pooled windows, not one request per file
 
 
 def test_a_zero_row_file_read_declares_an_empty_window() -> None:

@@ -21,6 +21,8 @@ from ..executor import (
 SAMPLE_WINDOWS = 3  # effort budget: raw reads spread across each source's own time range
 SAMPLE_LINES = 40  # effort budget: events read per window for a source card
 SAMPLE_SOURCES = 2  # effort budget: indexed sources sampled for one source card
+SAMPLE_FILES = 6  # effort budget: indexed files one source card sample draws from
+SAMPLE_FILE_LINES = 20  # effort budget: events read per file in a spread card sample
 ALERT_PROBE_LINES = 400  # effort budget: events read per window to detect an alert-bearing part
 ALERT_TERM = 'event_type="alert"'  # the search term that selects a JSON detection event
 BEHAVIOUR_SOURCES = 8  # effort budget: indexed sources one pooled read covers
@@ -778,6 +780,100 @@ def read_windows(
     return found
 
 
+def sample_files(facts: SourceFacts, cap: int = SAMPLE_FILES) -> tuple[IndexFile, ...]:
+    """Ranked files round-robin by lead host, so every host contributes before one host repeats."""
+    groups: dict[str, list[IndexFile]] = {}
+    for item in facts.files:
+        groups.setdefault(item.hosts[0] if item.hosts else "", []).append(item)
+    queues = [
+        sorted(files, key=lambda item: (-item.events, item.path))
+        for _host, files in sorted(groups.items())
+    ]
+    picked: list[IndexFile] = []
+    while len(picked) < cap and any(queues):
+        for queue in queues:
+            if queue and len(picked) < cap:
+                picked.append(queue.pop(0))
+    return tuple(picked)
+
+
+def _file_window(
+    facts: SourceFacts, item: IndexFile, windows: Sequence[tuple[float, float]]
+) -> tuple[float, float]:
+    """The source window holding the file's own last event, else the first window."""
+    last = file_span(facts, item)[1]
+    for bounds in windows:
+        if bounds[0] <= last < bounds[1]:
+            return bounds
+    return windows[0]
+
+
+def read_card_sample(executor: HuntExecutor, facts: SourceFacts, *, kind: str) -> RowSet:
+    """The card's sample: per-file heads across hosts — a pooled `head` is arrival order."""
+    files = sample_files(facts)
+    windows = [bounds for bounds in sample_windows(facts) if bounds[1] > bounds[0]]
+    if len(files) <= 1 or not windows:
+        return read_windows(
+            executor, facts, sample_windows(facts), per_window=SAMPLE_LINES, kind=kind
+        )
+    source_id = f"{facts.index}:{facts.sourcetype}"
+    found = RowSet(
+        windows=len(windows),
+        route="source",
+        selection="newest lines of each indexed file, hosts round-robin, at each file's own window",
+    )
+    requests = [(item, _file_window(facts, item, windows)) for item in files]
+    found.query = (
+        f"search index={_quoted(facts.index)} {file_route(facts, files[0].path)}"
+        f" | sort - _time | head {SAMPLE_FILE_LINES}"
+    )
+    concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+    with ThreadPoolExecutor(max_workers=min(len(requests), concurrency)) as pool:
+        futures = [
+            pool.submit(
+                _read_range,
+                executor,
+                f"search index={_quoted(facts.index)} {file_route(facts, item.path)}"
+                f" | sort - _time | head {SAMPLE_FILE_LINES}",
+                bounds[0],
+                bounds[1],
+                kind=kind,
+                row_cap=SAMPLE_FILE_LINES,
+                source_id=source_id,
+            )
+            for item, bounds in requests
+        ]
+        for (item, bounds), future in zip(requests, futures, strict=True):
+            rows, reason = future.result()
+            found.rows.extend(rows)
+            if reason:
+                found.notes.append(reason)
+            found.files.append(
+                FileRead(
+                    item.path,
+                    "",
+                    item.events,
+                    bounds[0],
+                    bounds[1],
+                    len(rows),
+                    reason or (EMPTY_WINDOW if not rows else ""),
+                    item.hosts,
+                )
+            )
+    found.rows.sort(
+        key=lambda row: (
+            _number(row.get("_time")) or 0.0,
+            str(row.get("host") or ""),
+            str(row.get("_raw") or ""),
+        )
+    )
+    found.read_mode = "sampled"
+    found.rung = "equal_slice"
+    found.events_scanned = len(found.rows)
+    found.coverage = "scan"
+    return found
+
+
 def file_route(facts: SourceFacts, path: str, host: str = "", shared: Sequence[str] = ()) -> str:
     """One indexed file's own route; a path another sourcetype also carries stays scoped."""
     route = f"source={_quoted(path)}"
@@ -1175,10 +1271,12 @@ __all__ = [
     "localise_width",
     "read_alert_rows",
     "read_anchors",
+    "read_card_sample",
     "read_files",
     "read_mode",
     "read_windows",
     "route_filter",
+    "sample_files",
     "sample_windows",
     "select_local_windows",
     "summary_window",

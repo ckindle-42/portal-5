@@ -52,11 +52,11 @@ from .parse import MIN_PARTITION_LINES, FieldStat, TemplateModel
 from .receipt import peak_memory_mb, progress_update, read_json, utc_now, write_json
 from .sample import (
     ALERT_PROBE_LINES,
-    SAMPLE_LINES,
     IndexFile,
     SourceFacts,
     index_facts,
     read_alert_rows,
+    read_card_sample,
     read_windows,
     sample_windows,
     shared_source_names,
@@ -374,9 +374,7 @@ def facts_by_source(cards: Sequence[SourceCard]) -> dict[str, SourceFacts]:
 
 
 def _sample_source(executor: Any, facts: SourceFacts) -> tuple[SourceFacts, Any]:
-    read = read_windows(
-        executor, facts, sample_windows(facts), per_window=SAMPLE_LINES, kind="source_sample"
-    )
+    read = read_card_sample(executor, facts, kind="source_sample")
     sampled_alerts = sum(1 for row in read.rows if is_alert_event(row))
     json_sample = any(str(row.get("_raw") or "").lstrip().startswith("{") for row in read.rows)
     if sampled_alerts < MIN_PARTITION_LINES:
