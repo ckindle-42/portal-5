@@ -12,6 +12,7 @@ HEADER = (
 )
 
 #: Index-time extraction: target sourcetype -> field -> regex (FORMAT is field::$1).
+#: Every stanza writes ``WRITE_META = true`` — without it Splunk keeps the value out of the tsidx.
 INDEX_FIELDS: dict[str, dict[str, str]] = {
     "linux_secure": {
         "user": r"(?:Failed password for (?:invalid user )?|Accepted \S+ for |for user )(\S+)",
@@ -138,6 +139,7 @@ def transforms_conf() -> str:
             out.append(f"[ph_ix_{_slug(st)}_{field}]")
             out.append(f"REGEX = {regex}")
             out.append(f"FORMAT = {field}::$1")
+            out.append("WRITE_META = true")
             out.append("")
     return "\n".join(out)
 
