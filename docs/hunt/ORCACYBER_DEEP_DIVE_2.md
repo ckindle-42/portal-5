@@ -12,7 +12,8 @@ so when my re-derivation disagrees with the earlier report — twice below it do
 
 Held-out sets untouched: `hb_ait_wheeler`, `hb_cloudobs_aws`, `botsv1` were never opened, queried
 or read in this session. Training families only (`hb_ait_santos{,_v2}`,
-`hb_kyoushi_s1{,_v2}`, `hb_ait_russellmitchell{,_v2}`, `botsv2` untouched this round).
+`hb_kyoushi_s1{,_v2}`, `hb_ait_russellmitchell{,_v2}`; `botsv2` was touched for one
+read-only estate-map probe of its multi-file sourcetypes, §6).
 
 ---
 
@@ -158,8 +159,17 @@ The steps `_v2` *newly* reached are worth naming because they change the story o
 `attacker_change_user` (rank 95), `attacker_vpn` (143) and `exfiltration-service` (never covered)
 are steps the control could not reach at all. The tuned index did not make the ranker worse; it
 made three of the ranker's blind spots visible for the first time. That is progress that the
-`recall-of-reachable` ratio records as a *fall*, because the denominator grew from 12 to 11 with
+`recall-of-reachable` ratio records as a *fall*, because the denominator moved from 12 to 11 with
 harder members. **A ratio is the wrong instrument here** (§5).
+
+**The arithmetic the D1 fix buys, and what it does not.** The three steps santos lost currently sit
+at `first_rank` 42 (`attacker_http`), 42 (`dirb`) and 28 (`wpscan`) — i.e. a notable already claims
+each of them, inside the @50 cut; the run simply never read the lines. So D1 alone moves santos to
+**14 reachable, 11 covered @50 = 11/14 = 0.786**, still below the plan's `11/12 = 0.917`. The
+remaining three are `attacker_change_user` (95), `attacker_vpn` (143) and `exfiltration-service`
+(never). **The S6 bar cannot be met by coverage work alone on this corpus; it needs D8 as well.** Stated
+as a step set instead of a ratio, the target is unambiguous: reachable = every step the index can
+contain, and `covered ∩ reachable` ⊇ the control's set.
 
 ---
 
@@ -192,8 +202,8 @@ intranet file [live, `ledger.jsonl` stage `behaviours`]. The card's own facts sa
 
 **(b) When the file *is* in the route, `head N` starves it anyway.** kyoushi's labelled file is
 rank **1 of 26** (408,477 of 726,213 events) and russell's is rank **4 of 21**, so both were inside
-the eight-name route — and the store still holds only 313 (kyoushi) and 57 (russell) events from
-those hosts, out of 14,330 and a comparable pool in the read [live, DuckDB `select host,count(*)
+the eight-name route — and the store holds only 313 (kyoushi, of 14,330 access events
+read) and 57 (russell) events from the labelled host [live, DuckDB `select host,count(*)
 from events where source_id like '%access_combined' group by 1`].
 
 Proved live at the same query shape, russell:
@@ -256,7 +266,7 @@ the extra seven are noise — the control's user entities are headed by `GET` (1
 `Closing` (23,532), `Opening` (23,196), `PHP`, `Declaration`, `is`, `to`, `from` [live, DuckDB].
 `fields_typed` is a source-count metric wearing an entity-typing name.
 
-### 3.3 RC3 (P0, CONFIRMED) — the `_v2` keys can never reach two steps, and the scoreboard cannot say so
+### 3.3 RC3 (P0, CONFIRMED) — one `_v2` step can never be reached, and the scoreboard cannot say so
 
 The runbook's claim that "pointing the hunt at `_v2` needs no key rebuild" holds for the 250 files
 that were shipped and fails for the ones noise routing dropped. Stage 2 routes out the metricbeat
@@ -281,8 +291,8 @@ report gives no hint. This is the same class of honesty failure S0 exists to pre
 
 Recomputing `verify_steps` in-process on both stores [live, `diag_spine.py`]:
 
-- The `_v2` failures are **one physical line**, labelled with both `attacker_change_user` and
-  `escalate` — so 9/11 is really "10 of 11 steps covered, one line untouchable":
+- The two `_v2` failures are **one physical line**, labelled with both `attacker_change_user` and
+  `escalate` — fix that line's typing and both steps pass (11/11):
 
   ```
   type=LOGIN msg=audit(1642420697.752:2279): pid=20750 uid=0 old-auid=4294967295
@@ -455,12 +465,22 @@ dispatch. Every slice below is accepted on a **step-level, read-relative** prope
 scoreboard must print the two sets (covered ∩ reachable) so a loss is a named step, never a moved
 ratio.
 
-The one hard target stays the plan's: on each build family, every graded step the *index can
-contain* should be reachable, and reachable-at-@50 should not fall below the control's set. Stated
-as numbers for these corpora: kyoushi 11/11, santos 12/12 (after RC3 excludes `crack_passwords`),
-russell 15/15.
+The acceptance, stated so it cannot be gamed:
+
+- **No regression:** `reachable ⊇` the control run's reachable set, and `covered@50 ∩ reachable ⊇`
+  the control's covered set. For santos that is the 12 reachable steps and the 11 covered at @50
+  the control has today.
+- **Stretch (the plan's real goal):** reachable = every step whose evidence the index contains —
+  kyoushi 12/12, santos 20/20 (`crack_passwords` excluded, RC3), russell 22/22 — with
+  `evidence_absent` counted separately. A family that cannot reach one of those prints which step
+  and why, and that is a finding, not a failure.
+- **No ratio in any headline.** Ratios stay in the appendix, beside their denominators.
 
 Dependency order: **D0 → D1 ‖ D2 ‖ D5 → D3 → D4 → D6 ‖ D7 ‖ D8**, with D9 anytime.
+Parallel groups a set of lanes can take at once: **(D1 ‖ D2 ‖ D5)** touch different files
+(`behaviours.py`/`sample.py`, `inventory.py`, `inventory.py`'s probe only — split by file, not by
+function), **(D7 ‖ D8 ‖ D9)** are independent of each other, and **D6** is operator-owned and can run
+alongside anything.
 
 ### D0 (P0, blocks everything, S) — measurement truth: keys ∩ index, and step-level diffs
 
@@ -602,9 +622,11 @@ flow's two endpoints are `access_combined`/`dnsmasq` → `linux_audit`/`linux_se
 ### D10 (P2, S) — S0 cause, delivered
 
 **Build.** `scoreboard.py`: emit `C0 causes` for line-mode families too (`covered | instrument |
-not_surfaced | unreached | censored`, derived from the per-step ledger read row), and emit the
-`honesty` block on every family (it is `null` for santos on both runs).
-**Property.** No family reports an empty cause; `honesty` is never null when a run exists.
+not_surfaced | unreached | censored`, derived from the per-step ledger read row); `run.py`: write the
+`honesty` block into `progress.json` (it is `null` there for both santos runs today, so the
+`weights_source`/knowledge facts exist only under `stages.notables.merge`).
+**Property.** No family reports an empty cause; `progress.json:honesty` is never null when a run
+exists.
 **Live proof.** santos `_v2` score prints `C0 causes` with `unreached: crack_passwords (44/44 absent)`,
 `censored: …`, `not_surfaced: attacker_change_user`.
 
@@ -646,11 +668,15 @@ uv run python -m portal.modules.security.core.hunt.notables.scoreboard \
   returns 1,250 rows where the pooled read returns 0–313 and that the file holds 87 % attacker
   traffic; I did not rebuild a store with the fixed route and re-score it. The projected ceiling
   (11 → 14 on santos) is arithmetic on labelled-line counts plus the current `first_rank` values,
-  i.e. [reasoned], and it depends on D8 for the two steps that stay uncovered at @50.
-- **`botsv2` was not touched this round.** Whether the same route truncation applies there is
-  unknown; it has 104 sourcetypes and many multi-file ones, so it is likely [reasoned, unverified].
-  It is also the only wide corpus, so the D1 fix cannot be validated on a wide estate from this
-  dispatch.
+  i.e. [reasoned], and it depends on D8 for the three steps that stay uncovered at @50.
+- **`botsv2` was not run this round, but I did measure its exposure.** 4 of its 104 sourcetypes
+  exceed eight files — `pan:traffic` 32 files / 1,883,556 events, `winhostmon` 9 / 3,413,063,
+  `pan:system` 32 / 40,073, `ms:o365:management` 15 / 4,480 [live
+  `| tstats count where index=botsv2 by sourcetype source | stats dc(source) as files sum(count) as
+  events by sourcetype | where files > 8`]. **No botsv2 graded key's locator names any of them**
+  (the 34 keys are entity keys on `stream:*`, Windows and Suricata), so botsv2 would not currently
+  score the defect either way — it is structurally exposed but not a measuring instrument for it.
+  Correctness of the D1 fix on a wide estate therefore remains unproven.
 - **The `linux_secure` regex defect is measured on the index, not reproduced from the app tree at
   HEAD.** I read `transforms.conf` in the repo and observed the corrupted values live; I did not
   check whether a `local/transforms.conf` override is present on the box (the runbook says one may
@@ -756,6 +782,12 @@ search index=hb_kyoushi_s1_v2   source="…/intranet.company.cyberrange.at-acces
 | tstats count where index=hb_ait_santos_v2  source="*system.service.log"          -> 1,856,634
 | eventcount summarize=false index=hb_ait_santos_v2  -> 4,474,600
 | eventcount summarize=false index=hb_ait_santos     -> 25,143,873
+
+# --- the wide corpus's structural exposure to the same route cap (RC1, §6)
+| tstats count where index=botsv2 by sourcetype source
+  | stats dc(source) as files sum(count) as events by sourcetype | where files > 8 | sort - events
+    -> pan:traffic 32 files/1,883,556 ev; winhostmon 9/3,413,063; pan:system 32/40,073;
+       ms:o365:management 15/4,480   (scan 226,317,740, 9.1 s)
 
 # --- the linux_secure `user` corruption (RC10)
 | tstats count where index=hb_ait_santos_v2 sourcetype=linux_secure by user
