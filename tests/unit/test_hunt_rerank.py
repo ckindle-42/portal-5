@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
+from portal.modules.security.core.hunt.notables.judge_notables import CaseFacts, judge_cases
 from portal.modules.security.core.hunt.notables.rerank import (
     _council_adjust,
     _council_budget,
     _fusion_order,
     _recall,
     _rule_name,
+    case_order,
+    judged_only_cases,
 )
 from portal.modules.security.core.hunt.notables.scoreboard import Notable
 
@@ -66,3 +72,88 @@ def test_council_budget_is_what_the_deadline_buys_at_the_measured_rate():
     assert _council_budget(5, 720.0, 22.8922) == 5
     assert _council_budget(100, 720.0, None) == 0
     assert _council_budget(100, 720.0, 0.0) == 0
+
+
+def _answer(token: str) -> dict[str, Any]:
+    return {
+        "model": "seat",
+        "choices": [
+            {
+                "message": {"content": token},
+                "logprobs": {
+                    "content": [
+                        {
+                            "token": token,
+                            "top_logprobs": [
+                                {"token": "yes", "logprob": -0.1 if token == "yes" else -2.3},
+                                {"token": "no", "logprob": -2.3 if token == "yes" else -0.1},
+                            ],
+                        }
+                    ]
+                },
+            }
+        ],
+        "usage": {"prompt_tokens": 10},
+    }
+
+
+class _Seat:
+    """Yes for case value v1, no for v2, a transport failure for v3."""
+
+    def complete(self, **request: Any) -> dict[str, Any]:
+        content = str(request["messages"][0]["content"])
+        if "v1" in content:
+            return _answer("yes")
+        if "v2" in content:
+            return _answer("no")
+        raise RuntimeError("down")
+
+
+def _case(case_id: str, event: str, value: str) -> dict[str, Any]:
+    return {
+        "case_id": case_id,
+        "anchor_entity": value,
+        "members": [{"type": "episode", "id": f"ep-{event}", "value": value}],
+    }
+
+
+def test_a_judged_only_view_excludes_unjudged_members() -> None:
+    cases = [
+        {
+            "case_id": "c1",
+            "members": [
+                {"type": "episode", "value": "a", "unjudged": False},
+                {"type": "signal", "value": "b", "unjudged": True},
+                {"type": "signal", "value": "c", "unjudged": False},
+            ],
+            "unjudged": True,
+        }
+    ]
+    view = judged_only_cases(cases)
+    assert [member["value"] for member in view[0]["members"]] == ["a", "c"]
+    assert all(not member["unjudged"] for member in view[0]["members"])
+    assert len(cases[0]["members"]) == 3
+
+
+def test_no_case_is_dropped_by_a_model_answer(tmp_path: Path) -> None:
+    facts = CaseFacts(
+        {"e1": ("v1", "ix:st"), "e2": ("v2", "ix:st"), "e3": ("v3", "ix:st")},
+        {},
+        {"ep-e1": ("e1",), "ep-e2": ("e2",), "ep-e3": ("e3",)},
+    )
+    cases = [_case("c1", "e1", "v1"), _case("c2", "e2", "v2"), _case("c3", "e3", "v3")]
+    judged, receipt = judge_cases(
+        cases,
+        out=tmp_path,
+        client=_Seat(),
+        model="seat",
+        facts=facts,
+        notables={},
+        request_budget=3,
+    )
+    assert sorted(case["case_id"] for case in judged) == ["c1", "c2", "c3"]
+    assert receipt["judged"] == 2 and receipt["unjudged"] == 1
+    assert judged[0]["p_yes"] > 0.5 and judged[1]["p_yes"] < 0.5
+    assert judged[2]["p_yes"] is None and judged[2]["judge"]["reason"] == "request_failed"
+    order = case_order(judged)
+    assert sorted(order) == [0, 1, 2]
