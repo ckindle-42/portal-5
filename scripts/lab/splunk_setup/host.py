@@ -61,7 +61,11 @@ def install_app(
 ) -> str:
     """Stream the rendered app into the container's apps dir (idempotent overwrite)."""
     remote = in_container(lxc_id, container, "tar -C /opt/splunk/etc/apps -xf -", user="splunk")
-    tar = subprocess.Popen(["tar", "-C", str(app_root.parent), "-cf", "-", app_root.name])
+    tar = subprocess.Popen(
+        ["tar", "-C", str(app_root.parent), "-cf", "-", app_root.name],
+        stdout=subprocess.PIPE,
+        env={**os.environ, "COPYFILE_DISABLE": "1"},  # no macOS ._ metadata files in the app
+    )
     assert tar.stdout is not None
     run = subprocess.run(ssh_argv(remote), stdin=tar.stdout, capture_output=True, text=True)
     tar.stdout.close()
