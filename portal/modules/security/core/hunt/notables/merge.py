@@ -39,12 +39,12 @@ def conditional_weights(
         rates: list[float] = []
         for family in families:
             detail = (family.get("generators") or {}).get(name)
-            steps = int(family.get("steps") or 0)
-            if not isinstance(detail, Mapping) or steps <= 0:
+            if not isinstance(detail, Mapping):
                 continue
-            if int(detail.get("existed") or 0) <= 0:
+            existed = int(detail.get("existed") or 0)
+            if existed <= 0:
                 continue
-            rates.append(int(detail.get("covered") or 0) / steps)
+            rates.append(int(detail.get("covered") or 0) / existed)
         weights[name] = max(0, round(100 * sum(rates) / len(rates))) if rates else UNMEASURED_WEIGHT
     return weights
 

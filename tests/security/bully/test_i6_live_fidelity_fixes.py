@@ -70,6 +70,39 @@ def test_run_search_requests_epoch_time_format(monkeypatch):
     assert captured.get("time_format") == "%s"
 
 
+def test_run_search_drops_preview_rows_from_recorded_export_shape(monkeypatch):
+    import json
+
+    preview = [
+        {
+            "preview": True,
+            "offset": index,
+            "result": {"_time": "1.0", "sourcetype": f"partial-{index}"},
+        }
+        for index in range(103)
+    ]
+    final = [
+        {
+            "preview": False,
+            "offset": 103 + index,
+            "result": {"_time": "2.0", "sourcetype": f"final-{index}"},
+        }
+        for index in range(104)
+    ]
+
+    class _FakeResponse:
+        text = "\n".join(json.dumps(row) for row in [*preview, *final])
+
+        def raise_for_status(self):
+            return None
+
+    monkeypatch.setattr(spl_backend.httpx, "post", lambda url, **kwargs: _FakeResponse())
+    rows = spl_backend.SplunkBackend()._run_search("| tstats count by sourcetype", "0", "now")
+
+    assert len(rows) == 104
+    assert all(row["fields"]["sourcetype"].startswith("final-") for row in rows)
+
+
 def test_dig_falls_back_to_parsing_raw_kv_text():
     record = {
         "_raw": "08/20/2018 03:17:58 AM\nLogName=Security\nEventCode=4689\nComputerName=BSTOLL-L.froth.ly\n"

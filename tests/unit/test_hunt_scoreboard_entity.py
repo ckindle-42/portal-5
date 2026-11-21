@@ -279,6 +279,128 @@ def test_relate_cases_report_scenario_rank_and_false_cases_above(tmp_path: Path)
     assert relation["case_rows"][1]["scenarios"] == ["fruitfly"]
 
 
+def test_promoted_raw_relate_rows_do_not_improve_strict_or_case_recall(tmp_path: Path) -> None:
+    key = _key("fruitfly", "c2_beacon", "eidk.duckdns.org")
+    seed = _notable("peer_rare", "ordinary dns activity", content_key="seed")
+    promoted = _notable(
+        "relate", "raw event eidk.duckdns.org", terms=("eidk.duckdns.org",), content_key="raw"
+    )
+    case = {
+        "case_id": "case-raw",
+        "seed_notables": ["seed"],
+        "related_notables": ["raw"],
+        "evidence": [{"line": "raw event eidk.duckdns.org"}],
+    }
+    family = _family(
+        tmp_path,
+        notables=[seed, promoted],
+        keys=[key],
+        relate={
+            "receipt": {"promotion": {"ids": [{"notable_id": "raw", "after_rank": 0}]}},
+            "notables": [promoted],
+            "cases": [case],
+        },
+    )
+
+    assert family["strict_recall"]["overall"]["None"] == 0
+    assert family["case_recall"]["overall"]["None"] == 0
+    assert family["promotion_effect"]["with"]["strict_recall"]["overall"]["None"] == 0
+    assert family["promotion_effect"]["without"]["case_recall"]["overall"]["None"] == 0
+
+
+def test_ledger_separates_never_read_from_read_and_censored(tmp_path: Path) -> None:
+    censored = _key("fruitfly", "c2_beacon", "eidk.duckdns.org")
+    censored["locator"] = 'search index=botsv2 sourcetype="stream:dns" TERM("eidk.duckdns.org")'
+    unread = _key("fruitfly", "usb_delivery", "Important_HR_INFO")
+    unread["locator"] = 'search index=botsv2 sourcetype="syslog" TERM("Important_HR_INFO")'
+    run = _run(
+        tmp_path,
+        notables=[_notable("peer_rare", "no key")],
+        keys=[censored, unread],
+    )
+    (run / "ledger.jsonl").write_text(
+        json.dumps(
+            {
+                "stage": "behaviours",
+                "source_id": "botsv2:stream:dns",
+                "part": None,
+                "query": 'search index=botsv2 sourcetype="stream:dns"',
+                "window_start": FIRST,
+                "window_end": FIRST + 1,
+                "rows": 1,
+                "capped": True,
+                "reason": "row_cap",
+                "values_extracted": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    family = score(run, [str(run / "keys.jsonl")])["families"][0]
+    causes = {row["step"].split("/")[-1]: row["cause"] for row in family["ceiling"]["per_step"]}
+
+    assert causes == {"c2_beacon": "censored", "usb_delivery": "unreached"}
+
+
+def test_generator_marginal_counts_top50_and_top100_loss(tmp_path: Path) -> None:
+    key = _key("fruitfly", "c2_beacon", "eidk.duckdns.org")
+    at_50 = [
+        _notable("peer_rare", f"noise {index}", content_key=f"noise-{index}") for index in range(49)
+    ]
+    at_50.append(_notable("deviation", "eidk.duckdns.org", content_key="hit-50"))
+    family_50 = _run(tmp_path, notables=at_50, keys=[key], run_name="at-50")
+    progress = json.loads((family_50 / "progress.json").read_text())
+    progress["stages"]["notables"].update(
+        peer_rare={"existed": 49, "kept": 49},
+        deviation={"existed": 1, "kept": 1},
+        merge={"weights": {"peer_rare": 1, "deviation": 0}, "priority": ["peer_rare", "deviation"]},
+    )
+    (family_50 / "progress.json").write_text(json.dumps(progress))
+
+    scored_50 = score(family_50, [str(family_50 / "keys.jsonl")])["families"][0]
+    assert scored_50["generators"]["deviation"]["marginal@50"] == 1
+
+    at_51 = [
+        _notable("peer_rare", f"noise {index}", content_key=f"late-noise-{index}")
+        for index in range(50)
+    ]
+    at_51.append(_notable("alerts", "eidk.duckdns.org", content_key="hit-51"))
+    family_51 = _run(tmp_path, notables=at_51, keys=[key], run_name="at-51")
+    progress = json.loads((family_51 / "progress.json").read_text())
+    progress["stages"]["notables"].update(
+        peer_rare={"existed": 50, "kept": 50},
+        alerts={"existed": 1, "kept": 1},
+        merge={"weights": {"peer_rare": 1, "alerts": 0}, "priority": ["peer_rare", "alerts"]},
+    )
+    (family_51 / "progress.json").write_text(json.dumps(progress))
+
+    scored_51 = score(family_51, [str(family_51 / "keys.jsonl")])["families"][0]
+    assert scored_51["generators"]["alerts"]["marginal@50"] == 0
+    assert scored_51["generators"]["alerts"]["marginal@100"] == 1
+
+
+def test_marginal_weight_folds_average_remerge_losses_and_floor_unmeasured() -> None:
+    weights = board._weights_block(
+        [
+            {
+                "family": "a",
+                "generators": {},
+                "marginal_generators": {"deviation": {"candidates": 1, "marginal@50": 2}},
+            },
+            {
+                "family": "b",
+                "generators": {},
+                "marginal_generators": {"deviation": {"candidates": 1, "marginal@50": 4}},
+            },
+        ]
+    )
+
+    assert weights["marginal_folds"][0]["weights"]["deviation"] == 3
+    assert weights["marginal_folds"][1]["weights"]["deviation"] == 4
+    assert weights["marginal_folds"][0]["weights"]["peer_rare"] == board.UNMEASURED_WEIGHT
+
+
 def test_artefact_located_through_the_index_normalization_form(tmp_path: Path) -> None:
     value = "나는_데이비드를_사랑한다.hwp"  # NFC key value, 17 code points
     nfd = unicodedata.normalize("NFD", value)  # the index's spelling, 32 code points

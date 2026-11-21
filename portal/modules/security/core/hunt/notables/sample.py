@@ -106,9 +106,14 @@ def _read_range(
     *,
     kind: str,
     row_cap: int,
+    source_id: str | None = None,
+    part: str | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
     try:
-        result = executor.read(query, start, end, kind=kind, row_cap=row_cap)
+        options: dict[str, Any] = {"kind": kind, "row_cap": row_cap}
+        if isinstance(executor, HuntExecutor):
+            options.update(source_id=source_id, part=part)
+        result = executor.read(query, start, end, **options)
     except HuntBudgetExceededError as exc:
         return [], str(exc)
     except Exception as exc:  # noqa: BLE001 -- a failed read is recorded coverage, not a crash
@@ -282,7 +287,16 @@ def read_windows(
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
     with ThreadPoolExecutor(max_workers=min(len(slice_bounds) or 1, concurrency)) as pool:
         futures = [
-            pool.submit(_read_range, executor, query, start, end, kind=kind, row_cap=per_part)
+            pool.submit(
+                _read_range,
+                executor,
+                query,
+                start,
+                end,
+                kind=kind,
+                row_cap=per_part,
+                source_id=f"{facts.index}:{facts.sourcetype}",
+            )
             for start, end in slice_bounds
         ]
         for future in futures:
@@ -315,7 +329,13 @@ def read_alert_rows(
     route, route_name = route_filter(facts, SAMPLE_SOURCES)
     query = f"search index={_quoted(facts.index)} {route} {ALERT_TERM} | head {per_window}"
     rows, reason = _read_range(
-        executor, query, facts.first, facts.last + 0.000001, kind="alert_probe", row_cap=per_window
+        executor,
+        query,
+        facts.first,
+        facts.last + 0.000001,
+        kind="alert_probe",
+        row_cap=per_window,
+        source_id=f"{facts.index}:{facts.sourcetype}",
     )
     return RowSet([dict(row) for row in rows], 1, route_name, [reason] if reason else [])
 

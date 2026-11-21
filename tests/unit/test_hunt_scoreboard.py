@@ -451,7 +451,7 @@ def test_cost_rolls_up_stages_requests_and_peak_memory(tmp_path: Path) -> None:
     assert cost["model_requests"] == 10
     assert cost["peak_memory_mb"] == 512.5
     assert cost["stages"]["notables"]["seconds"] == 30.0
-    assert "total=100.0s requests=10" in board.render(family)
+    assert "total=100.0s model-requests=10" in board.render(family)
 
 
 def test_honesty_reports_loaded_families_and_the_exclusion(tmp_path: Path) -> None:
@@ -602,6 +602,7 @@ def test_json_output_carries_the_rule_and_every_section(
         "notables",
         "steps",
         "recall",
+        "generators",
         "ceiling",
         "judge",
         "cost",

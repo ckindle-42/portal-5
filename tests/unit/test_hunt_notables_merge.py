@@ -205,9 +205,9 @@ def test_conditional_weights_skip_families_where_a_generator_had_no_candidates()
         _evidence("b", 10, alerts=(5, 2), deviation=(10, 1)),
     ]
     weights = conditional_weights(families)
-    # alerts is measured only on b (2/10), never on a's zero-candidate run.
-    assert weights["alerts"] == 20
-    assert weights["deviation"] == 25  # mean(0.4, 0.1) x 100
+    # alerts is measured only on b (2/5), never on a's zero-candidate run.
+    assert weights["alerts"] == 40
+    assert weights["deviation"] == 25  # mean(4/10, 1/10) x 100
     assert weights["misfit"] == UNMEASURED_WEIGHT  # absent from every family
 
 

@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import threading
 import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from dataclasses import replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ...review.window import SplunkWindowSource
 from ..engine import Search
-from ..executor import executor_for
+from ..executor import ROW_CAP, HuntExecutor, Read, executor_for
 from ..judge import JudgeClient
 from .behaviours import (
     Behaviour,
@@ -70,6 +73,75 @@ MERGE_PRIORITY = (SIMILAR_GENERATOR, *BASE_GENERATORS, MISFIT_GENERATOR)
 SOURCES_FILE = "sources.json"
 STORE_FILE = "behaviours.duckdb"
 NOTABLES_FILE = "notables.jsonl"
+
+
+def _query_filter(query: str, field: str) -> str:
+    found = re.search(rf'(?i)(?<![\w]){field}\s*=\s*(?:"([^"]*)"|([^\s|]+))', query)
+    return str(found.group(1) or found.group(2) or "") if found else ""
+
+
+def _ledger_source_id(query: str) -> str:
+    index = _query_filter(query, "index")
+    source = _query_filter(query, "sourcetype") or _query_filter(query, "source")
+    return f"{index}:{source}" if index and source else ""
+
+
+def _extracted_values(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    values: dict[str, None] = {}
+
+    def visit(value: Any) -> None:
+        if isinstance(value, Mapping):
+            for item in value.values():
+                visit(item)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                visit(item)
+        elif value is not None and str(value):
+            values.setdefault(str(value), None)
+
+    for row in rows:
+        visit(row)
+    return list(values)
+
+
+def reset_ledger(out: Path) -> None:
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "ledger.jsonl").write_text("", encoding="utf-8")
+
+
+def configure_ledger(search: Search, out: Path, stage: str) -> HuntExecutor:
+    path = out / "ledger.jsonl"
+    out.mkdir(parents=True, exist_ok=True)
+    lock = threading.Lock()
+    executor = executor_for(search)
+
+    def record(
+        query: str,
+        start: float,
+        end: float,
+        result: Read,
+        source_id: str | None,
+        part: str | None,
+    ) -> None:
+        row = {
+            "stage": stage,
+            "source_id": source_id or _ledger_source_id(query),
+            "part": part,
+            "query": query,
+            "window_start": start,
+            "window_end": end,
+            "rows": len(result.rows),
+            "capped": result.reason == ROW_CAP,
+            "reason": result.reason,
+            "values_extracted": _extracted_values(result.rows),
+        }
+        with lock, path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(row, sort_keys=True) + "\n")
+
+    executor.read_observer = record
+    with suppress(AttributeError, TypeError):
+        cast(Any, search).executor = executor
+    return executor
 
 
 def default_search() -> SplunkWindowSource:
@@ -331,6 +403,7 @@ def cards_stage(
 ) -> dict[str, Any]:
     """Sample every source, then ask once per distinct structure, concurrently."""
     began = time.monotonic()
+    configure_ledger(search, out, "cards")
     executor = executor_for(search)
     facts, notes = index_facts(executor, index, start, end)
     cache = CardCache(out / "cache" / "cards")
@@ -395,6 +468,7 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
     cards = load_cards(out)
     began = time.monotonic()
     sources = read_json(out / SOURCES_FILE)
+    configure_ledger(search, out, "behaviours")
     executor = executor_for(search)
     inventory = collect_inventory(
         executor,
@@ -440,6 +514,7 @@ def notables_stage(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Raise notables from each independent generator, bounded and ordered, to notables.jsonl."""
     began = time.monotonic()
+    configure_ledger(search, out, "notables")
     cards = load_cards(out)
     store = out / STORE_FILE
     if not store.exists():
@@ -572,6 +647,7 @@ def judge_stage(
         "cut": cut,
         "cut_reason": "; ".join(cut_reasons) or None,
     }
+    saved = [{**row, "unjudged": row.get("p_yes") is None} for row in saved]
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in saved))
     receipt["file"] = str(path)
     receipt["peak_memory_mb"] = peak_memory_mb()

@@ -31,7 +31,7 @@ from ..executor import executor_for
 from .inventory import INVENTORY_FILE, load_inventory
 from .knowledge import PROOF_INDEXES
 from .receipt import progress_update, read_json, write_json
-from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, read_notables
+from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, configure_ledger, read_notables
 from .sample import shared_source_names, source_route
 
 RELATE_FILE = "relate.json"
@@ -579,6 +579,7 @@ def _related_rows(
                 "generator": "relate",
                 "basis": "identity_episode",
                 "what": raw[:EVIDENCE_CHARS],
+                "unjudged": True,
                 "entities": [{"role": "related_entity", "value": value} for value in shared],
                 "source_id": f"{index}:{row.get('sourcetype') or row.get('source') or ''}",
                 "first_seen": item["time"],
@@ -936,13 +937,16 @@ def _write_notables(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
 
 def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dict[str, Any]:
     """Read identity neighbours over episode windows, score links by within-source share."""
+    configure_ledger(search, out, "relate")
     sources = read_json(out / SOURCES_FILE)
     index = str(sources.get("index") or "")
     relatable_index(index)
     start, end = _number(sources.get("start")), _number(sources.get("end"))
     if start is None or end is None or end <= start:
         raise ValueError(f"{out / SOURCES_FILE} needs a valid start/end range")
-    notables = read_notables(out / NOTABLES_FILE)
+    notables = [
+        {**row, "unjudged": row.get("p_yes") is None} for row in read_notables(out / NOTABLES_FILE)
+    ]
     selected = [row for row in notables if not judged_only or row.get("p_yes") is not None]
     identity = _identity_fields(out)
     shares, spans = _load_metrics(out / STORE_FILE)
@@ -957,8 +961,8 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
     flows = [item for item in inventory.get("flows") or () if isinstance(item, Mapping)]
     cases = _cases(seeds, related, flows)
     promoted, promotion = promote_case_members(notables, cases, related)
-    if promotion["lifted"]:
-        _write_notables(out / NOTABLES_FILE, promoted)
+    promoted = [{**row, "unjudged": row.get("p_yes") is None} for row in promoted]
+    _write_notables(out / NOTABLES_FILE, promoted)
     snapshot = executor.budget.snapshot()
     receipt = {
         "index": index,
