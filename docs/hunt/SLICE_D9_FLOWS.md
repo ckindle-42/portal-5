@@ -36,6 +36,9 @@ flow. Every candidate that is not emitted is counted under `inventory.json:flow_
   `host_proven`, `ingress`, `later` and the two endpoint steps.
 - Candidates are taken **rarest first** (total events, then value), so the 64-flow budget and the
   16-probe host budget are spent on traverses rather than on ambient volume.
+- Two observations of one value in the *same* second are read as a duplicate (identical span), so
+  a genuine traverse inside one second is lost — the case layer still chains those episodes by
+  entity key.
 
 ## Measured offline — the six stored runs, replaying the new `_flows`
 
