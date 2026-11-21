@@ -78,6 +78,7 @@ def test_shipped_conf_is_rendered_from_the_plan_and_extracts() -> None:
     """The committed app tree is exactly the renderer's output, and it extracts on real lines."""
     assert conf.diff_app(APP_ROOT) == []
     rendered = conf.conf_files()
+    assert "macros.conf" not in rendered  # the CIM app owns the macro; a copy here loses to it
     transforms = rendered["transforms.conf"]
     fields = rendered["fields.conf"]
     props = rendered["props.conf"]
@@ -162,10 +163,21 @@ class _FakeSplunk:
             }
         }
         self.apps = {"Splunk_TA_nix": True}
+        self.macros = dict.fromkeys(plan.cim_macros(True), plan.CIM_DEFAULT_DEFINITION)
+
+    def _config(self, method: str, path: str, data):
+        name = path.split("/configs/conf-macros/")[-1].split("?")[0]
+        if method == "POST":
+            self.macros[name] = data["definition"]
+        if name not in self.macros:
+            raise rest.SplunkError("404", status=404)
+        return {"entry": [{"content": {"definition": self.macros[name]}}]}
 
     def __call__(self, method: str, path: str, data):
         if method == "POST":
             self.writes.append((path, json.dumps(data, sort_keys=True)))
+        if "/configs/conf-macros/" in path:
+            return self._config(method, path, data)
         if "/configs/" in path:
             return {"entry": []}
         if path.startswith("/services/apps/local/"):
@@ -207,21 +219,48 @@ def test_stage_one_apply_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _FakeSplunk()
     svc = rest.SplunkREST(transport=fake)
     settings = {"maxTotalDataSizeMB": "20000", "frozenTimePeriodInSecs": "365000000"}
-    first = [
-        svc.ensure_app("Splunk_TA_nix", enabled=True),
-        svc.ensure_index("hb_kyoushi_s1_v2", settings),
-        svc.ensure_hec_index("portal5-hec-token-2026", "hb_kyoushi_s1_v2"),
-    ]
+    macro, definition = plan.cim_macros()[0], plan.cim_macro_definition()
+
+    def run() -> list[rest.Action]:
+        return [
+            svc.ensure_app("Splunk_TA_nix", enabled=True),
+            svc.ensure_index("hb_kyoushi_s1_v2", settings),
+            svc.ensure_hec_index("portal5-hec-token-2026", "hb_kyoushi_s1_v2"),
+            svc.ensure_macro(plan.CIM_APP, macro, definition),
+        ]
+
+    first = run()
     writes_after_first = list(fake.writes)
-    second = [
-        svc.ensure_app("Splunk_TA_nix", enabled=True),
-        svc.ensure_index("hb_kyoushi_s1_v2", settings),
-        svc.ensure_hec_index("portal5-hec-token-2026", "hb_kyoushi_s1_v2"),
-    ]
-    assert first[0].changed and not first[1].changed and not first[2].changed
+    second = run()
+    assert [a.changed for a in first] == [True, False, False, True]
     assert writes_after_first == [
-        ("/services/apps/local/Splunk_TA_nix/enable?output_mode=json", "null")
+        ("/services/apps/local/Splunk_TA_nix/enable?output_mode=json", "null"),
+        (
+            f"/servicesNS/nobody/{plan.CIM_APP}/configs/conf-macros/{macro}?output_mode=json",
+            json.dumps({"definition": definition}, sort_keys=True),
+        ),
     ]
-    assert [a.changed for a in second] == [False, False, False]
+    assert fake.macros[macro] == definition
+    assert [a.changed for a in second] == [False, False, False, False]
     assert fake.writes == writes_after_first
+    restored = svc.ensure_macro(plan.CIM_APP, macro, plan.CIM_DEFAULT_DEFINITION)
+    assert restored.changed and fake.macros[macro] == plan.CIM_DEFAULT_DEFINITION
     assert reindex.make_plan  # the driver is importable without a live Splunk
+
+
+def test_verify_judges_the_parser_expansion_not_the_conf_row() -> None:
+    """The macro passes only when the parser expands it to every `_v2` index; `()` fails."""
+    expansion = f"litsearch {plan.cim_macro_definition()}"
+
+    class _Svc:
+        def macro_expansion(self, macro: str) -> str:
+            return expansion if macro == "cim_Web_indexes" else "litsearch ()"
+
+    report = {row["probe"]: row for row in cli._cim_macro_probes(_Svc())}
+    assert len(report) == len(plan.cim_macros()) == 6
+    assert report["cim_macro:cim_Web_indexes"]["failed"] is False
+    assert all(
+        spec.target_index in report["cim_macro:cim_Web_indexes"]["expansion"] for spec in plan.TUNED
+    )
+    assert report["cim_macro:cim_Authentication_indexes"]["failed"] is True
+    assert "does not name" in report["cim_macro:cim_Authentication_indexes"]["messages"][0]

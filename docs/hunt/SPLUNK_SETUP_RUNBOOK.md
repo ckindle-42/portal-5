@@ -67,7 +67,10 @@ are never written, never cleaned and never deleted by any stage; rollback of sta
 
 To make that structural rather than incidental, the CIM index allowlist macros for the six
 accelerated models (`cim_*_indexes`) are scoped to the three `_v2` indexes, so data-model
-acceleration physically cannot build summaries over `botsv2`. No other model's macro is touched.
+acceleration physically cannot build summaries over `botsv2`. The scope is written into
+**Splunk_SA_CIM's own local config** by stage 1, because that app ships those macros with an empty
+`()` default that wins over a copy in any other app — measured live 2026-11-21: the search parser
+normalised the invocation to `litsearch ()`. No other model's macro is touched.
 Side effect, deliberate and visible: on `botsv2` those six models stop populating (today they
 populate as a ~200 s scan). The `tags` from `botsv2_data_set` are untouched, so
 `tag=authentication` still works there; only `tstats from datamodel=` is gone. Stage 5's control
@@ -117,7 +120,8 @@ and the acceleration state of the seven models (via `| rest /services/data/model
 ## Stage 1 — app, TAs, CIM bindings, new indexes (~3–5 min, <10 MB)
 
 **What it does** (`apply`): renders the app from `plan.py`, streams it into
-`/opt/splunk/etc/apps/portal5_hunt_setup`, enables the TAs, creates the three `_v2` indexes,
+`/opt/splunk/etc/apps/portal5_hunt_setup`, enables the TAs, writes the six `cim_*_indexes`
+overrides into `Splunk_SA_CIM`'s local `macros.conf` (REST), creates the three `_v2` indexes,
 extends the HEC token's index allowlist, and restarts Splunk. Each step reads state first and
 writes only on a difference, so re-running it is a no-op (proved by
 `tests/unit/test_splunk_setup.py::test_stage_one_apply_is_idempotent`).
@@ -143,8 +147,15 @@ on); `app --check` proves it is exactly what the renderer produces.
 | `fields.conf` | `INDEXED = true` for every index-time field, incl. the JSON keys the doc names (`alert.signature`, `dns.rrname`, `http.url`, …) |
 | `eventtypes.conf` + `tags.conf` | the CIM tag constraints: `authentication`, `web`, `ids`+`attack`, `network`+`communicate`, `network`+`resolution`, `endpoint`+`process`+`report` |
 | `datamodels.conf` | empty at stage 1; stage 3 writes acceleration for the six models, `acceleration.earliest_time = -10y` |
-| `macros.conf` | `cim_*_indexes` for the six models, scoped to the three `_v2` indexes |
 | `savedsearches.conf` | one `collect` per tuned index (stage 4) |
+
+The `cim_*_indexes` macros are **not** in this app: `apply` POSTs them to
+`/servicesNS/nobody/Splunk_SA_CIM/configs/conf-macros/<macro>` with
+`definition = (index=hb_kyoushi_s1_v2 OR index=hb_ait_santos_v2 OR index=hb_ait_russellmitchell_v2)`.
+A copy under `portal5_hunt_setup` was rendered until 2026-11-21; it loses to Splunk_SA_CIM's
+empty `()` default in every app context, so it was dropped. An app install left on the box by an
+earlier run may still hold it — it is inert (it loses too) and `rollback`'s app removal takes it
+out with the rest of the app.
 
 **Why the window is `-10y` and not a SOC's `-30d`:** `acceleration.earliest_time` is relative to
 *now*; these corpora are 2021-03 and 2022-01. A `-90d` window would accelerate nothing at all and
@@ -170,12 +181,24 @@ ssh -i $LAB_SSH_KEY root@$LAB_PROXMOX_HOST \
 → exactly 3 rows; `frozenTimePeriodInSecs = 365000000`.
 
 ```spl
-| rest /servicesNS/-/-/configs/conf-macros | search title=cim_Web_indexes | table title definition
+| rest /servicesNS/nobody/Splunk_SA_CIM/configs/conf-macros | search title=cim_Web_indexes | table title definition
 ```
-→ at least one row whose `definition` names the three `_v2` indexes. **If the CIM default also
-appears and wins**, move the macro into the `search` app — that is the documented override target:
-`apply` renders `macros.conf` in `portal5_hunt_setup`, and app precedence for search-time config
-is the one thing this stage cannot prove offline. Stage 3's control probe is the decisive test.
+→ one row whose `definition` is `(index=hb_kyoushi_s1_v2 OR index=hb_ait_santos_v2 OR
+index=hb_ait_russellmitchell_v2)`.
+
+**The conf row is not the proof.** Splunk_SA_CIM's `()` default still exists behind that row and
+still wins if the local override is not the one being resolved. The property is the **parser
+expansion**, and `verify` reads it from the search job's `normalizedSearch` for each of the six
+macros (a `` search `cim_Web_indexes` | head 0 `` probe):
+
+```bash
+uv run python -m scripts.lab.splunk_setup verify | tee coding_task/scratch/splunk_setup/verify.json | head -90
+```
+→ the first six entries are `"probe": "cim_macro:cim_<Model>_indexes"`, each `"failed": false`
+with an `"expansion"` that names all three `_v2` indexes. **Fail if** an expansion is
+`litsearch ()`, or names a non-`_v2` index — that is the 2026-11-21 finding, and it means the
+override did not land in Splunk_SA_CIM's local config. `rollback` restores the seven defaults
+(`definition = ()`).
 
 ```spl
 | tstats count where index=hb_ait_santos by sourcetype
@@ -185,10 +208,13 @@ is the one thing this stage cannot prove offline. Stage 3's control probe is the
 **Rollback** (≈2 min, deletes nothing but the app):
 
 ```bash
+uv run python -m scripts.lab.splunk_setup rollback --index santos --dry-run   # shows what changes
 uv run python -m scripts.lab.splunk_setup rollback --index santos
 ```
 
-which prints: remove `/opt/splunk/etc/apps/portal5_hunt_setup`, restart, and
+It resets the seven `cim_*_indexes` macros in Splunk_SA_CIM to CIM's own `()` default (a no-op for
+`cim_Change_indexes` unless `--with-change` was applied) and prints, for you to run: remove
+`/opt/splunk/etc/apps/portal5_hunt_setup`, restart, and
 `POST …/apps/local/<ta>/disable` for every TA the stage enabled.
 
 ---
@@ -331,7 +357,7 @@ assumption with a measurement — record it.
 → **0 rows** (and `scanCount` 0): `botsv2` is outside the CIM macro allowlist, so the model does
 not even look at it. `summariesonly=false` is the point — with `true` the probe would return 0
 rows whether or not the macro worked. If this returns the 2.59 M events the realism doc measured,
-the macro precedence went the wrong way (stage 1's warning) — fix before continuing.
+the macro precedence went the wrong way (stage 1's `verify` would already have failed) — fix before continuing.
 Second check: `| rest /services/admin/summarization | table title earliest latest` must show no
 entry covering 2017-08..2018-10.
 
@@ -386,12 +412,14 @@ exists to remove). Then `index=summary hunt_entities_index=hb_ait_santos | head 
 uv run python -m scripts.lab.splunk_setup verify --index santos | tee coding_task/scratch/splunk_setup/verify.json
 ```
 
-It runs, for the chosen index, the four tuned probes (events / sourcetypes / indexed entity /
-accelerated model) plus the three control probes, and reports `rows`, `scan_count`,
-`run_seconds` and the expected result for each. What "worked" looks like, in one place:
+It runs the six `cim_*_indexes` parser expansions, then for the chosen index the four tuned probes
+(events / sourcetypes / indexed entity / accelerated model) plus the three control probes, and
+reports `rows`, `scan_count`, `run_seconds` and the expected result for each. What "worked" looks
+like, in one place:
 
 | probe | expected | what a failure means |
 |---|---|---|
+| `cim_macro:cim_<Model>_indexes` ×6 | the expansion names all three `_v2` indexes | the override is not in Splunk_SA_CIM's local conf — re-run `apply` |
 | `eventcount index=<i>_v2` | = the table's kept count | a file failed to ship — `--resume` |
 | `tstats … by sourcetype` on `_v2` | ≤16 rows, no date-in-filename names | mapping missed a class |
 | `tstats … by acct` on `_v2` | >0 rows | index-time extraction not applied (props not loaded / wrong stage order) |
@@ -417,7 +445,7 @@ accepted against.
 | `_v2` disk use | **estimate** (104 B/event proxy, +40–100 % extraction) until `dbinspect` after stage 2 |
 | acceleration build time | **estimate** from the doc's measured scan rates; `cron */10` adds up to 10 min of waiting |
 | summary size | **assumption** (doc's 5–15 %); replaced by `summary_size` after stage 3 |
-| macro precedence over the CIM defaults | **unproven offline** — decided by stage 1's `rest conf-macros` read and stage 3's control probe |
+| macro precedence over the CIM defaults | **measured live 2026-11-21** — the app copy loses to Splunk_SA_CIM's `()` defaults in every app context, so `apply` now writes the override into Splunk_SA_CIM's local conf and `verify` asserts the parser expansion |
 | that the live Splunk accepts this conf | **unproven** — no stage was run |
 
 ## 7. Promotion (after stage 5 passes)

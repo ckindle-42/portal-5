@@ -179,17 +179,6 @@ def datamodels_conf(with_change: bool = False, accelerate: bool = True) -> str:
     return "\n".join(out)
 
 
-def macros_conf(with_change: bool = False) -> str:
-    allowlist = " OR ".join(f"index={spec.target_index}" for spec in plan.TUNED)
-    models = list(plan.ACCELERATED) + (list(plan.ACCELERATED_OPTIONAL) if with_change else [])
-    out = [HEADER, "# Scoped to the tuned indexes: botsv2 stays untuned (§8.4).\n"]
-    for macro in (f"cim_{model}_indexes" for model in models):
-        out.append(f"[{macro}]")
-        out.append(f"definition = {allowlist}")
-        out.append("")
-    return "\n".join(out)
-
-
 def summary_search(spec: plan.IndexSpec) -> str:
     return (
         f'index={spec.target_index} sourcetype="linux_audit" '
@@ -223,7 +212,7 @@ def app_conf() -> str:
 
 
 def conf_files(with_change: bool = False, accelerate: bool = True) -> dict[str, str]:
-    """filename -> text for every conf file the app ships."""
+    """filename -> text for every conf file the app ships (macros live in Splunk_SA_CIM)."""
     return {
         "app.conf": app_conf(),
         "props.conf": props_conf(),
@@ -232,7 +221,6 @@ def conf_files(with_change: bool = False, accelerate: bool = True) -> dict[str, 
         "eventtypes.conf": eventtypes_conf(),
         "tags.conf": tags_conf(),
         "datamodels.conf": datamodels_conf(with_change, accelerate),
-        "macros.conf": macros_conf(with_change),
         "savedsearches.conf": savedsearches_conf(),
     }
 

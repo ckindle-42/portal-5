@@ -187,16 +187,10 @@ EVENTTYPES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("ph_web_suricata_http", 'sourcetype="suricata" event_type=http', ("web",)),
 )
 
-#: CIM index allowlist macros, scoped to the tuned indexes so botsv2 cannot be accelerated.
-CIM_MACROS = (
-    "cim_Authentication_indexes",
-    "cim_Change_indexes",
-    "cim_Endpoint_indexes",
-    "cim_Intrusion_Detection_indexes",
-    "cim_Network_Resolution_indexes",
-    "cim_Network_Traffic_indexes",
-    "cim_Web_indexes",
-)
+#: CIM index allowlist macros live in Splunk_SA_CIM, whose empty `()` defaults win over any
+#: other app's copy, so the scope of the tuned indexes is written there.
+CIM_APP = "Splunk_SA_CIM"
+CIM_DEFAULT_DEFINITION = "()"
 
 #: Accelerated models (the doc's six cheap ones); Change is opt-in and needs winregistry.
 ACCELERATED = (
@@ -208,6 +202,17 @@ ACCELERATED = (
     "Web",
 )
 ACCELERATED_OPTIONAL = ("Change",)
+
+
+def cim_macros(with_change: bool = False) -> tuple[str, ...]:
+    """The index-allowlist macros of every model acceleration is switched on for."""
+    models = ACCELERATED + (ACCELERATED_OPTIONAL if with_change else ())
+    return tuple(f"cim_{model}_indexes" for model in models)
+
+
+def cim_macro_definition() -> str:
+    """The definition that scopes a model to the tuned indexes and keeps botsv2 out."""
+    return "(" + " OR ".join(f"index={spec.target_index}" for spec in TUNED) + ")"
 
 
 @dataclass(frozen=True)
