@@ -195,13 +195,21 @@ the old `72`-row range, or any receipt carrying `host='inet-firewall'` for that 
   rules live in `read_files`. If E2 intended the anchored read to stop passing an anchor window at
   all (it is now ignored for files that have a range), that is a two-line follow-up, not a defect I
   could see a property for.
-- **Request cost rises where the map has ranges.** santos `access_combined`: 55 row reads + 51
-  density counts = 106 requests, against 66 at HEAD — the density count is ~one per file-window,
-  which is what §6 budgets for but E4 has not bounded yet. Where the map has **no** ranges
-  (every stored Round-2 run, botsv2 included) the plan *shrinks*: 3 windows per file instead of
-  the old budget-driven 3–24, so botsv2's 181 files project to ≈1,086 requests (181 × (3 reads +
+- **Request cost and timing rise where the map has ranges.** santos `access_combined`: 55 row reads
+  + 51 density counts = 106 requests, against 66 at HEAD — the density count is ~one per
+  file-window, which is what §6 budgets for but E4 has not bounded yet. Where the map has **no**
+  ranges (every stored Round-2 run, botsv2 included) the plan *shrinks*: 3 windows per file instead
+  of the old budget-driven 3–24, so botsv2's 181 files project to ≈1,086 requests (181 × (3 reads +
   3 counts)) against the 1,813 behaviour reads of run B — arithmetic from the stored file count,
   not a measurement.
+- **The density counts are issued serially, before the first row read.** `_plan_files` resolves
+  every window's count in the calling thread, so botsv2's 181 files mean ~543 discovery requests in
+  sequence (measured ratio: 51 counts for 21 santos files) ahead of any evidence read; at a 0.5 s
+  Splunk round trip that is ~4.5 min of the 720 s job clock, and if the request budget runs out
+  mid-plan every later read is receipted with the budget's reason. Parallelising the plan counts
+  (the executor already takes concurrent reads) or folding them into one per-file `span` query is
+  the obvious next move — I did not take it because E4 owns the request budget and the brief did
+  not ask for it.
 - **The densest *hour* can straddle a slice.** On the live santos map the graded file's 14h02m
   range cuts into 3 slices of 4h40m; the reported burst 11:00–12:00Z sits 358s in slice 1 and the
   rest in slice 2. A window contains the burst, but no single window contains the whole hour, so
