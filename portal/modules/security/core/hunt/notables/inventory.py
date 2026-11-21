@@ -1115,8 +1115,8 @@ def _flow_host(
     later: Mapping[str, Any],
     hosts: Mapping[str, str],
     budget: list[int],
-) -> tuple[str, str]:
-    """("shared"|"disjoint"|"unproven", host): the one host both endpoints see the value on."""
+) -> tuple[str, str, list[str]]:
+    """("shared"|"disjoint"|"unproven", one host or "", every shared host both endpoints see)."""
     seen: dict[str, set[str]] = {}
     for step in (ingress, later):
         card_id = str(step.get("card_id") or "")
@@ -1131,11 +1131,11 @@ def _flow_host(
         if probed:
             seen[card_id] = set(found)
     if len(seen) < 2:
-        return "unproven", ""
-    shared = set.intersection(*seen.values())
+        return "unproven", "", []
+    shared = sorted(set.intersection(*seen.values()))
     if not shared:
-        return "disjoint", ""
-    return "shared", sorted(shared)[0]
+        return "disjoint", "", []
+    return "shared", shared[0] if len(shared) == 1 else "", shared
 
 
 def _flows(
@@ -1177,7 +1177,7 @@ def _flows(
         if later is None:
             skips[reason] += 1
             continue
-        state, host = _flow_host(prober, index, ordered[0], later, hosts, budget)
+        state, host, shared_hosts = _flow_host(prober, index, ordered[0], later, hosts, budget)
         if state == "disjoint":
             skips["host"] += 1
             continue
@@ -1186,6 +1186,7 @@ def _flows(
                 "value": value,
                 "status": "complete",
                 "host": host,
+                "hosts": shared_hosts,
                 "host_proven": state == "shared",
                 "ingress": ordered[0]["source_id"],
                 "later": later["source_id"],

@@ -33,7 +33,9 @@ flow. Every candidate that is not emitted is counted under `inventory.json:flow_
   candidate is `host`-skipped. When the host cannot be probed (search-time field, probe budget
   spent) the flow is emitted with `host: ""` and `host_proven: false` rather than dropped.
 - A flow carries `status: complete` (so the scoreboard's inventory cells read it), `host`,
-  `host_proven`, `ingress`, `later` and the two endpoint steps.
+  `hosts`, `host_proven`, `ingress`, `later` and the two endpoint steps. `hosts` is every host
+  both endpoints report for the value; `host` is named only when that is exactly one host, so a
+  value shared across several hosts never claims a single one.
 - Candidates are taken **rarest first** (total events, then value), so the 64-flow budget and the
   16-probe host budget are spent on traverses rather than on ambient volume.
 - Two observations of one value in the *same* second are read as a duplicate (identical span), so
@@ -90,10 +92,30 @@ flows=64  host-proven=7  skips={'capped': 1104, 'duplicate': 2752, 'order': 109,
   identical `first`/`last`). Those are the "seen twice" class the rule exists to remove.
 - 109 are `order` (same start), 1 `host` (probed and disjoint), 1,104 over the 64-flow budget.
 
-Without capped lists this run has **no** candidate at all: every `_v2` stored run reports 0
+Without capped lists the **stored** runs have no candidate at all: every `_v2` stored run reports 0
 values present in more than one source (`v2/santos` 1,464 values, `v2/kyoushi` 3,675,
-`v2/russell` 810). Capped lists are therefore what makes the signal reachable on the
-consolidated estate — the same reason D3 keeps their tail.
+`v2/russell` 810) — the same reason D3 keeps their tail.
+
+## The acceptance's own endpoint pair, measured read-only (D2 has landed)
+
+D2 is in this branch's base, so the estate's vocabulary now feeds the lists. Read-only on
+`hb_ait_santos_v2` (`| tstats dc(...)` and `by <field> host`): `access_combined` carries
+`c_ip` 18, `vhost` 1, `cs_uri_stem` 13,963; `linux_audit` carries `acct` 13, `exe` 7;
+`linux_secure.user` 1,095 values (the RC10-corrupted ones still enumerate as names).
+
+`linux_secure.user` ∩ `linux_audit.acct` = **3** values, each on a host both sources report:
+
+```
+root      secure 1642072621..1642485679   audit 1642118941..1642462741  hosts cloud_share, inet-firewall, internal_share, intranet_server, mail, vpn, webserver
+www-data  secure 1642084296..1642463102   audit 1642118401..1642463102  host  cloud_share
+gmorgan   secure 1642294092..1642420704   audit 1642294092..1642420698  hosts intranet_server, mail
+```
+
+`www-data` passes every gate (different spans, ordered start, different role vectors, exactly one
+shared host) and becomes a `linux_secure → linux_audit` flow with `host: "cloud_share"` — the pair
+and the single host the acceptance names. `root` is the same transition over seven shared hosts,
+so it is emitted with `host: ""` and the seven names in `hosts`. `gmorgan` starts in the same
+second in both sources and is `order`-skipped, which is the conservative reading this rule takes.
 
 ## What is not proved here
 
@@ -102,10 +124,12 @@ consolidated estate — the same reason D3 keeps their tail.
   `eventstats/sort/head` bounds, so the live count will differ. The ordered ingress→later pair
   also has a unit fixture (`test_value_flow_orders_ingress_before_the_later_source`), which
   exercises the tsidx host probe.
-- **The slice's stated endpoint pair is still unreachable today.** `access_combined`'s lists are
-  template slots (`template/v3/v5`) and `linux_secure: program` is empty on `_v2`, so the web→auth
-  flow the acceptance names needs D2's vocabulary. What fires today is `dnsmasq → suricata`,
-  which satisfies `flows > 0` on one host but is not the web→execution pair.
+- **The `access_combined` leg of the acceptance is still unmeasured.** `c_ip` is an address and
+  `acct`/`exe` are names and paths, so an exact shared value between the web and audit
+  vocabularies is not there; the web→execution flow the acceptance names is reachable through
+  `linux_secure.user → linux_audit.acct` (measured above), not through the web list. If D2's
+  probe selects `cs_uri_stem` on `access_combined`, a URI→`exe` match would be needed and is not
+  expected.
 - **The host probe covers 8 candidates.** Beyond the 16-probe budget a flow keeps
   `host: ""`/`host_proven: false`; the live run should read `flows_proven` to see how many of the
   emitted flows are host-checked.
