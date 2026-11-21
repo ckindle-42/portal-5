@@ -925,3 +925,60 @@ def test_a_step_whose_file_the_index_lacks_is_evidence_absent_not_unreachable(
     assert "C0 ceiling  steps 1/1 reachable" in printed
     assert "C0 evidence absent (excluded from the step denominator)  crack 2/2" in printed
     assert "  reachable   lost -  gained dirb" in printed
+
+
+def test_a_line_family_names_a_cause_for_every_step(tmp_path: Path) -> None:
+    source = "/apache2/access.log.4"
+    cut = "/auth.log"
+    absent = "/logstash/intranet-server/2022-01-17-system.cpu.log"
+    read = _line("10.0.0.5", "/scan")
+    uncovered = _line("10.0.0.7", "/probe")
+    unread = _line("10.0.0.6", "/wp-login")
+    run = _run(
+        tmp_path,
+        notables=[
+            _notable("alerts", source, ["10.0.0.5"], content_key="read"),
+            _notable("deviation", source, ["10.0.0.6"], content_key="unread"),
+        ],
+        keys=_keys(source, "web", {1: ["dirb"], 2: ["wpscan"], 3: ["nikto"]})
+        + _keys(cut, "auth", {1: ["crack"]})
+        + _keys(absent, "mon", {1: ["gone"], 2: ["gone"]}),
+        files={
+            ("web", source): [read, unread, uncovered],
+            ("auth", cut): ["Mar 23 20:01:00 sshd[1] Failed password"],
+            ("mon", absent): ["cpu 1 2 3", "cpu 4 5 6"],
+        },
+        indexed=[source, cut],
+    )
+    con = duckdb.connect(str(run / "behaviours.duckdb"))
+    con.execute("CREATE TABLE events (raw VARCHAR)")
+    con.executemany("INSERT INTO events VALUES (?)", [[read], [uncovered]])
+    con.close()
+    cut_read = {
+        "stage": "behaviours",
+        "source_id": "idx:auth.log",
+        "part": None,
+        "query": f'search index="idx" (source="{cut}") | head 5',
+        "rows": 5,
+        "capped": True,
+        "reason": "row_cap",
+        "values_extracted": [],
+        "window_start": 0.0,
+        "window_end": 0.0,
+    }
+    with (run / "ledger.jsonl").open("a", encoding="utf-8") as ledger:
+        ledger.write(json.dumps(cut_read) + "\n")
+    family = score(run, [str(run / "keys.jsonl")], logs=tmp_path / "corpus" / "fam" / "gather")[
+        "families"
+    ][0]
+    causes = {row["step"]: row["cause"] for row in family["ceiling"]["per_step"]}
+    assert causes == {
+        "dirb": "covered",
+        "wpscan": "instrument",
+        "nikto": "not_surfaced",
+        "crack": "censored",
+        "gone": "unreached",
+    }
+    printed = board.render(family)
+    assert "C0 causes  censored 1, covered 1, instrument 1, not_surfaced 1, unreached 1" in printed
+    assert "unreached: gone (2/2 absent)" in printed

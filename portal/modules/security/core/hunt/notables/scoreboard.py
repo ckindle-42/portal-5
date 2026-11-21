@@ -35,7 +35,7 @@ from .merge import (
     marginal_weights,
     remerge_without,
 )
-from .receipt import read_json
+from .receipt import knowledge_facts, read_json
 from .relate import CASE_MIN_EVIDENCE, CASES_FILE, RELATE_FILE
 from .run import GENERATORS, MERGE_PRIORITY, NOTABLES_FILE, SOURCES_FILE, card_from_dict
 
@@ -111,6 +111,15 @@ CAUSE_RULE = (
     "surfaces only when evidence lines count; censored = its locator source had a cut read and "
     "the artefact did not surface; not_surfaced = the run read it and surfaced no notable; "
     "unreached = no creditable artefact value is in a read store."
+)
+
+LINE_CAUSE_RULE = (
+    "an audit-declared cause (keys row or --causes) is reported as written; without one the "
+    "scoreboard derives it for a per-line family: covered = a notable covers one of its labelled "
+    "lines at @50 and the run read one of them; instrument = the line scan credits a notable at "
+    "@50 on lines the run never read; not_surfaced = the run read its lines and no notable "
+    "covers them at @50; censored = no line was read and a read of one of its files was cut or "
+    "declined; unreached = its lines were never read and no read of its files was cut."
 )
 STORE_FILE = "behaviours.duckdb"
 SPINE_FILE = "entities.duckdb"
@@ -817,31 +826,27 @@ def _corpus_family(label: str, run_index: str, excluded: str) -> str:
 
 
 def _honesty(progress: Mapping[str, Any], family: str) -> dict[str, Any]:
-    stages = progress.get("stages")
-    notables = stages.get("notables") if isinstance(stages, Mapping) else None
-    detail = notables.get("similar_to_known") if isinstance(notables, Mapping) else None
-    if not isinstance(detail, Mapping):
-        return {"knowledge": "none loaded (similar_to_known did not run in this receipt)"}
-    excluded = detail.get("excluded_family")
-    loaded = [str(f) for f in detail.get("loaded_families") or ()]
-    if detail.get("index_unseen") and not excluded and family not in loaded:
+    facts = knowledge_facts(progress)
+    if facts["knowledge"] != "loaded":
+        return facts
+    excluded = facts["excluded_family"]
+    if facts["index_unseen"] and not excluded and family not in facts["families"]:
         # A dataset the store has never seen has nothing of its own to leave out; the loader's
         # leak guard already refused rows carrying the run's index (2026-11-18, botsv2).
         excluded = family
-    family = _corpus_family(family, str(detail.get("run_index") or ""), str(excluded or ""))
+    family = _corpus_family(family, facts["run_index"], str(excluded or ""))
     if excluded is None or str(excluded) != family:
         raise ScoreboardError(
             f"the notables receipt excludes {excluded!r}, not {family!r}: the run under test "
             "learned from its own family"
         )
-    reliability = detail.get("reliability")
     return {
         "knowledge": "loaded",
-        "families": list(detail.get("loaded_families") or ()),
+        "families": facts["families"],
         "excluded_family": excluded,
-        "knowledge_items": detail.get("knowledge_items"),
-        "embedding_model": detail.get("embedding_model"),
-        "reliability_auc": reliability.get("auc") if isinstance(reliability, Mapping) else None,
+        "knowledge_items": facts["knowledge_items"],
+        "embedding_model": facts["embedding_model"],
+        "reliability_auc": facts["reliability_auc"],
     }
 
 
@@ -921,21 +926,72 @@ def _step_row(step: Step) -> dict[str, Any]:
     }
 
 
+def _line_censored(keys: Sequence[KeyLine], ledger: Sequence[Mapping[str, Any]]) -> dict[str, bool]:
+    """Per step, whether a read of one of its labelled files was itself cut or declined."""
+    cut = [
+        _SOURCE.findall(str(row.get("query") or ""))
+        for row in ledger
+        if row.get("capped") or row.get("reason")
+    ]
+    named = {path for paths in cut for path in paths}
+    censored: dict[str, bool] = {}
+    for line in keys:
+        if line.source not in named:
+            continue
+        for label in line.labels:
+            censored[label] = True
+    return censored
+
+
+def _line_cause(step: Step, reachable: bool, censored: bool) -> tuple[str, str]:
+    """The audit's cause when declared, else one derived from the read the run recorded."""
+    if step.cause:
+        return step.cause, "audit"
+    covered = _cut(step.first_rank, 50)
+    if covered and reachable:
+        return "covered", "derived"
+    if covered:
+        return "instrument", "derived"
+    if reachable:
+        return "not_surfaced", "derived"
+    return ("censored", "derived") if censored else ("unreached", "derived")
+
+
 def _line_ceiling(
     directory: Path, keys: Sequence[KeyLine], steps: Mapping[str, Step], logs: Path
 ) -> dict[str, Any]:
     reached, found, seen = _line_reachability(keys, logs, _line_read_lines(directory))
     index, mechanism = _index_paths(directory)
     absent = None if index is None else _evidence_absent(keys, index)
+    censored = _line_censored(keys, _read_ledger(directory))
     present = (
         steps
         if absent is None
         else {label: step for label, step in steps.items() if absent[label][0] < absent[label][1]}
     )
     block = _reach_recall(present, reached)
+    per_step = []
+    for step in steps.values():
+        was_censored = bool(censored.get(step.label))
+        cause, source = _line_cause(step, bool(reached.get(step.label)), was_censored)
+        per_step.append(
+            {
+                "step": step.label,
+                "class": step.klass,
+                "cause": cause,
+                "cause_source": source,
+                "reachable": bool(reached.get(step.label)),
+                "read_censored": was_censored,
+                "first_rank": step.first_rank,
+                "evidence_absent": None
+                if absent is None
+                else {"absent": absent[step.label][0], "lines": absent[step.label][1]},
+            }
+        )
     block.update(
         {
             "rule": REACH_RULE,
+            "cause_rule": LINE_CAUSE_RULE,
             "index_rule": INDEX_RULE,
             "index_map": mechanism,
             "keys_present": None
@@ -954,19 +1010,7 @@ def _line_ceiling(
             ],
             "lines_read": found,
             "labelled_lines": seen,
-            "per_step": [
-                {
-                    "step": step.label,
-                    "class": step.klass,
-                    "cause": step.cause,
-                    "reachable": bool(reached.get(step.label)),
-                    "first_rank": step.first_rank,
-                    "evidence_absent": None
-                    if absent is None
-                    else {"absent": absent[step.label][0], "lines": absent[step.label][1]},
-                }
-                for step in steps.values()
-            ],
+            "per_step": per_step,
         }
     )
     return block
@@ -2815,6 +2859,35 @@ def _evidence_absent_lines(ceiling: Mapping[str, Any]) -> list[str]:
     ]
 
 
+def _absent_text(row: Mapping[str, Any]) -> str:
+    absent = row.get("evidence_absent")
+    return f"{absent['absent']}/{absent['lines']} absent" if absent and absent["absent"] else ""
+
+
+def _line_cause_lines(ceiling: Mapping[str, Any]) -> list[str]:
+    rows = ceiling.get("per_step") or ()
+    counts = Counter(str(row["cause"]) for row in rows)
+    declared = sum(1 for row in rows if row.get("cause_source") == "audit")
+    causes = ", ".join(f"{name} {count}" for name, count in sorted(counts.items()))
+    if declared:
+        causes += f"  (audit-declared {declared})"
+    named = "   ".join(
+        f"{cause}: "
+        + ", ".join(
+            f"{row['step']} ({_absent_text(row)})" if _absent_text(row) else str(row["step"])
+            for row in rows
+            if row["cause"] == cause
+        )
+        for cause in ("instrument", "not_surfaced", "censored", "unreached")
+        if any(row["cause"] == cause for row in rows)
+    )
+    lines = [f"C0 causes  {causes}"]
+    if named:
+        lines.append(f"C0 causes steps  {named}")
+    lines.append("C0 cause rule: " + str(ceiling.get("cause_rule")))
+    return lines
+
+
 def _diff_lines(report: Mapping[str, Any]) -> list[str]:
     base = report.get("baseline")
     if not isinstance(base, Mapping):
@@ -2846,6 +2919,7 @@ def _ceiling_lines(report: Mapping[str, Any]) -> list[str]:
             f"C0 recall-of-reachable  line {_reach_text(ceiling)}",
             f"C0 modes  line {overall['50']}/{steps} @50  {overall['100']}/{steps} @100  "
             f"{overall['None']}/{steps} all   strict n/a for per-line keys",
+            *_line_cause_lines(ceiling),
         ]
     loose, strict, line = ceiling["loose"], ceiling["strict"], ceiling["line"]
     both = ceiling["by_class"].get("B+P") or {"reachable": 0, "steps": loose["steps"]}
