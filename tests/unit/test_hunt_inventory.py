@@ -228,7 +228,13 @@ def _wide_card() -> SourceCard:
         coverage=1.0,
         fields=(_stat("user", 40, 4_000, ("alice",)),),
         sample={"lines": 40, "search_sourcetypes": ["WinEventLog"]},
-        facts={"index": "botsv2", "sourcetype": "wineventlog:security", "events": 2_200_000},
+        facts={
+            "index": "botsv2",
+            "sourcetype": "wineventlog:security",
+            "events": 2_200_000,
+            "first": 1.616e9,
+            "last": 1.642e9,
+        },
         model={},
         cache_key="wide",
     )
@@ -438,23 +444,34 @@ def test_a_rejected_name_is_unavailable_name_not_empty() -> None:
     assert not any(" | stats " in query for query in executor.queries)
 
 
-def test_a_wide_source_is_listed_from_a_complete_accelerated_summary() -> None:
+def test_rung_1_lists_from_a_covering_summary_before_the_indexed_route() -> None:
+    """The real endpoint payload: accelerators are keyed `title`/`summary.id`, not `datamodel_name`."""
     card = _wide_card()
     executor = _Executor(
         tstats_names={"wineventlog:security": 2_200_000},
         search_names={"WinEventLog"},
+        indexed={"user"},
         accelerated=[
             {
-                "datamodel_name": "Authentication",
+                "title": "tstats:DM_Splunk_SA_CIM_Authentication",
+                "summary.id": "DM_Splunk_SA_CIM_Authentication",
                 "summary.complete": "1",
-                "summary.earliest_time": 1.5e9,
-                "summary.latest_time": 1.7e9,
+                "summary.earliest_time": 1.4e9,
+                "summary.latest_time": 2.0e9,
             },
             {
-                "datamodel_name": "Web",
+                "title": "tstats:DM_Splunk_SA_CIM_Web",
+                "summary.id": "DM_Splunk_SA_CIM_Web",
                 "summary.complete": "0.4",
-                "summary.earliest_time": 1.5e9,
-                "summary.latest_time": 1.7e9,
+                "summary.earliest_time": 1.4e9,
+                "summary.latest_time": 2.0e9,
+            },
+            {
+                "title": "tstats:DM_Splunk_SA_CIM_Network_Resolution",
+                "summary.id": "DM_Splunk_SA_CIM_Network_Resolution",
+                "summary.complete": "1",
+                "summary.earliest_time": 1.0e9,
+                "summary.latest_time": 1.2e9,
             },
         ],
         model_rows={
@@ -464,22 +481,27 @@ def test_a_wide_source_is_listed_from_a_complete_accelerated_summary() -> None:
         },
     )
 
-    document = collect_inventory(executor, [card], "botsv2", 0.0, 2.0e9)
+    document = collect_inventory(executor, [card], "botsv2", 0.0, 1_790_000_000.0)
 
     record = document["fields"][0]
     assert record["status"] == "complete"
-    assert record["mechanism"] == "datamodel"
+    assert record["mechanism"] == "accelerated"
+    assert record["events_scope"] == "summary"
     assert record["values"][0]["value"] == "alice"
     assert record["events_scanned"] == 7
-    assert record["accel_window"] == [1.5e9, 1.7e9]
-    assert record["searched_window"] == [0.0, 2.0e9]
+    assert record["accel_window"] == [1.4e9, 2.0e9]
+    # The coverage test is the card's own span (1.616e9-1.642e9), not the query's all-time bound.
+    assert record["searched_window"] == [0.0, 1_790_000_000.0]
+    # Web is incomplete and Network_Resolution's window ends before the source begins.
     assert document["accelerated"] == [
-        {"model": "Authentication", "earliest": 1.5e9, "latest": 1.7e9}
+        {"model": "Authentication", "earliest": 1.4e9, "latest": 2.0e9}
     ]
     assert not any("dc(host) as hosts" in query for query in executor.queries)
     assert "summariesonly=true" in next(
         query for query in executor.queries if "datamodel=" in query
     )
+    assert document["model_probes"] == 1
+    assert not any(" by user" in query for query in executor.queries)
 
 
 def test_a_wide_source_with_no_accelerated_model_is_unavailable_not_empty() -> None:
