@@ -825,7 +825,11 @@ def run_cold_cell(ctx: Ctx, seat: str) -> dict[str, Any]:
             )
             break
         before = capture(ctx)
-        payload = (ctx.cold or _default_cold)(ctx, seat)
+        try:
+            payload = (ctx.cold or _default_cold)(ctx, seat)
+        except _READ_ERRORS as exc:
+            cell["problems"].append({"kind": "failed", "detail": f"trial {trial}: {_failure(exc)}"})
+            break
         after = capture(ctx)
         row = _cold_row(seat, resolved, payload)
         row["trial"] = trial
@@ -873,10 +877,16 @@ def cold_receipts(cells: list[dict[str, Any]], incumbent: str) -> list[dict[str,
     by_seat = {str(cell["target"]): cell for cell in cells}
     base = (by_seat.get(incumbent) or {}).get("median") or {}
     base_ttft = _as_float(base.get("ttft_s"))
+    if base_ttft is None:
+        base_ttft = _as_float(base.get("first_content_s"))
     rows = []
     for cell in sorted(cells, key=lambda item: (item["target"] != incumbent, str(item["target"]))):
         med = cell.get("median") or {}
         ttft = _as_float(med.get("ttft_s"))
+        basis = "ttft_s" if ttft is not None else None
+        if ttft is None:
+            ttft = _as_float(med.get("first_content_s"))
+            basis = "first_content_s" if ttft is not None else None
         ratio = None if not base_ttft or ttft is None else round(ttft / base_ttft, 3)
         is_incumbent = cell["target"] == incumbent
         rows.append(
@@ -888,6 +898,7 @@ def cold_receipts(cells: list[dict[str, Any]], incumbent: str) -> list[dict[str,
                 "status": cell["status"],
                 "load_seconds": med.get("load_seconds"),
                 "ttft_s": ttft,
+                "cold_ttft_basis": basis,
                 "first_content_s": med.get("first_content_s"),
                 "decode_tps": med.get("decode_tps"),
                 "cold_ttft_ratio": ratio,

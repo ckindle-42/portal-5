@@ -939,3 +939,28 @@ def test_run_c1_writes_cells_and_the_receipts_table(tmp_path, monkeypatch):
         "c1_auto-daily.json",
         "c1_bench-cold.json",
     ]
+
+
+def test_cold_cell_records_a_request_failure_instead_of_raising(tmp_path):
+    http = (
+        FakeHttp()
+        .on("/api/ps", OLLAMA_PS_EMPTY)
+        .on("/v1/models/status", OMLX_STATUS_EMPTY)
+        .on("/admin/api/models/", {})
+    )
+
+    def refused(_ctx, _seat):
+        raise OSError("pipeline refused")
+
+    ctx = _ctx(
+        tmp_path,
+        http,
+        resolve=lambda _seat: ("omlx-general", "omlx", "model-a"),
+        cold=refused,
+        cold_trials=1,
+    )
+
+    cell = speed_gate.run_cold_cell(ctx, "bench-autodaily-qwen35-9b")
+
+    assert cell["status"] == "failed"
+    assert "pipeline refused" in cell["problems"][0]["detail"]
