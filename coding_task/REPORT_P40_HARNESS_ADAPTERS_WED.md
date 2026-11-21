@@ -299,9 +299,9 @@ uv run pytest tests/unit/test_jarvis_live_fails_r2.py -q
 
 The exact scripts and per-run logs are in `coding_task/scratch/p40/` (gitignored) —
 `run_task.sh`, `run_opencode.sh`, `conform.sh`, `prompts/`, and one `result.json` per run.
-The clean re-run's scripts, pre-run check captures and per-run records are in
-`coding_task/scratch/p40/clean-rerun/` (`rerun.sh`, `serve_pi_remote.sh`,
-`probe_kv_remote.sh`, `results.jsonl`, `precheck-*.txt`).
+The clean re-run's scripts are `coding_task/scratch/p40/{rerun,serve_pi_remote,probe_kv_remote}.sh`
+and its records are in `coding_task/scratch/p40/clean-rerun/` (`results.jsonl`,
+`precheck-*.txt`, `probe-*.log`, `timings-*.log`).
 
 ## 9. Clean re-run under enforced coding mode (2026-11-21, 07:35–08:05Z)
 
