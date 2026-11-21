@@ -2540,7 +2540,7 @@ the intake finding is `coding_task/FINDING_AUTODAILY_COLDSTART_INTAKE.md`.
 
 ### `qwen3.5:9b-q4_K_M`
 
-`qwen3.5:9b-q4_K_M` is the Ollama library build of Qwen3.5-9B (Qwen, released 2026-03-02, Apache 2.0, hybrid Gated-DeltaNet dense 9B, 262K native context, thinking on by default): 6.6 GB total, a 5.6 GB Q4_K_M language model plus a 922 MB BF16 vision projector. `config/backends.yaml` registers it in the `general` group with `supports_tools: false` because the library manifest's template blob is `{{ .Prompt }}` and no merged-tool probe is on record — Ollama's native `qwen35` renderer may still handle chat/tools, but that is unproven. The oMLX alias maps this hint to `Qwen3.5-9B-oQ4e-mtp`; the bench workspace `bench-autodaily-qwen35-9b` binds it with the Qwen3.5 card sampling (temperature 1.0, top_p 0.95, top_k 20, presence_penalty 1.5) and thinking on. PROMOTE_POLICY=confirm.
+`qwen3.5:9b-q4_K_M` is the Ollama library build of Qwen3.5-9B (Qwen, released 2026-03-02, Apache 2.0, hybrid Gated-DeltaNet dense 9B, 262K native context, thinking on by default): 6.6 GB total, a 5.6 GB Q4_K_M language model plus a 922 MB BF16 vision projector. `config/backends.yaml` registers it in the `general` group with `supports_tools: false` because the library manifest's template blob is `{{ .Prompt }}` and no merged-tool probe is on record — Ollama's native `qwen35` renderer may still handle chat/tools, but that is unproven. While the flag is false the router strips the tools array, so the bench workspace declares no tools. The oMLX alias maps this hint to `Qwen3.5-9B-oQ4e-mtp`; the bench workspace `bench-autodaily-qwen35-9b` binds it thinking-on with the card's `thinking_precise_coding` arm (temperature 0.6, top_p 0.95, top_k 20, presence_penalty 0.0) and a 32,768 output budget, because auto-daily is a tool seat and presence 1.5 is the tool-refusal regime. PROMOTE_POLICY=confirm.
 
 ### `qwen3.5:9b-q4_K_M-ctx16k`
 
@@ -2548,7 +2548,7 @@ the intake finding is `coding_task/FINDING_AUTODAILY_COLDSTART_INTAKE.md`.
 
 ### `gemma4:12b-it-q4_K_M`
 
-`gemma4:12b-it-q4_K_M` is the Ollama library build of Gemma 4 12B Unified (Google DeepMind, released 2026-06-03, Apache 2.0, 11.95B dense, 256K context, native function calling, thinking modes): 8.0 GB, including a 423M Q8_0 assistant/draft. The tag advertises `tools` and `thinking`; `config/backends.yaml` registers it in `general` with `supports_tools: false` until the direct probe returns typed `tool_calls`. The QAT build (`gemma4:12b-it-qat`, 7.2 GB Q4_0) is the better 4-bit but not the brief's `q4_K_M`; it is a documented swap, not an additional arm. Card sampling is temperature 1.0, top_p 0.95, top_k 64. PROMOTE_POLICY=confirm.
+`gemma4:12b-it-q4_K_M` is the Ollama library build of Gemma 4 12B Unified (Google DeepMind, released 2026-06-03, Apache 2.0, 11.95B dense, 256K context, native function calling, thinking modes): 8.0 GB, including a 423M Q8_0 assistant/draft. The tag advertises `tools` and `thinking`; `config/backends.yaml` registers it in `general` with `supports_tools: false` until the direct probe returns typed `tool_calls`, and while that flag is false the router strips the tools array, so the bench workspace declares no tools. The QAT build (`gemma4:12b-it-qat`, 7.2 GB Q4_0) is the better 4-bit but not the brief's `q4_K_M`; it is a documented swap, not an additional arm. Card sampling is temperature 1.0, top_p 0.95, top_k 64. PROMOTE_POLICY=confirm.
 
 ### `gemma4:12b-it-q4_K_M-ctx16k`
 

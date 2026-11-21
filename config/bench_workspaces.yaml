@@ -594,43 +594,30 @@ workspaces:
     description: |-
       Auto-daily cold-start candidate: qwen3.5:9b-q4_K_M (Qwen, released 2026-03-02,
       Apache 2.0, hybrid Gated-DeltaNet dense 9B, 262K native ctx), oMLX shadow
-      Qwen3.5-9B-oQ4e-mtp (6.529 GB, 5.411 bpw, MTP kept). Same production tool set
-      as auto-daily: Qwen3.5 is thinking-on by default and the seat carries 13 tools.
-      Card sampling 1.0/0.95/top_k 20/presence 1.5 for thinking. PROMOTE_POLICY=confirm.
+      Qwen3.5-9B-oQ4e-mtp (6.529 GB, 5.411 bpw, MTP kept). Cold start only: the seat
+      declares no tools while supports_tools is false, because the router strips a tools
+      array for such a model — the typed tool-call probe is the gate before the auto-daily
+      real-use arm. Thinking on, serving the card's thinking_precise_coding arm (auto-daily
+      is a tool seat). PROMOTE_POLICY=confirm.
     # Base tag until the orchestrator's working-ctx preflight; then repoint to
     # qwen3.5:9b-q4_K_M-ctx16k and add ctx_validated: true (check BW).
     model_hint: qwen3.5:9b-q4_K_M
-    predict_limit: 8192
+    predict_limit: 32768
     max_concurrent: 1
     keep_alive: 5m
-    temperature: 1.0
+    temperature: 0.6
     top_p: 0.95
     top_k: 20
     min_p: 0.0
-    presence_penalty: 1.5
+    presence_penalty: 0.0
     repeat_penalty: 1.0
-    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.5 profile (same table as
-    # bench-qwen35-abliterated); the seat runs thinking on.
+    # Thinking serves the card's thinking_precise_coding arm; presence 1.5 is the
+    # tool-refusal regime for a tool seat (auto-daily carries the production tools).
     think: true
     think_profiles:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
+      thinking: {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
       instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
     emits_reasoning: true
-    tools:
-    - web_search
-    - web_fetch
-    - kb_search
-    - kb_list
-    - read_pdf
-    - read_word_document
-    - read_excel
-    - create_word_document
-    - create_excel
-    - create_powerpoint
-    - execute_python
-    - remember
-    - recall
-    - transcribe_audio
     expose_to_owui: false
     enable_web_search: false
   bench-autodaily-gemma4-12b:
@@ -640,10 +627,13 @@ workspaces:
       Auto-daily cold-start candidate: gemma4:12b-it-q4_K_M (Google, released
       2026-06-03, Apache 2.0, 12B Unified dense, 256K native ctx, native function
       calling, thinking modes), oMLX shadow gemma-4-12B-it-oQ4e-mtp (8.072 GB,
-      5.215 bpw, MTP kept). Same production tool set as auto-daily; card sampling
-      1.0/0.95/top_k 64 with thinking on. The QAT 4-bit build (gemma4:12b-it-qat,
-      Q4_0) is the better 4-bit but not the brief's q4_K_M; swap it in only if the
-      orchestrator chooses quality over the stated quant. PROMOTE_POLICY=confirm.
+      5.215 bpw, MTP kept). Cold start only: the seat declares no tools while
+      supports_tools is false, because the router strips a tools array for such a
+      model — the typed tool-call probe is the gate before the auto-daily real-use
+      arm. Card sampling 1.0/0.95/top_k 64 with thinking on. The QAT 4-bit build
+      (gemma4:12b-it-qat, Q4_0) is the better 4-bit but not the brief's q4_K_M; swap
+      it in only if the orchestrator chooses quality over the stated quant.
+      PROMOTE_POLICY=confirm.
     # Base tag until the orchestrator's working-ctx preflight; then repoint to
     # gemma4:12b-it-q4_K_M-ctx16k and add ctx_validated: true (check BW).
     model_hint: gemma4:12b-it-q4_K_M
@@ -656,20 +646,5 @@ workspaces:
     repeat_penalty: 1.0
     think: true
     emits_reasoning: true
-    tools:
-    - web_search
-    - web_fetch
-    - kb_search
-    - kb_list
-    - read_pdf
-    - read_word_document
-    - read_excel
-    - create_word_document
-    - create_excel
-    - create_powerpoint
-    - execute_python
-    - remember
-    - recall
-    - transcribe_audio
     expose_to_owui: false
     enable_web_search: false

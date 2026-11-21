@@ -285,7 +285,9 @@ backends:
   # The base Q4_K_M tags are the acquisition artifacts and the oMLX alias keys;
   # the -ctx16k tags are baked at preflight from config/modelfiles/. supports_tools
   # stays false until the orchestrator's typed tool-call probe passes on each
-  # engine/model -- the Qwen library tag stores a {{ .Prompt }} template.
+  # engine/model -- the Qwen library tag stores a {{ .Prompt }} template. While a
+  # false flag stands the router strips the tools array, so the two bench seats
+  # declare no tools and the probe is the gate before the real-use arm.
   - id: qwen3.5:9b-q4_K_M
     supports_tools: false
   - id: qwen3.5:9b-q4_K_M-ctx16k
