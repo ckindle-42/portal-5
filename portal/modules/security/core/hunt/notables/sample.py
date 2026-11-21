@@ -11,7 +11,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..engine import _search_literal
-from ..executor import HuntBudgetExceededError, HuntExecutor
+from ..executor import (
+    REQUEST_BUDGET_EXHAUSTED,
+    HuntBudgetExceededError,
+    HuntExecutor,
+    plan_within_requests,
+)
 
 SAMPLE_WINDOWS = 3  # effort budget: raw reads spread across each source's own time range
 SAMPLE_LINES = 40  # effort budget: events read per window for a source card
@@ -825,6 +830,27 @@ def read_files(
         for item, file_host, reads in planned
         for start, end, head in reads
     ]
+    requests, dropped = plan_within_requests(
+        requests,
+        _remaining_requests(executor),
+        priority=lambda request: (-request[0].events, request[0].path, -request[2]),
+    )
+    for item, file_host, start, end, head in dropped:
+        _omit_window(
+            executor, facts, item, file_host, start, end, head, source_id, REQUEST_BUDGET_EXHAUSTED
+        )
+        found.files.append(
+            FileRead(
+                item.path,
+                file_host,
+                item.events,
+                start,
+                end,
+                0,
+                REQUEST_BUDGET_EXHAUSTED,
+                item.hosts,
+            )
+        )
     if requests:
         item, file_host, _start, _end, head = requests[0]
         found.query = (
@@ -999,6 +1025,27 @@ def _spread_windows(bounds: Sequence[tuple[float, float]], take: int) -> list[tu
     return [bounds[number] for number in sorted(picks)]
 
 
+def _omit_window(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    item: IndexFile,
+    host: str,
+    start: float,
+    end: float,
+    head: int,
+    source_id: str,
+    reason: str,
+) -> None:
+    """Declare an unread file window in the ledger through the same observer every read uses."""
+    record = getattr(executor, "record_skipped_read", None)
+    if not callable(record):
+        return
+    query = (
+        f"search index={_quoted(facts.index)} {file_route(facts, item.path, host)} | head {head}"
+    )
+    record(query, start, end, source_id=source_id, reason=reason)
+
+
 def _omit_file(
     executor: HuntExecutor,
     facts: SourceFacts,
@@ -1008,14 +1055,14 @@ def _omit_file(
     source_id: str,
     reason: str,
 ) -> None:
-    """Declare an unread file in the ledger through the same observer every read uses."""
-    record = getattr(executor, "record_skipped_read", None)
-    if not callable(record):
-        return
-    query = (
-        f"search index={_quoted(facts.index)} {file_route(facts, item.path, host)} | head {head}"
-    )
-    record(query, facts.first, facts.last, source_id=source_id, reason=reason)
+    """Declare a whole unread file in the ledger through the same observer every read uses."""
+    _omit_window(executor, facts, item, host, facts.first, facts.last, head, source_id, reason)
+
+
+def _remaining_requests(executor: HuntExecutor) -> int | None:
+    """The unspent request ceiling, or None when the read path carries no shared budget."""
+    counter = getattr(getattr(executor, "budget", None), "remaining_requests", None)
+    return int(counter()) if callable(counter) else None
 
 
 def read_anchors(

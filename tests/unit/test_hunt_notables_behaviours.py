@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import duckdb
 
@@ -728,3 +729,106 @@ def test_collect_behaviours_keeps_s2_value_spans_when_localisation_finds_nothing
     assert source["read_mode"] == "anchored"
     assert source["rung"] == "value_spans"
     assert not any('host="h1"' in query for query in executor.queries)
+
+
+class _BudgetExecutor:
+    """A read path with a real request budget: records what it issued and what it declared."""
+
+    def __init__(self, remaining: int) -> None:
+        from portal.modules.security.core.hunt.executor import DEFAULT_BUDGETS, HuntBudget
+
+        self.budget = HuntBudget(dict(DEFAULT_BUDGETS) | {"requests": 1_000})
+        self.budget.queries = 1_000 - remaining
+        self.reads: list[str] = []
+        self.skipped: list[tuple[str, str]] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Any:
+        from portal.modules.security.core.hunt.executor import Read
+
+        del kind, row_cap
+        self.reads.append(query)
+        return Read([{"_time": start + 1.0, "host": "h1", "_raw": "x"}], False, None)
+
+    def record_skipped_read(
+        self,
+        query: str,
+        start: float,
+        end: float,
+        *,
+        source_id: str | None = None,
+        part: str | None = None,
+        reason: str,
+    ) -> None:
+        del start, end, source_id, part
+        self.skipped.append((query, reason))
+
+
+def _budget_facts(count: int = 20) -> SourceFacts:
+    """Twenty indexed files, largest first, from one wide (peaked) source."""
+    from portal.modules.security.core.hunt.notables.sample import IndexFile
+
+    files = tuple(
+        sorted(
+            (
+                IndexFile(f"/var/log/a{index:02d}.log", 1_000 + index * 10, ("h1",))
+                for index in range(count)
+            ),
+            key=lambda item: (-item.events, item.path),
+        )
+    )
+    return SourceFacts(
+        "ix",
+        "st",
+        sum(item.events for item in files),
+        0.0,
+        7_200.0,
+        ("h1",),
+        1,
+        tuple(item.path for item in files),
+        len(files),
+        count_cv=1.5,
+        files=files,
+    )
+
+
+def _planned_read(remaining: int) -> tuple[Any, _BudgetExecutor]:
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    executor = _BudgetExecutor(remaining=remaining)
+    return read_behaviour_source(executor, _budget_facts(), per_window=100), executor
+
+
+def _evidence_reads(executor: _BudgetExecutor) -> list[str]:
+    """Evidence reads only; E2's per-window density probes spend from the same request counter."""
+    return [query for query in executor.reads if not query.startswith("| tstats")]
+
+
+def test_the_read_plan_never_exceeds_the_remaining_request_budget():
+    issued = {}
+    for remaining in (0, 10, 20, 30, 40, 200):
+        _read, executor = _planned_read(remaining)
+        issued[remaining] = len(_evidence_reads(executor))
+        assert issued[remaining] <= remaining, remaining
+
+    read, _executor = _planned_read(40)
+    assert 0 < issued[40] < issued[200]
+    assert {item.path for item in read.files if not item.reason} == {
+        item.path for item in _budget_facts().files[:10]
+    }
+
+
+def test_a_window_dropped_by_the_planner_is_declared():
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    facts = _budget_facts()
+    executor = _BudgetExecutor(remaining=40)
+
+    read = read_behaviour_source(executor, facts, per_window=100)
+
+    dropped = [item for item in read.files if item.reason]
+    assert {item.path for item in dropped} == {item.path for item in facts.files[10:]}
+    assert {item.reason for item in dropped} == {"request_budget_exhausted"}
+    assert len(executor.skipped) == len(dropped)
+    assert all(reason == "request_budget_exhausted" for _query, reason in executor.skipped)
