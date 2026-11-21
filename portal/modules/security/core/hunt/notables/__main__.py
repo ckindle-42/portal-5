@@ -159,6 +159,8 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
             f"seconds={inventory.get('seconds')} fields={inventory.get('fields')} "
             f"values={inventory.get('values', 0)} joints={inventory.get('joints', 0)} "
             f"flows={inventory.get('flows', 0)} mechanisms={inventory.get('mechanisms')} "
+            f"accelerated={inventory.get('accelerated')} "
+            f"model_probes={inventory.get('model_probes', 0)} "
             f"two_names={inventory.get('two_names', 0)} "
             f"events_scanned={inventory.get('events_scanned', 0)}"
         )
@@ -248,7 +250,8 @@ def _print_notables(receipt: dict[str, Any]) -> None:
         print(
             f"  inventory first_seen_replaced={inventory.get('first_seen_replaced', 0)} "
             f"candidates={inventory.get('candidates', 0)} values={inventory.get('values', 0)} "
-            f"fields={inventory.get('fields')} two_names={inventory.get('two_names', 0)}"
+            f"fields={inventory.get('fields')} two_names={inventory.get('two_names', 0)} "
+            f"accelerated={inventory.get('accelerated')}"
         )
 
 
