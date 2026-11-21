@@ -917,6 +917,7 @@ def cold_receipts(cells: list[dict[str, Any]], incumbent: str) -> list[dict[str,
 COLD_COLUMNS = (
     "seat",
     "engine",
+    "status",
     "trials",
     "load_s",
     "ttft_s",
