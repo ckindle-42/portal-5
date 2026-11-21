@@ -27,9 +27,8 @@ from .sample import (
     SourceFacts,
     localise,
     localise_width,
-    read_anchors,
+    read_files,
     read_mode,
-    read_windows,
     route_filter,
     source_windows,
 )
@@ -712,11 +711,32 @@ def _source_receipt(
         "rung": read.rung,
         "coverage": read.coverage,
         "accel_window": list(read.accel_window) if read.accel_window else None,
+        "files_indexed": len(facts.files),
+        "files_routed": len({item.path for item in read.files if not item.reason}),
+        "files_omitted": len({item.path for item in read.files if item.reason}),
         "share_of_source": round(len(read.rows) / facts.events, 6) if facts.events else None,
         "read_fraction": round(len(read.rows) / facts.events, 6) if facts.events else None,
         "seconds": round(seconds, 3),
         "notes": read.notes,
     }
+
+
+def _file_rows(source_id: str, read: RowSet) -> list[dict[str, Any]]:
+    """One receipt line per (source, file, window), or per unread file with its reason."""
+    return [
+        {
+            "source_id": source_id,
+            "path": item.path,
+            "host": item.host,
+            "hosts": list(item.hosts),
+            "events_available": item.events_available,
+            "window_start": item.window_start,
+            "window_end": item.window_end,
+            "rows": item.rows,
+            "reason": item.reason,
+        }
+        for item in read.files
+    ]
 
 
 def _is_complete_source(facts: SourceFacts, per_window: int) -> bool:
@@ -873,6 +893,7 @@ def _merge_row_sets(
         notes=[*uniform.notes, *burst.notes],
         selection="uniform baseline plus peak four-hour burst windows",
         query=uniform.query,
+        files=[*uniform.files, *burst.files],
     )
 
 
@@ -899,6 +920,7 @@ def _merge_anchored(uniform: RowSet, anchored: RowSet, anchors: Sequence[LocalWi
         notes=[*uniform.notes, *anchored.notes],
         selection="uniform baseline plus localised host/time windows",
         query=uniform.query,
+        files=[*uniform.files, *anchored.files],
     )
     found.read_mode = "anchored"
     found.rung = "narrowed_scan"
@@ -952,14 +974,12 @@ def read_behaviour_source(
     """Whole when it fits, else rung-2 windows, the source's value spans, bursts, uniform."""
     complete = _is_complete_source(facts, per_window)
     if complete:
-        read = read_windows(
+        read = read_files(
             executor,
             facts,
             source_windows(facts, 1),
             per_window=facts.events,
             kind="behavior_events",
-            max_sources=BEHAVIOUR_SOURCES,
-            sub_windows=1,
         )
         read.selection = "full source range within allocated row budget"
         read.read_mode = "whole"
@@ -975,13 +995,12 @@ def read_behaviour_source(
         return _read_value_span_source(executor, facts, per_window, value_spans)
     if burst_windows:
         return _read_burst_source(executor, facts, per_window, burst_windows)
-    read = read_windows(
+    read = read_files(
         executor,
         facts,
         source_windows(facts, BEHAVIOUR_WINDOWS),
         per_window=per_window,
         kind="behavior_events",
-        max_sources=BEHAVIOUR_SOURCES,
         sub_windows=BEHAVIOUR_SUB_WINDOWS,
     )
     return read
@@ -996,25 +1015,54 @@ def _read_anchored_source(
 ) -> RowSet:
     """Uniform baseline plus the host/time windows rung 2 selected."""
     peaks = list(anchors[:LOCALISE_WINDOWS])
-    uniform_read = read_windows(
+    uniform_read = read_files(
         executor,
         facts,
         _anchored_uniform_windows(facts, len(peaks)),
         per_window=per_window,
         kind="behavior_events",
-        max_sources=BEHAVIOUR_SOURCES,
         sub_windows=BEHAVIOUR_SUB_WINDOWS,
     )
-    anchored_read = read_anchors(
-        executor,
-        facts,
-        peaks,
-        per_window=per_window,
-        kind="behavior_events",
-        max_sources=BEHAVIOUR_SOURCES,
-        accel_window=accel_window,
+    anchored_read = _read_anchor_files(executor, facts, peaks, per_window)
+    found = _merge_anchored(uniform_read, anchored_read, peaks)
+    found.accel_window = accel_window
+    return found
+
+
+def _read_anchor_files(
+    executor: HuntExecutor, facts: SourceFacts, anchors: Sequence[LocalWindow], per_window: int
+) -> RowSet:
+    """Rung 3 read of each localised host/time window, one file at a time."""
+    found = RowSet(
+        windows=len(anchors),
+        route="source",
+        selection="localised host/time windows from the indexed aggregate",
+        query=f"search index=<index> source=<file> host=<localised host> | head {per_window}",
     )
-    return _merge_anchored(uniform_read, anchored_read, peaks)
+    found.read_mode = "anchored"
+    found.rung = "narrowed_scan"
+    found.events_scanned = sum(anchor.events for anchor in anchors)
+    found.coverage = "scan"
+    for anchor in anchors:
+        read = read_files(
+            executor,
+            facts,
+            [(anchor.start, anchor.end)],
+            per_window=per_window,
+            kind="behavior_events",
+            host=anchor.host,
+        )
+        found.rows.extend(read.rows)
+        found.files.extend(read.files)
+        found.notes.extend(read.notes)
+    found.rows.sort(
+        key=lambda row: (
+            _row_time(row),
+            str(row.get("host") or ""),
+            str(row.get("_raw") or ""),
+        )
+    )
+    return found
 
 
 def _read_burst_source(
@@ -1026,22 +1074,20 @@ def _read_burst_source(
     """Uniform baseline plus peak four-hour slices when no rung-2 windows were produced."""
     peaks = list(burst_windows[:BEHAVIOUR_BURST_WINDOWS])
     uniform_count = max(1, BEHAVIOUR_WINDOWS - len(peaks))
-    uniform_read = read_windows(
+    uniform_read = read_files(
         executor,
         facts,
         source_windows(facts, uniform_count),
         per_window=per_window,
         kind="behavior_events",
-        max_sources=BEHAVIOUR_SOURCES,
         sub_windows=BEHAVIOUR_UNIFORM_SUB_WINDOWS_WITH_BURSTS,
     )
-    burst_read = read_windows(
+    burst_read = read_files(
         executor,
         facts,
         peaks,
         per_window=per_window,
         kind="behavior_events",
-        max_sources=BEHAVIOUR_SOURCES,
         sub_windows=BEHAVIOUR_BURST_SUB_WINDOWS,
     )
     found = _merge_row_sets(uniform_read, burst_read, peaks)
@@ -1059,14 +1105,12 @@ def _read_value_span_source(
     value_spans: Sequence[tuple[float, float]],
 ) -> RowSet:
     """S2's anchored read: the source's own inventory value spans, one read each."""
-    read = read_windows(
+    read = read_files(
         executor,
         facts,
         value_spans,
         per_window=per_window,
         kind="behavior_events",
-        max_sources=BEHAVIOUR_SOURCES,
-        sub_windows=1,
     )
     read.selection = "inventory value spans"
     read.read_mode = "anchored"
@@ -1085,7 +1129,14 @@ def _key_source(
     burst_windows: Sequence[tuple[float, float]] = (),
     anchors: Sequence[LocalWindow] = (),
     value_spans: Sequence[tuple[float, float]] = (),
-) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]], list[MisfitShape], dict[str, int]]:
+) -> tuple[
+    list[dict[str, Any]],
+    int,
+    dict[str, dict[str, Any]],
+    list[MisfitShape],
+    dict[str, int],
+    list[dict[str, Any]],
+]:
     """Read one source once, key each structure's events, and keep its out-of-structure lines."""
     windows = _behaviour_read_windows(facts, per_window, burst_windows, anchors, value_spans)
     if read is None:
@@ -1129,7 +1180,7 @@ def _key_source(
         receipt["identity"] = summary
         receipts.append(receipt)
     misfits, misfit_stats = collect_misfits(source_id, read.rows, windows, claimed)
-    return receipts, total, overrides, misfits, misfit_stats
+    return receipts, total, overrides, misfits, misfit_stats, _file_rows(source_id, read)
 
 
 def _localise_sources(
@@ -1231,6 +1282,7 @@ def _behaviour_receipt(
     store_path: Path,
     began: float,
     localisation: Mapping[str, Any] | None = None,
+    file_rows: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     """Build the behaviour-stage receipt from its stored results."""
     counts: dict[str, int] = {}
@@ -1260,6 +1312,9 @@ def _behaviour_receipt(
         "misfit_shapes": sum(int(item.get("shapes_kept") or 0) for item in misfit_receipts),
         "misfit_sources": sum(1 for item in misfit_receipts if int(item.get("misfit_lines") or 0)),
         "localisation": dict(localisation or {}),
+        "files": [dict(item) for item in file_rows],
+        "files_indexed": _files_counted(file_rows, "path"),
+        "files_omitted": _files_counted(file_rows, "reason"),
         "events_scanned": sum(int(item.get("events_scanned") or 0) for item in receipts),
         "read_modes": {
             mode: sum(1 for item in receipts if item.get("read_mode") == mode)
@@ -1268,6 +1323,13 @@ def _behaviour_receipt(
         "store": str(store_path),
         "seconds": round(time.monotonic() - began, 3),
     }
+
+
+def _files_counted(rows: Sequence[Mapping[str, Any]], key: str) -> int:
+    """Distinct (source, file) pairs, or only those whose `key` is set."""
+    return len(
+        {(str(item.get("source_id")), str(item.get("path"))) for item in rows if item.get(key)}
+    )
 
 
 def collect_behaviours(
@@ -1288,6 +1350,7 @@ def collect_behaviours(
     )
     skipped: list[dict[str, Any]] = []
     receipts: list[dict[str, Any]] = []
+    file_rows: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, Any]] = {}
     per_window = per_window_events(usable_sources)
     store_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1326,7 +1389,7 @@ def collect_behaviours(
             reads = [future.result() for future in futures]
         for (source_id, group, facts, started), read in zip(scheduled, reads, strict=True):
             located = _localisation_of(anchors_by_index, facts.index)
-            found, count, found_overrides, misfits, misfit_stats = _key_source(
+            found, count, found_overrides, misfits, misfit_stats, file_lines = _key_source(
                 con,
                 group,
                 facts,
@@ -1339,6 +1402,7 @@ def collect_behaviours(
                 value_spans=value_spans.get(source_id, ()),
             )
             receipts.extend(found)
+            file_rows.extend(file_lines)
             overrides.update(found_overrides)
             total += count
             _insert_misfits(con, source_id, misfits, misfit_stats)
@@ -1358,6 +1422,7 @@ def collect_behaviours(
         store_path,
         began,
         localisation,
+        file_rows,
     )
     return behaviours, receipt
 
