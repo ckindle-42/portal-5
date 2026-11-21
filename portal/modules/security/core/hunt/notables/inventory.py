@@ -63,7 +63,7 @@ _STRUCTURAL_FIELDS = frozenset(
         "addr",
     }
 )
-_FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_FIELD_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 _IPV4 = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
 _LITERAL_ROLES = (
     ("actor", "actor_field", "actor", "actor_mode"),

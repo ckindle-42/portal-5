@@ -152,6 +152,31 @@ class _Executor:
         return Read(self.value_rows.get(self._value_key(query), []))
 
 
+def _row(value: str, field: str = "uid", **extra: object) -> dict[str, object]:
+    row: dict[str, object] = {"count": 1, "first": 1, "last": 2, "hosts": 1, **extra}
+    row[field] = value
+    return row
+
+
+def _windows_card(*, sample: Mapping[str, object] | None = None) -> SourceCard:
+    """A botsv2 card named as the tsidx path sees it, as the stored cards are."""
+    return SourceCard(
+        index="botsv2",
+        sourcetype="wineventlog:security",
+        kind="activity",
+        roles={"action": ("EventCode",)},
+        understood=True,
+        reason=None,
+        fmt="kv",
+        coverage=1.0,
+        fields=(_stat("EventCode", 40, 5, ("4624",)),),
+        sample={"lines": 40, **(sample or {})},
+        facts={"index": "botsv2", "sourcetype": "wineventlog:security", "events": 1_000_000},
+        model={},
+        cache_key="windows",
+    )
+
+
 def test_select_fields_keeps_the_stored_audit_role_fields() -> None:
     chosen = select_fields([_audit_card()])
 
@@ -194,39 +219,13 @@ def test_collect_inventory_stores_values_and_records_the_stats_route() -> None:
     executor = _Executor(
         {
             "audit.log|uid, type": [
-                {
-                    "uid": "0",
-                    "type": "USER_END",
-                    "count": "1173",
-                    "first": "1616400000",
-                    "last": "1616888706",
-                    "hosts": "1",
-                },
-                {
-                    "uid": "33",
-                    "type": "USER_ROLE",
-                    "count": "2",
-                    "first": "1616800000",
-                    "last": "1616800100",
-                    "hosts": "1",
-                },
+                _row("USER_END", "type", uid="0", count=1173, first=1616400000, last=1616888706),
+                _row("USER_ROLE", "type", uid="33", count=2, first=1616800000, last=1616800100),
             ],
-            "audit.log|uid": [{"uid": "0", "count": 10, "first": 1, "last": 2, "hosts": 1}],
+            "audit.log|uid": [_row("0", count=10)],
             "audit.log|type": [
-                {
-                    "type": "USER_END",
-                    "count": 1173,
-                    "first": 1616400000,
-                    "last": 1616888706,
-                    "hosts": 1,
-                },
-                {
-                    "type": "USER_ROLE",
-                    "count": 2,
-                    "first": 1616800000,
-                    "last": 1616800100,
-                    "hosts": 1,
-                },
+                _row("USER_END", "type", count=1173, first=1616400000, last=1616888706),
+                _row("USER_ROLE", "type", count=2, first=1616800000, last=1616800100),
             ],
         }
     )
@@ -252,13 +251,9 @@ def test_a_field_list_joint_is_not_another_search() -> None:
     executor = _Executor(
         {
             "audit.log|type": [
-                {"type": f"ACT{index}", "count": 1, "first": 100 + index, "last": 200}
-                for index in range(300)
+                _row(f"ACT{index}", "type", first=100 + index) for index in range(300)
             ],
-            "audit.log|uid": [
-                {"uid": "mallory", "count": 4, "first": 10, "last": 20},
-                {"uid": "alice", "count": 4, "first": 30, "last": 40},
-            ],
+            "audit.log|uid": [_row("mallory", count=4, first=10), _row("alice", count=4, first=30)],
         }
     )
 
@@ -271,12 +266,7 @@ def test_a_field_list_joint_is_not_another_search() -> None:
 
 def test_capped_field_is_not_a_value_list() -> None:
     executor = _Executor(
-        {
-            "audit.log|uid": [
-                {"uid": str(index), "count": 1, "first": 1, "last": 2}
-                for index in range(INVENTORY_MAX_VALUES + 1)
-            ]
-        }
+        {"audit.log|uid": [_row(str(index)) for index in range(INVENTORY_MAX_VALUES + 1)]}
     )
     document = collect_inventory(executor, [_audit_card()], "hb_kyoushi_s1", 0.0, 10.0)
     uid = next(item for item in document["fields"] if item["field"] == "uid")
@@ -299,21 +289,7 @@ def test_tstats_without_a_value_column_is_unavailable_not_empty() -> None:
 
 
 def test_a_source_with_two_names_uses_the_name_each_path_accepts() -> None:
-    card = SourceCard(
-        index="botsv2",
-        sourcetype="wineventlog:security",
-        kind="activity",
-        roles={"action": ("EventCode",)},
-        understood=True,
-        reason=None,
-        fmt="kv",
-        coverage=1.0,
-        fields=(_stat("EventCode", 40, 5, ("4624",)),),
-        sample={"lines": 40, "search_sourcetypes": ["WinEventLog"]},
-        facts={"index": "botsv2", "sourcetype": "wineventlog:security", "events": 1_000_000},
-        model={},
-        cache_key="windows",
-    )
+    card = _windows_card(sample={"search_sourcetypes": ["WinEventLog"]})
     executor = _Executor(
         {
             "WinEventLog|EventCode": [
@@ -335,21 +311,7 @@ def test_a_source_with_two_names_uses_the_name_each_path_accepts() -> None:
 
 
 def test_a_rejected_name_is_unavailable_name_not_empty() -> None:
-    card = SourceCard(
-        index="botsv2",
-        sourcetype="wineventlog:security",
-        kind="activity",
-        roles={"action": ("EventCode",)},
-        understood=True,
-        reason=None,
-        fmt="kv",
-        coverage=1.0,
-        fields=(_stat("EventCode", 40, 5, ("4624",)),),
-        sample={"lines": 40},
-        facts={"index": "botsv2", "sourcetype": "wineventlog:security", "events": 1_000_000},
-        model={},
-        cache_key="windows",
-    )
+    card = _windows_card()
     executor = _Executor(
         tstats_names={"wineventlog:security": 1_000_000},
         search_names=set(),
