@@ -247,17 +247,19 @@ index=hb_ait_russellmitchell_v2)`.
 
 **The conf row is not the proof.** Splunk_SA_CIM's `()` default still exists behind that row and
 still wins if the local override is not the one being resolved. The property is the **parser
-expansion**, and `verify` reads it from the search job's `normalizedSearch` for each of the six
-macros (a `` search `cim_Web_indexes` | head 0 `` probe):
+expansion**, and `verify` reads it from the parser endpoint
+(`POST /servicesNS/nobody/search/search/parser`, `q` = the invocation) — the response's
+`normalizedSearch`, which is what a search job runs but never returns in its job content:
 
 ```bash
-uv run python -m scripts.lab.splunk_setup verify | tee coding_task/scratch/splunk_setup/verify.json | head -90
+uv run python -m scripts.lab.splunk_setup verify | tee coding_task/scratch/splunk_setup/verify.json
 ```
-→ the first six entries are `"probe": "cim_macro:cim_<Model>_indexes"`, each `"failed": false`
-with an `"expansion"` that names all three `_v2` indexes. **Fail if** an expansion is
-`litsearch ()`, or names a non-`_v2` index — that is the 2026-11-21 finding, and it means the
-override did not land in Splunk_SA_CIM's local config. `rollback` restores the seven defaults
-(`definition = ()`).
+→ one row per check, `{"name", "ok", "detail"}`. The first six rows are
+`"name": "cim_macro:cim_<Model>_indexes"`, each `"ok": true` with a `"detail"` that names all
+three `_v2` indexes. **Fail if** an expansion is `litsearch ()`, or names a non-`_v2` index — that
+is the 2026-11-21 finding, and it means the override did not land in Splunk_SA_CIM's local config.
+A check that errors is one `"ok": false` row; the run still reports every other check and exits 1.
+`rollback` restores the seven defaults (`definition = ()`).
 
 ```spl
 | tstats count where index=hb_ait_santos by sourcetype
@@ -424,10 +426,10 @@ each), so the "accelerate an empty index" mistake cannot happen silently. It als
 ```bash
 uv run python -m scripts.lab.splunk_setup verify --accelerate | tee coding_task/scratch/splunk_setup/verify.json | head -60
 ```
-→ six `"probe": "acceleration:<Model>"` entries, each `"failed": false` with
-`"reported": {"enabled": true, "earliest_time": "-10y", …}`. **Fail if** one is `failed: true`
-with `reports enabled=False -1y` (or `-3mon`) — that is the 2026-11-21 finding: the four keys were
-written into the app, not into Splunk_SA_CIM, and the model endpoint never saw them.
+→ six `{"name": "acceleration:<Model>", "ok": true, "detail": "reports enabled=True -10y; want
+enabled -10y"}` rows. **Fail if** one is `"ok": false` with `reports enabled=False -1y` (or
+`-3mon`) — that is the 2026-11-21 finding: the four keys were written into the app, not into
+Splunk_SA_CIM, and the model endpoint never saw them.
 
 ```spl
 | tstats summariesonly=true count from datamodel=Authentication by Authentication.user
@@ -515,16 +517,21 @@ uv run python -m scripts.lab.splunk_setup verify --index santos --accelerate | t
 ```
 
 Run it once per tuned index. Each pass runs the six `cim_*_indexes` parser expansions, the six
-`acceleration:<Model>` model-endpoint probes (`--accelerate`), the chosen index's
-`entity_indexed:<index>` (`by acct`) and `vhost_indexed:<index>` (`by vhost`) probes, its
-events / sourcetypes / accelerated-model probes, and the three control probes. It reports `rows`,
-`scan_count`, `run_seconds` and the expected result for each, and **fails on a probe that returned
-fewer rows than it declares**, not only on a failed job. What "worked" looks like, in one place:
+`acceleration:<Model>` model-endpoint probes (`--accelerate`), the acceleration window and
+summary-completeness checks, the three per-index `summary` rows, the chosen index's
+`entity_indexed:<index>` (`by acct`) and `vhost_indexed:<index>` (`by vhost`) probes, its events /
+sourcetypes / accelerated-model probes, and the three control probes. It prints one JSON row per
+check — `{"name", "ok", "detail"}`, with the logs on stderr — and **fails on a probe that returned
+fewer rows than it declares**, not only on a failed job. A check that raises is one `"ok": false`
+row; it never aborts the pass. What "worked" looks like, in one place:
 
-| probe | expected | what a failure means |
+| check | expected | what a failure means |
 |---|---|---|
 | `cim_macro:cim_<Model>_indexes` ×6 | the expansion names all three `_v2` indexes | the override is not in Splunk_SA_CIM's local conf — re-run `apply` |
 | `acceleration:<Model>` ×6 (`--accelerate`) | the model endpoint reports `enabled` over `-10y` | the row is not in Splunk_SA_CIM's local conf — re-run `apply --accelerate`; a row in the hunt app reports `enabled: False` |
+| `acceleration_window` | all six models at `-10y` | `datamodels.conf` did not land — re-run `apply --accelerate` |
+| `summaries_complete` | six entries, `summary.complete = 1` | the build has not finished (or never started) — `/services/admin/summarization` |
+| `summary_index:<index>` ×3 | >0 rows for `hunt_entities_index=<index>` | a `collect` search never ran — `summary --run-now` |
 | `eventcount index=<i>_v2` | = the table's kept count | a file failed to ship — `--resume` |
 | `tstats … by sourcetype` on `_v2` | ≤16 rows, no date-in-filename names | mapping missed a class |
 | `entity_indexed:<i>_v2` (`tstats … by acct`) | >0 rows | the transform did not write meta (`WRITE_META` missing) or the index predates the fix — rebuild the index, a restart cannot repair it |

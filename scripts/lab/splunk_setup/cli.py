@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import quote
@@ -14,6 +15,7 @@ from urllib.parse import quote
 from . import conf, host, plan, reindex, rest
 
 DEFAULT_APP_ROOT = Path("coding_task/scratch/splunk_setup")
+_COMPLETE = frozenset({"1", "true", "True"})
 
 
 def _spec(value: str) -> plan.IndexSpec:
@@ -261,92 +263,118 @@ def cmd_summary(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     svc = rest.SplunkREST(transport=_transport(args))
-    probes = list(plan.CONTROL_PROBES)
-    if args.index:
-        probes = list(plan.verify_probes(_spec(args.index))) + probes
-    report = _cim_macro_probes(svc)
+    report = _macro_rows(svc)
+    report.append(_row("acceleration_window", _acceleration_check, svc))
+    report.append(_row("summaries_complete", _summaries_check, svc))
+    report.extend(
+        _row(f"summary_index:{spec.source_index}", _summary_index_check, svc, spec)
+        for spec in plan.TUNED
+    )
     if args.accelerate:
-        report.extend(_datamodel_probes(svc))
-    for probe in probes:
-        report.append(_probe_result(svc, probe))
+        report.extend(_model_rows(svc))
+    if args.index:
+        report.extend(_probe_row(svc, probe) for probe in plan.verify_probes(_spec(args.index)))
+    report.extend(_probe_row(svc, probe) for probe in plan.CONTROL_PROBES)
     _print(report)
-    return 0 if not any(item["failed"] for item in report) else 1
+    return 0 if all(row["ok"] for row in report) else 1
 
 
-def _probe_result(svc: rest.SplunkREST, probe: plan.Probe) -> dict[str, object]:
-    """One probe row: `failed` covers both a failed job and a probe that returned too few rows."""
-    earliest, latest = "0" if probe.name == "events" else "-10y", "now"
-    if probe.name == "control_model_scope":
-        earliest, latest = "2017-08-01T00:00:00", "2018-10-30T00:00:00"
-    result = svc.search(probe.spl, earliest=earliest, latest=latest)
-    short = len(result.rows) < probe.min_rows
-    messages = list(result.messages)
-    if short:
-        messages.append(f"expected >= {probe.min_rows} rows, got {len(result.rows)}")
-    return {
-        "probe": probe.name,
-        "spl": probe.spl,
-        "expect": probe.expect,
-        "rows": result.rows[:20],
-        "row_count": len(result.rows),
-        "scan_count": result.scan_count,
-        "run_seconds": round(result.run_seconds, 1),
-        "failed": result.failed or short,
-        "messages": messages,
-    }
+def _row(name: str, check: Callable[..., tuple[bool, str]], *args: object) -> dict[str, object]:
+    """Run one check alone: a raised error is that check's FAIL row, never the run's abort."""
+    print(f"verify: {name}", file=sys.stderr)
+    try:
+        ok, detail = check(*args)
+    except (rest.SplunkError, RuntimeError) as exc:
+        ok, detail = False, f"{type(exc).__name__}: {exc}"
+    return {"name": name, "ok": ok, "detail": detail}
 
 
-def _cim_macro_probes(svc: rest.SplunkREST) -> list[dict[str, object]]:
+def _probe_row(svc: rest.SplunkREST, probe: plan.Probe) -> dict[str, object]:
+    """`ok` covers both a failed job and a probe that returned too few rows."""
+
+    def check() -> tuple[bool, str]:
+        earliest, latest = "0" if probe.name == "events" else "-10y", "now"
+        if probe.name == "control_model_scope":
+            earliest, latest = "2017-08-01T00:00:00", "2018-10-30T00:00:00"
+        result = svc.search(probe.spl, earliest=earliest, latest=latest)
+        short = len(result.rows) < probe.min_rows
+        detail = f"rows={len(result.rows)} scan={result.scan_count} want {probe.expect}"
+        if short:
+            detail += f"; got fewer than {probe.min_rows} rows"
+        if result.failed:
+            detail += "; job failed: " + "; ".join(result.messages)
+        return not (result.failed or short), detail
+
+    return _row(probe.name, check)
+
+
+def _macro_rows(svc: rest.SplunkREST) -> list[dict[str, object]]:
+    return [_row(f"cim_macro:{macro}", _macro_check, svc, macro) for macro in plan.cim_macros()]
+
+
+def _macro_check(svc: rest.SplunkREST, macro: str) -> tuple[bool, str]:
     """The property is the parser's expansion, not the conf row: `()` means the scope lost."""
-    expected = plan.cim_macro_definition()
-    report = []
-    for macro in plan.cim_macros():
-        expansion = svc.macro_expansion(macro)
-        missing = [spec.target_index for spec in plan.TUNED if spec.target_index not in expansion]
-        report.append(
-            {
-                "probe": f"cim_macro:{macro}",
-                "spl": f"search `{macro}`",
-                "expect": expected,
-                "expansion": expansion,
-                "rows": [],
-                "row_count": 0,
-                "scan_count": 0,
-                "run_seconds": 0.0,
-                "failed": bool(missing),
-                "messages": [f"expansion does not name {missing}"] if missing else [],
-            }
-        )
-    return report
+    expansion = svc.macro_expansion(macro)
+    missing = [spec.target_index for spec in plan.TUNED if spec.target_index not in expansion]
+    if missing:
+        return False, f"expansion does not name {missing}: {expansion}"
+    return True, expansion
 
 
-def _datamodel_probes(svc: rest.SplunkREST) -> list[dict[str, object]]:
+def _acceleration_check(svc: rest.SplunkREST) -> tuple[bool, str]:
+    state = _acceleration_state(svc)
+    windows = {
+        model: str(state.get(model, {}).get("acceleration.earliest_time", "absent"))
+        for model in plan.ACCELERATED
+    }
+    off = {model: window for model, window in windows.items() if window != plan.ACCEL_WINDOW}
+    if off:
+        return False, f"expected {plan.ACCEL_WINDOW} on every model; got {off}"
+    return True, f"{plan.ACCEL_WINDOW} on {len(windows)} models"
+
+
+def _summaries_check(svc: rest.SplunkREST) -> tuple[bool, str]:
+    result = svc.search(
+        "| rest /services/admin/summarization by_tstats=t "
+        "| table datamodel_name summary.size summary.complete",
+        earliest="-1m",
+    )
+    rows = {str(row.get("datamodel_name", "")): row for row in result.rows}
+    states = {
+        model: str(rows.get(model, {}).get("summary.complete", "absent"))
+        for model in plan.ACCELERATED
+    }
+    unfinished = {model: value for model, value in states.items() if value not in _COMPLETE}
+    sizes = {model: rows.get(model, {}).get("summary.size", "absent") for model in plan.ACCELERATED}
+    detail = f"complete {len(states) - len(unfinished)}/{len(states)}; size {sizes}"
+    if unfinished:
+        return False, f"{detail}; not complete {unfinished}"
+    return True, detail
+
+
+def _summary_index_check(svc: rest.SplunkREST, spec: plan.IndexSpec) -> tuple[bool, str]:
+    result = svc.search(
+        f"index=summary hunt_entities_index={spec.source_index} | stats count", earliest="0"
+    )
+    count = int((result.rows[0] if result.rows else {}).get("count") or 0)
+    return count > 0, f"{count} rows for hunt_entities_index={spec.source_index}"
+
+
+def _model_rows(svc: rest.SplunkREST) -> list[dict[str, object]]:
+    return [
+        _row(f"acceleration:{model}", _model_check, svc, model)
+        for model in plan.accelerated_models()
+    ]
+
+
+def _model_check(svc: rest.SplunkREST, model: str) -> tuple[bool, str]:
     """The property is what the model reports, not the conf row: a row in another app loses."""
-    report = []
-    for model in plan.accelerated_models():
-        reported = svc.datamodel_acceleration(plan.CIM_APP, model)
-        window = str(plan.ACCEL_WINDOW)
-        enabled = bool(reported.get("enabled"))
-        covered = enabled and reported.get("earliest_time") == window
-        report.append(
-            {
-                "probe": f"acceleration:{model}",
-                "spl": f"GET /servicesNS/nobody/{plan.CIM_APP}/datamodel/model/{model}",
-                "expect": f"enabled over {window}",
-                "reported": reported,
-                "rows": [],
-                "row_count": 0,
-                "scan_count": 0,
-                "run_seconds": 0.0,
-                "failed": not covered,
-                "messages": (
-                    []
-                    if covered
-                    else [f"{model} reports enabled={enabled} {reported.get('earliest_time', '?')}"]
-                ),
-            }
-        )
-    return report
+    reported = svc.datamodel_acceleration(plan.CIM_APP, model)
+    enabled = bool(reported.get("enabled"))
+    earliest = str(reported.get("earliest_time", "?"))
+    window = str(plan.ACCEL_WINDOW)
+    covered = enabled and earliest == window
+    return covered, f"reports enabled={enabled} {earliest}; want enabled {window}"
 
 
 def cmd_rollback(args: argparse.Namespace) -> int:

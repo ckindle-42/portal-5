@@ -335,6 +335,24 @@ def test_verify_fails_a_zero_row_entity_tstats(
             return f"litsearch {plan.cim_macro_definition()}"
 
         def search(self, spl: str, **_kwargs) -> rest.SearchResult:
+            if "/data/models" in spl:
+                rows = [
+                    {"title": model, "acceleration.earliest_time": plan.ACCEL_WINDOW}
+                    for model in plan.ACCELERATED
+                ]
+                return rest.SearchResult(rows=rows)
+            if "/services/admin/summarization" in spl:
+                rows = [
+                    {
+                        "datamodel_name": model,
+                        "summary.size": "1024",
+                        "summary.complete": "1",
+                    }
+                    for model in plan.ACCELERATED
+                ]
+                return rest.SearchResult(rows=rows)
+            if "hunt_entities_index=" in spl:
+                return rest.SearchResult(rows=[{"count": "7"}])
             zero = self.zero
             rows = [] if zero and f"index={zero}" in spl and "by acct" in spl else [{"count": "1"}]
             return rest.SearchResult(rows=rows, run_seconds=0.1)
@@ -344,31 +362,51 @@ def test_verify_fails_a_zero_row_entity_tstats(
         _Svc.zero = tuned.target_index
         args = cli.build_parser().parse_args(["verify", "--index", key])
         assert cli.cmd_verify(args) == 1
-        failed = [row for row in json.loads(capsys.readouterr().out) if row["failed"]]
-        assert [row["probe"] for row in failed] == [f"entity_indexed:{tuned.target_index}"]
-        assert "expected >= 1 rows, got 0" in failed[0]["messages"][-1]
+        report = json.loads(capsys.readouterr().out)
+        assert {"acceleration_window", "summaries_complete"} <= {row["name"] for row in report}
+        failed = [row for row in report if not row["ok"]]
+        assert [row["name"] for row in failed] == [f"entity_indexed:{tuned.target_index}"]
+        assert "got fewer than 1 rows" in failed[0]["detail"]
 
     args = cli.build_parser().parse_args(["verify", "--index", "santos"])
     _Svc.zero = ""
     assert cli.cmd_verify(args) == 0
 
 
-def test_verify_judges_the_parser_expansion_not_the_conf_row() -> None:
-    """The macro passes only when the parser expands it to every `_v2` index; `()` fails."""
+def test_verify_judges_the_parser_expansion_not_the_conf_row(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The macro passes only when the parser expands it to every `_v2` index; `()` fails, and a
+    check that raises is one FAIL row while every other check is still reported."""
     expansion = f"litsearch {plan.cim_macro_definition()}"
 
     class _Svc:
         def macro_expansion(self, macro: str) -> str:
+            if macro == "cim_Endpoint_indexes":
+                raise rest.SplunkError("POST parser -> 400: bad q", status=400)
             return expansion if macro == "cim_Web_indexes" else "litsearch ()"
 
-    report = {row["probe"]: row for row in cli._cim_macro_probes(_Svc())}
-    assert len(report) == len(plan.cim_macros()) == 6
-    assert report["cim_macro:cim_Web_indexes"]["failed"] is False
-    assert all(
-        spec.target_index in report["cim_macro:cim_Web_indexes"]["expansion"] for spec in plan.TUNED
+        def search(self, spl: str, **_kwargs) -> rest.SearchResult:
+            raise rest.SplunkError("offline: search job unavailable")
+
+    monkeypatch.setattr(cli.rest, "SplunkREST", lambda transport=None: _Svc())
+    args = cli.build_parser().parse_args(["verify"])
+    assert cli.cmd_verify(args) == 1
+    rows = {row["name"]: row for row in json.loads(capsys.readouterr().out)}
+    assert set(rows) == (
+        {f"cim_macro:{macro}" for macro in plan.cim_macros()}
+        | {"acceleration_window", "summaries_complete"}
+        | {f"summary_index:{spec.source_index}" for spec in plan.TUNED}
+        | {probe.name for probe in plan.CONTROL_PROBES}
     )
-    assert report["cim_macro:cim_Authentication_indexes"]["failed"] is True
-    assert "does not name" in report["cim_macro:cim_Authentication_indexes"]["messages"][0]
+    assert rows["cim_macro:cim_Web_indexes"]["ok"] is True
+    assert rows["cim_macro:cim_Web_indexes"]["detail"] == expansion
+    assert rows["cim_macro:cim_Authentication_indexes"]["ok"] is False
+    assert "does not name" in str(rows["cim_macro:cim_Authentication_indexes"]["detail"])
+    assert rows["cim_macro:cim_Endpoint_indexes"]["ok"] is False
+    assert "400" in str(rows["cim_macro:cim_Endpoint_indexes"]["detail"])
+    assert rows["acceleration_window"]["ok"] is False
+    assert "offline" in str(rows["acceleration_window"]["detail"])
 
 
 def test_acceleration_is_written_where_the_model_reports_it() -> None:
@@ -398,7 +436,9 @@ def test_acceleration_is_written_where_the_model_reports_it() -> None:
     assert not svc.revert_datamodel_acceleration(plan.CIM_APP, "Web").changed
 
 
-def test_verify_fails_a_model_that_reports_no_acceleration() -> None:
+def test_verify_fails_a_model_that_reports_no_acceleration(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Stage 3's property is the model endpoint: enabled over `-10y`, not the conf row."""
 
     class _Svc:
@@ -407,18 +447,55 @@ def test_verify_fails_a_model_that_reports_no_acceleration() -> None:
             for model in plan.accelerated_models()
         }
 
+        def macro_expansion(self, macro: str) -> str:
+            return f"litsearch {plan.cim_macro_definition()}"
+
+        def search(self, spl: str, **_kwargs) -> rest.SearchResult:
+            return rest.SearchResult(rows=[{"count": "1"}])
+
         def datamodel_acceleration(self, app: str, model: str) -> dict:
             return dict(self.reports[model])
 
     svc = _Svc()
-    clean = {row["probe"]: row for row in cli._datamodel_probes(svc)}
-    assert len(clean) == len(plan.ACCELERATED) and not any(row["failed"] for row in clean.values())
+    clean = {row["name"]: row for row in cli._model_rows(svc)}
+    assert set(clean) == {f"acceleration:{model}" for model in plan.ACCELERATED}
+    assert all(row["ok"] for row in clean.values())
     svc.reports["Web"] = {"enabled": False, "earliest_time": "-1y"}
     svc.reports["Endpoint"] = {"enabled": True, "earliest_time": "-3mon"}
-    report = {row["probe"]: row for row in cli._datamodel_probes(svc)}
-    assert {name for name, row in report.items() if row["failed"]} == {
+    report = {row["name"]: row for row in cli._model_rows(svc)}
+    assert {name for name, row in report.items() if not row["ok"]} == {
         "acceleration:Web",
         "acceleration:Endpoint",
     }
-    assert "reports enabled=False -1y" in report["acceleration:Web"]["messages"][0]
+    assert "reports enabled=False -1y" in report["acceleration:Web"]["detail"]
     assert cli.build_parser().parse_args(["verify", "--accelerate"]).accelerate
+    # the flag wires those rows into the JSON report
+    monkeypatch.setattr(cli.rest, "SplunkREST", lambda transport=None: _Svc())
+    svc.reports["Web"] = {"enabled": True, "earliest_time": plan.ACCEL_WINDOW}
+    svc.reports["Endpoint"] = {"enabled": True, "earliest_time": plan.ACCEL_WINDOW}
+    args = cli.build_parser().parse_args(["verify", "--accelerate"])
+    assert cli.cmd_verify(args) == 1  # control probes return one row from the fake
+    rows = {row["name"]: row for row in json.loads(capsys.readouterr().out)}
+    assert {f"acceleration:{model}" for model in plan.ACCELERATED} <= set(rows)
+
+
+def test_macro_expansion_reads_the_parser_endpoint() -> None:
+    """The live API answers a POST to `nobody/search/search/parser` with `normalizedSearch`."""
+    calls: list[tuple[str, str, dict[str, str] | None]] = []
+
+    def transport(method: str, path: str, data):
+        calls.append((method, path, data))
+        return {"normalizedSearch": f"litsearch {plan.cim_macro_definition()}"}
+
+    expansion = rest.SplunkREST(transport=transport).macro_expansion("cim_Web_indexes")
+    assert expansion == f"litsearch {plan.cim_macro_definition()}"
+    assert calls == [
+        (
+            "POST",
+            "/servicesNS/nobody/search/search/parser?output_mode=json",
+            {"q": "search `cim_Web_indexes`"},
+        )
+    ]
+    other = rest.SplunkREST(transport=lambda *_: {"optimizedSearch": expansion})
+    with pytest.raises(rest.SplunkError):
+        other.macro_expansion("cim_Web_indexes")
