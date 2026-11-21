@@ -387,6 +387,8 @@ class HuntExecutor:
                 )
                 if retry_error is None:
                     if isinstance(error, (SearchBudgetExceededError, HuntSearchFailedError)):
+                        reason = reason or CENSORED
+                        result = Read(rows, True, reason, error)
                         raise error
                     break
                 if rows or attempt + 1 >= RETRY_ATTEMPTS:
