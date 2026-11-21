@@ -269,16 +269,15 @@ def test_verify_fails_a_zero_row_entity_tstats(
             return rest.SearchResult(rows=rows, run_seconds=0.1)
 
     monkeypatch.setattr(cli.rest, "SplunkREST", lambda transport=None: _Svc())
-    args = cli.build_parser().parse_args(["verify", "--index", "santos"])
-    assert cli.cmd_verify(args) == 1
-    report = json.loads(capsys.readouterr().out)
-    assert {f"entity_indexed:{s.target_index}" for s in plan.TUNED} <= {
-        row["probe"] for row in report
-    }
-    failed = [row for row in report if row["failed"]]
-    assert [row["probe"] for row in failed] == [f"entity_indexed:{spec.target_index}"]
-    assert "expected >= 1 rows, got 0" in failed[0]["messages"][-1]
+    for key, tuned in plan.TUNED_BY_KEY.items():
+        _Svc.zero = tuned.target_index
+        args = cli.build_parser().parse_args(["verify", "--index", key])
+        assert cli.cmd_verify(args) == 1
+        failed = [row for row in json.loads(capsys.readouterr().out) if row["failed"]]
+        assert [row["probe"] for row in failed] == [f"entity_indexed:{tuned.target_index}"]
+        assert "expected >= 1 rows, got 0" in failed[0]["messages"][-1]
 
+    args = cli.build_parser().parse_args(["verify", "--index", "santos"])
     _Svc.zero = ""
     assert cli.cmd_verify(args) == 0
 

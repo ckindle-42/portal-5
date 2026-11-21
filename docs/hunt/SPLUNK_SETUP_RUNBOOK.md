@@ -447,19 +447,18 @@ exists to remove). Then `index=summary hunt_entities_index=hb_ait_santos | head 
 uv run python -m scripts.lab.splunk_setup verify --index santos | tee coding_task/scratch/splunk_setup/verify.json
 ```
 
-It runs the six `cim_*_indexes` parser expansions, then an `entity_indexed:<index>` probe for
-**every** tuned index (the `by acct` tstats, so one pass covers all three), then — when `--index`
-is given — that index's other probes (events / sourcetypes / accelerated model), then the three
-control probes. It reports `rows`, `scan_count`, `run_seconds` and the expected result for each,
-and **fails on a probe that returned fewer rows than it declares**, not only on a failed job. What
-"worked" looks like, in one place:
+Run it once per tuned index. Each pass runs the six `cim_*_indexes` parser expansions, the chosen
+index's `entity_indexed:<index>` probe (the `by acct` tstats), its events / sourcetypes /
+accelerated-model probes, and the three control probes. It reports `rows`, `scan_count`,
+`run_seconds` and the expected result for each, and **fails on a probe that returned fewer rows
+than it declares**, not only on a failed job. What "worked" looks like, in one place:
 
 | probe | expected | what a failure means |
 |---|---|---|
 | `cim_macro:cim_<Model>_indexes` ×6 | the expansion names all three `_v2` indexes | the override is not in Splunk_SA_CIM's local conf — re-run `apply` |
 | `eventcount index=<i>_v2` | = the table's kept count | a file failed to ship — `--resume` |
 | `tstats … by sourcetype` on `_v2` | ≤16 rows, no date-in-filename names | mapping missed a class |
-| `entity_indexed:<i>_v2` (`tstats … by acct`) ×3 | >0 rows | the transform did not write meta (`WRITE_META` missing) or the index predates the fix — rebuild the index, a restart cannot repair it |
+| `entity_indexed:<i>_v2` (`tstats … by acct`) | >0 rows | the transform did not write meta (`WRITE_META` missing) or the index predates the fix — rebuild the index, a restart cannot repair it |
 | `tstats summariesonly=true from datamodel=Authentication` | >0 rows, scan 0 | tags or acceleration missing |
 | `tstats … index=botsv2 sourcetype="WinEventLog" by host` | 0 rows | the control was normalised — stop |
 | `tstats … index=botsv2 sourcetype="wineventlog:security" by host` | >0 rows | the two-name split changed — stop |

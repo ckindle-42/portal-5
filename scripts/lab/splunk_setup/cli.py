@@ -249,15 +249,9 @@ def cmd_summary(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     svc = rest.SplunkREST(transport=_transport(args))
-    probes = [plan.entity_probe(spec) for spec in plan.TUNED]
+    probes = list(plan.CONTROL_PROBES)
     if args.index:
-        extra = [
-            probe
-            for probe in plan.verify_probes(_spec(args.index))
-            if probe.name not in {p.name for p in probes}
-        ]
-        probes = extra + probes
-    probes += list(plan.CONTROL_PROBES)
+        probes = list(plan.verify_probes(_spec(args.index))) + probes
     report = _cim_macro_probes(svc)
     for probe in probes:
         report.append(_probe_result(svc, probe))
