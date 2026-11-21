@@ -124,10 +124,10 @@ uv run python scripts/proofs/media_variant_screen.py --medium image [--only iris
                                     # system-free %, vm.swapusage), then writes a dated table + judge sheet + rows.jsonl
                                     # under ${AI_OUTPUT_DIR:-$HOME/AI_Output}/generated/screens/. Rows live in
                                     # scripts/proofs/media_screen_catalog.yaml. Judging is human/independent-model.
-uv run python scripts/proofs/media_variant_screen_install.py --medium video --yes
+uv run python scripts/proofs/media_variant_screen_install.py --medium music --yes
                                     # arm64 + data01 install helper for candidate venvs/weights (mflux uv-tool pin,
-                                    # FastVideo checkout + .[mlx] venv, FastMetal + acestep-0.6B weights into
-                                    # /Volumes/data01); prints HF download sizes first; without --yes it is plan-only
+                                    # acestep-0.6B weights into /Volumes/data01); prints HF download sizes first;
+                                    # without --yes it is plan-only
 uv run python scripts/proofs/media_screen_listen.py --run-dir <screens/music-YYYYmmddTHHMMSSZ> [--listener mimo-v2.6-pro]
                                     # the screen's judge step for audio: blind A/B, every candidate clip against the
                                     # incumbent for the same prompt (order drawn from seed 20261120), five 1-5 scores +
