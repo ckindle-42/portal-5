@@ -45,7 +45,6 @@ class SearchResult:
     run_seconds: float = 0.0
     failed: bool = False
     messages: list[str] = field(default_factory=list)
-    normalized_search: str = ""
 
 
 def _httpx_transport(method: str, path: str, data: dict[str, str] | None) -> dict[str, Any]:
@@ -255,17 +254,19 @@ class SplunkREST:
         result.scan_count = int(content.get("scanCount") or 0)
         result.run_seconds = float(content.get("runDuration") or 0.0)
         result.messages = [str(m.get("text", m)) for m in content.get("messages") or []]
-        result.normalized_search = str(
-            content.get("normalizedSearch") or content.get("optimizedSearch") or ""
-        )
         if not result.failed:
             results = self.request("GET", f"/services/search/jobs/{sid}/results?count=0")
             result.rows = list(results.get("results") or [])
         return result
 
     def macro_expansion(self, macro: str) -> str:
-        """What the parser makes of a macro invocation: the search it actually runs."""
-        result = self.search(f"search `{macro}` | head 0", earliest="-1s", max_wait=120.0)
-        if not result.normalized_search:
-            raise SplunkError(f"no parser expansion returned for `{macro}`")
-        return result.normalized_search
+        """The search the parser actually runs for a macro invocation, read from the parser API."""
+        payload = self.request(
+            "POST",
+            "/servicesNS/nobody/search/search/parser",
+            {"q": f"search `{macro}`"},
+        )
+        expansion = str(payload.get("normalizedSearch") or "")
+        if not expansion:
+            raise SplunkError(f"parser returned no normalizedSearch for `{macro}`")
+        return expansion

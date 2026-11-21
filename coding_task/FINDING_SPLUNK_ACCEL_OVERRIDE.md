@@ -28,10 +28,10 @@ The conf row is not the property. The property is what
   reports the CIM app's own default again (`enabled: false`, its own `earliest_time`) — `rollback`
   calls it for the seven models (like the macros, `--with-change` included) and re-reads to report
   what the model says afterwards.
-- `cli._datamodel_probes` + `verify --accelerate` fail per model unless the endpoint reports
-  `enabled` over `-10y`; the row `reported` is in the probe output, so a failure shows
-  `reports enabled=False -1y`. `--accelerate` is a flag because stage 1/2 `verify` runs before
-  acceleration exists and must not fail on it.
+- `cli._model_rows` + `verify --accelerate` report one `acceleration:<Model>` row per model and it
+  fails unless the endpoint reports `enabled` over `-10y`; the row's `detail` carries
+  `reports enabled=False -1y`, so a failure shows it in one line. `--accelerate` is a flag because
+  stage 1/2 `verify` runs before acceleration exists and must not fail on it.
 - `datamodels.conf` is gone from the renderer and from the committed app tree, and
   `plan.LEGACY_CONF_FILES` makes `conf.write_app` drop a stale local copy and
   `host.install_command` `rm -f` the box's copy before the tar extract (tar overwrites, it never
@@ -63,7 +63,8 @@ Net test lines: **+102 / −9**, two tests added, none deleted.
   `earliest_time` in place but does disable the model.
 - **What the endpoint reports as `earliest_time`.** The idempotency check compares it to `-10y`
   literally. If Splunk normalises the value (epoch, `-3650d`), every `apply --accelerate` rewrites
-  and `verify --accelerate` fails — the `reported` field of the probe shows it in one line.
+  and `verify --accelerate` fails — the `detail` of the `acceleration:<Model>` row shows it in one
+  line.
 - **`host.install_command`'s `sh -c 'rm -f … && exec tar …'`** through `pct exec` → `docker exec`:
   reasoned from the existing transport, not run. A quoting failure shows as `app install failed`.
 - Nothing was applied to the lab box from this lane; no summary was read.
