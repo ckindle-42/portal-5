@@ -36,7 +36,7 @@ from .knowledge import PROOF_INDEXES
 from .receipt import progress_update, read_json, write_json
 from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, configure_ledger, read_notables
 from .sample import shared_source_names, source_route
-from .spine import SPINE_FILE, SPINE_RECEIPT
+from .spine import FILE, SPINE_FILE, SPINE_RECEIPT, classify, event_id
 
 RELATE_FILE = "relate.json"
 CASES_FILE = "cases.json"
@@ -52,12 +52,19 @@ CASE_LINK_GAP_SECONDS = 4 * 3600.0  # the spine's episode adjacency window
 CASE_MIN_EVIDENCE = 2  # a case is two independent pieces of evidence, never one signal
 CASE_EVIDENCE_ROWS = 20  # effort budget: evidence rows kept beside a case
 CASE_WEIGHTS = (1.0, 1.0, 1.0, 1.0, 1.0)  # sources, signals, anchor, distinctiveness, coherence
+SET_NOVELTY_FIELD = "unit"  # the structural field a systemd unit name arrives in
+SET_NOVELTY_MIN_CLASS_VALUES = 3  # a host has a routine class once it produces this many values
+SET_NOVELTY_MAX_EVENTS = 2  # a two-event step still needs a unit that can hold it
+SET_NOVELTY_CLASS_EVENTS = 50  # a file class this small on one host is not routine
+SET_NOVELTY_MAX_ROWS = 200  # effort budget: candidates one run may carry
 _ROLE_ORDER = {"actor": 0, "action": 1, "object": 2, "from": 3, "to": 4, "outcome": 5}
 _DECIDING_ROLES = frozenset({"actor", "from", "to"})  # a participant, not merely a holder
 _PROGRAM_FIELD = "program"  # a template source keys its actor on the program, not an identity
 _IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
 _CLF_TIME = re.compile(r"\[\d{1,2}/\w{3}/\d{4}:")  # an access-log timestamp is not an identity
 _SOURCE_IN_QUERY = re.compile(r'source="([^"]+)"')  # the source path the read actually named
+_UNIT_PAIR = re.compile(r"""\bunit=("[^"]*"|'[^']*'|[^\s,;]+)""")
+_FILE_TOKEN = re.compile(r"""[^\s,;()\[\]{}"']+""")
 # attack-signal generators rank ahead of the statistical ones when seeds are chosen
 _SEED_GENERATOR_PRIORITY = {"similar_to_known": 0, "alerts": 1}
 
@@ -822,6 +829,166 @@ def _signal_units(
     return units
 
 
+def _class_values(raw: str) -> set[tuple[str, str]]:
+    """The (class token, value) pairs one event contributes to a class set."""
+    found: set[tuple[str, str]] = set()
+    for match in _UNIT_PAIR.finditer(raw):
+        value = match.group(1).strip("\"'")
+        if _class_value_ok(value):
+            found.add((SET_NOVELTY_FIELD, value))
+    for token in _FILE_TOKEN.findall(raw):
+        if "/" not in token and "\\" not in token:
+            continue
+        hit = classify("", token)
+        if hit is not None and hit.kind == FILE and hit.class_token:
+            found.add((hit.class_token, token))
+    return found
+
+
+def _class_value_ok(value: str) -> bool:
+    return (
+        len(value) >= 2
+        and "*" not in value
+        and "?" not in value
+        and not any(char.isspace() for char in value)
+    )
+
+
+def _novelty_row(
+    index: str, host: str, kind: str, value: str, rows: Sequence[tuple[Any, ...]]
+) -> dict[str, Any]:
+    """One class-set candidate: a rare value on a host where its class is routine."""
+    ordered = sorted(rows)
+    times = [float(row[0]) for row in ordered]
+    identifier = hashlib.sha1(f"{host}|{kind}|{value}".encode()).hexdigest()[:16]
+    return {
+        "notable_id": f"set-novelty-{identifier}",
+        "generator": "set_novelty",
+        "basis": "class_set_novelty",
+        "what": f"{kind} value {value!r} seen {len(ordered)} time(s) only on {host}",
+        "why": f"a rare member of a {kind} class this host otherwise produces",
+        "entities": [{"role": "object", "value": value}],
+        "source_id": str(ordered[0][1]),
+        "host": host,
+        "first_seen": min(times),
+        "last_seen": max(times),
+        "event_ids": [event_id(str(row[1]), host, float(row[0]), str(row[3])) for row in ordered],
+        "measure": {"name": "class_set_novelty", "value": len(ordered)},
+        "relation_score": float(len(ordered)),
+        "anchor_rank": 0,
+        "unjudged": True,
+        "evidence": [_novelty_evidence(index, row) for row in ordered[:3]],
+    }
+
+
+def _novelty_evidence(index: str, row: Sequence[Any]) -> dict[str, Any]:
+    moment = float(row[0])
+    query = str(row[2] or "") or f"search index={_search_literal(index)} | head 5"
+    return {
+        "line": str(row[3] or "")[:EVIDENCE_CHARS],
+        "query": query,
+        "earliest": moment - 1,
+        "latest": moment + 1,
+    }
+
+
+def _novelty_rows(out: Path, index: str) -> list[dict[str, Any]]:
+    """Set-novelty candidates from the run's own store: no search, no keyword list."""
+    store = out / STORE_FILE
+    if not store.is_file():
+        return []
+    con = duckdb.connect(str(store), read_only=True)
+    try:
+        events = con.execute("SELECT source_id, host, ts, raw, query FROM events").fetchall()
+    finally:
+        con.close()
+    grouped: dict[tuple[str, str], dict[str, list[tuple[Any, ...]]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    totals: dict[str, int] = defaultdict(int)
+    hosts: dict[str, set[str]] = defaultdict(set)
+    for source_id, host, ts, raw, query in events:
+        place = str(host or "")
+        for kind, value in _class_values(str(raw or "")):
+            grouped[(place, kind)][value].append(
+                (float(ts or 0.0), str(source_id), str(query or ""), str(raw or ""))
+            )
+            totals[value] += 1
+            hosts[value].add(place)
+    candidates: list[tuple[str, str, str, list[tuple[Any, ...]]]] = []
+    for (place, kind), values in grouped.items():
+        routine = kind == SET_NOVELTY_FIELD and len(values) >= SET_NOVELTY_MIN_CLASS_VALUES
+        small = (
+            kind != SET_NOVELTY_FIELD
+            and sum(len(rows) for rows in values.values()) <= SET_NOVELTY_CLASS_EVENTS
+        )
+        if not (routine or small):
+            continue
+        for value, rows in values.items():
+            if totals[value] > SET_NOVELTY_MAX_EVENTS or len(hosts[value]) != 1:
+                continue
+            candidates.append((place, kind, value, rows))
+    candidates.sort(
+        key=lambda item: (0 if item[1] == SET_NOVELTY_FIELD else 1, item[0], item[1], item[2])
+    )
+    return [
+        _novelty_row(index, place, kind, value, rows)
+        for place, kind, value, rows in candidates[:SET_NOVELTY_MAX_ROWS]
+    ]
+
+
+def _novelty_units(rows: Sequence[Mapping[str, Any]]) -> list[CaseUnit]:
+    """A set-novelty candidate is a signal unit so a two-event episode can hold a case."""
+    units: list[CaseUnit] = []
+    for rank, row in enumerate(rows):
+        measure = row.get("measure")
+        measure = measure if isinstance(measure, Mapping) else {}
+        entities = [item for item in row.get("entities") or () if isinstance(item, Mapping)]
+        if not entities:
+            continue
+        units.append(
+            CaseUnit(
+                str(row.get("notable_id") or ""),
+                "signal",
+                f"class:{row.get('basis')}",
+                str(entities[0].get("value") or ""),
+                str(row.get("source_id") or ""),
+                str(row.get("host") or ""),
+                float(_number(row.get("first_seen")) or 0.0),
+                float(_number(row.get("last_seen")) or 0.0),
+                event_ids=tuple(str(item) for item in row.get("event_ids") or ()),
+                lines=tuple(
+                    item for item in row.get("evidence") or () if isinstance(item, Mapping)
+                ),
+                notable_id=str(row.get("notable_id") or ""),
+                generator=str(row.get("generator") or ""),
+                measure=float(_number(measure.get("value")) or 0.0),
+                rank=rank,
+            )
+        )
+    return units
+
+
+def _link_novelty(
+    parent: dict[str, str], units: Sequence[CaseUnit], counters: dict[str, int]
+) -> None:
+    """A class-set signal links only the episode that carries its own evidence events."""
+    by_event: dict[str, str] = {}
+    for unit in units:
+        if unit.kind == "episode":
+            for identifier in unit.event_ids:
+                by_event.setdefault(identifier, unit.unit_id)
+    for novelty in (unit for unit in units if unit.generator == "set_novelty"):
+        for identifier in novelty.event_ids:
+            unit_id = by_event.get(identifier)
+            if unit_id is None or unit_id == novelty.unit_id:
+                continue
+            if _root(parent, unit_id) == _root(parent, novelty.unit_id):
+                continue
+            _union(parent, novelty.unit_id, unit_id)
+            counters["links"] += 1
+
+
 def _flow_units(
     flows: Sequence[Mapping[str, Any]],
     identity: Mapping[str, Mapping[str, Any]],
@@ -921,6 +1088,7 @@ def _case_groups(units: Sequence[CaseUnit]) -> tuple[list[list[CaseUnit]], dict[
     for group in by_key.values():
         _link_chain(parent, group, counters)
         _link_flows(parent, group, counters)
+    _link_novelty(parent, units, counters)
     components: dict[str, list[CaseUnit]] = defaultdict(list)
     for unit in units:
         components[_root(parent, unit.unit_id)].append(unit)
@@ -1008,7 +1176,10 @@ def _case_from_members(
         {unit.generator for unit in members if unit.kind == "signal" and unit.generator}
     )
     flows = [unit for unit in members if unit.kind == "flow"]
-    if not (len(sources) >= 2 or len(signals) >= 2 or (sources and flows)):
+    novelties = [unit for unit in members if unit.generator == "set_novelty"]
+    if not (
+        len(sources) >= 2 or len(signals) >= 2 or (sources and flows) or (sources and novelties)
+    ):
         return None
     anchor = max(members, key=lambda unit: (unit.share, unit.measure, -unit.start, unit.unit_id))
     ranked = [
@@ -1058,6 +1229,7 @@ def _case_from_members(
             for unit in flows
         ],
         "unjudged": any(unit.kind == "signal" and unit.p_yes is None for unit in members),
+        "set_novelty": len(novelties),
         "why": f"{len(sources)} sources, {len(signals)} signals, {len(flows)} flow links",
     }
 
@@ -1089,7 +1261,11 @@ def build_cases(
     identity = _identity_fields(out)
     rows = _judged(read_notables(out / NOTABLES_FILE), judged_only)
     related = _judged(related, judged_only)
+    index = str(read_json(out / SOURCES_FILE).get("index") or "")
+    novelties = [] if judged_only else _novelty_rows(out, index)
+    related = [*related, *novelties]
     units.extend(_signal_units([*rows, *related], paths, shares))
+    units.extend(_novelty_units(novelties))
     inventory = load_inventory(out / INVENTORY_FILE)
     flows = [item for item in inventory.get("flows") or () if isinstance(item, Mapping)]
     flow_units, flows_skipped = _flow_units(flows, identity, paths)
@@ -1112,6 +1288,7 @@ def build_cases(
         "signals": sum(1 for unit in units if unit.kind == "signal"),
         "flows": len(flow_units),
         "flows_skipped": flows_skipped,
+        "set_novelty": len(novelties),
         "cases": len(cases),
         "links": counters["links"],
         "censored": {
@@ -1132,7 +1309,13 @@ def build_cases(
     }
     # compact, not write_json: a run's case payload is large and only machines read it
     (out / CASES_FILE).write_text(json.dumps({"receipt": receipt, "cases": cases}))
-    return {"receipt": receipt, "cases": cases, "flows": flows}
+    return {
+        "receipt": receipt,
+        "cases": cases,
+        "flows": flows,
+        "novelties": novelties,
+        "related": related,
+    }
 
 
 def _event_rows(out: Path, identity: Mapping[str, Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -1176,11 +1359,51 @@ def _row_index(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
     return found
 
 
+def _store_raws(out: Path) -> dict[str, tuple[str, ...]]:
+    """Every stored raw line, keyed by source tail: the deterministic evidence check's input."""
+    store = out / STORE_FILE
+    if not store.is_file():
+        return {}
+    con = duckdb.connect(str(store), read_only=True)
+    try:
+        rows = con.execute("SELECT source_id, raw FROM events").fetchall()
+    finally:
+        con.close()
+    found: dict[str, list[str]] = defaultdict(list)
+    for source_id, raw in rows:
+        found[str(source_id).rsplit(":", 1)[-1]].append(str(raw or "").casefold())
+    return {name: tuple(lines) for name, lines in found.items()}
+
+
+def _verified_row(row: Mapping[str, Any], raws: Mapping[str, Sequence[str]] | None) -> bool:
+    """A member is lifted only when its evidence resolves and its carrier value is in that row."""
+    if raws is None:
+        return True
+    source = str(row.get("source_id") or "").rsplit(":", 1)[-1]
+    candidates = raws.get(source, ())
+    values = [
+        str(item.get("value") or "").casefold()
+        for item in row.get("entities") or ()
+        if isinstance(item, Mapping)
+    ]
+    values = [value for value in values if len(value) >= 2]
+    for item in row.get("evidence") or ():
+        line = str(item.get("line") or "").casefold() if isinstance(item, Mapping) else ""
+        if len(line) < 8:
+            continue
+        head = line[:200]
+        for raw in candidates:
+            if raw.startswith(head) and any(value in raw for value in values):
+                return True
+    return False
+
+
 def _weak_members(
     case: Mapping[str, Any],
     rows: Sequence[Mapping[str, Any]],
     by_id: Mapping[str, int],
     related_by_id: Mapping[str, Mapping[str, Any]],
+    raws: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[int, list[tuple[int, dict[str, Any]]]] | None:
     positions = [
         by_id[seed_id]
@@ -1196,6 +1419,7 @@ def _weak_members(
             weak.append((by_id[related_id], dict(rows[by_id[related_id]])))
         elif related_id not in by_id and related_id in related_by_id:
             weak.append((len(rows) + 1, dict(related_by_id[related_id])))
+    weak = [item for item in weak if _verified_row(item[1], raws)]
     weak.sort(key=lambda item: (item[0], str(item[1].get("notable_id") or "")))
     return anchor, weak[:PROMOTE_PER_CASE]
 
@@ -1204,6 +1428,7 @@ def _apply_lifts(
     rows: Sequence[Mapping[str, Any]],
     planned: Sequence[tuple[int, str, Sequence[tuple[int, dict[str, Any]]]]],
     by_id: Mapping[str, int],
+    raws: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     lifts: dict[int, list[dict[str, Any]]] = defaultdict(list)
     remove: set[int] = set()
@@ -1223,7 +1448,8 @@ def _apply_lifts(
                     "case_id": case_id,
                     "notable_id": notable_id,
                     "after_rank": anchor,
-                    "unjudged": _unjudged(row),
+                    "unjudged": not _verified_row(row, raws),
+                    "judged": not _unjudged(row),
                 }
             )
     rebuilt: list[dict[str, Any]] = []
@@ -1241,8 +1467,9 @@ def promote_case_members(
     related: Sequence[Mapping[str, Any]],
     *,
     judged_only: bool = False,
+    raws: Mapping[str, Sequence[str]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """A case already inside the head lifts its weak members to sit just after its anchor."""
+    """A case already inside the head lifts only its verified members to sit after its anchor."""
     by_id = _row_index(rows)
     related_by_id = {
         str(row.get("notable_id") or ""): row for row in related if row.get("notable_id")
@@ -1250,7 +1477,7 @@ def promote_case_members(
     planned = [
         (anchor, str(case.get("case_id") or ""), weak)
         for case in cases
-        if (picked := _weak_members(case, rows, by_id, related_by_id)) is not None
+        if (picked := _weak_members(case, rows, by_id, related_by_id, raws)) is not None
         for anchor, weak in (picked,)
     ]
     if judged_only:
@@ -1259,7 +1486,7 @@ def promote_case_members(
             for anchor, case_id, weak in planned
         ]
         planned = [(anchor, case_id, weak) for anchor, case_id, weak in kept if weak]
-    rebuilt, lifted = _apply_lifts(rows, planned, by_id)
+    rebuilt, lifted = _apply_lifts(rows, planned, by_id, raws)
     return rebuilt, {
         "lifted": len(lifted),
         "judged_only": judged_only,
@@ -1302,9 +1529,14 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
     related = _related_rows(index, candidates)
     built = build_cases(out, related, judged_only)
     cases = built["cases"]
-    promoted, promotion = promote_case_members(selected, cases, related, judged_only=judged_only)
+    novelties = built.get("novelties") or []
+    related = built.get("related") or related
+    promotable = [row for row in related if row.get("generator") != "set_novelty"]
+    promoted, promotion = promote_case_members(
+        selected, cases, promotable, judged_only=judged_only, raws=_store_raws(out)
+    )
     promoted = [{**row, "unjudged": row.get("p_yes") is None} for row in promoted]
-    _write_notables(out / NOTABLES_FILE, promoted)
+    _write_notables(out / NOTABLES_FILE, [*promoted, *novelties])
     snapshot = executor.budget.snapshot()
     receipt = {
         "index": index,
@@ -1314,6 +1546,7 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
         "requests": len(requests),
         "related_events": len(related),
         "cases": len(cases),
+        "set_novelty": len(novelties),
         "case_receipt": built["receipt"],
         "flows": len(built["flows"]),
         "promotion": promotion,
@@ -1367,11 +1600,15 @@ def _cases_main(out: Path) -> int:
         print(f"relate: {error}", file=sys.stderr)
         return 2
     receipt = built["receipt"]
+    kept = [
+        row for row in read_notables(out / NOTABLES_FILE) if row.get("generator") != "set_novelty"
+    ]
+    _write_notables(out / NOTABLES_FILE, [*kept, *(built.get("novelties") or ())])
     print(
         f"cases: units={receipt['units']} episodes={receipt['episodes']} "
         f"signals={receipt['signals']} flows={receipt['flows']} cases={receipt['cases']} "
-        f"links={receipt['links']} censored={receipt['censored']} "
-        f"uncapped_fraction={receipt['uncapped_fraction']} "
+        f"set_novelty={receipt['set_novelty']} links={receipt['links']} "
+        f"censored={receipt['censored']} uncapped_fraction={receipt['uncapped_fraction']} "
         f"coverage_complete={receipt['coverage_complete']} "
         f"evidence_violations={receipt['evidence_violations']} wall={receipt['seconds']}s "
         f"-> {out / CASES_FILE}"

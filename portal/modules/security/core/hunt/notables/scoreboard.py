@@ -16,7 +16,7 @@ import sys
 import time
 import unicodedata
 from collections import Counter, defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from importlib import import_module
 from pathlib import Path
@@ -1170,18 +1170,33 @@ def _case_quality(
     }
 
 
-def _label_case_recall(purity: Mapping[str, Any], labels: Sequence[str]) -> dict[str, Any]:
-    """Per labelled step: a case inside the cut holds a line carrying that label."""
+def _case_claim_recall(
+    cases: Sequence[Mapping[str, Any]],
+    ordered: Sequence[Mapping[str, Any]],
+    keys: Sequence[KeyLine],
+    hits: Mapping[int, Collection[str]],
+) -> dict[str, Any]:
+    """Per labelled step: a case holds it only when one of its own members' claims covers it."""
+    positions: dict[str, int] = {}
+    for position, row in enumerate(ordered):
+        notable_id = str(row.get("notable_id") or "")
+        if notable_id:
+            positions.setdefault(notable_id, position)
     covered: dict[str, set[str]] = {str(limit): set() for limit in CUTS}
     rows: list[dict[str, Any]] = []
-    for case in purity.get("cases") or ():
-        found = sorted(str(label) for label in case.get("labels") or ())
+    for rank, case in enumerate(cases):
+        ids = [
+            str(item)
+            for name in ("seed_notables", "related_notables")
+            for item in case.get(name) or ()
+        ]
+        found = sorted({label for item in ids for label in hits.get(positions.get(item, -1), ())})
         for limit in CUTS:
-            if _cut(int(case.get("rank") or 0), limit):
+            if _cut(rank, limit):
                 covered[str(limit)].update(found)
         if found:
-            rows.append({"rank": case.get("rank"), "labels": found})
-    total = len(set(labels))
+            rows.append({"rank": rank, "labels": found})
+    total = len({label for line in keys for label in line.labels})
     return {
         "scenarios": total,
         "overall": {key: len(value) for key, value in covered.items()},
@@ -1209,7 +1224,8 @@ def _relation_report(
     related = [item for item in payload.get("notables") or () if isinstance(item, dict)]
     after_rows = _with_related(rows, related)
     after_steps = _steps(keys)
-    _coverage(after_steps, _ranked_notables(after_rows), keys, logs, year)
+    hits: dict[int, set[str]] = {}
+    _coverage(after_steps, _ranked_notables(after_rows), keys, logs, year, hits)
     purity = _case_purity(cases, keys, logs)
     return {
         "related_notables": len(related),
@@ -1219,9 +1235,7 @@ def _relation_report(
             sorted(after_steps.values(), key=lambda step: (not step.quiet, step.lines, step.label))
         ),
         "case_purity": purity,
-        "case_member_recall": _label_case_recall(
-            purity, sorted({label for line in keys for label in line.labels})
-        ),
+        "case_member_recall": _case_claim_recall(cases, after_rows, keys, hits),
         "case_quality": _case_quality(cases, case_receipt, payload.get("receipt") or {}),
         "receipt": payload.get("receipt") or {},
     }
