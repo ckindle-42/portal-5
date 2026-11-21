@@ -61,9 +61,10 @@ dispatcher alone.
 Read from the `harness-hub` org listing on 2026-11-21 (34 repos, creation dates via the HF API):
 
 - The Qwen3.8 adapter family is the newest thing there: `pi-adapted`/`opencode-adapted`/
-  `hermes-adapted` created 2026-11-16, `super-adapter` 2026-11-16. Their GGUF repos were last
-  modified 2026-11-18/20, and those later commits are README only (the weights blob dates are
-  unchanged). **No v2 of either specialist exists.**
+  `hermes-adapted` created 2026-11-16, `super-adapter` 2026-11-16. The GGUF repos were last
+  modified 2026-11-18/20, but their file list and every file size still match the intake
+  finding's record (318 802 304 / 318 802 400 B adapters, 28 595 763 840 B Q8_0),
+  so no new weights landed. **No v2 of either specialist exists.**
 - `Qwen3.8-27B-super-adapter` (one LoRA merging pi + Hermes + opencode) is the only newer Qwen3.8
   harness adapter, and its own card says it should be run with **thinking on** and is worse than
   each specialist on that specialist's harness with thinking off. Not a substitute here.
