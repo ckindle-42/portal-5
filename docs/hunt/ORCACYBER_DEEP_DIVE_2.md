@@ -555,6 +555,10 @@ parse-local (`template`, `program`, `v1..v6` and any name no probe can see) must
 count = 0.
 **Test.** a card whose roles are `v1..v6` and whose source exposes `c_ip/acct` → the exposed fields
 are selected; a name that neither probe sees → `unavailable:<name>`, never `empty`.
+**Cost (measured).** A field probe is ~0.5 s either way: `search … | head 1 | fields <f>` scans
+51–57 events in 0.50–0.58 s, `| tstats count … by <f> | head 1` scanned a 567,569-event sourcetype in
+0.63 s. Fifteen sources × three role fields ≈ 25 s, in place of 32 full scans with 20 guaranteed
+empties.
 
 ### D3 (P1, S) — capped lists keep the tail
 
