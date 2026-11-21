@@ -7,6 +7,7 @@ from typing import Any
 import duckdb
 import pytest
 
+from portal.modules.security.core.hunt.executor import HuntBudgetExceededError
 from portal.modules.security.core.hunt.notables.__main__ import main
 from portal.modules.security.core.hunt.notables.behaviours import (
     _INSERT,
@@ -22,6 +23,7 @@ from portal.modules.security.core.hunt.notables.knowledge import (
     KnowledgeItem,
     build_store,
 )
+from portal.modules.security.core.hunt.notables.run import configure_ledger
 from portal.modules.security.core.hunt.notables.sample import SourceFacts
 
 
@@ -45,6 +47,80 @@ class _RecordingSearch:
     def iter_post(self, search: str, start: float, end: float) -> Any:
         self.queries.append(search)
         return iter([])
+
+
+def test_ledger_records_capped_read_and_extracted_values(tmp_path: Path) -> None:
+    class _Rows:
+        def iter_post(self, _search: str, _start: float, _end: float) -> Any:
+            return iter(
+                [
+                    {"_raw": "first value", "actor": "alice"},
+                    {"_raw": "second value", "actor": "bob"},
+                ]
+            )
+
+    executor = configure_ledger(_Rows(), tmp_path, "behaviours")
+    read = executor.read(
+        'search index="runidx" sourcetype="activity" | head 1',
+        10.0,
+        20.0,
+        kind="discovery",
+        row_cap=1,
+        source_id="runidx:activity",
+    )
+
+    row = json.loads((tmp_path / "ledger.jsonl").read_text().splitlines()[0])
+    assert read.reason == "row_cap"
+    assert row == {
+        "stage": "behaviours",
+        "source_id": "runidx:activity",
+        "part": None,
+        "query": 'search index="runidx" sourcetype="activity" | head 1',
+        "window_start": 10.0,
+        "window_end": 20.0,
+        "rows": 1,
+        "capped": True,
+        "reason": "row_cap",
+        "values_extracted": ["first value", "alice"],
+    }
+
+
+def test_ledger_records_a_read_that_exhausts_the_event_budget(tmp_path: Path) -> None:
+    class _Rows:
+        def iter_post(self, _search: str, _start: float, _end: float) -> Any:
+            return iter([{"_raw": "one"}, {"_raw": "two"}])
+
+    executor = configure_ledger(_Rows(), tmp_path, "behaviours")
+
+    def exhaust(_spend: str, _count: int) -> None:
+        raise HuntBudgetExceededError("event_budget_exhausted")
+
+    executor.budget.record_rows = exhaust  # type: ignore[method-assign]
+
+    with pytest.raises(HuntBudgetExceededError):
+        executor.read("search index=runidx", 10.0, 20.0, kind="discovery")
+
+    rows = [json.loads(line) for line in (tmp_path / "ledger.jsonl").read_text().splitlines()]
+    assert rows[0]["rows"] == 2
+    assert rows[0]["values_extracted"] == ["one", "two"]
+
+
+def test_ledger_records_partial_rows_before_a_search_budget_error(tmp_path: Path) -> None:
+    class _Rows:
+        def iter_post(self, _search: str, _start: float, _end: float) -> Any:
+            yield {"_raw": "partial row"}
+            raise HuntBudgetExceededError("event_budget_exhausted")
+
+    executor = configure_ledger(_Rows(), tmp_path, "behaviours")
+
+    with pytest.raises(HuntBudgetExceededError):
+        executor.read("search index=runidx", 10.0, 20.0, kind="discovery")
+
+    rows = [json.loads(line) for line in (tmp_path / "ledger.jsonl").read_text().splitlines()]
+    assert rows[0]["rows"] == 1
+    assert rows[0]["capped"] is False
+    assert rows[0]["reason"] == "censored"
+    assert rows[0]["values_extracted"] == ["partial row"]
 
 
 def _run_card() -> SourceCard:

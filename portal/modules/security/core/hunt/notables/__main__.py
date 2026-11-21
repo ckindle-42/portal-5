@@ -22,6 +22,7 @@ from .run import (
     default_search,
     judge_stage,
     notables_stage,
+    reset_ledger,
 )
 from .similar import SIMILAR_GENERATOR
 
@@ -290,6 +291,13 @@ def _run_relate(out: Path, search: Search) -> int:
     return 0
 
 
+def _prepare_ledger(out: Path, stage: str) -> None:
+    if stage in ("all", "cards"):
+        reset_ledger(out)
+    else:
+        (out / "ledger.jsonl").touch(exist_ok=True)
+
+
 def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
     args = _parser().parse_args(argv)
     out = Path(args.out)
@@ -301,6 +309,7 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
     if code is not None:
         return code
     search = default_search() if search is None else search
+    _prepare_ledger(out, args.stage)
     if "cards" in stages:
         assert target is not None
         client, model = target

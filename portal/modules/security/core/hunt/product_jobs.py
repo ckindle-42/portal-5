@@ -24,10 +24,12 @@ from .notables.run import (
     DEFAULT_GENERATORS,
     NOTABLES_FILE,
     SOURCES_FILE,
+    STAGES,
     behaviours_stage,
     cards_stage,
     judge_stage,
     notables_stage,
+    reset_ledger,
 )
 from .notables.similar import SIMILAR_GENERATOR
 
@@ -43,7 +45,7 @@ STAGE_ESTIMATES = {
     "judge": 60.0,
     "relate": 120.0,
 }
-STAGE_ORDER = ("cards", "behaviours", "notables", "relate")
+STAGE_ORDER = STAGES
 LEADS_LIMIT = 10
 LEADS_VIEW_LIMIT = 3
 LEADS_VIEW_DEFAULT = 2
@@ -276,9 +278,9 @@ def _stage_actions(
             ),
         ),
     ]
+    actions.append(("relate", lambda: relate_stage(out=out, search=search)))
     if judge_enabled:
         actions.append(("judge", lambda: _judge_stage_action(out, client, model, effort)))
-    actions.append(("relate", lambda: relate_stage(out=out, search=search)))
     return tuple(actions)
 
 
@@ -365,6 +367,7 @@ def _run(
 ) -> None:
     out = _ROOT / job_id
     out.mkdir(parents=True, exist_ok=True)
+    reset_ledger(out)
     state = load(job_id) or {}
     state.update(status="RUNNING", stage="cards", run_dir=str(out), judge_enabled=judge_enabled)
     state_lock = threading.RLock()
