@@ -102,13 +102,14 @@ def test_the_notable_prompt_carries_the_measure_and_not_the_label(monkeypatch):
         }
     }
     monkeypatch.setattr(similar, "_matches", lambda _pool, _ids: matches)
-    notables = similar._ranked_notables(
+    notables, skipped = similar._ranked_notables(
         None,
         [behaviour],
         [card],
         {0: {"known_bad": 0.986, "known_good": 0.876}},
         {"score": "known_bad_minus_good", "auc": 0.443},
     )
+    assert skipped == {}
     body = notable_body(notables[0].as_dict())
     assert "margin = 0.11 (threshold 0)" in body
     assert "matched item 0.986 (kyoushi)" in body
