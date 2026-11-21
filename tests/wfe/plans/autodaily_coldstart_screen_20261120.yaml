@@ -1,0 +1,24 @@
+# Auto-daily cold-start screen (2026-11-20): incumbent vs the two candidates on
+# six real-use conversations. Run only after the intake preflight (working 16k
+# window + typed tool-call probe); the derived -ctx16k tags are the Ollama
+# fallback, and the oMLX alias serves the same hint on the shadow path.
+#   uv run python -m tests.wfe.campaign --campaign-id autodaily_coldstart_20261120 \
+#       --plan tests/wfe/plans/autodaily_coldstart_screen_20261120.yaml --tier realuse
+repeats: 1
+workloads:
+  auto-daily:
+    tool_mode: production
+    home: realuse_v1
+    discovery: []
+    home_tasks:
+    - ru-v1-001
+    - ru-v1-002
+    - ru-v1-003
+    - ru-v1-004
+    - ru-v1-005
+    - ru-v1-032
+    arms:
+      incumbent: hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k
+      challengers:
+        - qwen3.5:9b-q4_K_M-ctx16k
+        - gemma4:12b-it-q4_K_M-ctx16k
