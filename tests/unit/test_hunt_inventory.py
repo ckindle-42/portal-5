@@ -107,6 +107,8 @@ class _Executor:
         search_names: Iterable[str] | None = None,
         accelerated: Iterable[Mapping[str, object]] = (),
         model_rows: Mapping[str, list[dict[str, object]]] | None = None,
+        declared: Iterable[str] = (),
+        absent: Iterable[str] = (),
     ) -> None:
         self.value_rows = dict(value_rows or {})
         self.indexed = set(indexed)
@@ -114,6 +116,8 @@ class _Executor:
         self.search_names = None if search_names is None else set(search_names)
         self.accelerated = [dict(row) for row in accelerated]
         self.model_rows = dict(model_rows or {})
+        self.declared = set(declared)
+        self.absent = set(absent)
         self.queries: list[str] = []
 
     @staticmethod
@@ -147,6 +151,8 @@ class _Executor:
         self.queries.append(query)
         if query.startswith("| rest /services/admin/summarization"):
             return Read([dict(row) for row in self.accelerated])
+        if query.startswith("| rest /servicesNS/-/-/configs/conf-fields"):
+            return Read([{"title": name, "INDEXED": "1"} for name in sorted(self.declared)])
         if query.startswith("| tstats summariesonly=true"):
             field = query.rsplit(" by ", 1)[1].split(" | ", 1)[0].strip()
             return Read(list(self.model_rows.get(field, [])))
@@ -159,11 +165,25 @@ class _Executor:
                 return Read([{"count": "100"}])
             events = self.tstats_names.get(name)
             return Read([{"count": str(events)}] if events else [])
+        if "| stats count as sampled" in query:
+            return Read([self._sampled(query)])
         if query.startswith("search ") and query.endswith("| head 1"):
             if self.search_names is None or name in self.search_names:
                 return Read([{"_raw": "x"}])
             return Read([])
         return Read(self.value_rows.get(self._value_key(query), []))
+
+    def _sampled(self, query: str) -> dict[str, object]:
+        row: dict[str, object] = {"sampled": "1000"}
+        for index, field in _count_aliases(query):
+            row[f"p{index}"] = "0" if field in self.absent else "1"
+        return row
+
+
+def _count_aliases(query: str) -> list[tuple[int, str]]:
+    return [
+        (int(number), field) for field, number in re.findall(r"count\(([^)]+)\) as p(\d+)", query)
+    ]
 
 
 def _row(value: str, field: str = "uid", **extra: object) -> dict[str, object]:
@@ -334,6 +354,50 @@ def test_tstats_without_a_value_column_is_unavailable_not_empty() -> None:
     assert record["values"] == []
 
 
+def test_the_estate_vocabulary_replaces_parse_local_names_as_lists() -> None:
+    card = SourceCard(
+        index="ix",
+        sourcetype="access_combined",
+        kind="activity",
+        roles={"actor": ("program",), "action": ("template",), "object": ("v1", "v2")},
+        understood=True,
+        reason=None,
+        fmt="template",
+        coverage=1.0,
+        fields=(
+            _stat("program", 40, 1, ("apache",)),
+            _stat("template", 40, 2, ("a b",)),
+            _stat("v1", 40, 4, ("x",)),
+            _stat("v2", 40, 9, ("y",)),
+        ),
+        sample={"lines": 40},
+        facts={"index": "ix", "sourcetype": "access_combined", "events": 500},
+        model={},
+        cache_key="access",
+    )
+    executor = _Executor(
+        {
+            "access_combined|c_ip": [_row("10.1.1.1", "c_ip", count=9), _row("10.1.1.2", "c_ip")],
+            "access_combined|acct": [_row("root", "acct", count=3)],
+        },
+        indexed={"c_ip", "acct"},
+        declared={"c_ip", "acct"},
+        absent={"program", "template", "v1", "v2"},
+    )
+
+    document = collect_inventory(executor, [card], "ix", 0.0, 10.0)
+
+    lists = {item["field"]: item for item in document["fields"]}
+    assert lists["c_ip"]["mechanism"] == "tstats"
+    assert lists["c_ip"]["status"] == "complete"
+    assert [row["value"] for row in lists["acct"]["values"]] == ["root"]
+    assert lists["template"]["status"] == "parse_only"
+    assert lists["template"]["values"] == []
+    assert {item["status"] for item in document["fields"]} == {"complete", "parse_only"}
+    assert not any(" by template" in query or " by v1" in query for query in executor.queries)
+    assert document["vocabulary"] == 2
+
+
 def test_a_source_with_two_names_uses_the_name_each_path_accepts() -> None:
     card = _windows_card(sample={"search_sourcetypes": ["WinEventLog"]})
     executor = _Executor(
@@ -408,7 +472,7 @@ def test_a_wide_source_is_listed_from_a_complete_accelerated_summary() -> None:
     assert document["accelerated"] == [
         {"model": "Authentication", "earliest": 1.5e9, "latest": 1.7e9}
     ]
-    assert not any(" | stats " in query for query in executor.queries)
+    assert not any("dc(host) as hosts" in query for query in executor.queries)
     assert "summariesonly=true" in next(
         query for query in executor.queries if "datamodel=" in query
     )
@@ -426,7 +490,7 @@ def test_a_wide_source_with_no_accelerated_model_is_unavailable_not_empty() -> N
     assert record["status"] == "unavailable:mechanism"
     assert record["reason"] == "events_budget"
     assert record["values"] == []
-    assert not any(" | stats " in query for query in executor.queries)
+    assert not any("dc(host) as hosts" in query for query in executor.queries)
 
 
 def test_the_same_field_on_two_parts_makes_two_lists() -> None:

@@ -1064,10 +1064,12 @@ def _case_from_members(
 
 def _inventory_coverage(document: Mapping[str, Any]) -> dict[str, Any]:
     """How much of the value-list enumeration completed, from the inventory's own statuses."""
-    lists = [item for item in document.get("fields") or () if isinstance(item, Mapping)]
+    rows = [item for item in document.get("fields") or () if isinstance(item, Mapping)]
+    lists = [item for item in rows if not item.get("parse_only")]
     complete = sum(1 for item in lists if item.get("status") == "complete")
     return {
         "lists": len(lists),
+        "parse_only": len(rows) - len(lists),
         "complete": complete,
         "capped": sum(1 for item in lists if item.get("status") == "capped"),
         "unavailable": sum(1 for item in lists if str(item.get("status") or "").startswith("un")),

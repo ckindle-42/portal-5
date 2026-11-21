@@ -20,7 +20,7 @@ INVENTORY_FILE = "inventory.json"
 INVENTORY_MAX_VALUES = 5_000  # effort budget (LIST_MAX): a longer list is capped, never exhaustive
 # Effort budget: the rarest values a capped list keeps beside its volume head.
 INVENTORY_MAX_TAIL = INVENTORY_MAX_VALUES // 10
-INVENTORY_MAX_FIELD_SEARCHES = 32  # effort budget: one value query per selected field
+INVENTORY_MAX_FIELD_SEARCHES = 40  # effort budget: three value queries per source
 INVENTORY_FIELDS_PER_SOURCE = 8  # effort budget: one source cannot fill the field budget
 INVENTORY_MAX_SCAN_EVENTS = 2_000_000  # effort budget: a stats list above this is localised first
 INVENTORY_MAX_JOINT_VALUES = 256  # effort budget: rows one two-field joint may aggregate
@@ -29,11 +29,20 @@ INVENTORY_CANDIDATES_PER_SOURCE = 8  # effort budget: unseen value rows handed t
 INVENTORY_CANDIDATE_TOTAL = 32  # effort budget: unseen value rows across the index
 INVENTORY_MAX_MODEL_PROBES = 8  # effort budget: accelerated models tried for one list
 INVENTORY_ACCEL_MIN_EVENTS = 250_000  # effort budget: below this a scan beats an acceleration probe
+INVENTORY_PROBE_EVENTS = 1_000  # effort budget: events one source's vocabulary probe reads
+INVENTORY_MAX_PROBE_FIELDS = 96  # effort budget: names one presence probe resolves
+INVENTORY_MAX_PRESENCE_PROBES = 48  # effort budget: sources one run samples for a vocabulary
 FLOW_MAX_SOURCES = 12  # effort budget: a value in more sources is ambient, not one entity
 # The documented output of setup stage 3: one row per model, with the window its summary covers.
 ACCEL_QUERY = (
     "| rest /services/admin/summarization by_tstats=1 "
     "| fields datamodel_name summary.earliest_time summary.latest_time summary.complete"
+)
+# The estate's declaration of which names it indexes: the only ones tstats can ever answer.
+VOCABULARY_QUERY = "| rest /servicesNS/-/-/configs/conf-fields | fields title INDEXED"
+# The event's own metadata is present everywhere and names no entity.
+_EVENT_METADATA = frozenset(
+    {"host", "index", "source", "sourcetype", "punct", "linecount", "splunk_server"}
 )
 _ROLE_ORDER = {"actor": 0, "action": 1, "object": 2, "from": 3, "to": 4, "outcome": 5}
 _CORE_ROLES = ("actor", "action", "object")
@@ -91,6 +100,7 @@ class FieldChoice:
     distinct: int
     part_field: str = ""
     part_value: str = ""
+    parse_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -139,6 +149,44 @@ def _summary_complete(value: Any) -> bool:
         return str(value).casefold() == "true"
 
 
+def _declared_indexed(rows: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
+    """The estate's declared index-time names, minus the event's own metadata."""
+    found: set[str] = set()
+    for row in rows:
+        name = str(row.get("title") or row.get("name") or "")
+        if not name or str(row.get("INDEXED") or "").casefold() not in {"1", "true", "yes"}:
+            continue
+        if name in _EVENT_METADATA or name.startswith(("_", "date_")):
+            continue
+        if _FIELD_NAME.fullmatch(name):
+            found.add(name)
+    return tuple(sorted(found))
+
+
+def _probe_names(card: SourceCard, vocabulary: Sequence[str]) -> tuple[str, ...]:
+    """Every name worth one presence question: the card's own, then the estate's."""
+    names = [name for role in card.roles.values() for name in role]
+    names.extend(stat.name for stat in card.fields)
+    names.extend(vocabulary)
+    kept = (
+        name
+        for name in dict.fromkeys(names)
+        if _FIELD_NAME.fullmatch(name) and name not in _EVENT_METADATA
+    )
+    return tuple(kept)[:INVENTORY_MAX_PROBE_FIELDS]
+
+
+def _presence_query(route: str, names: Sequence[str]) -> str:
+    """One bounded sample answers presence for every name at once."""
+    counts = ", ".join(f"count({name}) as p{index}" for index, name in enumerate(names))
+    return f"search {route} | head {INVENTORY_PROBE_EVENTS} | stats count as sampled, {counts}"
+
+
+def _absent(known: frozenset[str] | None, name: str) -> bool:
+    """Only a probe may declare a name absent: an unprobed source keeps its names."""
+    return known is not None and name not in known
+
+
 def _empty_document(index: str) -> dict[str, Any]:
     return {
         "index": index,
@@ -153,6 +201,7 @@ def _empty_document(index: str) -> dict[str, Any]:
         "notes": [],
         "accelerated": [],
         "model_probes": 0,
+        "vocabulary": 0,
     }
 
 
@@ -174,6 +223,7 @@ def load_inventory(path: Any) -> dict[str, Any]:
         "notes",
         "accelerated",
         "model_probes",
+        "vocabulary",
     ):
         if key in stored:
             document[key] = stored[key]
@@ -201,34 +251,98 @@ def _candidates(card: SourceCard) -> list[tuple[str, str, FieldStat]]:
     return list(found.values())
 
 
-def select_fields(cards: Sequence[SourceCard]) -> list[FieldChoice]:
-    """Role first, then smallest list, with affordable sources ahead of oversized ones."""
-    chosen: list[FieldChoice] = []
+def select_fields(
+    cards: Sequence[SourceCard],
+    present: Mapping[str, frozenset[str] | None] | None = None,
+    vocabulary: Sequence[str] = (),
+) -> list[FieldChoice]:
+    """Role first, then smallest list; only a name the estate carries may become a query."""
+    known = present or {}
+    usable: list[tuple[int, FieldChoice]] = []
+    labelled: list[FieldChoice] = []
     for card in cards:
         if not card.understood:
             continue
+        if present is not None and card.card_id not in known:
+            continue  # no presence probe for this source: it contributes no list and no claim
+        seen = known.get(card.card_id)
+        candidates = _candidates(card)
+        owned = {name for _role, name, _stat in candidates}
+        if seen is not None:
+            extra = [name for name in vocabulary if name in seen and name not in owned]
+            candidates = [
+                *candidates,
+                *(("object", name, FieldStat(name, 0, 0, (), 0)) for name in extra),
+            ]
         over_budget = int(_number(card.facts.get("events"))) > INVENTORY_MAX_SCAN_EVENTS
         ranked = sorted(
-            _candidates(card),
-            key=lambda item: (_ROLE_ORDER[item[0]], over_budget, item[2].distinct, item[1]),
-        )[:INVENTORY_FIELDS_PER_SOURCE]
-        chosen.extend(
-            FieldChoice(
-                card.source_id,
-                card.card_id,
-                card.sourcetype,
-                name,
-                role,
-                stat.distinct,
-                card.part_field,
-                card.part_value,
-            )
-            for role, name, stat in ranked
+            candidates,
+            key=lambda item: (
+                _ROLE_ORDER[item[0]],
+                over_budget,
+                0 if item[1] in owned else 1,
+                item[2].distinct,
+                item[1],
+            ),
         )
+        picked = 0
+        for role, name, stat in ranked:
+            if _absent(seen, name):
+                if name in owned:
+                    labelled.append(_choice(card, role, name, stat.distinct, parse_only=True))
+                continue
+            if picked >= INVENTORY_FIELDS_PER_SOURCE:
+                continue
+            usable.append((picked, _choice(card, role, name, stat.distinct)))
+            picked += 1
     ordered = sorted(
-        chosen, key=lambda item: (_ROLE_ORDER[item.role], item.distinct, item.card_id, item.field)
+        usable,
+        key=lambda item: (
+            item[0],
+            _ROLE_ORDER[item[1].role],
+            item[1].distinct,
+            item[1].card_id,
+            item[1].field,
+        ),
     )
-    return ordered[:INVENTORY_MAX_FIELD_SEARCHES]
+    return [
+        *(choice for _rank, choice in ordered[:INVENTORY_MAX_FIELD_SEARCHES]),
+        *sorted(labelled, key=lambda item: (item.card_id, _ROLE_ORDER[item.role], item.field)),
+    ]
+
+
+def _probe_order(cards: Sequence[SourceCard]) -> list[SourceCard]:
+    """Understood sources, the ones whose best card-owned candidate ranks first first."""
+    ranked: list[tuple[tuple[int, int, str, str], SourceCard]] = []
+    for card in cards:
+        if not card.understood:
+            continue
+        candidates = sorted(
+            _candidates(card), key=lambda item: (_ROLE_ORDER[item[0]], item[2].distinct, item[1])
+        )
+        if candidates:
+            role, name, stat = candidates[0]
+            key = (_ROLE_ORDER[role], stat.distinct, card.card_id, name)
+        else:
+            key = (len(_ROLE_ORDER), 0, card.card_id, "")
+        ranked.append((key, card))
+    return [card for _key, card in sorted(ranked, key=lambda item: item[0])]
+
+
+def _choice(
+    card: SourceCard, role: str, name: str, distinct: int, *, parse_only: bool = False
+) -> FieldChoice:
+    return FieldChoice(
+        card.source_id,
+        card.card_id,
+        card.sourcetype,
+        name,
+        role,
+        distinct,
+        card.part_field,
+        card.part_value,
+        parse_only,
+    )
 
 
 class _Prober:
@@ -246,6 +360,8 @@ class _Prober:
         self._sources: dict[tuple[str, str], SourcePaths] = {}
         self._fields: dict[tuple[str, str, str], bool] = {}
         self._accelerated: tuple[AcceleratedModel, ...] | None = None
+        self._vocabulary: tuple[str, ...] | None = None
+        self._present: dict[tuple[str, str, str, str], frozenset[str] | None] = {}
 
     def _name_route(self, name: str) -> str:
         """The route a name probe asks about: a partition predicate belongs to the read, not the name."""
@@ -372,6 +488,39 @@ class _Prober:
                 sorted(found, key=lambda item: item.name)[:INVENTORY_MAX_MODEL_PROBES]
             )
         return self._accelerated
+
+    def vocabulary(self) -> tuple[str, ...]:
+        """The estate's declared index-time names, one config read per run."""
+        if self._vocabulary is None:
+            rows, problem = self._probe(VOCABULARY_QUERY, row_cap=INVENTORY_MAX_PROBE_FIELDS)
+            if problem:
+                self.failures.append(f"vocabulary:{problem}")
+                rows = []
+            self._vocabulary = _declared_indexed(rows)
+        return self._vocabulary
+
+    def present(self, card: SourceCard, vocabulary: Sequence[str]) -> frozenset[str] | None:
+        """Names this source's own events carry; None when no probe can answer."""
+        key = (card.index, card.sourcetype, card.part_field, card.part_value)
+        if key in self._present:
+            return self._present[key]
+        paths = self.source(card)
+        names = _probe_names(card, vocabulary)
+        found: frozenset[str] | None = None
+        if paths.search_name and names:
+            rows, problem = self._probe(
+                _presence_query(self._route(paths.search_name, card), names), row_cap=1
+            )
+            if problem:
+                self.failures.append(f"presence:{problem}")
+            elif rows:
+                found = frozenset(
+                    name
+                    for index, name in enumerate(names)
+                    if _number(rows[0].get(f"p{index}")) > 0
+                )
+        self._present[key] = found
+        return found
 
 
 def _mechanism(prober: _Prober, card: SourceCard, fields: Sequence[str]) -> tuple[str, str, str]:
@@ -596,6 +745,7 @@ def _field_record(
     accel_window: Sequence[float] | None = None,
     searched_window: Sequence[float] | None = None,
     capped_share: float | None = None,
+    parse_only: bool = False,
 ) -> dict[str, Any]:
     return {
         "source_id": choice.source_id,
@@ -609,6 +759,7 @@ def _field_record(
         "sample_distinct": choice.distinct,
         "status": status,
         "capped_share": capped_share,
+        "parse_only": parse_only,
         "mechanism": mechanism,
         "name_used": name_used,
         "events_scanned": events_scanned,
@@ -642,6 +793,17 @@ def _enumerate_fields(
     records: list[dict[str, Any]] = []
     for choice in choices:
         card = cards_by_id[choice.card_id]
+        if choice.parse_only:
+            records.append(
+                _field_record(
+                    choice,
+                    "parse_only",
+                    (),
+                    searched_window=(prober.start, prober.end),
+                    parse_only=True,
+                )
+            )
+            continue
         mechanism, name, reason = _mechanism(prober, card, (choice.field,))
         available = int(_number(card.facts.get("events")))
         if mechanism != "tstats" and available >= INVENTORY_ACCEL_MIN_EVENTS:
@@ -950,9 +1112,14 @@ def collect_inventory(
 ) -> dict[str, Any]:
     """Enumerate selected fields over the whole index and store value lists plus joints."""
     began = time.monotonic()
-    choices = select_fields(cards)
-    cards_by_id = {card.card_id: card for card in cards}
     prober = _Prober(executor, index, start, end)
+    vocabulary = prober.vocabulary()
+    known = {
+        card.card_id: prober.present(card, vocabulary)
+        for card in _probe_order(cards)[:INVENTORY_MAX_PRESENCE_PROBES]
+    }
+    choices = select_fields(cards, known, vocabulary)
+    cards_by_id = {card.card_id: card for card in cards}
     fields = _enumerate_fields(prober, index, choices, cards_by_id)
     planned = _joint_plan(fields, cards_by_id)
     joints = _enumerate_joints(prober, index, planned)
@@ -967,11 +1134,12 @@ def collect_inventory(
             "model_probes": prober.model_probes,
             "probe_failures": prober.failures[:16],
             "seconds": round(time.monotonic() - began, 3),
-            "fields_selected": len(choices),
+            "fields_selected": sum(1 for choice in choices if not choice.parse_only),
             "fields": fields,
             "joints": joints,
             "flows": _flows(fields),
             "names": _name_documents(choices, cards_by_id, prober),
+            "vocabulary": len(vocabulary),
             "accelerated": [
                 {"model": model.name, "earliest": model.earliest, "latest": model.latest}
                 for model in accelerated
@@ -1005,6 +1173,7 @@ def inventory_summary(document: Mapping[str, Any]) -> dict[str, Any]:
         "fields": dict(sorted(by_status.items())),
         "mechanisms": dict(sorted(mechanisms.items())),
         "two_names": sum(1 for item in names if item.get("two_names")),
+        "vocabulary": int(document.get("vocabulary") or 0),
         "events_scanned": scanned,
         "values": values,
         "joints": len(document.get("joints") or ()),
