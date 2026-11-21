@@ -530,6 +530,9 @@ def test_a_failed_local_attempt_escalates_to_the_next_portal_workspace(
         FAST_WORKSPACE,
         "auto-reasoning",
     ]
+    assert caller.bodies[2]["portal_bite_tools"] == caller.bodies[0]["portal_bite_tools"], (
+        "the escalated hop asks the same question with the same tool bundle"
+    )
     receipt = _receipt(tmp_path, task_id)
     assert receipt["workspace"] == "auto-reasoning"
     assert receipt["final_text"] == "The queue is idle."
