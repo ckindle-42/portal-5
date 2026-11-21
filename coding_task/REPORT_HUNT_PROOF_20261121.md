@@ -54,7 +54,12 @@ Notes on the passes that carry a caveat:
 
 ## 2. Scoreboard vs baseline
 
-Baseline is the plan §3 C0.1 table, reproduced first from `snap_neon_02cc2e3` (§4). The brief's
+Baseline is the plan §3 C0.1 table, reproduced first by rescoring the stored run with this
+scoreboard (`scoreboard --out /Volumes/data01/portal5_hunt/snap_neon_02cc2e3/results/hunt/neon
+--weights …`, log `scratch/hunt_proof_20261120T232700/s0_rescore.txt`): botsv2 `steps top50 3/14`,
+`strict 2/14`, `C0 ceiling keys 5/20 reachable steps 5/14 (B+P 5/11)`; kyoushi 11/12, reachable
+11/12; santos 18/21, reachable 12/21, ROR 11/12; russell 15/22, reachable 15/22, ROR 14/15. The
+brief's
 `keys_reachable 8/24` is the pre-audit botsv2 key count; the current scoreboard audits 3
 artefacts out and de-duplicates 1 shared key, so it reports `7/20` on this run and `5/20` on the
 stored baseline. Both numbers are given for botsv2.
