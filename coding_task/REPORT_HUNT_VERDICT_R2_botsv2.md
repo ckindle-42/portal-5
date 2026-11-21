@@ -135,8 +135,8 @@ partly, at exactly 2,000 requests; `promoted_unjudged 0`; `progress.json:honesty
 `C0 causes` non-empty; 725/725 notables judged (AUC 0.84).
 
 **Not proven / not measured:** the brief's full-generator scoreboard — C is missing
-`similar_to_known` (13 notables, the highest default weight 31) because of the crash; every C
-coverage number is therefore a **lower bound**. `first_seen_replaced` is 0 and no list is
+`similar_to_known` (highest default merge weight 31; it kept 13 in the empty-store run A) because
+of the crash; every C coverage number is therefore a **lower bound**. `first_seen_replaced` is 0 and no list is
 `capped` on botsv2, so D3 is unexercised. D4 and D9 have no carrier/proof on this family. The
 judged-only path was exercised through `rerank --cases` (5,731 cases, 957 members dropped), not
 by re-running relate with `judged_only`. The `peer_rare` exact-count defect persists
