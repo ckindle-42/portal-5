@@ -261,6 +261,8 @@ def _fact_dict(card: SourceCard) -> SourceFacts:
                 str(item.get("path") or ""),
                 int(item.get("events") or 0),
                 tuple(str(name) for name in item.get("hosts") or ()),
+                float(item.get("first") or 0.0),
+                float(item.get("last") or 0.0),
             )
             for item in facts.get("files") or ()
             if isinstance(item, Mapping)
