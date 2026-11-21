@@ -240,10 +240,6 @@ class _RecordingDispatcher:
     run = start
 
 
-def _no_memory(query: str) -> str:
-    return ""
-
-
 def _receipt(root: Path) -> dict[str, Any]:
     path = next(root.glob("*/receipt.json"))
     return json.loads(path.read_text(encoding="utf-8"))
@@ -254,9 +250,7 @@ def test_an_unwired_mcp_blocks_the_task_before_any_model_call(tmp_path: Path) ->
     caller = _Caller([], registered=CORE_PIPELINE_TOOLS)
     dispatcher = _RecordingDispatcher()
 
-    run = poll_personal_tasks(
-        tmp_path, _Notices(), caller, dispatcher=dispatcher, recall=_no_memory
-    )
+    run = poll_personal_tasks(tmp_path, _Notices(), caller, dispatcher=dispatcher)
 
     assert run is not None and run.status == "blocked"
     receipt = _receipt(tmp_path)
@@ -279,9 +273,9 @@ def test_the_unavailable_check_is_terminal_and_never_retried(tmp_path: Path) -> 
     telegram_do_reply(tmp_path, 1, PROXMOX_REQUEST)
     first = _Caller([], registered=CORE_PIPELINE_TOOLS)
     notices = _Notices()
-    poll_personal_tasks(tmp_path, notices, first, recall=_no_memory)
+    poll_personal_tasks(tmp_path, notices, first)
 
-    assert poll_personal_tasks(tmp_path, notices, _Caller([]), recall=_no_memory) is None
+    assert poll_personal_tasks(tmp_path, notices, _Caller([])) is None
     assert any("unavailable on Pipeline" in message for _tid, _kind, message in notices.messages)
 
 
@@ -292,7 +286,7 @@ def test_a_registered_domain_tool_passes_the_preflight_and_runs(tmp_path: Path) 
         registered=CORE_PIPELINE_TOOLS | frozenset(PROXMOX_BUNDLE),
     )
 
-    run = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+    run = poll_personal_tasks(tmp_path, _Notices(), caller)
 
     assert run is not None and run.status == "done"
     receipt = _receipt(tmp_path)
@@ -307,7 +301,7 @@ def test_a_failed_attempt_receipt_also_records_the_preflight(tmp_path: Path) -> 
         registered=CORE_PIPELINE_TOOLS | frozenset(PROXMOX_BUNDLE),
     )
 
-    poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+    poll_personal_tasks(tmp_path, _Notices(), caller)
 
     attempt = json.loads(
         next(tmp_path.glob("*/attempts/local-1/receipt.json")).read_text(encoding="utf-8")
@@ -321,7 +315,7 @@ def test_a_caller_that_cannot_be_asked_skips_the_preflight(tmp_path: Path) -> No
     telegram_do_reply(tmp_path, 1, PROXMOX_REQUEST)
     caller = _CallerWithoutProbe([Completion("vm 100 is stopped.", (), 1, ("proxmox_list_vms",))])
 
-    run = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+    run = poll_personal_tasks(tmp_path, _Notices(), caller)
 
     assert run is not None and run.status == "done"
     assert _receipt(tmp_path)["preflight"]["checked"] is False
@@ -408,7 +402,7 @@ def test_a_read_local_file_call_is_served_by_the_runner(
     }
     caller = _CallerWithoutProbe([Completion("", (call,), 0), Completion("MAL count: 3", (), 1)])
 
-    run = poll_personal_tasks(tmp_path, _Notices(), caller, recall=_no_memory)
+    run = poll_personal_tasks(tmp_path, _Notices(), caller)
 
     assert run is not None and run.status == "done"
     receipt = _receipt(tmp_path)

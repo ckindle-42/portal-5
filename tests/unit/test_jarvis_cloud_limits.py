@@ -74,11 +74,9 @@ def _cloud_attempt(
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
     telegram_do_reply(tmp_path, 7, "help with an invalid local plan")
-    first = poll_personal_tasks(tmp_path, sink, _Caller(), recall=lambda query: "")
+    first = poll_personal_tasks(tmp_path, sink, _Caller())
     assert first is not None and first.status == "retrying"
-    return poll_personal_tasks(
-        tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
-    )
+    return poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
 
 
 def _receipt(tmp_path: Path, task_id: str) -> dict[str, object]:
@@ -103,12 +101,7 @@ def test_interrupted_cloud_lane_is_terminal_no_redispatch(
     assert "no automatic re-dispatch" in str(receipt["error"])
     assert len(dispatcher.calls) == 1
     # A terminal row is never picked again: a third poll is a no-op.
-    assert (
-        poll_personal_tasks(
-            tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
-        )
-        is None
-    )
+    assert poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher) is None
     assert len(dispatcher.calls) == 1
 
 
@@ -158,14 +151,10 @@ def test_configured_cap_retries_then_blocks(
     stored = PersonalStore(tmp_path).get(second.task_id)
     assert stored is not None and stored.status == "cloud_retry"
 
-    third = poll_personal_tasks(
-        tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
-    )
+    third = poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
     assert third is not None and third.status == "cloud-retry"
 
-    fourth = poll_personal_tasks(
-        tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
-    )
+    fourth = poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
 
     assert fourth is not None and fourth.status == "blocked"
     assert len(dispatcher.calls) == 3
@@ -209,11 +198,9 @@ def test_operator_cancel_stops_a_running_cloud_lane(
     from portal.modules.orchestration import personal_runner
 
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
-    first = poll_personal_tasks(tmp_path, sink, _Caller(), recall=lambda query: "")
+    first = poll_personal_tasks(tmp_path, sink, _Caller())
     assert first is not None and first.status == "retrying"
-    second = poll_personal_tasks(
-        tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
-    )
+    second = poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
 
     assert second is not None and second.status == "cancelled"
     stored = PersonalStore(tmp_path).get(second.task_id)
@@ -222,12 +209,7 @@ def test_operator_cancel_stops_a_running_cloud_lane(
     assert receipt["status"] == "cancelled"
     assert "cancelled by operator" in str(receipt["error"])
     assert len(dispatcher.calls) == 1
-    assert (
-        poll_personal_tasks(
-            tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda query: ""
-        )
-        is None
-    )
+    assert poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher) is None
 
 
 def test_cancel_check_is_always_offered_to_the_dispatcher(
@@ -363,11 +345,9 @@ def _handed_off(
     monkeypatch.setattr(personal_runner, "_personal_cloud_enabled", lambda: True, raising=False)
     sink = _Sink(tmp_path / "telegram.sqlite3")
     telegram_do_reply(tmp_path, 7, "what is the Portal pipeline status")
-    first = poll_personal_tasks(tmp_path, sink, _Caller(), recall=lambda _q: "")
+    first = poll_personal_tasks(tmp_path, sink, _Caller())
     assert first is not None and first.status == "retrying"
-    run = poll_personal_tasks(
-        tmp_path, sink, _Caller(), dispatcher=dispatcher, recall=lambda _q: ""
-    )
+    run = poll_personal_tasks(tmp_path, sink, _Caller(), dispatcher=dispatcher)
     assert run is not None and run.status == "cloud-running"
     assert dispatcher.starts, "the lane was started"
     return tmp_path, run.task_id, sink
@@ -382,7 +362,7 @@ def test_a_slow_cloud_lane_does_not_stall_the_tasks_behind_it(
     # The lane is still running: the queue must pick up the next task in the same poll.
     telegram_do_reply(tasks, 7, "what is the queue status in one paragraph")
     caller = _PlanCaller([Completion("Queue is empty.", (), 1, ("queue_status",))])
-    queued = poll_personal_tasks(tasks, sink, caller, dispatcher=dispatcher, recall=lambda _q: "")
+    queued = poll_personal_tasks(tasks, sink, caller, dispatcher=dispatcher)
 
     assert queued is not None
     assert queued.task_id != task_id, "the task behind the lane ran while it was in flight"

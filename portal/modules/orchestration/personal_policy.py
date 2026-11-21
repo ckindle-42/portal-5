@@ -192,6 +192,10 @@ _DOMAIN_BUNDLES = (
     ("code", (_CODE_TEXT,), CODE_BUNDLE_TOOLS),
 )
 _MEMORY_WRITE_TEXT = re.compile(r"\b(remember|forget)\b", re.IGNORECASE)
+# The operator's own sentence is the exact memory text the confirm asks them to approve.
+_MEMORY_SENTENCE = re.compile(
+    r"^\s*(?:please\s+)?(remember|forget)\s+(?:that\s+)?(.+?)\s*$", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -296,10 +300,29 @@ def route_personal_task(text: str, hidden_fleets: frozenset[str] = frozenset()) 
         tools=frozenset(tools),
         bundle_name="+".join(bundles),
         needs_confirm=needs_confirm,
-        confirm_summary=(
-            f"run a state-changing request: {text.strip()[:160]}" if needs_confirm else ""
-        ),
+        confirm_summary=_confirm_summary(text, needs_confirm, tools),
     )
+
+
+def _confirm_summary(text: str, needs_confirm: bool, tools: set[str]) -> str:
+    """What the Confirm prompt names: the exact memory sentence, else the action and its target."""
+    if not needs_confirm:
+        return ""
+    memory = memory_write_summary(text)
+    if memory:
+        return memory
+    action = "run code" if tools & CODE_TOOLS else "run this request"
+    return f"{action}: {text.strip()[:160]}"
+
+
+def memory_write_summary(text: str) -> str:
+    """The exact sentence a remember/forget request would save, or "" for any other request."""
+    match = _MEMORY_SENTENCE.match(text or "")
+    if match is None:
+        return ""
+    verb, sentence = match.group(1).lower(), match.group(2).strip().rstrip(".")
+    action = "save memory" if verb == "remember" else "forget memory"
+    return f"{action} '{sentence}'"
 
 
 def _named_confirm_tools(text: str) -> set[str]:

@@ -30,14 +30,6 @@ class _Caller:
         return self.replies.pop(0)
 
 
-@pytest.fixture(autouse=True)
-def _offline_recall(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The memory MCP is never reached from a unit test."""
-    from portal.modules.orchestration import personal_runner
-
-    monkeypatch.setattr(personal_runner, "_memory_recall", lambda query: "")
-
-
 class _Sink:
     def __init__(self, path: Path) -> None:
         self.store = ArmTelegramStore(path)
@@ -129,7 +121,7 @@ def test_read_only_proxmox_runs_without_confirm(tmp_path: Path) -> None:
     caller = _Caller([Completion("vm 100 is stopped.", (), 1, ("proxmox_list_vms",))])
     sink = _Sink(tmp_path / "telegram.sqlite3")
 
-    result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
+    result = poll_personal_tasks(tmp_path, sink, caller)
 
     assert result is not None and result.status == "done"
     assert "proxmox_list_vms" in caller.bodies[0]["portal_bite_tools"]  # type: ignore[operator]
@@ -140,7 +132,7 @@ def test_a_mutating_proxmox_request_waits_for_confirm(tmp_path: Path) -> None:
     caller = _Caller([])
     sink = _Sink(tmp_path / "telegram.sqlite3")
 
-    result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
+    result = poll_personal_tasks(tmp_path, sink, caller)
 
     assert result is not None and result.status == "pending"
     assert caller.bodies == [], "no tool ran before the confirm"
@@ -153,7 +145,7 @@ def test_read_only_git_runs_without_confirm(tmp_path: Path) -> None:
         [Completion("The worktree is clean on the lane branch.", (), 1, ("git_status",))]
     )
     sink = _Sink(tmp_path / "telegram.sqlite3")
-    result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
+    result = poll_personal_tasks(tmp_path, sink, caller)
     assert result is not None and result.status == "done"
     task = PersonalStore(tmp_path).get(result.task_id)
     assert task is not None and task.status == "done"
@@ -163,7 +155,7 @@ def test_a_git_push_request_waits_for_confirm(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 7, "git commit and push the prepared change")
     caller = _Caller([])
     sink = _Sink(tmp_path / "telegram.sqlite3")
-    result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
+    result = poll_personal_tasks(tmp_path, sink, caller)
     assert result is not None and result.status == "pending"
     assert caller.bodies == []
     task = PersonalStore(tmp_path).get(result.task_id)
@@ -178,23 +170,12 @@ def test_a_unifi_request_waits_for_confirm_before_any_tool_call(tmp_path: Path) 
     telegram_do_reply(tmp_path, 7, "read the unifi device list")
     caller = _Caller([])
     sink = _Sink(tmp_path / "telegram.sqlite3")
-    result = poll_personal_tasks(tmp_path, sink, caller, recall=lambda query: "")
+    result = poll_personal_tasks(tmp_path, sink, caller)
     assert result is not None and result.status == "pending"
     assert caller.bodies == []
 
 
-def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from portal.modules.orchestration import personal_runner
-
-    queries: list[str] = []
-
-    def recall(query: str) -> str:
-        queries.append(query)
-        return "- Recalled no matching preference."
-
-    monkeypatch.setattr(personal_runner, "_memory_recall", recall)
+def test_remember_shows_the_exact_sentence_and_runs_only_after_confirm(tmp_path: Path) -> None:
     telegram_do_reply(tmp_path, 7, "remember that I want Telegram replies under 400 characters")
     caller = _Caller([Completion("Saved the preference.", (), 1, ("remember",))])
     sink = _Sink(tmp_path / "telegram.sqlite3")
@@ -202,19 +183,14 @@ def test_memory_is_recalled_once_and_remember_runs_only_after_confirm(
     pending = poll_personal_tasks(tmp_path, sink, caller)
 
     assert pending is not None and pending.status == "pending"
-    assert len(queries) == 1
-    assert "operator id 7" in queries[0]
-    assert "Telegram replies under 400 characters" in queries[0]
     assert caller.bodies == [], "remember is not offered before the confirm"
+    prompt = next(message for message in sink.messages if message.startswith("Confirm "))
+    assert "save memory 'I want Telegram replies under 400 characters'" in prompt
 
     assert apply_personal_decision(tmp_path, pending.task_id, "confirm") == "confirmed"
     finished = poll_personal_tasks(tmp_path, sink, caller)
 
     assert finished is not None and finished.status == "done"
-    assert (
-        len(queries) == 1
-    )  # the confirmed path reuses the stored memory, it does not recall again
-    assert "Recalled no matching preference." in caller.bodies[-1]["messages"][-1]["content"]  # type: ignore[index]
     assert "remember" in caller.bodies[-1]["portal_bite_tools"]  # type: ignore[operator]
 
 

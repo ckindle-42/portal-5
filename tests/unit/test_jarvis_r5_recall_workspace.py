@@ -1,8 +1,8 @@
-"""Jarvis R5: recall relevance, authoritative request, workspace reads, junk-write gate.
+"""Jarvis pull-only memory, workspace reads, and the junk-write gate.
 
 Regression net for task pt-4ee42e935737 — "List the three largest files in
-/workspace/generated and report their sizes." answered about recalled junk files
-instead of the request, and the sandbox could not see /workspace/generated. No network.
+/workspace/generated and report their sizes." — and for slice S3: memory is a tool the
+model pulls, never a preamble pasted into every prompt. No network.
 """
 
 from __future__ import annotations
@@ -21,18 +21,13 @@ from portal.modules.orchestration.personal_policy import (
     READ_TOOLS,
 )
 from portal.modules.orchestration.personal_runner import (
-    RECALL_MIN_SIMILARITY,
-    RECALL_TOP_K,
     Completion,
-    _memory_text,
-    _route_messages,
     poll_personal_tasks,
 )
 from portal.modules.orchestration.personal_tools import LOCAL_TOOLS, run_read_tool
 from portal.platform.memory import graph_memory
 
 REQUEST = "List the three largest files in /workspace/generated and report their sizes."
-JUNK = "- The file /workspace/report.txt contains {line_count} lines."
 
 
 class _Notices:
@@ -65,47 +60,36 @@ def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
-# ── Recall relevance threshold + top-k ─────────────────────────────────────────
+# ── Pull-only memory (slice S3) ───────────────────────────────────────────────
 
 
-def test_memory_text_drops_low_similarity_and_caps_top_k() -> None:
-    memories = [
-        {"text": f"m{i}", "similarity": RECALL_MIN_SIMILARITY + 0.1}
-        for i in range(RECALL_TOP_K + 3)
-    ]
-    memories.append({"text": "junk", "similarity": RECALL_MIN_SIMILARITY - 0.01})
-    rendered = _memory_text({"memories": memories})
-    lines = rendered.splitlines()
-    assert len(lines) == RECALL_TOP_K
-    assert "junk" not in rendered
-    assert lines[0] == "- m0"
+def test_memory_is_pull_only_and_only_a_model_call_is_logged(tmp_path: Path) -> None:
+    tasks = tmp_path / "tasks"
+    review = "review scripts/engine_install_plan.py and summarize its exit codes"
+    reply = telegram_do_reply(tasks, 1, review)
+    task_id = reply.removeprefix("queued ")
+    read = json.dumps({"path": "/repo/scripts/engine_install_plan.py", "content": "def main():"})
+    caller = _Caller(
+        [Completion("It exits 0 on success and 1 on error.", (), 1, ("read_text_file",), (read,))]
+    )
 
+    result = poll_personal_tasks(tasks, _Notices(), caller)
 
-def test_memory_text_drops_memories_without_a_usable_score() -> None:
-    assert _memory_text({"memories": [{"text": "no score"}]}) == ""
-    assert _memory_text({"memories": [{"text": "bad", "similarity": "n/a"}]}) == ""
-    assert _memory_text({"memories": [{"text": "null", "similarity": None}]}) == ""
+    assert result is not None and result.status == "done"
+    prompt = json.dumps(caller.bodies[0]["messages"])
+    assert "Recalled memory" not in prompt
+    assert "preferences relevant to" not in prompt, "no memory lookup is sent for the task"
+    assert "recall" in caller.bodies[0]["portal_bite_tools"]
+    receipt = json.loads((tasks / task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["tool_calls"] == ["read_text_file"]
 
-
-def test_memory_text_keeps_a_relevant_memory() -> None:
-    payload = {"memories": [{"text": "prefers terse replies", "similarity": 0.9}]}
-    assert _memory_text(payload) == "- prefers terse replies"
-
-
-# ── Authoritative request + untrusted framing (from the receipt) ───────────────
-
-
-def test_executor_prompt_request_is_authoritative_and_memory_is_background() -> None:
-    content = _route_messages(REQUEST, JUNK)[-1]["content"]
-    assert REQUEST in content
-    assert "authoritative" in content
-    assert "untrusted background" in content
-    assert content.index(REQUEST) < content.index(JUNK)
-
-
-def test_executor_without_memory_has_no_recall_block() -> None:
-    content = _route_messages(REQUEST)[-1]["content"]
-    assert "Recalled memory" not in content
+    reply = telegram_do_reply(tasks, 1, "what are my preferred reply formats")
+    task_id = reply.removeprefix("queued ")
+    caller = _Caller([Completion("You prefer concise bullet points.", (), 1, ("recall",))])
+    result = poll_personal_tasks(tasks, _Notices(), caller)
+    assert result is not None and result.status == "done"
+    receipt = json.loads((tasks / task_id / "receipt.json").read_text(encoding="utf-8"))
+    assert receipt["tool_calls"] == ["recall"], "a model-invoked recall is the only recall logged"
 
 
 def test_executor_answers_the_request_from_real_workspace_files(
@@ -125,14 +109,12 @@ def test_executor_answers_the_request_from_real_workspace_files(
             Completion("a.bin 300 bytes, b.bin 200 bytes, c.bin 100 bytes.", (), 0),
         ]
     )
-    result = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda query: JUNK)
+    result = poll_personal_tasks(tasks, _Notices(), caller)
     assert result is not None and result.status == "done"
 
     executor_user = caller.bodies[0]["messages"][-1]["content"]
     assert REQUEST in executor_user
-    assert "authoritative" in executor_user
-    assert "untrusted background" in executor_user
-    assert executor_user.index(REQUEST) < executor_user.index(JUNK)
+    assert "Recalled memory" not in executor_user
 
     # The local read returned the real files to the model, largest first.
     tool_messages = [m for m in caller.bodies[1]["messages"] if m.get("role") == "tool"]
@@ -163,7 +145,7 @@ def test_an_answer_that_omits_the_largest_size_is_not_done(tmp_path: Path, works
             Completion("The largest file is 1 byte.", (), 0),
         ]
     )
-    result = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda query: "")
+    result = poll_personal_tasks(tasks, _Notices(), caller)
     assert result is not None and result.status == "retrying"
     receipt = json.loads((tasks / task_id / "receipt.json").read_text(encoding="utf-8"))
     assert "largest file size" in str(receipt["error"])
