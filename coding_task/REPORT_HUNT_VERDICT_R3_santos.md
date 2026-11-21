@@ -23,7 +23,24 @@ read by key name only (six named keys, no `source`); no secret appears in this r
 | merge weights | `PORTAL_HUNT_MERGE_WEIGHTS={"alerts":1,"deviation":2,"misfit":1,"peer_rare":1,"relate":1,"similar_to_known":5}` (brief-supplied neon 3-family vector) |
 | output | `/Volumes/data01/portal5_hunt/hunt_proof_r3_santos/v3/santos` |
 
-## 1. Run
+## 1. Live index facts used by E1/E2 (read-only `tstats`, `hb_ait_santos_v2` only)
+
+```text
+| tstats count min(_time) as first max(_time) as last where index=hb_ait_santos_v2 source="/apache2/intranet.smith.santos.com-access.log" by sourcetype source host
+  count=9462  first=1642400738 (2022-01-17 06:25:38Z)  last=1642451200 (2022-01-17 20:26:40Z)  host=intranet_server
+
+| tstats ... where index=hb_ait_santos_v2 sourcetype=access_combined by sourcetype host
+  intranet_server count=15784 first=1642142365 last=1642451200   (sourcetype-wide: first=1642085133, last=1642458113)
+  other hosts: cloud_share 44244, hayes_mail 20319, mail 95368, rogersturnbull_mail 3634, webserver 150093
+
+| tstats count where index=hb_ait_santos_v2 source="<graded file>" by _time span=1h
+  2022-01-17 11:00 = 7894 of the file's 9462 events (densest hour); 10:00 = 51, 12:00 = 190
+```
+
+So the graded file's own range starts four days after its sourcetype's range and its densest hour
+is 11:00Z — the E1/E2 operand. Index-wide `access_combined` on `intranet_server` is 15,784 events.
+
+## 2. Run
 
 In flight. Receipts to be filled from `run.log`, `progress.json`, `sources.json`,
 `behaviours.duckdb` and the scoreboard.
