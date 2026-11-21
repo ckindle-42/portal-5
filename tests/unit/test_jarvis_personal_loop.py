@@ -490,3 +490,51 @@ def test_empty_answer_is_a_retryable_failure_that_reaches_cloud_handoff(
 def test_the_core_bundle_is_the_documented_read_set() -> None:
     assert route_personal_task("what is the queue status").tools >= CORE_TOOLS
     assert "workspace_files" in CORE_TOOLS and "recall" in CORE_TOOLS
+
+
+# ── S6: plain-text Telegram replies and the queue drain ───────────────────────
+
+
+def test_a_markdown_reply_reaches_telegram_as_plain_tappable_text(tmp_path: Path) -> None:
+    """S6: the delivered notice has a bare URL, no heading marks, no rule, no trailing blanks."""
+    telegram_do_reply(tmp_path, 1, "what is the queue status")
+    answer = (
+        "### Sweep\n\n"
+        "[download the report](https://portal.local/generated/sweep.docx)   \n"
+        "---\n\nCRITICAL: 2\n"
+    )
+    caller = _Caller(
+        [Completion("", (_tool_call("queue_status", {}),), 0), Completion(answer, (), 0)]
+    )
+    notices = _Notices()
+
+    result = poll_personal_tasks(tmp_path, notices, caller)
+
+    assert result is not None and result.status == "done"
+    message = notices.messages[-1][2]
+    assert "###" not in message and "---" not in message
+    assert "download the report: https://portal.local/generated/sweep.docx" in message
+    assert all(line == line.rstrip() for line in message.splitlines())
+    assert message.strip() == message
+    assert "###" in _receipt(tmp_path, result.task_id)["final_text"], "the receipt keeps it raw"
+
+
+def test_one_personal_cycle_drains_the_due_tasks_up_to_the_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S6: back-to-back asks no longer wait a poll each; one wake drains the cap and stops."""
+    from portal.modules.orchestration import personal_runner
+    from portal.modules.orchestration.cli import PERSONAL_DRAIN_LIMIT, _drain_personal_tasks
+
+    total = PERSONAL_DRAIN_LIMIT + 2
+    for _ in range(total):
+        telegram_do_reply(tmp_path, 1, "what is the queue status")
+    replies = [Completion("", (_tool_call("queue_status", {}),), 0), Completion("Queue is empty.")]
+    caller = _Caller(replies * total)
+    monkeypatch.setattr(personal_runner, "_caller", lambda _caller: caller)
+
+    runs = _drain_personal_tasks(tmp_path, _Notices())
+
+    assert [run.status for run in runs] == ["done"] * PERSONAL_DRAIN_LIMIT
+    assert len({run.task_id for run in runs}) == PERSONAL_DRAIN_LIMIT
+    assert PersonalStore(tmp_path).oldest_runnable() is not None, "the rest wait for the next wake"

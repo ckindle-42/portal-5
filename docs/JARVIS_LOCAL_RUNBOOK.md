@@ -44,7 +44,8 @@ weakened-test check, gates + canary in a throwaway worktree, oracle) and never m
 
 `/jarvis do <text>` queues one personal task beside the arm queue
 (`~/AI_Output/generated/tasks/personal_tasks.sqlite3`) and answers `queued pt-<id>` plus its queue
-position. The runner takes one per poll, between arm jobs:
+position. The runner drains due tasks back to back, between arm jobs — up to five per wake, and
+to empty under `queue-run --drain` — so back-to-back `/jarvis do` asks do not wait a poll each:
 
 - A read-only request is routed (no LLM planner) to a bounded tool bundle and executed on
   `auto-daily::fast` (or `auto-coding` when the request needs a sandbox); the chosen bundle, seat
@@ -66,7 +67,8 @@ position. The runner takes one per poll, between arm jobs:
   collects the lane's own `## RESULT` block through `dispatch.py` and sends it to Telegram as the
   task's answer (`done`, or `blocked` with the block). A killed lane is terminal for that task.
 - The receipt is `~/AI_Output/generated/tasks/<pt-id>/receipt.json`; per-attempt receipts and the
-  lane's dispatch log sit under `attempts/`.
+  lane's dispatch log sit under `attempts/`. The Telegram notice is plain text: `[label](url)`
+  arrives as `label: url` (tappable), and markdown heading markers and `---` rules are stripped.
 
 ## What the Telegram messages mean
 

@@ -346,10 +346,9 @@ def queue_run(
                 continue
             result = runner.run_next(override=override)
             if result.status not in {"WAITING", "BUSY"}:
-                from portal.modules.orchestration.personal_runner import poll_personal_tasks
-
-                personal = poll_personal_tasks(root, sink)
-                if personal is not None:
+                for personal in _drain_personal_tasks(
+                    root, sink, None if drain else PERSONAL_DRAIN_LIMIT
+                ):
                     typer.echo(f"personal {personal.status}: {personal.task_id}")
             if result.status == "EMPTY":
                 if drain:
@@ -367,6 +366,33 @@ def queue_run(
         raise typer.Exit(code=1) from exc
     finally:
         lock.unlink(missing_ok=True)
+
+
+PERSONAL_DRAIN_LIMIT = 5
+
+
+def _drain_personal_tasks(
+    root: Path, sink: Any, limit: int | None = PERSONAL_DRAIN_LIMIT
+) -> list[Any]:
+    """Run due personal tasks back to back; a runnable arm job keeps its turn. None runs to empty."""
+    from portal.modules.orchestration.personal_runner import poll_personal_tasks
+
+    runs: list[Any] = []
+    while limit is None or len(runs) < limit:
+        if _arm_job_runnable(root):
+            break
+        run = poll_personal_tasks(root, sink)
+        if run is None:
+            break
+        runs.append(run)
+    return runs
+
+
+def _arm_job_runnable(root: Path) -> bool:
+    from portal.modules.orchestration.queue import QueueLedger
+
+    with QueueLedger(root) as ledger:
+        return any(str(item.get("state")) in {"queued", "running"} for item in ledger.items())
 
 
 @orchestration_app.command("queue-digest")
