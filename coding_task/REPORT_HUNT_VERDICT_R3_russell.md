@@ -181,6 +181,22 @@ placement, the template model is the `cards` sample, and the per-line credit rul
   scoreboard re-score of the stored control). Nothing was written to the index, the knowledge store
   or Splunk.
 
+## 5a. Observed, outside the E0–E7 acceptance list (not graded, flagged for the next plan)
+
+- **`relate` produced 272 cases, against 1,879 on Round-2** for the same family, with the same 64
+  flows and 12 promoted (`progress.json:stages.relate`, scoreboard `relate cases 272  related events
+  283`). Case members @50 fell 19/22 → 10/22. No E slice owns the case builder, and no acceptance
+  line covers it.
+- **300 notables discovery queries returned `reason: censored`, 0 rows** (`| tstats count where
+  index="hb_ait_russellmitchell_v2" "172.19.130.68"` and siblings) — the executor's
+  "transport reported incomplete coverage" signal, in a stage whose `searches` block reports no
+  censored reads. Unseen-candidate discovery may be incomplete; it does not touch the E2 numbers
+  (which come from `progress.json` file rows, the ledger and the store).
+- **`files_omitted 73` is 251 receipt rows for far fewer files**: each anchored host round re-emits
+  one `host_mismatch` row per file that is not on that host (5 anchors × 4 graded files = 20 rows for
+  one file family). E0 is satisfied (every zero row has a reason); the counter overstates distinct
+  files.
+
 ## 6. Reproduce
 
 ```bash
