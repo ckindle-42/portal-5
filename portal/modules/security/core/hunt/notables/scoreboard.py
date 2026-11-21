@@ -634,6 +634,9 @@ def _index_paths(directory: Path) -> tuple[frozenset[str] | None, str]:
     path = directory / LEDGER_FILE
     if not path.is_file():
         return None, "the run wrote no ledger"
+    declared = _run_index(directory)[1]
+    if not declared:
+        return None, "the run declared no sources to complete the index map against"
     paths: set[str] = set()
     for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
         if not raw.strip():
@@ -643,14 +646,16 @@ def _index_paths(directory: Path) -> tuple[frozenset[str] | None, str]:
             continue
         if "by sourcetype source" not in str(row.get("query") or ""):
             continue
-        found = {
+        paths |= {
             str(cell) for cell in row.get("values_extracted") or () if str(cell).startswith("/")
         }
-        if len(found) != int(row.get("rows") or 0):
-            continue
-        paths |= found
     if not paths:
         return None, "the run recorded no complete per-source index map"
+    missing = declared - paths
+    if missing:
+        return None, (
+            f"the run's estate map misses {len(missing)} of {len(declared)} declared sources"
+        )
     return frozenset(paths), f"ledger estate map, {len(paths)} source paths"
 
 

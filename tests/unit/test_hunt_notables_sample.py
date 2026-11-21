@@ -4,10 +4,14 @@ import re
 
 from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.behaviours import _file_rows
+from portal.modules.security.core.hunt.notables.cards import _facts as card_facts
+from portal.modules.security.core.hunt.notables.run import _fact_dict, card_from_dict
 from portal.modules.security.core.hunt.notables.sample import (
     IndexFile,
     LocalWindow,
     SourceFacts,
+    file_span,
+    index_facts,
     localise,
     read_anchors,
     read_files,
@@ -320,3 +324,101 @@ def test_a_capped_read_declares_every_unread_file_with_its_reason():
     assert {item.reason for item in omitted} == {"read_files_cap"}
     assert len(executor.skipped) == 18
     assert all(reason == "read_files_cap" for _query, reason in executor.skipped)
+
+
+class _EstateExecutor:
+    """Answers the estate map's own tstats queries: volume, per-file rows, hosts, cadence."""
+
+    def __init__(
+        self,
+        volume: list[dict[str, object]],
+        sources: list[dict[str, object]],
+        hosts: list[dict[str, object]],
+    ) -> None:
+        self.volume = volume
+        self.sources = sources
+        self.hosts = hosts
+        self.queries: list[str] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del start, end, kind, row_cap
+        self.queries.append(query)
+        if "span=1d" in query:
+            return Read([], False, None)
+        if "by sourcetype source host" in query:
+            return Read([dict(row) for row in self.sources], False, None)
+        if "by sourcetype host" in query:
+            return Read([dict(row) for row in self.hosts], False, None)
+        return Read([dict(row) for row in self.volume], False, None)
+
+
+def _file_row(path: str, host: str, count: int, first: float, last: float) -> dict[str, object]:
+    return {
+        "sourcetype": "stream:http",
+        "source": path,
+        "host": host,
+        "count": str(count),
+        "first": first,
+        "last": last,
+    }
+
+
+def _estate_rows() -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+    volume = [{"sourcetype": "stream:http", "count": "35", "first": 0.0, "last": 5000.0}]
+    sources = [
+        _file_row("/a/access.log", "web1", 20, 1000.0, 2199.0),
+        _file_row("/a/access.log", "web2", 5, 3000.0, 4000.0),
+        _file_row("/a/old.log", "web1", 10, 200.0, 900.0),
+    ]
+    return volume, sources
+
+
+def test_estate_map_carries_each_files_own_time_range():
+    volume, sources = _estate_rows()
+    executor = _EstateExecutor(volume, sources, [{"sourcetype": "stream:http", "host": "web1"}])
+    facts, _notes = index_facts(executor, "ix", 0.0, 5000.0)
+
+    graded = {item.path: item for item in facts[0].files}["/a/access.log"]
+    assert (graded.events, graded.first, graded.last) == (25, 1000.0, 4000.0)
+    assert (graded.first, graded.last) != (facts[0].first, facts[0].last)
+
+    source_queries = [query for query in executor.queries if "by sourcetype source host" in query]
+    assert len(source_queries) == 1
+    assert "min(_time) as first max(_time) as last" in source_queries[0]
+
+    raw = card_facts(facts[0])
+    assert {item["path"]: item for item in raw["files"]}["/a/access.log"]["first"] == 1000.0
+    restored = _fact_dict(
+        card_from_dict({"index": "ix", "sourcetype": "stream:http", "facts": raw})
+    )
+    back = {item.path: item for item in restored.files}["/a/access.log"]
+    assert (back.first, back.last) == (1000.0, 4000.0)
+
+
+def test_a_file_without_a_time_range_falls_back_to_its_source_span():
+    facts = SourceFacts(
+        "ix",
+        "st",
+        15,
+        100.0,
+        900.0,
+        ("h1",),
+        1,
+        ("/a.log", "/b.log"),
+        2,
+        files=(IndexFile("/a.log", 10, ("h1",)), IndexFile("/b.log", 5, ("h1",), 700.0, 800.0)),
+    )
+    assert file_span(facts, facts.files[0]) == (facts.first, facts.last)
+    assert file_span(facts, facts.files[1]) == (700.0, 800.0)
+
+
+def test_the_estate_map_still_declares_no_files_when_the_counts_do_not_add_up():
+    volume, sources = _estate_rows()
+    volume[0]["count"] = "36"
+    executor = _EstateExecutor(volume, sources, [])
+    facts, notes = index_facts(executor, "ix", 0.0, 5000.0)
+
+    assert facts[0].files == ()
+    assert "files_incomplete:stream:http" in notes

@@ -519,7 +519,13 @@ def _facts(facts: SourceFacts) -> dict[str, Any]:
         "sources": list(facts.sources),
         "shared_sources": [name for name in facts.sources if name in facts.shared_sources],
         "files": [
-            {"path": item.path, "events": item.events, "hosts": list(item.hosts)}
+            {
+                "path": item.path,
+                "events": item.events,
+                "hosts": list(item.hosts),
+                "first": item.first,
+                "last": item.last,
+            }
             for item in facts.files
         ],
         "active_periods": facts.active_periods,

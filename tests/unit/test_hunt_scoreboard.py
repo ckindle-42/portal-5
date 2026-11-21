@@ -983,6 +983,87 @@ def test_a_step_whose_file_the_index_lacks_is_evidence_absent_not_unreachable(
     assert "  reachable   lost -  gained dirb" in printed
 
 
+def _estate_map(run: Path, values: list[str], *, capped: bool = False) -> None:
+    (run / "ledger.jsonl").write_text(
+        json.dumps(
+            {
+                "stage": "cards",
+                "capped": capped,
+                "query": '| tstats count where index="idx" by sourcetype source host',
+                "rows": 3,
+                "values_extracted": values,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_the_estate_map_reads_a_three_field_sourcetype_source_host_row(tmp_path: Path) -> None:
+    present = "/apache2/access.log.4"
+    dropped = "/logstash/intranet-server/2022-01-17-system.cpu.log"
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", present, ["10.0.0.5"])],
+        keys=_keys(present, "web", {1: ["dirb"]})
+        + _keys(dropped, "mon", {1: ["crack"], 2: ["crack"]}),
+        files={
+            ("web", present): [_line("10.0.0.5", "/scan")],
+            ("mon", dropped): [_line("10.0.0.7", "/guess"), _line("10.0.0.7", "/guess2")],
+        },
+        indexed=[present],
+    )
+    _estate_map(run, [present, "web", "db", present, present])
+    family = score(run, [str(run / "keys.jsonl")], logs=tmp_path / "corpus" / "fam" / "gather")[
+        "families"
+    ][0]
+    ceiling = family["ceiling"]
+    assert ceiling["index_map"] == "ledger estate map, 1 source paths"
+    assert ceiling["evidence_absent"] == [{"step": "crack", "absent": 2, "lines": 2}]
+    assert ceiling["steps"] == 1 and ceiling["steps_all"] == 2
+
+
+def test_a_capped_estate_map_row_is_still_rejected(tmp_path: Path) -> None:
+    source = "/apache2/access.log.4"
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", source, ["10.0.0.5"])],
+        keys=_keys(source, "web", {1: ["dirb"]}),
+        files={("web", source): [_line("10.0.0.5", "/scan")]},
+        indexed=[source],
+    )
+    _estate_map(run, [source, "web"], capped=True)
+    family = score(run, [str(run / "keys.jsonl")], logs=tmp_path / "corpus" / "fam" / "gather")[
+        "families"
+    ][0]
+    ceiling = family["ceiling"]
+    assert ceiling["evidence_absent"] is None
+    assert ceiling["keys_present"] is None
+    assert "the run recorded no complete per-source index map" in board.render(family)
+
+
+def test_a_complete_map_that_misses_a_declared_source_is_rejected(tmp_path: Path) -> None:
+    present = "/apache2/access.log.4"
+    declared = "/apache2/access.log.5"
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", present, ["10.0.0.5"])],
+        keys=_keys(present, "web", {1: ["dirb"]}),
+        files={("web", present): [_line("10.0.0.5", "/scan")]},
+        indexed=[present, declared],
+    )
+    _estate_map(run, [present, "web"])
+    family = score(run, [str(run / "keys.jsonl")], logs=tmp_path / "corpus" / "fam" / "gather")[
+        "families"
+    ][0]
+    ceiling = family["ceiling"]
+    assert ceiling["evidence_absent"] is None
+    assert ceiling["keys_present"] is None
+    assert "C0 evidence absent  n/a (the run's estate map misses 1 of 2 declared sources)" in (
+        board.render(family)
+    )
+
+
 def test_a_line_family_names_a_cause_for_every_step(tmp_path: Path) -> None:
     source = "/apache2/access.log.4"
     cut = "/auth.log"
