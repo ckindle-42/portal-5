@@ -15,7 +15,7 @@ from ..executor import HuntExecutor
 from .behaviours import Behaviour, reproduction_query
 from .cards import SourceCard
 from .parse import FieldStat
-from .sample import SourceFacts
+from .sample import ACCEL_MODELS, SourceFacts
 
 INVENTORY_FILE = "inventory.json"
 INVENTORY_MAX_VALUES = 5_000  # effort budget (LIST_MAX): a longer list is capped, never exhaustive
@@ -29,7 +29,6 @@ INVENTORY_MAX_JOINT_SEARCHES = 16  # effort budget: joint first-seen searches af
 INVENTORY_CANDIDATES_PER_SOURCE = 8  # effort budget: unseen value rows handed to the generators
 INVENTORY_CANDIDATE_TOTAL = 32  # effort budget: unseen value rows across the index
 INVENTORY_MAX_MODEL_PROBES = 8  # effort budget: accelerated models tried for one list
-INVENTORY_ACCEL_MIN_EVENTS = 250_000  # effort budget: below this a scan beats an acceleration probe
 INVENTORY_PROBE_EVENTS = 1_000  # effort budget: events one source's vocabulary probe reads
 INVENTORY_MAX_PROBE_FIELDS = 96  # effort budget: names one presence probe resolves
 INVENTORY_MAX_PRESENCE_PROBES = 48  # effort budget: sources one run samples for a vocabulary
@@ -38,11 +37,9 @@ FLOW_MAX_GAP_SECONDS = 4 * 3600.0  # a later observation past the case link gap 
 FLOW_MAX_FLOWS = 64  # effort budget: emitted flows per index
 FLOW_MAX_PROBES = 16  # effort budget: host probes across every flow candidate
 FLOW_HOST_ROWS = 64  # effort budget: hosts one probe may return
-# The documented output of setup stage 3: one row per model, with the window its summary covers.
-ACCEL_QUERY = (
-    "| rest /services/admin/summarization by_tstats=1 "
-    "| fields datamodel_name summary.earliest_time summary.latest_time summary.complete"
-)
+# The summarization endpoint keys an accelerator by `title`/`summary.id`, never `datamodel_name`;
+# no `| fields` list, because one unknown name there empties the whole answer.
+ACCEL_QUERY = "| rest /services/admin/summarization by_tstats=1"
 # The estate's declaration of which names it indexes: the only ones tstats can ever answer.
 VOCABULARY_QUERY = "| rest /servicesNS/-/-/configs/conf-fields | fields title INDEXED"
 # The event's own metadata is present everywhere and names no entity.
@@ -190,6 +187,31 @@ def _presence_query(route: str, names: Sequence[str]) -> str:
 def _absent(known: frozenset[str] | None, name: str) -> bool:
     """Only a probe may declare a name absent: an unprobed source keeps its names."""
     return known is not None and name not in known
+
+
+def _model_root(accelerator: str) -> str:
+    """`tstats:DM_<app>_<Model>` -> `<Model>`: the name a `from datamodel=` search accepts."""
+    text = accelerator.strip()
+    if text.startswith("tstats:"):
+        text = text[len("tstats:") :]
+    for model in ACCEL_MODELS:
+        if text == model or text.endswith(f"_{model}"):
+            return model
+    return ""
+
+
+def _covers(window: tuple[float, float], span: tuple[float, float]) -> bool:
+    """The endpoint reports whole seconds; a sub-second tail of the span is not a gap."""
+    return window[0] <= span[0] and span[1] <= window[1] + 1.0
+
+
+def _span(cards: Sequence[SourceCard], start: float, end: float) -> tuple[float, float]:
+    """The event range the lists describe: the cards' own data, not the query's all-time bound."""
+    firsts = [value for value in (_number(card.facts.get("first")) for card in cards) if value > 0]
+    lasts = [value for value in (_number(card.facts.get("last")) for card in cards) if value > 0]
+    if not firsts or not lasts:
+        return start, end
+    return min(firsts), max(lasts)
 
 
 def _empty_document(index: str) -> dict[str, Any]:
@@ -355,11 +377,19 @@ def _choice(
 class _Prober:
     """Name and field probes cached per source and per field: one query per question."""
 
-    def __init__(self, executor: HuntExecutor, index: str, start: float, end: float) -> None:
+    def __init__(
+        self,
+        executor: HuntExecutor,
+        index: str,
+        start: float,
+        end: float,
+        span: tuple[float, float] | None = None,
+    ) -> None:
         self.executor = executor
         self.index = index
         self.start = start
         self.end = end
+        self.span = span or (start, end)
         self.queries = 0
         self.probe_queries = 0
         self.model_probes = 0
@@ -473,26 +503,24 @@ class _Prober:
         return found
 
     def accelerated(self) -> tuple[AcceleratedModel, ...]:
-        """Models with a complete summary and the window it covers, probed once per run."""
+        """Complete models whose summary window covers the read: the only ones rung 1 may use."""
         if self._accelerated is None:
             rows, problem = self.probe(ACCEL_QUERY)
             if problem:
                 self.failures.append(f"accelerated:{problem}")
                 rows = []
-            found: list[AcceleratedModel] = []
+            found: dict[str, AcceleratedModel] = {}
             for row in rows:
-                name = str(row.get("datamodel_name") or "")
-                if not name or not _summary_complete(row.get("summary.complete")):
+                name = _model_root(str(row.get("title") or row.get("summary.id") or ""))
+                if not name or name in found or not _summary_complete(row.get("summary.complete")):
                     continue
-                found.append(
-                    AcceleratedModel(
-                        name,
-                        _number(row.get("summary.earliest_time")),
-                        _number(row.get("summary.latest_time")),
-                    )
-                )
+                earliest = _number(row.get("summary.earliest_time"))
+                latest = _number(row.get("summary.latest_time"))
+                if not _covers((earliest, latest), self.span):
+                    continue
+                found[name] = AcceleratedModel(name, earliest, latest)
             self._accelerated = tuple(
-                sorted(found, key=lambda item: item.name)[:INVENTORY_MAX_MODEL_PROBES]
+                sorted(found.values(), key=lambda item: item.name)[:INVENTORY_MAX_MODEL_PROBES]
             )
         return self._accelerated
 
@@ -597,7 +625,7 @@ def _tail_values(
     model: str = "",
 ) -> tuple[list[dict[str, Any]], float]:
     """The rarest end of a capped list: one ordered aggregate, bounded by the tail budget."""
-    if mechanism == "datamodel":
+    if mechanism == "accelerated":
         query = _model_query(index, name, model, (choice.field,), card, rarest=True)
     else:
         query = _value_query(index, name, mechanism, (choice.field,), card, rarest=True)
@@ -773,7 +801,7 @@ def _field_record(
         "events_scope": (
             "source"
             if mechanism == "stats"
-            else ("summary" if mechanism == "datamodel" else ("aggregate" if mechanism else ""))
+            else ("summary" if mechanism == "accelerated" else ("aggregate" if mechanism else ""))
         ),
         "accel_window": list(accel_window) if accel_window else None,
         "searched_window": list(searched_window) if searched_window else None,
@@ -811,39 +839,36 @@ def _enumerate_fields(
                 )
             )
             continue
-        mechanism, name, reason = _mechanism(prober, card, (choice.field,))
         available = int(_number(card.facts.get("events")))
-        if mechanism != "tstats" and available >= INVENTORY_ACCEL_MIN_EVENTS:
-            model, route_name, rows, problem, seconds = _datamodel_values(
-                prober, index, card, (choice.field,)
-            )
-            if model is not None:
-                value_field = f"{model.name}.{choice.field}"
-                status, values, share = _values(rows, (value_field,), "datamodel", problem)
-                if status == "capped":
-                    tail, tail_seconds = _tail_values(
-                        prober, index, card, choice, "datamodel", route_name, model.name
-                    )
-                    seconds += tail_seconds
-                    status, values, share = _values(
-                        rows, (value_field,), "datamodel", problem, tail
-                    )
-                records.append(
-                    _field_record(
-                        choice,
-                        status,
-                        values,
-                        mechanism="datamodel",
-                        name_used=f"{model.name}:{route_name}",
-                        events_scanned=_scanned("datamodel", rows, available),
-                        seconds=seconds,
-                        value_field=value_field,
-                        accel_window=(model.earliest, model.latest) if model.latest > 0 else None,
-                        searched_window=(prober.start, prober.end),
-                        capped_share=share,
-                    )
+        model, route_name, rows, problem, seconds = _datamodel_values(
+            prober, index, card, (choice.field,)
+        )
+        if model is not None:
+            value_field = f"{model.name}.{choice.field}"
+            status, values, share = _values(rows, (value_field,), "accelerated", problem)
+            if status == "capped":
+                tail, tail_seconds = _tail_values(
+                    prober, index, card, choice, "accelerated", route_name, model.name
                 )
-                continue
+                seconds += tail_seconds
+                status, values, share = _values(rows, (value_field,), "accelerated", problem, tail)
+            records.append(
+                _field_record(
+                    choice,
+                    status,
+                    values,
+                    mechanism="accelerated",
+                    name_used=f"{model.name}:{route_name}",
+                    events_scanned=_scanned("accelerated", rows, available),
+                    seconds=seconds,
+                    value_field=value_field,
+                    accel_window=(model.earliest, model.latest) if model.latest > 0 else None,
+                    searched_window=(prober.start, prober.end),
+                    capped_share=share,
+                )
+            )
+            continue
+        mechanism, name, reason = _mechanism(prober, card, (choice.field,))
         if not mechanism:
             records.append(
                 _field_record(
@@ -1274,7 +1299,7 @@ def collect_inventory(
 ) -> dict[str, Any]:
     """Enumerate selected fields over the whole index and store value lists plus joints."""
     began = time.monotonic()
-    prober = _Prober(executor, index, start, end)
+    prober = _Prober(executor, index, start, end, _span(cards, start, end))
     vocabulary = prober.vocabulary()
     known = {
         card.card_id: prober.present(card, vocabulary)
