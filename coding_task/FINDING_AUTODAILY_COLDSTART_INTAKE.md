@@ -64,8 +64,8 @@ ollama create gemma4:12b-it-q4_K_M-ctx16k \
 ollama show qwen3.5:9b-q4_K_M-ctx16k --modelfile | rg 'num_ctx'
 ollama show gemma4:12b-it-q4_K_M-ctx16k --modelfile | rg 'num_ctx'
 # settings_audit --behavioral is the repo's typed tool-call probe; run it per tag.
-uv run python scripts/settings_audit.py --tag qwen3.5:9b-q4_K_M-ctx16k --behavioral
-uv run python scripts/settings_audit.py --tag gemma4:12b-it-q4_K_M-ctx16k --behavioral
+uv run python -m tests.wfe.settings_audit --tag qwen3.5:9b-q4_K_M-ctx16k --behavioral
+uv run python -m tests.wfe.settings_audit --tag gemma4:12b-it-q4_K_M-ctx16k --behavioral
 # oMLX: one direct /v1/chat/completions call with a two-tool array per checkpoint;
 # require native tool_calls with typed arguments and no text-form <tool_call>.
 
