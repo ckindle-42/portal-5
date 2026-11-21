@@ -158,14 +158,11 @@ def test_telegram_do_stores_utc_not_before_and_skips_until_due(tmp_path: Path) -
 
 
 def test_runner_leaves_reminder_queued_until_the_due_poll(tmp_path: Path) -> None:
-    import json
-
     from portal.modules.orchestration.personal_runner import Completion, poll_personal_tasks
 
     class Caller:
         def __init__(self) -> None:
             self.replies = [
-                Completion(json.dumps({"steps": [{"tools": ["queue_status"]}]}), (), 0),
                 Completion(
                     "",
                     ({"id": "c1", "function": {"name": "queue_status", "arguments": "{}"}},),

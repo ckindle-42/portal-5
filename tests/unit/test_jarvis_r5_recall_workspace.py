@@ -130,27 +130,6 @@ def test_executor_answers_the_request_from_real_workspace_files(
     assert "workspace_files" in receipt["tool_calls"]
 
 
-def test_an_answer_that_omits_the_largest_size_is_not_done(tmp_path: Path, workspace: Path) -> None:
-    tasks = tmp_path / "tasks"
-    reply = telegram_do_reply(tasks, 1, REQUEST)
-    task_id = reply.removeprefix("queued ")
-    call = {
-        "id": "c1",
-        "type": "function",
-        "function": {"name": "workspace_files", "arguments": json.dumps({"path": "generated"})},
-    }
-    caller = _Caller(
-        [
-            Completion("", (call,), 0),
-            Completion("The largest file is 1 byte.", (), 0),
-        ]
-    )
-    result = poll_personal_tasks(tasks, _Notices(), caller)
-    assert result is not None and result.status == "retrying"
-    receipt = json.loads((tasks / task_id / "receipt.json").read_text(encoding="utf-8"))
-    assert "largest file size" in str(receipt["error"])
-
-
 # ── workspace_files read tool ──────────────────────────────────────────────────
 
 

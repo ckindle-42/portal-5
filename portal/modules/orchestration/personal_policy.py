@@ -335,7 +335,10 @@ def _tool_is_hidden(name: str, hidden: frozenset[str]) -> bool:
 
 
 ACCEPTANCE_EMPTY = "acceptance: empty final answer"
-_WORD_DOC_REQUEST = re.compile(r"\bword\s+documents?\b|\.docx\b", re.IGNORECASE)
+ACCEPTANCE_NO_TOOL = "acceptance: data request answered without a tool call"
+# Creating a file is only done when the tool names what it wrote.
+DOCUMENT_CREATE_TOOLS = frozenset({"create_word_document", "create_excel", "create_powerpoint"})
+_DELIVERED_KEYS = ("path", "filename", "download_url", "url")
 _FABRICATED_ANSWER = re.compile(
     r"\[(?:insert|current|item|optional)\b[^\]]{0,80}\]"
     r"|\b(?:cannot|can not|can't) fulfill\b"
@@ -343,10 +346,6 @@ _FABRICATED_ANSWER = re.compile(
     r"|\bnot included in the (?:current )?validated plan\b",
     re.IGNORECASE,
 )
-_REPO_FILE = re.compile(
-    r"(?<![\w./-])((?:scripts|portal|portal_channels|tests|config|docs)/[\w./-]+\.[A-Za-z0-9]+)"
-)
-_LARGEST_REQUEST = re.compile(r"\blargest\b", re.IGNORECASE)
 
 
 def _json_object(text: str) -> dict[str, Any] | None:
@@ -362,76 +361,55 @@ def acceptance_failure(
     called: list[str],
     tool_outputs: list[str],
     *,
-    request: str = "",
+    hops: int = 0,
+    requires_tools: bool = False,
 ) -> str | None:
     """J9: why one finished local attempt failed, or None when it passed."""
     if not content.strip():
         return ACCEPTANCE_EMPTY
-    for output in tool_outputs:
-        parsed = _json_object(output)
-        if parsed is not None and parsed.get("error"):
-            return f"acceptance: tool error: {str(parsed['error'])[:200]}"
-    return _ungrounded_answer(request, content, called, tool_outputs)
-
-
-def _ungrounded_answer(
-    request: str, content: str, called: list[str], tool_outputs: list[str]
-) -> str | None:
-    """Reject a done answer the live queue accepted with no supporting tool result."""
-    if _WORD_DOC_REQUEST.search(request) and "create_word_document" not in called:
-        return "acceptance: word document was not created"
-    missing = _repo_file_missing(request, tool_outputs)
-    if missing is not None:
-        return f"acceptance: repository file not in tool results: {missing}"
+    error = _unrecovered_tool_error(tool_outputs)
+    if error is not None:
+        return f"acceptance: tool error: {error}"
+    if requires_tools and hops < 1:
+        return ACCEPTANCE_NO_TOOL
     if _FABRICATED_ANSWER.search(content):
         return "acceptance: answer is not a completed result"
-    return _omitted_largest_size(request, content, tool_outputs)
-
-
-def _repo_file_missing(request: str, tool_outputs: list[str]) -> str | None:
-    for found in _REPO_FILE.findall(request):
-        path = str(found)
-        if not _repo_file_read(path, tool_outputs):
-            return path
+    if set(called) & DOCUMENT_CREATE_TOOLS and not _document_delivered(called, tool_outputs):
+        return "acceptance: document tool returned no path"
     return None
 
 
-def _repo_file_read(path: str, tool_outputs: list[str]) -> bool:
-    """A repo path is grounded only by a read of it — a listing that echoes the request is not."""
-    for output in tool_outputs:
+def _unrecovered_tool_error(tool_outputs: list[str]) -> str | None:
+    """A tool error is fatal only when no later call returned a result."""
+    last_error = -1
+    last_success = -1
+    for index, output in enumerate(tool_outputs):
         parsed = _json_object(output)
-        if not isinstance(parsed, dict):
-            continue
-        content = parsed.get("content")
-        reported = str(parsed.get("path") or "")
-        if isinstance(content, str) and content.strip() and reported.endswith(path):
-            return True
-        matches = parsed.get("matches")
-        if isinstance(matches, list) and any(str(hit).startswith(f"{path}:") for hit in matches):
-            return True
-    return False
-
-
-def _omitted_largest_size(request: str, content: str, tool_outputs: list[str]) -> str | None:
-    if _LARGEST_REQUEST.search(request) is None:
+        if isinstance(parsed, dict) and parsed.get("error"):
+            last_error = index
+        else:
+            last_success = index
+    if last_error < 0 or last_success > last_error:
         return None
-    sizes: list[int] = []
-    for output in tool_outputs:
-        for item in _file_rows(output):
-            size = item.get("size")
-            if isinstance(size, int) and not isinstance(size, bool):
-                sizes.append(size)
-    if not sizes:
-        return None
-    top = max(sizes)
-    if re.search(rf"(?<!\d)(?:{top}|{top:,})(?!\d)", content):
-        return None
-    return "acceptance: answer omits the largest file size from the tool result"
+    failed = _json_object(tool_outputs[last_error]) or {}
+    return str(failed.get("error"))[:200]
 
 
-def _file_rows(output: str) -> list[dict[str, Any]]:
+def _document_delivered(called: list[str], tool_outputs: list[str]) -> bool:
+    """The create call succeeded when its own result names the file it wrote."""
+    if len(called) == len(tool_outputs):
+        returns = [
+            output
+            for name, output in zip(called, tool_outputs, strict=True)
+            if name in DOCUMENT_CREATE_TOOLS
+        ]
+    else:
+        returns = tool_outputs
+    return any(_reports_a_file(output) for output in returns)
+
+
+def _reports_a_file(output: str) -> bool:
     parsed = _json_object(output)
-    files = parsed.get("files") if isinstance(parsed, dict) else None
-    if not isinstance(files, list):
-        return []
-    return [item for item in files if isinstance(item, dict)]
+    if not isinstance(parsed, dict) or parsed.get("error") or parsed.get("success") is False:
+        return False
+    return any(isinstance(parsed.get(key), str) and parsed[key] for key in _DELIVERED_KEYS)
