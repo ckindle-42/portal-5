@@ -71,6 +71,14 @@ class FileRead:
     hosts: tuple[str, ...] = ()
 
 
+EMPTY_WINDOW = "empty_window"  # the window was read and returned nothing
+
+
+def file_omitted(item: FileRead) -> bool:
+    """An omitted file was declined unread; an empty window was issued and returned nothing."""
+    return bool(item.reason) and item.reason != EMPTY_WINDOW
+
+
 @dataclass(frozen=True)
 class SourceFacts:
     """Cheap index facts about one sourcetype: volume, time range, hosts and sources."""
@@ -117,8 +125,8 @@ class RowSet:
             "rung": self.rung,
             "events_scanned": self.events_scanned,
             "coverage": self.coverage,
-            "files_read": len({item.path for item in self.files if not item.reason}),
-            "files_omitted": len({item.path for item in self.files if item.reason}),
+            "files_read": len({item.path for item in self.files if not file_omitted(item)}),
+            "files_omitted": len({item.path for item in self.files if file_omitted(item)}),
         }
 
 
@@ -721,7 +729,14 @@ def read_files(
                 found.notes.append(reason)
             found.files.append(
                 FileRead(
-                    item.path, host, item.events, start, end, len(rows), reason or "", item.hosts
+                    item.path,
+                    host,
+                    item.events,
+                    start,
+                    end,
+                    len(rows),
+                    reason or (EMPTY_WINDOW if not rows else ""),
+                    item.hosts,
                 )
             )
     found.rows.sort(
@@ -801,6 +816,7 @@ def read_anchors(
     kind: str,
     max_sources: int = SAMPLE_SOURCES,
     accel_window: tuple[float, float] | None = None,
+    coverage: str = "scan",
 ) -> RowSet:
     """Rung 3: read only the host/time windows rung 2 produced, capped per window."""
     route, route_name = route_filter(facts, max_sources)
@@ -814,7 +830,7 @@ def read_anchors(
     found.read_mode = "anchored"
     found.rung = "narrowed_scan"
     found.events_scanned = sum(anchor.events for anchor in readable)
-    found.coverage = "scan"
+    found.coverage = coverage
     found.accel_window = accel_window
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
     with ThreadPoolExecutor(max_workers=min(len(readable) or 1, concurrency)) as pool:
@@ -881,6 +897,7 @@ __all__ = [
     "ACCEL_MODELS",
     "ALERT_TERM",
     "AccelSummary",
+    "EMPTY_WINDOW",
     "FileRead",
     "IndexFile",
     "Localisation",
@@ -892,6 +909,7 @@ __all__ = [
     "accel_summaries",
     "cadence_facts",
     "coverage_label",
+    "file_omitted",
     "file_route",
     "index_facts",
     "localise",

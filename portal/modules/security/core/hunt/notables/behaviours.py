@@ -20,11 +20,13 @@ from .cards import SourceCard, card_consumers
 from .parse import parse_row
 from .sample import (
     BEHAVIOUR_SOURCES,
+    EMPTY_WINDOW,
     LOCALISE_WINDOWS,
     Localisation,
     LocalWindow,
     RowSet,
     SourceFacts,
+    file_omitted,
     localise,
     localise_width,
     read_files,
@@ -712,8 +714,8 @@ def _source_receipt(
         "coverage": read.coverage,
         "accel_window": list(read.accel_window) if read.accel_window else None,
         "files_indexed": len(facts.files),
-        "files_routed": len({item.path for item in read.files if not item.reason}),
-        "files_omitted": len({item.path for item in read.files if item.reason}),
+        "files_routed": len({item.path for item in read.files if not file_omitted(item)}),
+        "files_omitted": len({item.path for item in read.files if file_omitted(item)}),
         "share_of_source": round(len(read.rows) / facts.events, 6) if facts.events else None,
         "read_fraction": round(len(read.rows) / facts.events, 6) if facts.events else None,
         "seconds": round(seconds, 3),
@@ -897,7 +899,14 @@ def _merge_row_sets(
     )
 
 
-def _merge_anchored(uniform: RowSet, anchored: RowSet, anchors: Sequence[LocalWindow]) -> RowSet:
+def _merge_anchored(
+    uniform: RowSet,
+    anchored: RowSet,
+    anchors: Sequence[LocalWindow],
+    *,
+    coverage: str = "scan",
+    accel_window: tuple[float, float] | None = None,
+) -> RowSet:
     """Uniform baseline plus rung-3 reads; a row an anchor already read is not counted twice."""
     rows = [
         row
@@ -925,8 +934,8 @@ def _merge_anchored(uniform: RowSet, anchored: RowSet, anchors: Sequence[LocalWi
     found.read_mode = "anchored"
     found.rung = "narrowed_scan"
     found.events_scanned = anchored.events_scanned + kept_uniform
-    found.coverage = "scan"
-    found.accel_window = anchored.accel_window
+    found.coverage = coverage
+    found.accel_window = accel_window
     return found
 
 
@@ -970,6 +979,7 @@ def read_behaviour_source(
     anchors: Sequence[LocalWindow] = (),
     value_spans: Sequence[tuple[float, float]] = (),
     accel_window: tuple[float, float] | None = None,
+    coverage: str = "scan",
 ) -> RowSet:
     """Whole when it fits, else rung-2 windows, the source's value spans, bursts, uniform."""
     complete = _is_complete_source(facts, per_window)
@@ -990,7 +1000,7 @@ def read_behaviour_source(
             read.notes.append(f"source_count_mismatch:{len(read.rows)}/{facts.events}")
         return read
     if anchors:
-        return _read_anchored_source(executor, facts, per_window, anchors, accel_window)
+        return _read_anchored_source(executor, facts, per_window, anchors, accel_window, coverage)
     if value_spans:
         return _read_value_span_source(executor, facts, per_window, value_spans)
     if burst_windows:
@@ -1012,6 +1022,7 @@ def _read_anchored_source(
     per_window: int,
     anchors: Sequence[LocalWindow],
     accel_window: tuple[float, float] | None = None,
+    coverage: str = "scan",
 ) -> RowSet:
     """Uniform baseline plus the host/time windows rung 2 selected."""
     peaks = list(anchors[:LOCALISE_WINDOWS])
@@ -1024,9 +1035,9 @@ def _read_anchored_source(
         sub_windows=BEHAVIOUR_SUB_WINDOWS,
     )
     anchored_read = _read_anchor_files(executor, facts, peaks, per_window)
-    found = _merge_anchored(uniform_read, anchored_read, peaks)
-    found.accel_window = accel_window
-    return found
+    return _merge_anchored(
+        uniform_read, anchored_read, peaks, coverage=coverage, accel_window=accel_window
+    )
 
 
 def _read_anchor_files(
@@ -1314,7 +1325,7 @@ def _behaviour_receipt(
         "localisation": dict(localisation or {}),
         "files": [dict(item) for item in file_rows],
         "files_indexed": _files_counted(file_rows, "path"),
-        "files_omitted": _files_counted(file_rows, "reason"),
+        "files_omitted": _files_omitted(file_rows),
         "events_scanned": sum(int(item.get("events_scanned") or 0) for item in receipts),
         "read_modes": {
             mode: sum(1 for item in receipts if item.get("read_mode") == mode)
@@ -1329,6 +1340,17 @@ def _files_counted(rows: Sequence[Mapping[str, Any]], key: str) -> int:
     """Distinct (source, file) pairs, or only those whose `key` is set."""
     return len(
         {(str(item.get("source_id")), str(item.get("path"))) for item in rows if item.get(key)}
+    )
+
+
+def _files_omitted(rows: Sequence[Mapping[str, Any]]) -> int:
+    """Distinct (source, file) pairs the read policy declined; an empty window was still read."""
+    return len(
+        {
+            (str(item.get("source_id")), str(item.get("path")))
+            for item in rows
+            if item.get("reason") and item.get("reason") != EMPTY_WINDOW
+        }
     )
 
 
@@ -1383,6 +1405,7 @@ def collect_behaviours(
                         burst_windows=burst_plan.get(facts.sourcetype, ()),
                         anchors=located.windows,
                         accel_window=located.accel_window,
+                        coverage=located.coverage,
                         value_spans=value_spans.get(source_id, ()),
                     )
                 )
