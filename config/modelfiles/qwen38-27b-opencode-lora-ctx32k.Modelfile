@@ -19,6 +19,14 @@
 # path there; this tag exists for the GPU-lane fallback).
 # The harness must request thinking off (`think: false` on /api/chat, or
 # `enable_thinking: false` through a /v1 client that forwards template kwargs).
+#
+# MEASURED 2026-11-21: Ollama 0.40.16 refuses this build — `Error: LoRA adapters
+# are no longer supported` — so the tag cannot exist on thebrain. Serve the same
+# recipe with llama.cpp instead, alias = the tag name:
+#   llama-server -m <qwen3.8:code32k Q4_K_M blob> \
+#     --lora Qwen3.8-27B-opencode-lora-F16.gguf -ngl 99 -c 32768 -fa on -np 1 \
+#     --alias qwen38-27b-opencode-lora:ctx32k --temp 0.8 --top-p 1.0 --top-k 0 \
+#     --min-p 0 -rea off
 FROM hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
 ADAPTER ./Qwen3.8-27B-opencode-lora-F16.gguf
 PARAMETER temperature 0.8

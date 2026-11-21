@@ -76,8 +76,22 @@ weights exists on disk. Adapters live in `/usr/share/ollama/adapters/` (world-re
 | Tool call parses | `finish_reason "tool_calls"`, one `get_weather` with `{"location":"Little Rock, AR"}` |
 | Unused tensors | `blk.64.*` (the MTP/nextn head) ignored — llama.cpp does not use the draft head |
 
-## 4. Task set (real, from this repo's git history)
+### 3.2 Measured throughput on the card (decides the whole recommendation)
 
+From the llama-server timings on the Qwen3.8-27B qwen35 Q4_K_M base:
+
+```
+prompt eval time = 5345.70 ms / 797 tokens (149.09 tokens per second)
+       eval time = 101634.70 ms / 1170 tokens (11.50 tokens per second)
+```
+
+**~11.5 tok/s decode, ~150 tok/s prefill** for a dense 27B at 32k context on the P40.
+Prefill dominates an agent turn: a 20k-token context costs ~130 s before the first token.
+A 3B-active MoE (the incumbent) prefills and decodes an order of magnitude faster, which
+is the P40's whole design point.
+
+
+## 4. Task set (real, from this repo's git history)
 Three small fixes that already landed here, replayed on their parent commit with only the
 fix's own test applied. Each kit starts as a clean `git init` + one commit; grading is the
 real pytest file, run after the harness stops.
@@ -94,4 +108,34 @@ Harness baseline, identical for every model and every task: `pi 1.5.2`, `--think
 
 ## 5. Results
 
-(filled in as the runs land)
+### 5.1 Harness runs (pass = the fix's own pytest file green after the run)
+
+| Seat | Harness | t1 | t2 | t3 | Turns | Wall | tok/s |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `qwen3.6-35b-a3b:q3code` (incumbent, Ollama) | pi | — | — | — | — | — | — |
+| `qwen38-27b-pi-lora:ctx32k` (llama-server) | pi | **pass** 151 s / 8 turns | **pass** 197 s / 5 turns | **pass** 156 s / 7 turns | 8/5/7 | 504 s | 7.6–8.7 |
+| `qwen38-27b-opencode-lora:ctx32k` (llama-server) | opencode | **fail** (timeout 1800 s, 16 steps, 0 edits) | pending | pending | 16 | 1800 s | 0.92 |
+| `lfm2.5-24b-a2b-pi-v2:ctx32k` (llama-server) | pi | pending | pending | pending | | | |
+| `twil-8b-pi:ctx32k` (llama-server) | pi | pending | pending | pending | | | |
+
+`tok/s` is output tokens over the model's own generation time (pi's `durationMs` sum), so it
+excludes grading and file I/O.
+
+### 5.2 What the opencode run actually did (t1)
+
+16 steps, 16 tool calls, 1 660 output tokens, no edit applied, killed at the 1 800 s cap.
+The transcript shows the model finding the right line at step 8 and then failing five edits
+in a row on indentation:
+
+```
+TEXT The cap notice at line 527 includes the raw `outcome.get("result")` — that's the report. Apply `user_answer()` to it.
+TOOL edit error | Could not find oldString … It must match exactly, including whitespace and indentation.
+…
+TOOL edit error | File not found: /home/ckindle/Dev/portal-5/portal/modules/orchestration/personal_runner.py
+```
+
+The same model on the same task under pi fixed it in 8 turns. So the adapter's tool calls are
+fine; what fails here is opencode's exact-match `edit` contract (the model reproduces the line
+with the wrong leading indentation) plus the number of round trips opencode spends on
+discovery at 11.5 tok/s.
+
