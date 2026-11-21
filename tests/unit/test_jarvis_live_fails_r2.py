@@ -28,7 +28,6 @@ from portal.modules.orchestration.personal_policy import (
 from portal.modules.orchestration.personal_runner import (
     Completion,
     _cloud_brief,
-    _memory_text,
     poll_personal_tasks,
     user_answer,
 )
@@ -158,7 +157,7 @@ def test_the_live_code_review_task_is_no_longer_accepted_as_done(tmp_path: Path)
             ),
         ]
     )
-    run = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda _q: "")
+    run = poll_personal_tasks(tasks, _Notices(), caller)
 
     assert run is not None and run.status == "retrying"
     receipt = _receipt(tasks, task_id)
@@ -256,7 +255,7 @@ def test_a_blocked_cloud_lane_does_not_paste_its_report_at_the_cap(
     sink = _Notices()
     telegram_do_reply(tmp_path, 7, "help with an empty local answer")
     bad = [Completion("", (), 0), Completion("", (), 0)]
-    first = poll_personal_tasks(tmp_path, sink, _Caller(list(bad)), recall=lambda _q: "")
+    first = poll_personal_tasks(tmp_path, sink, _Caller(list(bad)))
     assert first is not None and first.status == "retrying"
 
     class Lane:
@@ -267,7 +266,7 @@ def test_a_blocked_cloud_lane_does_not_paste_its_report_at_the_cap(
                 exit_code=1, status="failed", model="mock", result_text=LIVE_CLOUD_REPORT
             )
 
-    run = poll_personal_tasks(tmp_path, sink, _Caller([]), dispatcher=Lane(), recall=lambda _q: "")
+    run = poll_personal_tasks(tmp_path, sink, _Caller([]), dispatcher=Lane())
     assert run is not None and run.status == "blocked"
     notice = sink.messages[-1]
     assert "## EVIDENCE" not in notice and "uv run pytest" not in notice
@@ -311,7 +310,7 @@ def test_the_vm_request_is_offered_the_proxmox_read_tools(tmp_path: Path) -> Non
     reply = telegram_do_reply(tasks, 1, request)
     task_id = reply.removeprefix("queued ")
     caller = _Caller([Completion("VM 101 is stopped.", (), 1, ("proxmox_list_vms",))])
-    run = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda _q: "")
+    run = poll_personal_tasks(tasks, _Notices(), caller)
 
     assert run is not None and run.status == "done"
     assert "proxmox_list_vms" in caller.bodies[0]["portal_bite_tools"]
@@ -411,46 +410,10 @@ def test_the_document_request_reaches_done_with_the_real_counts(
             ),
         ]
     )
-    run = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda _q: "")
+    run = poll_personal_tasks(tasks, _Notices(), caller)
 
     assert run is not None and run.status == "done"
     receipt = _receipt(tasks, task_id)
     assert receipt["status"] == "done"
     assert "security_sweep" in receipt["tool_calls"]
     assert "create_word_document" in receipt["tool_calls"]
-
-
-# ── 5. Recalled tool scratch never becomes "memory" ─────────────────────────
-
-JUNK_MEMORIES = {
-    "memories": [
-        {
-            "text": "row count is <output of previous execution>",
-            "similarity": 0.91,
-        },
-        {
-            "text": "line_count: Unable to locate /workspace/report.txt; line count could "
-            "not be determined.",
-            "similarity": 0.88,
-        },
-        {"text": "The operator prefers Telegram replies under 400 characters.", "similarity": 0.7},
-    ]
-}
-
-
-def test_recalled_tool_scratch_is_dropped_and_a_preference_is_kept() -> None:
-    rendered = _memory_text(JUNK_MEMORIES)
-    assert rendered == "- The operator prefers Telegram replies under 400 characters."
-
-
-def test_the_executor_never_sees_the_scratch_it_used_to(tmp_path: Path) -> None:
-    tasks = tmp_path / "tasks"
-    telegram_do_reply(tasks, 1, "what is the queue status in one paragraph")
-    memory = _memory_text(JUNK_MEMORIES)
-    caller = _Caller([Completion("Queue is empty.", (), 1, ("queue_status",))])
-    run = poll_personal_tasks(tasks, _Notices(), caller, recall=lambda _q: memory)
-
-    assert run is not None and run.status == "done"
-    for body in caller.bodies:
-        assert "Unable to locate /workspace/report.txt" not in json.dumps(body)
-        assert "output of previous execution" not in json.dumps(body)
