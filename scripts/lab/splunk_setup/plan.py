@@ -331,8 +331,8 @@ CONTROL_PROBES = (
         "> 0 rows — this path still answers on the control",
     ),
     Probe(
-        "control_no_summary",
-        "| tstats summariesonly=true count from datamodel=Authentication by Authentication.user",
-        "0 rows inside botsv2's range — the control is not accelerated",
+        "control_model_scope",
+        "| tstats summariesonly=false count from datamodel=Authentication by Authentication.user",
+        "0 rows in 2017-08..2018-10 — botsv2 is outside the CIM index allowlist",
     ),
 )

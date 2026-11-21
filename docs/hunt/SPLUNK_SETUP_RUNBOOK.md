@@ -61,8 +61,9 @@ are never written, never cleaned and never deleted by any stage; rollback of sta
 2. It is where the degradation the hunt must keep meeting was **measured**: the same Windows
    events answer to `WinEventLog` on the raw path and `wineventlog:security` on the tsidx path
    (§4.2 of the realism doc). Keeping it untuned keeps that trap live.
-3. It is 23.5 GB / 226 M events / 451 days — 10× the three families together. Keeping it out of
-   the acceleration window also keeps the build cost small (stage 3).
+3. It is 23.5 GB / 226 M events / 451 days — ≈6× the three families' bytes together (3.7 GB)
+   and ≈3× their events. Keeping it out of the acceleration window also keeps the build cost
+   small (stage 3).
 
 To make that structural rather than incidental, the CIM index allowlist macros for the six
 accelerated models (`cim_*_indexes`) are scoped to the three `_v2` indexes, so data-model
@@ -138,7 +139,7 @@ on); `app --check` proves it is exactly what the renderer produces.
 | file | what it binds |
 |---|---|
 | `props.conf` | `INDEXED_EXTRACTIONS=json` for `suricata`; index-time `TRANSFORMS-ph_ix_*`; search-time `EVAL-*` aliases to CIM names |
-| `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`c_method`/`c_uri`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) |
+| `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`cs_method`/`cs_uri_stem`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) |
 | `fields.conf` | `INDEXED = true` for every index-time field, incl. the JSON keys the doc names (`alert.signature`, `dns.rrname`, `http.url`, …) |
 | `eventtypes.conf` + `tags.conf` | the CIM tag constraints: `authentication`, `web`, `ids`+`attack`, `network`+`communicate`, `network`+`resolution`, `endpoint`+`process`+`report` |
 | `datamodels.conf` | empty at stage 1; stage 3 writes acceleration for the six models, `acceleration.earliest_time = -10y` |
@@ -217,7 +218,8 @@ therefore needs **no** key rebuild.
 
 Disk is an estimate: kept events × ~104 B/event compressed (botsv2's measured 23.5 GB / 226 M),
 then +40–100 % for index-time extraction (doc §5.4 — an estimate, to be measured on the first
-index). The source index's `maxTotalDataSizeMB` is 20 GB, so there is no capacity risk.
+index). Each `_v2` index is capped at 20 GB (`INDEX_SETTINGS`) against ≈0.5 GB of data, so there
+is no capacity risk.
 
 **Commands** (per index; `santos` shown):
 
@@ -310,8 +312,9 @@ each), so the "accelerate an empty index" mistake cannot happen silently. It als
 ```spl
 | tstats summariesonly=true count from datamodel=Authentication by Authentication.user
 ```
-→ **> 0 rows in ≈0.1 s, scanCount 0** (a summary read, not a scan). This is the exact query that
-returned 0 rows in 0.12 s before the change and 2.59 M in 200 s unaccelerated.
+→ **> 0 rows in ≈0.1 s, scanCount 0** (a summary read, not a scan). Before the change the same
+query returned 0 rows in 0.12 s; unaccelerated (`summariesonly=false`) the model took 199.9 s to
+count 2.59 M events on `botsv2`.
 
 ```spl
 | rest /services/admin/summarization | table title summary_size complete
@@ -322,11 +325,15 @@ assumption with a measurement — record it.
 **Control probe (the degradation must survive):**
 
 ```spl
-| tstats summariesonly=true count from datamodel=Authentication
+| tstats summariesonly=false count from datamodel=Authentication by Authentication.user
   earliest=2017-08-01 latest=2018-10-30
 ```
-→ **0 rows**: `botsv2` is outside the CIM macro allowlist and unaccelerated. If this returns
-rows, the macro precedence went the wrong way (stage 1's warning) — fix before continuing.
+→ **0 rows** (and `scanCount` 0): `botsv2` is outside the CIM macro allowlist, so the model does
+not even look at it. `summariesonly=false` is the point — with `true` the probe would return 0
+rows whether or not the macro worked. If this returns the 2.59 M events the realism doc measured,
+the macro precedence went the wrong way (stage 1's warning) — fix before continuing.
+Second check: `| rest /services/admin/summarization | table title earliest latest` must show no
+entry covering 2017-08..2018-10.
 
 **Rollback:** re-run `apply` **without** `--accelerate` (one command: strips `datamodels.conf`,
 installs, restarts). Existing summaries stop being maintained and are removed by Splunk after the
@@ -361,9 +368,11 @@ uv run python -m scripts.lab.splunk_setup summary --run-now
 **Verification:**
 
 ```spl
-| tstats count where index=summary by hunt_entities_index
+index=summary hunt_entities_index=hb_ait_santos | stats count | head 1
 ```
-→ three rows, one per source index. Then `index=summary hunt_entities_index=hb_ait_santos | head 1`
+→ a non-zero count (the marker is parsed at search time, so use `search`, **not** `tstats` — a
+`tstats by hunt_entities_index` returning nothing would be the silent-zero trap this whole setup
+exists to remove). Then `index=summary hunt_entities_index=hb_ait_santos | head 1 | fields *`
 → fields `acct`, `count`, `hosts`, `first_seen`, `last_seen`.
 
 **Rollback:** disable the searches (`rollback --index santos` prints the call); optionally
@@ -389,7 +398,7 @@ accelerated model) plus the three control probes, and reports `rows`, `scan_coun
 | `tstats summariesonly=true from datamodel=Authentication` | >0 rows, scan 0 | tags or acceleration missing |
 | `tstats … index=botsv2 sourcetype="WinEventLog" by host` | 0 rows | the control was normalised — stop |
 | `tstats … index=botsv2 sourcetype="wineventlog:security" by host` | >0 rows | the two-name split changed — stop |
-| `summariesonly=true` over botsv2's range | 0 rows | acceleration leaked into the control |
+| `tstats … from datamodel=Authentication` (`summariesonly=false`) over 2017-08..2018-10 | 0 rows, scan 0 | the allowlist lets the control into CIM — stop |
 
 Then re-measure the four rows of the realism doc's §3 table on a `_v2` index and record the
 before/after in that document — the numbers there are what the next slice (S1 Tier B) is

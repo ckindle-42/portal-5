@@ -244,7 +244,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     report = []
     for probe in probes:
         earliest = "0" if probe.name == "events" else "-10y"
-        if probe.name == "control_no_summary":
+        if probe.name == "control_model_scope":
             earliest, latest = "2017-08-01T00:00:00", "2018-10-30T00:00:00"
         else:
             latest = "now"
@@ -372,7 +372,11 @@ def _stage_parsers(sub) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return int(args.func(args))
+    try:
+        return int(args.func(args))
+    except (rest.SplunkError, RuntimeError) as exc:
+        print(f"splunk_setup: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
