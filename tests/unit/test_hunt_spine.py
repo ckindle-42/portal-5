@@ -1,0 +1,124 @@
+"""Entity spine: cadence episodes, neighbour links, and singletons that never key a behaviour."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import duckdb
+
+from portal.modules.security.core.hunt.notables.behaviours import (
+    ExampleEvent,
+    behaviour_key,
+    identity_plan,
+)
+from portal.modules.security.core.hunt.notables.cards import SourceCard
+from portal.modules.security.core.hunt.notables.spine import (
+    SpineEvent,
+    build_spine,
+    event_id,
+    segments,
+)
+
+
+def _event(
+    source: str,
+    ts: float,
+    raw: str,
+    *,
+    host: str = "h1",
+    fields: dict[str, str] | None = None,
+) -> SpineEvent:
+    return SpineEvent(event_id(source, host, ts, raw), source, "", host, ts, raw, fields or {})
+
+
+def _episode_rows(path: Path) -> list[tuple[str, str, str, float, float]]:
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        return con.execute(
+            "SELECT source_id, prev_source, next_source, start_time, delta FROM episodes"
+        ).fetchall()
+    finally:
+        con.close()
+
+
+def test_an_entity_confined_to_one_burst_keeps_one_episode_and_a_gap_splits_it() -> None:
+    burst = [1_000.0, 1_060.0, 1_120.0, 1_180.0, 1_240.0]
+    assert segments(burst) == [(0, 5)]
+    # median gap 60s -> threshold max(300s, 240s); a 6h gap splits, and 5m alone never does
+    assert segments([0.0, 60.0, 120.0, 120.0 + 6 * 3600]) == [(0, 3), (3, 4)]
+    assert segments([0.0, 299.0]) == [(0, 2)]
+    # the 4h cap splits a regular series whose own median would otherwise stretch it
+    annual = [index * 5 * 3600.0 for index in range(4)]
+    assert segments(annual) == [(0, 1), (1, 2), (2, 3), (3, 4)]
+
+
+def test_adjacent_sources_on_one_host_link_inside_four_hours_and_not_outside(
+    tmp_path: Path,
+) -> None:
+    events = [
+        _event("ix:first", 1_000.0, "10.1.1.1 login"),
+        _event("ix:second", 1_000.0 + 2 * 3600, "10.1.1.1 exec"),
+        _event("ix:third", 1_000.0 + 10 * 3600, "10.1.1.1 exit"),
+    ]
+    build_spine(events, tmp_path / "entities.duckdb")
+    rows = {row[0]: row for row in _episode_rows(tmp_path / "entities.duckdb")}
+    assert rows["ix:first"][1] == "" and rows["ix:first"][2] == "ix:second"
+    assert rows["ix:first"][4] == 7200.0
+    assert rows["ix:second"][1] == "ix:first" and rows["ix:second"][2] == ""
+    assert rows["ix:third"][1] == "" and rows["ix:third"][2] == ""
+
+
+def test_a_singleton_value_becomes_an_entity_but_never_a_behaviour_key(tmp_path: Path) -> None:
+    card = SourceCard(
+        index="ix",
+        sourcetype="st",
+        kind="activity",
+        roles={"actor": ("user",), "action": ("image",), "object": ("path",)},
+        understood=True,
+        reason=None,
+        fmt="json",
+        coverage=1.0,
+        fields=(),
+        sample={},
+        facts={},
+        model={},
+        cache_key="key",
+    )
+    events = [
+        _event("ix:st", 1_000.0, "one", fields={"user": "zoe", "image": "a.exe", "path": "/x"}),
+        _event("ix:st", 1_060.0, "two", fields={"user": "abe", "image": "a.exe", "path": "/x"}),
+    ]
+    build_spine(events, tmp_path / "entities.duckdb")
+    con = duckdb.connect(str(tmp_path / "entities.duckdb"), read_only=True)
+    try:
+        users = {
+            row[0]
+            for row in con.execute("SELECT value FROM entities WHERE entity_kind='user'").fetchall()
+        }
+    finally:
+        con.close()
+    assert {"zoe", "abe"} <= users
+    plan = identity_plan(
+        card,
+        [ExampleEvent("ix:st", "h1", item.ts, item.raw, item.fields, 0.0, 60.0) for item in events],
+    )
+    actor_field, actor, action_field, action, _object_field, _object = behaviour_key(
+        card, events[0].fields, plan
+    )
+    assert actor_field == "user" and actor != "zoe"
+    assert action_field == "image" and action == "a.exe"
+
+
+def test_the_same_stored_events_rebuild_the_same_episode_boundaries(tmp_path: Path) -> None:
+    events = [
+        _event("ix:a", 1_000.0, "10.2.2.2 one"),
+        _event("ix:a", 1_060.0, "10.2.2.2 two"),
+        _event("ix:b", 1_000.0 + 4 * 3600 - 1, "10.2.2.2 three"),
+        _event("ix:b", 1_000.0 + 30 * 3600, "10.2.2.2 four"),
+    ]
+    first = tmp_path / "first.duckdb"
+    second = tmp_path / "second.duckdb"
+    build_spine(events, first)
+    build_spine(events, second)
+    assert _episode_rows(first) == _episode_rows(second)
+    assert len(_episode_rows(first)) == 3  # both sources split beyond four hours

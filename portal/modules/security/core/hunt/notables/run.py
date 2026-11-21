@@ -61,6 +61,7 @@ from .sample import (
     shared_source_names,
 )
 from .similar import SIMILAR_GENERATOR, generate_similar
+from .spine import spine_from_store
 from .window_activity import resolve_source_windows
 
 HTTP_ERROR_THRESHOLD = 0.20
@@ -478,8 +479,11 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
         float(sources.get("end") or 0.0),
     )
     write_json(out / INVENTORY_FILE, inventory)
-    behaves, receipt = collect_behaviours(executor, cards, facts_by_source(cards), out / STORE_FILE)
+    behaves, receipt = collect_behaviours(
+        executor, cards, facts_by_source(cards), out / STORE_FILE, inventory
+    )
     receipt["inventory"] = inventory_summary(inventory)
+    receipt["spine"] = spine_from_store(out, receipts=receipt.get("receipts") or ())
     _write_role_overrides(out, receipt.get("identity_overrides") or {})
     receipt.pop("identity_overrides", None)
     receipt["seconds_total"] = round(time.monotonic() - began, 3)

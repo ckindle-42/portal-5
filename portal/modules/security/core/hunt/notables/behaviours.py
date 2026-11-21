@@ -43,6 +43,7 @@ BEHAVIOUR_BURST_SPAN_SECONDS = 4 * 3600  # four-hour burst bucket width matching
 BEHAVIOUR_BURST_SERIES_ROWS = 40_000  # effort budget: per-period tstats rows for burst planning
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
 BEHAVIOUR_TOTAL_EVENTS = 400_000  # effort budget: parsed events across the whole stage
+BEHAVIOUR_ANCHOR_MERGE_SECONDS = 300  # value spans closer than this are one anchor window
 IDENTITY_RECURRENCE = 2.0  # an identity is seen at least twice on average
 IDENTITY_BUCKET_SECONDS = 3600  # identities recur across hours, not inside one burst
 IDENTITY_MIN_BUCKETS = 12  # a short sample is cut into at least this many time buckets
@@ -678,12 +679,14 @@ def _source_receipt(
     seconds: float,
     per_window: int,
     unparsed: int = 0,
+    read_mode: str = "sampled",
 ) -> dict[str, Any]:
     return {
         "card_id": card.card_id,
         "source_id": card.source_id,
         "part": {"field": card.part_field, "value": card.part_value} if card.part_field else None,
         "kind": card.kind,
+        "read_mode": read_mode,
         "events_available": facts.events,
         "events_read": len(read.rows),
         "events_parsed": events,
@@ -705,6 +708,52 @@ def _is_complete_source(facts: SourceFacts, per_window: int) -> bool:
     return 0 < facts.events <= per_window * BEHAVIOUR_WINDOWS and facts.source_count <= min(
         len(facts.sources), BEHAVIOUR_SOURCES
     )
+
+
+def anchor_windows(
+    inventory: Mapping[str, Any], source_id: str, limit: int = BEHAVIOUR_WINDOWS
+) -> list[tuple[float, float]]:
+    """The source's own value spans from its stored lists, merged and capped by activity."""
+    spans: list[tuple[float, float, int]] = []
+    for record in inventory.get("fields") or ():
+        if not isinstance(record, Mapping) or str(record.get("source_id")) != source_id:
+            continue
+        if str(record.get("status")) not in ("complete", "capped"):
+            continue
+        for value in record.get("values") or ():
+            if not isinstance(value, Mapping):
+                continue
+            first = _time_value(value.get("first_seen"))
+            last = _time_value(value.get("last_seen")) or first
+            if last >= first:
+                spans.append((first, last + 0.000001, int(value.get("events") or 0)))
+    if not spans:
+        return []
+    spans.sort()
+    merged: list[tuple[float, float, int]] = []
+    for first, last, events in spans:
+        if merged and first <= merged[-1][1] + BEHAVIOUR_ANCHOR_MERGE_SECONDS:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], last), merged[-1][2] + events)
+        else:
+            merged.append((first, last, events))
+    merged.sort(key=lambda span: (-span[2], span[0]))
+    return [(first, last) for first, last, _events in sorted(merged[:limit])]
+
+
+def _time_value(value: Any) -> float:
+    try:
+        return float(value or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def read_mode_of(
+    facts: SourceFacts, per_window: int, anchors: Sequence[tuple[float, float]]
+) -> str:
+    """whole when the budget covered the source, anchored on its own value spans, else sampled."""
+    if _is_complete_source(facts, per_window):
+        return "whole"
+    return "anchored" if anchors else "sampled"
 
 
 def _select_source_bursts(
@@ -815,9 +864,12 @@ def _behaviour_read_windows(
     facts: SourceFacts,
     per_window: int,
     burst_windows: Sequence[tuple[float, float]],
+    anchors: Sequence[tuple[float, float]] = (),
 ) -> list[tuple[float, float]]:
     if _is_complete_source(facts, per_window):
         return source_windows(facts, 1)
+    if anchors:
+        return list(anchors)
     if not burst_windows:
         return source_windows(facts, BEHAVIOUR_WINDOWS)
     peaks = list(burst_windows[:BEHAVIOUR_BURST_WINDOWS])
@@ -831,10 +883,11 @@ def read_behaviour_source(
     per_window: int,
     *,
     burst_windows: Sequence[tuple[float, float]] = (),
+    anchors: Sequence[tuple[float, float]] = (),
 ) -> RowSet:
-    """Read a source whole when it fits, else mix uniform baseline and peak burst windows."""
+    """Read a source whole when it fits, on its own value spans, else uniform plus bursts."""
     complete = _is_complete_source(facts, per_window)
-    if complete or not burst_windows:
+    if complete or not (burst_windows or anchors):
         read = read_windows(
             executor,
             facts,
@@ -848,6 +901,18 @@ def read_behaviour_source(
             read.selection = "full source range within allocated row budget"
             if len(read.rows) != facts.events:
                 read.notes.append(f"source_count_mismatch:{len(read.rows)}/{facts.events}")
+        return read
+    if anchors:
+        read = read_windows(
+            executor,
+            facts,
+            anchors,
+            per_window=per_window,
+            kind="behavior_events",
+            max_sources=BEHAVIOUR_SOURCES,
+            sub_windows=1,
+        )
+        read.selection = "inventory value spans"
         return read
     peaks = list(burst_windows[:BEHAVIOUR_BURST_WINDOWS])
     uniform_count = max(1, BEHAVIOUR_WINDOWS - len(peaks))
@@ -881,11 +946,15 @@ def _key_source(
     started: float,
     read: RowSet | None = None,
     burst_windows: Sequence[tuple[float, float]] = (),
+    anchors: Sequence[tuple[float, float]] = (),
 ) -> tuple[list[dict[str, Any]], int, dict[str, dict[str, Any]], list[MisfitShape], dict[str, int]]:
     """Read one source once, key each structure's events, and keep its out-of-structure lines."""
-    windows = _behaviour_read_windows(facts, per_window, burst_windows)
+    windows = _behaviour_read_windows(facts, per_window, burst_windows, anchors)
     if read is None:
-        read = read_behaviour_source(executor, facts, per_window, burst_windows=burst_windows)
+        read = read_behaviour_source(
+            executor, facts, per_window, burst_windows=burst_windows, anchors=anchors
+        )
+    mode = read_mode_of(facts, per_window, anchors)
     receipts: list[dict[str, Any]] = []
     overrides: dict[str, dict[str, Any]] = {}
     total = 0
@@ -912,6 +981,7 @@ def _key_source(
             time.monotonic() - started,
             per_window,
             unparsed,
+            read_mode=mode,
         )
         receipt["identity"] = summary
         receipts.append(receipt)
@@ -1004,10 +1074,12 @@ def collect_behaviours(
     cards: Sequence[SourceCard],
     facts_by_source: Mapping[str, SourceFacts],
     store_path: Path,
+    inventory: Mapping[str, Any] | None = None,
 ) -> tuple[list[Behaviour], dict[str, Any]]:
     """Read each activity source once, key each structure's events, and count on DuckDB."""
     began = time.monotonic()
     grouped = _source_groups(cards)
+    stored_lists = inventory or {}
     usable_sources = sum(
         1
         for group in grouped.values()
@@ -1022,6 +1094,9 @@ def collect_behaviours(
     con = duckdb.connect(str(store_path))
     total = 0
     misfit_receipts: list[dict[str, Any]] = []
+    anchors: dict[str, list[tuple[float, float]]] = {
+        source_id: anchor_windows(stored_lists, source_id) for source_id in grouped
+    }
     try:
         create_events(con)
         create_misfits(con)
@@ -1036,8 +1111,9 @@ def collect_behaviours(
                     facts,
                     per_window,
                     burst_windows=burst_plan.get(facts.sourcetype, ()),
+                    anchors=anchors.get(source_id, ()),
                 )
-                for _source_id, _group, facts, _started in scheduled
+                for source_id, _group, facts, _started in scheduled
             ]
             reads = [future.result() for future in futures]
         for (source_id, group, facts, started), read in zip(scheduled, reads, strict=True):
@@ -1050,6 +1126,7 @@ def collect_behaviours(
                 started,
                 read,
                 burst_windows=burst_plan.get(facts.sourcetype, ()),
+                anchors=anchors.get(source_id, ()),
             )
             receipts.extend(found)
             overrides.update(found_overrides)

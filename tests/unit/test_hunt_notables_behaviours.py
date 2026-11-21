@@ -9,6 +9,7 @@ from portal.modules.security.core.hunt.notables.behaviours import (
     ExampleEvent,
     _extract,
     aggregate_events,
+    anchor_windows,
     behaviour_identity,
     behaviour_key,
     create_events,
@@ -18,6 +19,7 @@ from portal.modules.security.core.hunt.notables.behaviours import (
     load_behaviour_peaks,
     load_behaviours,
     per_window_events,
+    read_mode_of,
     reproduction_query,
     window_bounds,
 )
@@ -520,3 +522,36 @@ def test_select_source_bursts_prioritizes_residual_then_fills_with_raw_peaks():
     starts = [lo for lo, _hi in selected["smtp"]]
     assert 300.0 in starts
     assert {100.0, 200.0}.issubset(starts)
+
+
+def test_the_read_receipt_reports_whole_anchored_and_sampled():
+    small = SourceFacts("ix", "st", 600, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)
+    large = SourceFacts("ix", "big", 40_000_000, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)
+    per_window = 100
+    anchors = [(1_000.0, 1_200.0), (3_000.0, 3_100.0)]
+    assert read_mode_of(small, per_window, ()) == "whole"
+    assert read_mode_of(large, per_window, anchors) == "anchored"
+    assert read_mode_of(large, per_window, ()) == "sampled"
+
+    inventory = {
+        "fields": [
+            {
+                "source_id": "ix:big",
+                "status": "complete",
+                "values": [
+                    {"value": "a", "events": 9, "first_seen": 1_000.0, "last_seen": 1_100.0},
+                    {"value": "b", "events": 3, "first_seen": 1_200.0, "last_seen": 1_200.0},
+                    {"value": "c", "events": 1, "first_seen": 9_000.0, "last_seen": 9_000.0},
+                ],
+            },
+            {
+                "source_id": "ix:other",
+                "status": "complete",
+                "values": [
+                    {"value": "z", "events": 50, "first_seen": 1_500.0, "last_seen": 1_500.0}
+                ],
+            },
+        ]
+    }
+    # the two spans on the same source merge; the other source's list is not an anchor here
+    assert anchor_windows(inventory, "ix:big") == [(1_000.0, 1_200.000001), (9_000.0, 9_000.000001)]

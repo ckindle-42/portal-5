@@ -183,6 +183,16 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
         f"wall={receipt.get('seconds')}s peak={receipt.get('peak_memory_mb')}MB "
         f"-> {receipt.get('store')}"
     )
+    modes: dict[str, int] = {}
+    for item in receipt.get("receipts", []):
+        modes[str(item.get("read_mode"))] = modes.get(str(item.get("read_mode")), 0) + 1
+    spine = _mapping(receipt.get("spine"))
+    print(f"  read_mode per source: {dict(sorted(modes.items()))}")
+    print(
+        f"  spine: events={spine.get('events', 0)} entities={spine.get('entities', 0)} "
+        f"episodes={spine.get('episodes', 0)} links={spine.get('links', 0)} "
+        f"without_entity={spine.get('events_without_entity', 0)} -> {spine.get('file')}"
+    )
 
 
 def _print_judge(receipt: dict[str, Any]) -> None:
