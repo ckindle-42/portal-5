@@ -89,6 +89,14 @@ The receipts table prints at the end and is written to
 `pass`. A candidate passes the speed gate only when its row is `ok` and `ratio <= 0.5`.
 The incumbent row has no verdict (`-`) because it is the denominator.
 
+Path note: C1 calls the Pipeline's `/v1/chat/completions` with the same `X-Portal-Client`
+headers Open WebUI sends, which is the hop that contains model load and first token. It
+does not drive the Open WebUI front end because the candidates are explicit-only bench
+workspaces (`expose_to_owui: false`) and OWUI cannot address them; the only alternative
+would be a production `auto-daily` repoint. Send one OWUI `auto` request as a hop-cost
+sanity check on the incumbent, but compare the arms at the Pipeline hop so both are
+measured on the same path.
+
 Quality second:
 
 ```bash
