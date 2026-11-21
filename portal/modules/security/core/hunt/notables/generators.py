@@ -14,13 +14,15 @@ from typing import Any
 from ..engine import _literal_term_segments
 from ..executor import HuntExecutor
 from .behaviours import Behaviour, BehaviourIdentity, behaviour_identity
-from .cards import SourceCard, card_consumers
+from .cards import SourceCard, card_consumers, is_alert_event
 from .parse import parse_row
 from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows, route_filter, source_windows
 
 NOTABLE_BUDGET = 300  # effort budget: notables kept per generator
 ALERT_WINDOWS = 8  # effort budget: time slices read per alert stream
 ALERT_EVENTS_PER_WINDOW = 1000  # effort budget: alert events read from one slice
+ALERT_ENTITY_FIELDS = ("src", "dest", "user")  # role names a detection names its entity with
+ALERT_LABEL_FIELDS = ("signature", "alert.signature")  # role names a detection labels itself with
 DEVIATION_SOURCE_BUDGET = 100  # effort budget: source-level deviations kept per ordering
 DEVIATION_BEHAVIOUR_BUDGET = 100  # effort budget: behaviour-level deviations considered
 DEVIATION_BURST_ALLOWANCE = 2  # LOFO-selected: behaviour bursts admitted above the source baseline
@@ -158,13 +160,15 @@ def _add_alert(
     action = _first_present(fields, card.role_fields("action")) or _first_present(
         fields, card.role_fields("object")
     )
-    entity = _first_present(fields, card.role_fields("actor")) or _first_present(
-        fields, card.role_fields("to")
-    )
+    action = action or _first_present(fields, ALERT_LABEL_FIELDS)
     entity = (
-        entity or _first_present(fields, card.role_fields("from")) or str(row.get("host") or "")
+        _first_present(fields, card.role_fields("actor"))
+        or _first_present(fields, card.role_fields("to"))
+        or _first_present(fields, card.role_fields("from"))
+        or _first_present(fields, ALERT_ENTITY_FIELDS)
+        or str(row.get("host") or "").strip()
     )
-    if not action:
+    if not entity:
         return False
     key = (card.card_id, action, entity)
     slot = grouped.setdefault(
@@ -202,7 +206,7 @@ def _alert_rows(
     notes: list[str] = []
     sources: dict[str, list[SourceCard]] = {}
     for card in cards:
-        if "alerts" in card_consumers(card):
+        if "alerts" in card_consumers(card) or card.kind_facts.get("alert_lines"):
             sources.setdefault(card.source_id, []).append(card)
     scheduled: list[
         tuple[str, list[SourceCard], SourceFacts, float, list[tuple[float, float]]]
@@ -235,6 +239,8 @@ def _alert_rows(
             missing = 0
             seen = 0
             for row in read.rows:
+                if card.kind_facts.get("alert_lines") and not is_alert_event(row):
+                    continue
                 fields = _alert_fields(card, str(row.get("_raw") or ""))
                 if not card.in_part(fields):
                     continue
@@ -250,7 +256,7 @@ def _alert_rows(
                     else None,
                     "events_available": facts.events,
                     "events_read": seen,
-                    "events_without_action": missing,
+                    "events_without_entity": missing,
                     "windows": read.windows,
                     "share_of_source": round(len(read.rows) / facts.events, 6)
                     if facts.events
@@ -276,11 +282,12 @@ def alerts(
         source_id = str(slot["source_id"])
         card_facts = facts_by_source.get(source_id)
         query = _alert_query(card_facts, action, entity) if card_facts else ""
+        label = f"alert {action}" if action else "alert"
         notables.append(
             _make(
                 generator="alerts",
                 basis="alert_on_entity",
-                what=f"alert {action} on {entity or 'an unnamed entity'}",
+                what=f"{label} on {entity}",
                 entities=(
                     ("alert", action),
                     ("entity", entity),
