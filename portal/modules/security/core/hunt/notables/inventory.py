@@ -1093,7 +1093,7 @@ def collect_inventory(
     began = time.monotonic()
     prober = _Prober(executor, index, start, end)
     vocabulary = prober.vocabulary()
-    known = {card.card_id: prober.present(card, vocabulary) for card in cards}
+    known = {card.card_id: prober.present(card, vocabulary) for card in cards if card.understood}
     choices = select_fields(cards, known, vocabulary)
     cards_by_id = {card.card_id: card for card in cards}
     fields = _enumerate_fields(prober, index, choices, cards_by_id)
