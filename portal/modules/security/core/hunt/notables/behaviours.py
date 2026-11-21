@@ -21,6 +21,7 @@ from .parse import parse_row
 from .sample import (
     BEHAVIOUR_SOURCES,
     LOCALISE_WINDOWS,
+    Localisation,
     LocalWindow,
     RowSet,
     SourceFacts,
@@ -903,6 +904,7 @@ def _merge_anchored(uniform: RowSet, anchored: RowSet, anchors: Sequence[LocalWi
     found.rung = "narrowed_scan"
     found.events_scanned = anchored.events_scanned + kept_uniform
     found.coverage = "scan"
+    found.accel_window = anchored.accel_window
     return found
 
 
@@ -945,6 +947,7 @@ def read_behaviour_source(
     burst_windows: Sequence[tuple[float, float]] = (),
     anchors: Sequence[LocalWindow] = (),
     value_spans: Sequence[tuple[float, float]] = (),
+    accel_window: tuple[float, float] | None = None,
 ) -> RowSet:
     """Whole when it fits, else rung-2 windows, the source's value spans, bursts, uniform."""
     complete = _is_complete_source(facts, per_window)
@@ -967,7 +970,7 @@ def read_behaviour_source(
             read.notes.append(f"source_count_mismatch:{len(read.rows)}/{facts.events}")
         return read
     if anchors:
-        return _read_anchored_source(executor, facts, per_window, anchors)
+        return _read_anchored_source(executor, facts, per_window, anchors, accel_window)
     if value_spans:
         return _read_value_span_source(executor, facts, per_window, value_spans)
     if burst_windows:
@@ -989,6 +992,7 @@ def _read_anchored_source(
     facts: SourceFacts,
     per_window: int,
     anchors: Sequence[LocalWindow],
+    accel_window: tuple[float, float] | None = None,
 ) -> RowSet:
     """Uniform baseline plus the host/time windows rung 2 selected."""
     peaks = list(anchors[:LOCALISE_WINDOWS])
@@ -1008,6 +1012,7 @@ def _read_anchored_source(
         per_window=per_window,
         kind="behavior_events",
         max_sources=BEHAVIOUR_SOURCES,
+        accel_window=accel_window,
     )
     return _merge_anchored(uniform_read, anchored_read, peaks)
 
@@ -1131,8 +1136,8 @@ def _localise_sources(
     executor: HuntExecutor,
     scheduled: Sequence[tuple[str, list[SourceCard], SourceFacts, float]],
     per_window: int,
-) -> tuple[dict[str, list[LocalWindow]], dict[str, Any]]:
-    """Rung 2 once per index: the host/time windows each wide source is narrowed to."""
+) -> tuple[dict[str, Localisation], dict[str, Any]]:
+    """Rung 1/2 once per index: the host/time windows each wide source is narrowed to."""
     sampled = [
         facts for _sid, _grp, facts, _st in scheduled if not _is_complete_source(facts, per_window)
     ]
@@ -1141,24 +1146,28 @@ def _localise_sources(
     by_index: dict[str, list[SourceFacts]] = {}
     for facts in sampled:
         by_index.setdefault(facts.index, []).append(facts)
-    anchors: dict[str, list[LocalWindow]] = {}
+    anchors: dict[str, Localisation] = {}
     indexes: list[dict[str, Any]] = []
     notes: list[str] = []
     for index, facts_list in sorted(by_index.items()):
         start = min(facts.first for facts in facts_list)
         end = max(facts.last for facts in facts_list) + 0.000001
-        windows, reasons = localise(executor, index, start, end)
-        notes.extend(reasons)
-        if windows:
-            anchors[index] = windows
+        located = localise(executor, index, start, end)
+        notes.extend(located.notes)
+        if located.windows:
+            anchors[index] = located
         indexes.append(
             {
                 "index": index,
                 "width": localise_width(end - start),
-                "hosts": len({window.host for window in windows}),
-                "windows": len(windows),
-                "events": sum(window.events for window in windows),
-                "notes": reasons,
+                "hosts": len({window.host for window in located.windows}),
+                "windows": len(located.windows),
+                "events": sum(window.events for window in located.windows),
+                "mechanism": located.mechanism,
+                "model": located.model,
+                "coverage": located.coverage,
+                "accel_window": list(located.accel_window) if located.accel_window else None,
+                "notes": located.notes,
             }
         )
     return anchors, {
@@ -1167,6 +1176,11 @@ def _localise_sources(
         "indexes": indexes,
         "notes": notes,
     }
+
+
+def _localisation_of(anchors: Mapping[str, Localisation], index: str) -> Localisation:
+    """A missing index has no windows; it is never an error."""
+    return anchors.get(index) or Localisation()
 
 
 def _schedule_sources(
@@ -1294,20 +1308,24 @@ def collect_behaviours(
         )
         concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
         with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
-            futures = [
-                pool.submit(
-                    read_behaviour_source,
-                    executor,
-                    facts,
-                    per_window,
-                    burst_windows=burst_plan.get(facts.sourcetype, ()),
-                    anchors=anchors_by_index.get(facts.index, ()),
-                    value_spans=value_spans.get(source_id, ()),
+            futures = []
+            for source_id, _group, facts, _started in scheduled:
+                located = _localisation_of(anchors_by_index, facts.index)
+                futures.append(
+                    pool.submit(
+                        read_behaviour_source,
+                        executor,
+                        facts,
+                        per_window,
+                        burst_windows=burst_plan.get(facts.sourcetype, ()),
+                        anchors=located.windows,
+                        accel_window=located.accel_window,
+                        value_spans=value_spans.get(source_id, ()),
+                    )
                 )
-                for source_id, _group, facts, _started in scheduled
-            ]
             reads = [future.result() for future in futures]
         for (source_id, group, facts, started), read in zip(scheduled, reads, strict=True):
+            located = _localisation_of(anchors_by_index, facts.index)
             found, count, found_overrides, misfits, misfit_stats = _key_source(
                 con,
                 group,
@@ -1317,7 +1335,7 @@ def collect_behaviours(
                 started,
                 read,
                 burst_windows=burst_plan.get(facts.sourcetype, ()),
-                anchors=anchors_by_index.get(facts.index, ()),
+                anchors=located.windows,
                 value_spans=value_spans.get(source_id, ()),
             )
             receipts.extend(found)

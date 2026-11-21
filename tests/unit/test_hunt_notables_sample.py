@@ -4,7 +4,7 @@ from portal.modules.security.core.hunt.executor import Read
 from portal.modules.security.core.hunt.notables.sample import (
     LocalWindow,
     SourceFacts,
-    coverage_label,
+    localise,
     read_anchors,
     read_mode,
     read_windows,
@@ -141,10 +141,51 @@ def test_twenty_minute_burst_is_selected_by_five_minutes_and_missed_by_four_hour
     assert wide == []
 
 
-def test_read_outside_the_acceleration_window_is_a_scan_not_an_empty_result():
-    assert coverage_label(None, 0.0, 10.0) == "scan"
-    assert coverage_label((0.0, 100.0), 0.0, 200.0) == "scan"
-    assert coverage_label((0.0, 200.0), 0.0, 100.0) == "accelerated"
+class _SummaryExecutor:
+    """A Splunk-like fake: one model's summaries cover a window, and the index aggregate answers."""
+
+    def __init__(
+        self, window: tuple[float, float] | None, buckets: list[dict[str, object]]
+    ) -> None:
+        self.window = window
+        self.buckets = buckets
+        self.queries: list[str] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del start, end, kind, row_cap
+        self.queries.append(query)
+        if "summariesonly=true count min(_time)" in query:
+            model = query.split("from datamodel=", 1)[1].split(" ", 1)[0]
+            if model == "Authentication" and self.window:
+                row = {"count": "100", "first": self.window[0], "last": self.window[1]}
+                return Read([row], False, None)
+            return Read([], False, None)
+        return Read([dict(row) for row in self.buckets], False, None)
+
+
+def test_a_model_covering_the_range_localises_from_its_summary_not_a_scan():
+    executor = _SummaryExecutor((0.0, 7200.0), _burst_series(300, 24, 21, 121, 4))
+    found = localise(executor, "ix", 0.0, 7200.0)
+
+    assert found.mechanism == "accelerated"
+    assert found.model == "Authentication"
+    assert found.coverage == "accelerated"
+    assert found.accel_window == (0.0, 7200.000001)
+    assert len(found.windows) == 1 and found.windows[0].events == 484
+    assert not any(query.startswith("| tstats count where") for query in executor.queries)
+
+
+def test_a_range_outside_the_acceleration_window_is_localised_by_a_scan_not_empty():
+    executor = _SummaryExecutor((0.0, 500.0), _burst_series(300, 24, 21, 121, 4))
+    found = localise(executor, "ix", 600.0, 7200.0)
+
+    assert found.mechanism == "indexed"
+    assert found.coverage == "scan"
+    assert found.accel_window == (0.0, 500.000001)
+    assert len(found.windows) == 1
+    assert any(query.startswith("| tstats count where") for query in executor.queries)
 
 
 class _QueryExecutor:
