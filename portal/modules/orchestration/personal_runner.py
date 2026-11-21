@@ -618,6 +618,23 @@ def _answer_section(heading: str) -> bool:
     return upper in _ANSWER_SECTIONS or "ANSWER" in upper
 
 
+_MD_LINK = re.compile(r"!?\[([^\]\n]*)\]\(([^)\s]+)\)")
+_MD_HEADING = re.compile(r"^[ \t]{0,3}#{1,6}[ \t]+", re.MULTILINE)
+_MD_RULE = re.compile(r"^[ \t]{0,3}(?:[-*_][ \t]*){3,}$", re.MULTILINE)
+
+
+def format_telegram_reply(text: str) -> str:
+    """Plain-text Telegram: ``[label](url)`` becomes ``label: url``; heading marks and rules go."""
+    linked = _MD_LINK.sub(lambda match: _plain_link(match), text)
+    body = _MD_RULE.sub("", _MD_HEADING.sub("", linked))
+    return "\n".join(line.rstrip() for line in body.splitlines()).strip()
+
+
+def _plain_link(match: re.Match[str]) -> str:
+    label, url = match.group(1).strip(), match.group(2)
+    return f"{label or url}: {url}"
+
+
 def _sections(text: str) -> list[tuple[str, str]]:
     """``(heading, body)`` pairs; the text before the first heading has an empty heading."""
     heads = list(_SECTION_HEAD.finditer(text))
@@ -1358,7 +1375,9 @@ def _finish(
         expect=frozenset({"running", "queued", "confirmed", "pending", "cloud_retry"})
         | _CLOUD_LIVE_STATUSES,
     )
-    notice_text = content or (f"{status} {task.id}: {error}" if error else "")
+    notice_text = format_telegram_reply(content) or (
+        f"{status} {task.id}: {error}" if error else ""
+    )
     if notices is not None and notice_text:
         _send_notice(notices, task.id, notice_text)
 
