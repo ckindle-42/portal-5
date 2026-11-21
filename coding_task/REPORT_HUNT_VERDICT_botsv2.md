@@ -20,7 +20,7 @@ Two live botsv2 runs, because the plan's own single-invocation command does not 
 | run | command | outcome |
 |---|---|---|
 | **A — literal `--stage all`** | `notables --index botsv2 --out … --stage all --family botsv2 --knowledge-store … --knowledge-families kyoushi,santos,russell` | **crashes at relate**: `HuntDeadlineExceededError: job_deadline_exceeded`; 1,766 behaviour reads refused; scoreboard 5/20 keys, 0/14 |
-| **B — stage-split** (the orchestrator's proof-run method: `--stage cards`, `behaviours`, `notables`, `relate`, `judge`; same code, same run dir, fresh shared budget per stage) | as above, one stage per process | completes; **7/20 keys**, 2/14 loose @50, 0/4 cases |
+| **B — stage-split** (the orchestrator's proof-run method: one stage per process into a new run dir seeded with Run A's cards output — `sources.json` + `cache/` copied, so the cards model cost was not paid twice; behaviours, notables, relate, judge each start a fresh 720 s shared budget) | `--stage behaviours`, `notables`, `relate`, `judge` separately | completes; **7/20 keys**, 2/14 loose @50, 0/4 cases |
 | **C — stored baseline** (S0 reproduction) | scoreboard over `snap_neon_02cc2e3/results/hunt/neon/botsv2` (2026-11-19, `defd357bc`) | **5/20 keys, 3/14 loose, 2/14 strict, 3/5 and 2/5 of reachable** — the plan's table exactly |
 
 `_v2` comparison: **not applicable**. botsv2 is the plan's original-index control
@@ -217,8 +217,13 @@ hunt=portal.modules.security.core.hunt.notables
 data=/Volumes/data01/portal5_hunt
 run=$PWD/coding_task/scratch/botsv2-control-staged
 
-# B: one stage per process (same code; fresh shared budget per stage)
-uv run python -m "$hunt" --index botsv2 --out "$run/botsv2" --stage cards --family botsv2
+# B: one stage per process (same code; fresh shared budget per stage).
+# The cards stage is reused from Run A because it is model-bound and its output is the
+# same either way; copy it so the read budget is not charged for it again.
+mkdir -p "$run/botsv2"
+cp coding_task/scratch/botsv2-control-stageall/botsv2/sources.json "$run/botsv2/"
+cp -a coding_task/scratch/botsv2-control-stageall/botsv2/cache "$run/botsv2/"
+# (or run: uv run python -m "$hunt" --index botsv2 --out "$run/botsv2" --stage cards --family botsv2)
 uv run python -m "$hunt" --index botsv2 --out "$run/botsv2" --stage behaviours
 uv run python -m "$hunt" --index botsv2 --out "$run/botsv2" --stage notables --family botsv2 \
   --knowledge-store "$data/knowledge/knowledge_v2_20261116.duckdb" \
