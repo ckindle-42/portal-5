@@ -361,7 +361,7 @@ def verify_probes(spec: IndexSpec) -> tuple[Probe, ...]:
             "service_log_absent",
             f"| tstats count where index={spec.target_index} "
             'source="*system.service.log" OR source="*system.auth.log" '
-            'OR source="*system.syslog.log" OR source="*system.journal*"',
+            'OR source="*system.syslog.log" OR source="*system.journal*" by source',
             "0 rows (a shipper copy or journal export was shipped: one family, one copy)",
             max_rows=0,
         ),

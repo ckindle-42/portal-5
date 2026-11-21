@@ -473,7 +473,9 @@ def test_verify_fails_a_zero_row_entity_tstats(
             if "hunt_entities_index=" in spl:
                 return rest.SearchResult(rows=[{"count": "7"}])
             if 'source="*system' in spl or "length(user) > 64" in spl:
-                return rest.SearchResult(rows=list(self.absent_rows), run_seconds=0.1)
+                # live Splunk: a bare no-match count still answers one {"count": "0"} row
+                rows = list(self.absent_rows) if " by " in spl else [{"count": "0"}]
+                return rest.SearchResult(rows=rows, run_seconds=0.1)
             zero = self.zero
             rows = [] if zero and f"index={zero}" in spl and "by acct" in spl else [{"count": "1"}]
             return rest.SearchResult(rows=rows, run_seconds=0.1)
@@ -564,6 +566,24 @@ def test_acceleration_is_written_where_the_model_reports_it() -> None:
     assert all(action.changed for action in reverted)
     assert fake.models["Web"] == fake.defaults["Web"]
     assert not svc.revert_datamodel_acceleration(plan.CIM_APP, "Web").changed
+
+
+def test_datamodel_acceleration_parses_splunk_10_2_5_json_string() -> None:
+    """Splunk 10.2.5 reports content.acceleration as a JSON string, not a dict or flat keys."""
+
+    def payload(acceleration: object, **flat: str) -> rest.SplunkREST:
+        content: dict[str, object] = {"acceleration": acceleration, **flat}
+        return rest.SplunkREST(transport=lambda *_: {"entry": [{"content": content}]})
+
+    state = payload('{"enabled": true, "earliest_time": "-10y"}').datamodel_acceleration(
+        plan.CIM_APP, "Authentication"
+    )
+    assert state == {"enabled": True, "earliest_time": "-10y"}
+    # invalid JSON falls back to the flat acceleration.* keys instead of raising
+    fallback = payload(
+        "not-json", **{"acceleration.enabled": "1", "acceleration.earliest_time": "-30d"}
+    ).datamodel_acceleration(plan.CIM_APP, "Web")
+    assert fallback == {"enabled": True, "earliest_time": "-30d"}
 
 
 def test_verify_fails_a_model_that_reports_no_acceleration(

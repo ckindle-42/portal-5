@@ -7,6 +7,7 @@ sourced; the process environment supplies them.
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from collections.abc import Callable
@@ -170,6 +171,11 @@ class SplunkREST:
         entry = self.entry(_datamodel_path("datamodel/model", app, model))
         content = dict((entry or {}).get("content") or {})
         reported = content.get("acceleration")
+        if isinstance(reported, str):
+            try:
+                reported = json.loads(reported)
+            except json.JSONDecodeError:
+                reported = None
         state: dict[str, Any] = dict(reported) if isinstance(reported, dict) else {}
         if isinstance(reported, bool):
             state["enabled"] = reported
