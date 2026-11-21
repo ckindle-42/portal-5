@@ -97,6 +97,11 @@ Then re-run the `--stage behaviours` command above; `inventory.json` gains
 `accelerated: [{model, earliest, latest}]`, and any list served from a summary shows
 `mechanism: datamodel`, `name_used: "<Model>:<sourcetype>"`, a non-null `accel_window` and
 `searched_window ⊆ accel_window`. A model whose `summary.complete < 1` is never used.
+**If every selected field on a wide `_v2` source is already in the tsidx (the expected case:
+stage 2 wrote `acct`/`exe`/`addr`/`c_ip`/`dns_query`/`signature`, and `INDEXED_EXTRACTIONS=json`
+covers `suricata`), `model_probes: 0` and no `datamodel` list is the correct outcome** — the
+indexed mechanism is then the Tier B proof, and the accelerated rung is for a deployment whose
+role fields are search-time only.
 
 ### C. Honest negative — no model, wide source
 
@@ -106,6 +111,9 @@ and no `| stats ` query is issued for that list. Covered by
 
 ## Limits / what this does not do
 
+- **The 32-search selection is unchanged.** On a 147-card index (botsv2) the global
+  role-then-smallest cut can leave a particular wide card out; that is visible in
+  `inventory.json` (`fields_selected`) and is a policy change the plan does not authorise here.
 - **Model field qualification is the model name.** `Authentication.user` / `Web.user` are the
   documented form. A CIM model whose root dataset is named differently (`Network_Traffic` →
   `All_Traffic`, `Network_Resolution` → `DNS`, `Intrusion_Detection` → `IDS_Attacks`,
