@@ -47,6 +47,8 @@ JUDGE_CACHE = Path("cache") / "judge.json"
 STAGE_ORDER = ("cards", "behaviours", "notables", "judge")
 RECALL_GENERATORS = (*GENERATORS, "relate")
 YES = 0.5  # a judge answer counts as yes from p_yes >= 0.5
+JUDGE_POOLED_GENERATORS = ("deviation", "misfit", "peer_rare", "alerts", "set_novelty")
+JUDGE_RANKED_GENERATOR = "similar_to_known"  # a ranked list whose prompt saturates p_yes
 
 RULE = (
     "a notable covers a labelled line when the line's source is the one its evidence query "
@@ -724,14 +726,49 @@ def _judge_block(notables: Sequence[Notable], cache: Mapping[str, Any]) -> dict[
         return None
     bad = [value for notable, value in scored if notable.covered]
     good = [value for notable, value in scored if not notable.covered]
+    pooled = [
+        (notable, value)
+        for notable, value in scored
+        if notable.generator in JUDGE_POOLED_GENERATORS
+    ]
+    ranked = [value for notable, value in scored if notable.generator == JUDGE_RANKED_GENERATOR]
     return {
         "judged": len(scored),
         "bad": len(bad),
         "good": len(good),
-        "auc": _auc(bad, good),
+        "auc_all": _auc(bad, good),
+        "auc_pooled": _auc(
+            [value for notable, value in pooled if notable.covered],
+            [value for notable, value in pooled if not notable.covered],
+        ),
+        "auc_pooled_generators": list(JUDGE_POOLED_GENERATORS),
+        "auc_by_generator": _judge_by_generator(scored),
+        "ranked_generator": JUDGE_RANKED_GENERATOR,
+        "ranked_judged": len(ranked),
+        "ranked_yes_rate": _rate(ranked),
         "yes_rate_bad": _rate(bad),
         "yes_rate_good": _rate(good),
         "labelling": "bad = the notable covers a labelled line; good = it covers none",
+    }
+
+
+def _judge_by_generator(scored: Sequence[tuple[Notable, float]]) -> dict[str, dict[str, Any]]:
+    """Per generator, the same separation computed inside that generator's own rows."""
+    grouped: dict[str, list[tuple[Notable, float]]] = {}
+    for notable, value in scored:
+        grouped.setdefault(notable.generator, []).append((notable, value))
+    return {
+        name: {
+            "judged": len(items),
+            "bad": sum(1 for notable, _value in items if notable.covered),
+            "good": sum(1 for notable, _value in items if not notable.covered),
+            "auc": _auc(
+                [value for notable, value in items if notable.covered],
+                [value for notable, value in items if not notable.covered],
+            ),
+            "yes_rate": _rate([value for _notable, value in items]),
+        }
+        for name, items in sorted(grouped.items())
     }
 
 
@@ -2604,13 +2641,29 @@ def _judge_lines(report: Mapping[str, Any]) -> list[str]:
     judge = report["judge"]
     if judge is None:
         return ["judge: no judge result in this run (omitted)"]
-    auc = judge["auc"]
-    return [
+    all_auc = judge["auc_all"]
+    pooled_auc = judge["auc_pooled"]
+    lines = [
         f"judge  judged {judge['judged']}  bad {judge['bad']}  good {judge['good']}  "
-        f"AUC {'n/a' if auc is None else round(auc, 3)}  "
+        f"AUC all {'n/a' if all_auc is None else round(all_auc, 3)}  "
         f"yes-rate bad {judge['yes_rate_bad']} good {judge['yes_rate_good']}  "
-        f"({judge['labelling']})"
+        f"({judge['labelling']})",
+        f"judge auc_pooled {'n/a' if pooled_auc is None else round(pooled_auc, 3)} over "
+        + ",".join(judge["auc_pooled_generators"]),
     ]
+    for name, block in judge["auc_by_generator"].items():
+        auc = block["auc"]
+        lines.append(
+            f"judge auc_by_generator {name} {'n/a' if auc is None else round(auc, 3)}  "
+            f"(judged {block['judged']} bad {block['bad']} good {block['good']} "
+            f"yes-rate {block['yes_rate']})"
+        )
+    if judge["ranked_judged"]:
+        lines.append(
+            f"judge {judge['ranked_generator']} yes-rate {judge['ranked_yes_rate']}  "
+            f"(judged {judge['ranked_judged']}, excluded from auc_pooled)"
+        )
+    return lines
 
 
 def _honesty_lines(report: Mapping[str, Any]) -> list[str]:

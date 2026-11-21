@@ -293,6 +293,7 @@ def _ranked_notables(
     }
     skipped: dict[str, int] = defaultdict(int)
     score_mode = str(reliability["score"])
+    margins: dict[int, float] = {}
     ranked: list[tuple[float, int, Behaviour]] = []
     for index, behaviour in enumerate(behaviours):
         if behaviour.source_id not in eligible_sources:
@@ -302,7 +303,9 @@ def _ranked_notables(
         if "known_bad" not in pair or "known_good" not in pair:
             raise SimilarityError(f"missing known-bad or known-good match for behaviour {index}")
         bad_score = pair["known_bad"]
-        score = bad_score - pair["known_good"] if score_mode.endswith("minus_good") else bad_score
+        margin = bad_score - pair["known_good"]
+        margins[index] = margin
+        score = margin if score_mode.endswith("minus_good") else bad_score
         ranked.append((score, index, behaviour))
     ranked.sort(
         key=lambda row: (
@@ -317,7 +320,7 @@ def _ranked_notables(
     top = _diversify_ranked(ranked)[:SIMILAR_NOTABLE_BUDGET]
     details = _matches(pool, [index for _score, index, _behaviour in top])
     notables = []
-    for score, index, behaviour in top:
+    for _score, index, behaviour in top:
         match_pair = details.get(index, {})
         bad: list[Mapping[str, Any]] = list(match_pair.get("known_bad") or ())
         good: list[Mapping[str, Any]] = list(match_pair.get("known_good") or ())
@@ -344,11 +347,13 @@ def _ranked_notables(
                     "hosts": behaviour.hosts,
                     "actors": behaviour.actors,
                 },
-                measure_name=score_mode,
-                measure_value=score,
+                measure_name="known_bad_minus_good",
+                measure_value=margins[index],
                 why=(
-                    f"nearest known-bad {bad[0]['label']} from {bad[0]['family']} "
-                    f"at cosine {bad[0]['similarity']:.3f}; measured AUC {reliability['auc']:.3f}"
+                    f"nearest known reference from {bad[0]['family']} "
+                    f"at cosine {float(bad[0]['similarity']):.3f}; "
+                    f"margin {margins[index]:.3f} (threshold 0); "
+                    f"measured AUC {reliability['auc']:.3f}"
                 ),
                 evidence=(
                     {
