@@ -61,10 +61,16 @@ position. The runner takes one per poll, between arm jobs:
   waits for a Confirm button. Read-only proxmox and git reads do not.
 - A destructive request (`docker compose down`, a docker prune, `rm -rf`, `launch.sh down`, a force
   push) is refused at intake, and the refusal is the reply — nothing is queued.
-- After two failed local attempts the task goes to a personal cloud lane and the row reads
-  `cloud-running`. **The lane does not hold the queue:** the runner keeps taking tasks, then
-  collects the lane's own `## RESULT` block through `dispatch.py` and sends it to Telegram as the
-  task's answer (`done`, or `blocked` with the block). A killed lane is terminal for that task.
+- After two failed local attempts the task is retried one rung at a time up
+  `orchestration_arm.queue.escalation_ladder` (`config/portal.yaml`) — the same request sent to a
+  stronger local workspace over the Pipeline (`auto-reasoning`, then `auto-coding` by default).
+  Each hop is one ordinary Pipeline call: no repo worktree, no git branch, and the reason it was
+  tried is recorded in `attempts/escalation-<n>/receipt.json`. The ladder is the bound: when it is
+  exhausted the task is `blocked` with every hop's reason in its receipt. Personal cloud stays off;
+  if an operator enables it, it is only tried after the ladder is exhausted. `cloud-running` means
+  that cloud lane is in flight: **it does not hold the queue** — the runner keeps taking tasks,
+  then collects the lane's own `## RESULT` block through `dispatch.py` and sends it to Telegram as
+  the task's answer (`done`, or `blocked` with the block). A killed lane is terminal for that task.
 - The receipt is `~/AI_Output/generated/tasks/<pt-id>/receipt.json`; per-attempt receipts and the
   lane's dispatch log sit under `attempts/`.
 

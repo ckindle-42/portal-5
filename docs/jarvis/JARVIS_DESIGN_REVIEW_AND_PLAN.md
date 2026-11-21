@@ -237,13 +237,27 @@ Each slice is scoped to 1–3 files, has a crisp offline unit acceptance propert
   2. `/jarvis do docker compose down -v`
      — **PASS:** Refused immediately at intake with the refusal reason; no row in `personal_tasks.sqlite3`; `docker inspect` start times unchanged.
 
-### Slice S5 — Personal-Mode Cloud Escalation Contract (Zero Repo Worktrees)
-- **What to build:** Add `coding_task/PERSONAL_CONTRACT.md` (read-only repo, deliverables only in `~/AI_Output/generated/`, no `git`/`pytest`/`ruff`/`mypy`, plain user-facing answer only). Update `ProcessDispatcher` (`escalate.py`) and `personal_runner.py` to launch personal cloud lanes in personal mode (scratch cwd `~/AI_Output/generated/tasks/<id>/cloud-work/`, no git worktree, `PERSONAL_CONTRACT.md` instead of `WORKER_CONTRACT.md`, `max_attempts: 1`). Keep `user_answer()` only as a defensive fallback. *(Requires operator decision D1 on `dispatch.py` flag vs. thin wrapper.)*
-- **Files:** `coding_task/PERSONAL_CONTRACT.md`, `portal/modules/orchestration/escalate.py`, `portal/modules/orchestration/personal_runner.py`, `tests/unit/test_jarvis_cloud_handoff.py` (and `~/.claude/orchestrate/bin/dispatch.py` if D1 picks Option A).
-- **Acceptance property (offline):** Cloud dispatch argv never passes `--repo <portal-5>` for worktree creation and references `PERSONAL_CONTRACT.md`; no git branch `lane/jarvis-personal-*` is created; delivered notice contains zero `## RESULT` / `## EVIDENCE` / `uv run pytest`.
-- **Live proof (Telegram, with `personal_cloud.enabled: true`):**
-  1. Send a deliberately hard multi-document synthesis task that exceeds local hops (or test via a read-only personal escalation trigger).
-     — **PASS:** Cloud lane runs in scratch dir, `git branch --list 'lane/jarvis-personal-*'` gains **0** new branches, `git status` in main checkout is untouched, and Telegram receives only the plain user-facing answer.
+### Slice S5 — Personal-Mode Escalation: stronger Portal seat, zero repo worktrees
+- **Operator re-scope (2026-11-20):** when the local attempt fails the S4 structural acceptance
+  gate, Jarvis escalates to a **stronger Portal seat** through the Pipeline (:9099,
+  OpenAI-compatible) instead of the cloud.
+- **What to build:** `orchestration_arm.queue.escalation_ladder` in `config/portal.yaml` (next to
+  `personal_cloud`), defaulting to `[auto-reasoning, auto-coding]`; `personal_runner.py` retries the
+  same request one rung at a time over the existing `PipelineCaller`, recording the reason for each
+  hop under `attempts/escalation-<n>/receipt.json` and in the task receipt's `escalations`. No
+  `dispatch.py`, no worktree, no branch. `personal_cloud` stays `enabled: false`; the cloud path is
+  kept, tried only after the ladder is exhausted. Engine swaps and load guard stay the Pipeline's —
+  Jarvis adds no memory or load logic.
+- **Files:** `config/portal.yaml`, `config/orchestration_arm.yaml` (generated), `portal/modules/orchestration/personal_runner.py`, `tests/unit/test_jarvis_personal_loop.py`, `docs/JARVIS_LOCAL_RUNBOOK.md`.
+- **Acceptance property (offline):** after two failed local attempts the next Pipeline call names the
+  first ladder workspace; the delivered receipt names that workspace and the hop's reason; the
+  number of attempts is bounded by the ladder; no `dispatch.py` call and no git worktree/branch.
+- **Live proof (Telegram):**
+  1. Send a hard read-only ask that fails the structural gate on the routed seat.
+     — **PASS:** the escalation notice names the first rung, the answer arrives from that workspace,
+       `receipt.json` shows `"workspace": "auto-reasoning"` (or the next rung) with an `escalations`
+       entry carrying the earlier failure reason, and `git branch --list 'lane/jarvis-personal-*'`
+       gains **0** new branches.
 
 ### Slice S6 — Telegram Reply Formatting & Runner Queue Drain
 - **What to build:** Add a small `format_telegram_reply(text)` helper in `personal_runner.py` (converts `[label](url)` to `label: url`, strips raw `###` heading markers and `---` rules, trims trailing whitespace) so plain-text Telegram messages are readable and links are tappable. In `cli.py:348-357`, drain due personal tasks in a bounded loop (up to e.g. 5 tasks or until an arm job is runnable) instead of sleeping 60 s between every single personal task.
@@ -266,7 +280,9 @@ Each slice is scoped to 1–3 files, has a crisp offline unit acceptance propert
 
 ### Operator Decisions Required (in order)
 
-1. **D1 — Cloud escalation mechanism (blocks Slice S5):**
+1. **D1 — Cloud escalation mechanism (blocks Slice S5):** *Superseded 2026-11-20 — S5 was
+   re-scoped to a stronger Portal seat over the Pipeline; personal cloud stays disabled and no
+   `dispatch.py` personal mode is needed.*
    - **Option A (Recommended):** Add `--personal` (or `--no-worktree --contract <path>`) to `~/.claude/orchestrate/bin/dispatch.py` so personal escalations reuse `dispatch.py`'s tier routing/headroom ledger but run in `~/AI_Output/generated/tasks/<id>/cloud-work/` with `coding_task/PERSONAL_CONTRACT.md` and **no git worktree**.
    - **Option B:** Bypass `dispatch.py` for personal tasks and invoke the cloud provider CLI directly from `personal_runner.py` (simpler isolation, but loses `dispatch.py`'s unified quota/headroom tracking).
    - **Option C:** Turn `personal_cloud.enabled: false` and keep Jarvis 100% local until D1 is built.
