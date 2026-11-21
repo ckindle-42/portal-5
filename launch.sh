@@ -19,6 +19,16 @@ source "$PORTAL_ROOT/scripts/lib/backup.sh"
 # shellcheck source=scripts/lib/users.sh
 source "$PORTAL_ROOT/scripts/lib/users.sh"
 
+# ── Worktree guard ────────────────────────────────────────────────────────────
+# Only the live checkout may touch the stack (2026-11-20: a lane worktree's bare
+# ./launch.sh ran `up` and destroyed the live stack). Read-only commands are
+# allowed anywhere; everything else, including any future command, is refused
+# from a lane worktree. A bare invocation resolves to `up`, so it is refused too.
+case "${1:-up}" in
+  help|-h|--help|status|logs|list-users|workspace-show|workspace-status) ;;
+  *) _portal_refuse_lane_worktree "${1:-up}" "$PORTAL_ROOT" ;;
+esac
+
 case "${1:-up}" in
   up)
     # Copy example if .env doesn't exist
@@ -640,9 +650,12 @@ PYEOF
     ;;
 
 
-    *)
-    echo "Usage: ./launch.sh [up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-omlx|install-music|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
+    # `help` (also -h, --help) prints this list and exits without touching the
+    # stack, so a lane worktree has a safe way to discover the commands.
+    help|-h|--help|*)
+    echo "Usage: ./launch.sh [help|up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-omlx|install-music|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
     echo ""
+    echo "  help                  Show this command list (touches nothing; safe from a worktree)"
     echo "  up                    Start all services (first run auto-generates secrets)"
     echo "  install-ollama        Install Ollama natively via brew (Apple Silicon recommended)"
     echo "  install-omlx          Re-render + reload the oMLX LaunchAgent (fixed venv, :8085)"
