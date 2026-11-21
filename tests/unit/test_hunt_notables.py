@@ -276,28 +276,93 @@ def test_a_time_ordered_discriminator_never_splits_a_source():
     assert choose_partition(parsed) is None
 
 
-def test_words_keep_a_bracketed_stamp_whole_and_split_a_quoted_phrase():
+def test_words_keep_a_bracketed_stamp_and_a_quoted_phrase_whole():
     line = '1.2.3.4 - - [01/Jan/2020:00:00:00 +0000] "GET /a b HTTP/1.1" 200 12'
     positions = words(line)
     assert positions[3] == "[01/Jan/2020:00:00:00 +0000]"
-    assert positions[4:9] == ["GET", "/a", "b", "HTTP/1.1", "200"]
+    assert positions[4] == "GET /a b HTTP/1.1"
+    assert positions[5:] == ["200", "12"]
 
 
-def test_a_web_access_line_separates_the_client_method_and_path():
+def test_a_web_access_line_keeps_the_quoted_request_whole_and_names_no_tool():
     lines = [
-        '1.2.3.4 - - [01/Jan/2020:00:00:00 +0000] "GET /a HTTP/1.1" 200 12',
-        '1.2.3.5 - - [01/Jan/2020:00:00:01 +0000] "GET /b HTTP/1.1" 200 34',
-        '1.2.3.6 - - [01/Jan/2020:00:00:02 +0000] "POST /c HTTP/1.1" 404 56',
-        '1.2.3.4 - - [01/Jan/2020:00:00:03 +0000] "GET /a HTTP/1.1" 200 12',
+        '1.2.3.4 - - [01/Jan/2020:00:00:00 +0000] "GET /a HTTP/1.1" 200 12 "-" "Firefox/86.0"',
+        '1.2.3.5 - - [01/Jan/2020:00:00:01 +0000] "GET /b HTTP/1.1" 200 34 "-" "Firefox/86.0"',
+        '1.2.3.6 - - [01/Jan/2020:00:00:02 +0000] "POST /c HTTP/1.1" 404 56 "-" "Firefox/86.0"',
+        '1.2.3.4 - - [01/Jan/2020:00:00:03 +0000] "GET /a HTTP/1.1" 200 12 "-" "Firefox/86.0"',
     ]
     parsed, model = parse_sample(lines)
     assert model is not None
     assert model.header_tokens == 0
     assert parsed[0].fields["v1"] == "1.2.3.4"
-    assert parsed[0].fields["v3"] == "GET"
-    assert parsed[0].fields["v4"] == "/a"
-    assert parsed[2].fields["v3"] == "POST"
-    assert "HTTP/1.1" in parsed[0].fields["template"]
+    assert parsed[0].fields["v3"] == "GET /a HTTP/1.1"
+    assert parsed[2].fields["v3"] == "POST /c HTTP/1.1"
+    assert "HTTP/1.1" not in parsed[0].fields["template"]
+    assert "Firefox" not in parsed[0].fields["template"]
+
+
+_BROWSER_SAMPLE = [
+    '192.168.104.81 - - [17/Jan/2022:10:49:17 +0000] "GET / HTTP/1.1" 200 6137 "-" '
+    '"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0"',
+    "192.168.104.155 - - [17/Jan/2022:10:49:18 +0000] "
+    '"GET /wp-includes/js/jquery/jquery.js HTTP/1.1" 200 19870 "-" '
+    '"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) '
+    'HeadlessChrome/95.0.4638.69 Safari/537.36"',
+    "192.168.104.81 - - [17/Jan/2022:10:49:20 +0000] "
+    '"GET /wp-content/themes/go/style.css HTTP/1.1" 200 9202 "-" '
+    '"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0"',
+    '192.168.104.155 - - [17/Jan/2022:10:49:22 +0000] "POST /xmlrpc.php HTTP/1.1" 200 411 "-" '
+    '"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) '
+    'HeadlessChrome/95.0.4638.69 Safari/537.36"',
+    "192.168.104.82 - - [17/Jan/2022:10:49:25 +0000] "
+    '"GET /wp-content/uploads/2022/01/note.txt HTTP/1.1" 404 146 "-" '
+    '"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0"',
+    "192.168.104.155 - - [17/Jan/2022:10:49:27 +0000] "
+    '"GET /wp-content/plugins/akismet/akismet.js HTTP/1.1" 200 10207 "-" '
+    '"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) '
+    'HeadlessChrome/95.0.4638.69 Safari/537.36"',
+]
+
+# Real attack-hour lines the stored round-3 runs read and then dropped as fields == {}
+# (provenance: coding_task/FINDING_HUNT_TEMPLATE_PARSE.md; stored runs under
+# /Volumes/data01/portal5_hunt/hunt_proof_r3_<family>/v3/<family>)
+_ATTACK_LINES = [
+    # santos: the WPScan burst line E2 read from Splunk
+    '172.21.128.119 - - [17/Jan/2022:11:22:42 +0000] "HEAD /.wp-config.swp HTTP/1.1" 404 146 '
+    '"https://intranet.smith.santos.com" '
+    '"WPScan v3.8.20 (https://wpscan.com/wordpress-security-scanner)"',
+    # santos: python-requests webshell fetch from the same burst
+    '172.21.128.119 - - [17/Jan/2022:11:22:57 +0000] "GET /?p=5 HTTP/1.1" 200 32311 "-" '
+    '"python-requests/2.27.1"',
+    # russell: the 24/Jan 03:00 python-requests burst (2,499 such lines dropped in round 3)
+    '172.19.131.174 - - [24/Jan/2022:03:58:20 +0000] "GET / HTTP/1.1" 200 9291 "-" '
+    '"python-requests/2.27.1"',
+    # kyoushi: graded intranet file line dropped by the horde-sampled template model
+    "172.16.0.27 - - [24/Mar/2021:10:30:49 +0000] "
+    '"GET /wp-login.php?action=logout&_wpnonce=2d01559b52 HTTP/1.1" 302 2543 "-" '
+    '"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) '
+    'HeadlessChrome/89.0.4389.82 Safari/537.36"',
+    # a plain single-word tool agent
+    '10.0.0.9 - - [01/Jan/2020:00:00:09 +0000] "GET /a HTTP/1.1" 200 12 "-" "curl/7.81.0"',
+]
+
+
+def test_a_novel_user_agent_or_quoted_payload_still_parses():
+    _parsed, model = parse_sample(_BROWSER_SAMPLE)
+    assert model is not None
+    for line in _ATTACK_LINES:
+        fields = parse_row(line, "template", template=model).fields
+        assert fields, f"dropped: {line}"
+    literals = {token for template in model.templates for token in template.tokens if token}
+    tools = {
+        "WPScan",
+        "python-requests/2.27.1",
+        "curl/7.81.0",
+        "Firefox/86.0",
+        "HeadlessChrome/95.0.4638.69",
+        "Mozilla/5.0",
+    }
+    assert not literals & tools
 
 
 def test_an_apostrophe_does_not_swallow_the_rest_of_a_line():
