@@ -52,7 +52,11 @@ Every step that did not pass is `unreached`, never a miss: kyoushi `reverse_shel
 line, `bash: 196: Bad file descriptor`, was never read — matching the C0.2 ceiling 11/12), santos
 9 steps, russell 7 steps. The per-step causes are in `spine_steps.json`.
 
-Read receipt (property 3):
+Read receipt (property 3): every source receipt carries `read_mode`, and `spine.json`'s `sources`
+block reports `events`, `events_without_entity`, `entities`, `episodes`, `read_mode` and
+`read_fraction` per source — e.g. kyoushi `hb_kyoushi_s1:auth.log` → events 7,562, episodes 815,
+`read_mode: whole`, `read_fraction: 1.0`; `hb_kyoushi_s1:dnsmasq.log` → events 10,356, episodes
+4,447, `read_mode: sampled`, `read_fraction: 0.0243`.
 
 | family | whole | anchored | sampled |
 |---|---|---|---|

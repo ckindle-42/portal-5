@@ -595,15 +595,21 @@ def build_spine(
     host_of_event: dict[str, str] = {event.event_id: event.host for event in events}
     groups: dict[tuple[str, str, str, str], list[tuple[float, str]]] = defaultdict(list)
     entities: dict[tuple[str, str, str, str], dict[str, Any]] = {}
+    per_source: dict[str, dict[str, int]] = defaultdict(
+        lambda: {"events": 0, "events_without_entity": 0, "entities": 0, "episodes": 0}
+    )
     without_entity = 0
     for event in events:
         found = entities_for(event, overrides)
         hits[event.event_id] = found
+        per_source[event.source_id]["events"] += 1
         if not found:
             without_entity += 1
+            per_source[event.source_id]["events_without_entity"] += 1
         for hit in found:
             key = (hit.kind, hit.value, event.source_id, event.part)
             groups[key].append((event.ts, event.event_id))
+            per_source[event.source_id]["entities"] += 1
             stats = entities.setdefault(
                 key,
                 {
@@ -624,6 +630,7 @@ def build_spine(
     for (kind, value, source_id, part), points in groups.items():
         for item in _episodes_for_group((kind, value, source_id, part), points, hits):
             episodes.append(item)
+            per_source[source_id]["episodes"] += 1
             hosts = [host_of_event.get(identifier) for identifier in item.event_ids]
             present = [host for host in hosts if host]
             host_of[item.episode_id] = (
@@ -656,6 +663,7 @@ def build_spine(
         ),
         "kinds": dict(sorted(kinds.items())),
         "fields_typed": len(overrides),
+        "sources": {source: dict(stats) for source, stats in sorted(per_source.items())},
         "seconds": round(time.monotonic() - began, 3),
         "segmentation": {
             "min_gap_seconds": EPISODE_MIN_GAP_SECONDS,
@@ -679,15 +687,21 @@ def read_mode(receipt: Mapping[str, Any]) -> str:
     return "sampled"
 
 
+def _behaviour_receipts(
+    out: Path, receipts: Sequence[Mapping[str, Any]] | None
+) -> Sequence[Mapping[str, Any]]:
+    if receipts is not None:
+        return receipts
+    stages = read_json(out / PROGRESS_FILE).get("stages") or {}
+    return (stages.get("behaviours") or {}).get("receipts") or ()
+
+
 def read_modes(
     out: Path, receipts: Sequence[Mapping[str, Any]] | None = None
 ) -> dict[str, dict[str, str]]:
     """Per source: how its read was chosen, from a fresh or a stored behaviour receipt."""
-    if receipts is None:
-        stages = read_json(out / PROGRESS_FILE).get("stages") or {}
-        receipts = (stages.get("behaviours") or {}).get("receipts") or ()
     found: dict[str, dict[str, str]] = {}
-    for item in receipts:
+    for item in _behaviour_receipts(out, receipts):
         source_id = str(item.get("source_id") or "")
         if not source_id or source_id in found:
             continue
@@ -757,7 +771,15 @@ def spine_from_store(
     events = events_from_store(out, store)
     roles = _roles_of(load_cards(out))
     receipt = build_spine(events, out / SPINE_FILE, roles)
-    receipt["read_modes"] = read_modes(out, receipts)
+    stored = _behaviour_receipts(out, receipts)
+    modes = read_modes(out, stored)
+    shares: dict[str, Any] = {}
+    for item in stored:
+        shares.setdefault(str(item.get("source_id") or ""), item.get("share_of_source"))
+    for source_id, row in receipt["sources"].items():
+        row["read_mode"] = modes.get(source_id, {}).get("read_mode", "")
+        row["read_fraction"] = shares.get(source_id)
+    receipt["read_modes"] = modes
     write_json(out / SPINE_RECEIPT, receipt)
     return receipt
 
