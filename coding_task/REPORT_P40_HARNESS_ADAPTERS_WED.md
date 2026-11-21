@@ -9,6 +9,10 @@ three real tasks at 29–35 tok/s; the best candidate went 3/3 at 7.6–8.7 tok/
 shows an improvement big enough to re-seat the brain on a three-task sample, and one whole
 harness path (opencode) did not complete a single task.
 
+A clean re-run under enforced coding mode with the GPU state logged before every run (§9)
+reproduces that score line exactly — incumbent 3/3, `qwen38-27b-pi-lora` 3/3 with both KV
+cache types — and measures the KV-cache hypothesis at ~1 %, not 30 %.
+
 ## 1. Baseline, measured on thebrain
 
 | Fact | Value |
@@ -227,14 +231,18 @@ spends, and these three tasks are small.
 ## 6. Recommendation
 
 **Keep the incumbent. Do not re-seat the brain.** "Unproven — keep the incumbent" is the honest
-reading of this data:
+reading of this data — and §9's clean re-run, with the coding-mode checks logged per run,
+reproduces it: both seats 3/3 again, same ordering, and the KV-f16 variant does not close
+the gap.
 
 1. The best candidate (`qwen38-27b-pi-lora`, 3/3) ties the incumbent on score. It only matches
    its wall clock (504 s vs 456 s over the three tasks) by emitting a third of the tokens over
    fewer turns, at **3.9× fewer tokens per second** (7.6–8.7 vs 29–35 tok/s) and a hard **32k
    context ceiling** against the incumbent's 128k. Any task that needs more output — which the
    P40 lane rules say is where this box struggles — costs 4× the wall clock, and 32k rules out
-   the long-context work the incumbent already does.
+   the long-context work the incumbent already does. In the clean re-run the gap widened, not
+   closed: 375 s at 36.8 effective tok/s for the incumbent against 467 s at 6.4 (KV q8_0) and
+   613 s at 7.9 (KV f16) for the adapter (§9.1).
 2. The card's claims (+25.5 points SWE-bench Pro over base) are BF16, vLLM, B200 measurements.
    Nothing on this card reproduces that; three tasks cannot resolve a ±14-point difference, and
    the GGUF is unevaluated by its own card.
@@ -243,6 +251,10 @@ reading of this data:
 4. LFM2.5 (1/3) and TwIL (2/3) are trained for data-analysis tasks, and their cards put them
    within noise of their own bases on repository tasks (−5.0 ± 13.9 for LFM, +5.7 ± 16.0 for
    TwIL). They behave exactly as their cards predict here, at 15–60 tok/s.
+5. **The q8_0-KV theory is dead as a lever**: on this box and this model, KV f16 buys 1.0 % of
+   decode (12.55 → 12.68 tok/s on an identical greedy probe) and costs 868 MiB of VRAM
+   (§9.2). Running the pi-lora with `BRAIN_KV=f16` therefore cannot recover the ~5× gap;
+   the adapter's speed is the model's speed, not a cache-format artefact.
 
 If the operator wants a 27B dense seat for *quality* work rather than lane work, the honest next
 step is a proper paired run of `qwen38-27b-pi-lora` against `qwen3.8:code32k` (its own base, no
@@ -263,6 +275,12 @@ adapter) on the same task set — that isolates the adapter, which this brief di
 - On this Mac: `~/.pi/agent/models.json` was created (it did not exist) with two providers —
   `p40` → :11434 and `p40local` → :8091 — which is what pi needs to reach the box; no default
   model and no dispatcher entry was changed.
+- The 2026-11-21 re-run (§9) added nothing to the box except two server logs
+  (`/tmp/p40-pi-lora-kv{q8_0,f16}.log`) and killed its own `llama-server` at the end. It closed
+  with `brain_mode.sh on qwen3.6-35b-a3b:q3code`: the drop-in still present, `NUM_PARALLEL=1`,
+  one compute app — Ollama's `llama-server` holding 18 876 MiB with
+  `qwen3.6-35b-a3b:q3code` resident — and a live generate through :11434 answered
+  (`eval_count 16`, 52.7 tok/s). `brain_mode.sh off` was never run.
 
 ## 8. Reproduce
 
@@ -281,3 +299,93 @@ uv run pytest tests/unit/test_jarvis_live_fails_r2.py -q
 
 The exact scripts and per-run logs are in `coding_task/scratch/p40/` (gitignored) —
 `run_task.sh`, `run_opencode.sh`, `conform.sh`, `prompts/`, and one `result.json` per run.
+The clean re-run's scripts, pre-run check captures and per-run records are in
+`coding_task/scratch/p40/clean-rerun/` (`rerun.sh`, `serve_pi_remote.sh`,
+`probe_kv_remote.sh`, `results.jsonl`, `precheck-*.txt`).
+
+## 9. Clean re-run under enforced coding mode (2026-11-21, 07:35–08:05Z)
+
+The first run recorded no GPU state per run, and `tgdl-faces` was resident on the card for part
+of it. This re-run repeats the three tasks for the two seats that matter, with the brief's three
+checks logged **before every run** — nine runs, nine checks, all captured in
+`coding_task/scratch/p40/clean-rerun/precheck-*.txt`:
+
+| Run (UTC) | Seat | `/var/tmp/brain_coding_mode` | `OLLAMA_NUM_PARALLEL` | `nvidia-smi --query-compute-apps` | GPU before |
+| --- | --- | --- | --- | --- | --- |
+| 07:35 t1 | incumbent | present, `qwen3.6-35b-a3b:q3code` | 1 | 1 app: `/usr/local/lib/ollama/llama-server`, 18 862 MiB | 18 865 / 24 576, 0 % |
+| 07:36 t2 | incumbent | present | 1 | 1 app: ollama llama-server, 18 910 MiB | 18 913, 0 % |
+| 07:40 t3 | incumbent | present | 1 | 1 app: ollama llama-server, 18 924 MiB | 18 927, 0 % |
+| 07:42 t1 | pi-lora KV q8_0 | present | 1 | 1 app: `build/bin/llama-server`, 17 064 MiB | 17 067, 0 % |
+| 07:45 t2 | pi-lora KV q8_0 | present | 1 | 1 app: `build/bin/llama-server` | 17 105, 0 % |
+| 07:48 t3 | pi-lora KV q8_0 | present | 1 | 1 app: `build/bin/llama-server` | 17 105, 0 % |
+| 07:51 t1 | pi-lora KV f16 | present | 1 | 1 app: `build/bin/llama-server`, 17 932 MiB | 17 935, 0 % |
+| 07:54 t2 | pi-lora KV f16 | present | 1 | 1 app: `build/bin/llama-server` | 17 973, 0 % |
+| 07:59 t3 | pi-lora KV f16 | present | 1 | 1 app: `build/bin/llama-server` | 17 973, 0 % |
+
+Dropped as the brief directed: opencode-lora, LFM2.5, TwIL. `tgdl-faces-gpu` was `exited`
+throughout; no check ever failed, so `brain_mode.sh on` was not needed mid-run, and `off` was
+never run. The run ends with `brain_mode.sh on qwen3.6-35b-a3b:q3code` (§7).
+
+### 9.1 Score, wall clock, tokens (measured, all nine runs `pi_rc 0`)
+
+| Seat (served by) | KV | t1 | t2 | t3 | Score | wall, 3 tasks | out tokens | eff tok/s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **`qwen3.6-35b-a3b:q3code`** (Ollama) | coding-mode q8_0 | pass 61 s / 13 turns | pass 242 s / 9 | pass 72 s / 9 | **3/3** | **375 s** | 12 812 | **36.8** |
+| `qwen38-27b-pi-lora:ctx32k` (llama-server) | `-ctk q8_0 -ctv q8_0` | pass 158 s / 5 | pass 191 s / 6 | pass 118 s / 8 | **3/3** | 467 s | 2 924 | 6.4 |
+| `qwen38-27b-pi-lora:ctx32k` (llama-server) | f16 (llama.cpp default) | pass 219 s / 6 | pass 249 s / 7 | pass 145 s / 7 | **3/3** | 613 s | 4 738 | 7.9 |
+
+Same tally as §5.1, same ordering. `eff tok/s` is output tokens over pi's summed `durationMs`
+(the §5.2 metric), so it includes prefill; the adapter's clean figure is 4.7–5.8× below the
+incumbent's, against 3.9× in the first run.
+
+The brief's tag name is only an `--alias` on llama-server — the adapter is not an Ollama tag
+(§2) — so `BRAIN_KV` cannot reach it. The KV type was therefore mirrored explicitly on
+llama-server: the q8_0 arm with `-ctk q8_0 -ctv q8_0` (what the coding-mode drop-in asks of
+Ollama), the f16 arm on llama.cpp's default.
+
+### 9.2 The q8_0-KV hypothesis measured — it is ~1 %, not 30 %
+
+Identical controlled probe on the same server, each KV type freshly loaded: one 1 201-token
+prompt, greedy, `ignore_eos`, 256 tokens generated, prompt cache off, three repetitions.
+VRAM differs by exactly the KV half (`/props` and `/lora-adapters` identical on both):
+
+| KV | prefill tok/s (3 reps) | decode tok/s (3 reps) | VRAM at load |
+| --- | --- | --- | --- |
+| f16 | 243.1 / 242.0 / 240.9 | 12.70 / 12.68 / 12.68 | 17 935 MiB |
+| q8_0 | 241.1 / 239.5 / 232.9 | 12.56 / 12.57 / 12.52 | 17 067 MiB |
+
+Decode 12.68 → 12.55 = **1.0 % slower**; prefill 242 → 238 = **1.6 % slower**. The whole 32k KV
+is only 1.74 GiB on this architecture (2 × 868 MiB), so half-precision costs 868 MiB and buys
+about one percent. The per-run server timings agree: median `tg` 11.48 tok/s over 44 generation
+steps with q8_0 against 11.72 tok/s over 94 with f16 (**2 %**).
+
+This does not say `brain_mode.sh`'s comment is wrong about some dense Qwen config — it says it
+does not reproduce here, for this model, at 32k, on this build. **Reasoned, not measured:** the
+28.7 → 20 tok/s note predates this serving path and most likely describes a much longer context,
+where the KV read is a larger share of per-token traffic.
+
+Correcting §3.6/§5.2's framing while I am here: those `out tok/s` figures (7.6–8.7 in the first
+run, 5.8–10.2 now) are output tokens over pi's whole request time, prefill included — they are
+not the model's decode rate. llama-server's own numbers put the 27B at **11.5–12.7 tok/s
+decode** in both runs, i.e. the first run's adapter speed was never anomalous.
+
+### 9.3 How much of the first run was contention
+
+| Arm | wall, first run | wall, clean | effective tok/s, first → clean |
+| --- | --- | --- | --- |
+| incumbent | 456 s | 375 s | 29–35 → 34–40 (−18 % wall) |
+| pi-lora | 504 s | 467 s | 7.6–8.7 → 3.5–9.4 (noisy, −7 % wall) |
+
+So yes, the incumbent arm was contended in the first run — it was measurably faster once
+`tgdl-faces` was down and the drop-in enforced one slot. That makes the incumbent look *better*,
+not worse, and leaves the recommendation where it was. The adapter's wall time barely moved,
+and its run-to-run output volume swung by 60 % (2 924 vs 4 738 tokens for identical tasks), which
+is itself the reason three tasks can only separate seats that differ by several-fold.
+
+### 9.4 Verdict
+
+Unchanged: **keep `qwen3.6-35b-a3b:q3code`, do not re-seat on `qwen38-27b-pi-lora`, at either
+KV type.** The clean run strengthens the case rather than overturning it — the candidate still
+ties at 3/3 while emitting a quarter to a third of the tokens at ~5× lower effective rate on the
+same three tasks, and the one hypothesis that could have closed that gap (quantised KV) measures
+at 1 %.
