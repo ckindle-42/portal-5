@@ -14,6 +14,11 @@ Environment: Pipeline `http://localhost:9099` (served `gemma-4-26b-a4b-it-QAT-4b
 `$LAB_SPLUNK_URL` (the configured value is an IP, so no `host.docker.internal` rewrite was
 needed). `PIPELINE_API_KEY`, `LAB_SPLUNK_*` exported from the live checkout's `.env`; no value
 printed. Knowledge store `knowledge_v2_20261116.duckdb`, held out `kyoushi,santos,russell`.
+The brief's `PORTAL_HUNT_JUDGE_URL=http://localhost:9099/v1` was used as the **root**
+`http://localhost:9099`: `judge.chat_completions_endpoint` appends `/v1/chat/completions`, so
+the literal `/v1` suffix resolves to `/v1/v1/chat/completions` (verified live: 404), and the
+root resolves to `/v1/chat/completions` (200). This is the URL `RUN_HUNT_REDESIGN.sh` and the
+S1B/S7 findings use.
 
 Two live botsv2 runs, because the plan's own single-invocation command does not complete:
 
