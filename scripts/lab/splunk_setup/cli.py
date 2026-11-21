@@ -220,11 +220,22 @@ def cmd_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _require_target_index(svc: rest.SplunkREST, spec: plan.IndexSpec) -> None:
+    """HEC 200-acks events for an index the box no longer has, and the indexer drops them."""
+    if svc.index_settings(spec.target_index) is None:
+        raise SystemExit(
+            f"{spec.target_index} does not exist on the box — run `apply` first: a DELETE is not "
+            "undone by shipping, and every event sent to a missing index is dropped on arrival"
+        )
+
+
 def cmd_reindex(args: argparse.Namespace) -> int:
     spec = _spec(args.index)
     built = reindex.make_plan(spec, keep_metrics=args.keep_metrics)
-    if args.ship and not (args.force or args.resume):
-        svc = rest.SplunkREST(transport=_transport(args))
+    svc = rest.SplunkREST(transport=_transport(args)) if args.ship else None
+    if svc is not None:
+        _require_target_index(svc, spec)
+    if svc is not None and not (args.force or args.resume):
         probe = svc.search(f"| eventcount summarize=false index={spec.target_index}", earliest="0")
         existing = sum(int(row.get("count") or 0) for row in probe.rows)
         if existing:

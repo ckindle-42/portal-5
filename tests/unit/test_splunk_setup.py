@@ -239,6 +239,47 @@ def test_reindex_writes_only_new_indexes_and_routes_noise_out(tmp_path: Path) ->
     assert reindex.resolve_path(tmp_path, "host", "/auth.log") == tree / "auth.log"
 
 
+def test_reindex_refuses_to_ship_into_an_index_the_box_does_not_have(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A DELETE removes the index, not the recipe's memory of it: on 2026-11-21 a rebuild shipped
+    7,260,795 events into three deleted indexes — HEC 200-acked every batch (the receipt read
+    `shipped == expected`) while the indexer dropped them (`lastChanceIndex` unset). The ship must
+    stop before the first post when the target index is not on the box."""
+    shipped: list[str] = []
+    monkeypatch.setattr(
+        cli.reindex, "make_plan", lambda spec, keep_metrics=False: plan.ReindexPlan(spec=spec)
+    )
+
+    def fake_ship(*_args, **_kwargs) -> reindex.ShipReceipt:
+        shipped.append("called")
+        return reindex.ShipReceipt(index="x", root="r")
+
+    monkeypatch.setattr(cli.reindex, "ship", fake_ship)
+
+    class _Svc:
+        def __init__(self, settings: dict | None) -> None:
+            self._settings = settings
+
+        def index_settings(self, _name: str) -> dict | None:
+            return self._settings
+
+        def search(self, _spl: str, **_kwargs) -> rest.SearchResult:
+            return rest.SearchResult(rows=[{"count": "0"}])
+
+    monkeypatch.setattr(cli.rest, "SplunkREST", lambda transport=None: _Svc(None))
+    with pytest.raises(SystemExit) as stopped:
+        cli.main(["reindex", "--index", "santos", "--ship"])
+    assert "does not exist" in str(stopped.value)
+    assert shipped == []
+
+    monkeypatch.setattr(
+        cli.rest, "SplunkREST", lambda transport=None: _Svc({"maxTotalDataSizeMB": "20000"})
+    )
+    assert cli.main(["reindex", "--index", "santos", "--ship"]) == 0
+    assert shipped == ["called"]
+
+
 def test_acceleration_scope_window_and_control() -> None:
     """Only the doc's models are accelerated, over the whole corpus span, never the control."""
     settings = plan.accel_settings()
