@@ -415,7 +415,8 @@ def test_judge_separation_uses_covered_notables_as_labelled_bad(tmp_path: Path) 
     judge = family["judge"]
     assert judge is not None
     assert judge["bad"] == 2 and judge["good"] == 2
-    assert judge["auc"] == 1.0
+    assert judge["auc_all"] == 1.0
+    assert judge["auc_pooled"] == 1.0
     assert judge["yes_rate_bad"] == 1.0
     assert judge["yes_rate_good"] == 0.0
 
@@ -444,7 +445,8 @@ def test_judge_cache_supplies_p_yes_when_the_receipts_carry_none(tmp_path: Path)
     judge = family["judge"]
     assert judge is not None
     assert judge["judged"] == 4
-    assert judge["auc"] == 1.0
+    assert judge["auc_all"] == 1.0
+    assert judge["auc_pooled"] == 1.0
 
 
 def test_judge_block_is_omitted_without_any_judge_result(tmp_path: Path) -> None:
@@ -457,6 +459,60 @@ def test_judge_block_is_omitted_without_any_judge_result(tmp_path: Path) -> None
     )
     assert family["judge"] is None
     assert "judge: no judge result" in board.render(family)
+
+
+def test_judge_separation_is_reported_per_generator(tmp_path: Path) -> None:
+    source = "/apache2/access.log.4"
+    keys = _keys(source, "web", {1: ["dirb"]})
+    family = _family(
+        tmp_path,
+        notables=[
+            _notable("alerts", source, ["10.0.0.5"], p_yes=0.9, content_key="bad1"),
+            _notable("alerts", source, ["10.0.0.5"], p_yes=0.8, content_key="bad2"),
+            _notable("peer_rare", "/other/access.log", ["nomatch"], p_yes=0.1, content_key="good1"),
+            _notable("peer_rare", "/other/access.log", ["nomatch"], p_yes=0.2, content_key="good2"),
+        ],
+        keys=keys,
+        files={("web", source): [_line("10.0.0.5", "/x")]},
+    )
+    by_generator = family["judge"]["auc_by_generator"]
+    assert by_generator["alerts"] == {
+        "judged": 2,
+        "bad": 2,
+        "good": 0,
+        "auc": None,
+        "yes_rate": 1.0,
+    }
+    assert by_generator["peer_rare"] == {
+        "judged": 2,
+        "bad": 0,
+        "good": 2,
+        "auc": None,
+        "yes_rate": 0.0,
+    }
+
+
+def test_the_pooled_judge_auc_excludes_a_rank_list_generator(tmp_path: Path) -> None:
+    source = "/apache2/access.log.4"
+    keys = _keys(source, "web", {1: ["dirb"]})
+    family = _family(
+        tmp_path,
+        notables=[
+            _notable("alerts", source, ["10.0.0.5"], p_yes=0.9, content_key="bad1"),
+            _notable("peer_rare", "/other/access.log", ["nomatch"], p_yes=0.1, content_key="good1"),
+            _notable("similar_to_known", "/ranked/access.log", ["nomatch"], p_yes=0.99),
+            _notable("similar_to_known", "/ranked/access.log", ["nomatch"], p_yes=0.98),
+        ],
+        keys=keys,
+        files={("web", source): [_line("10.0.0.5", "/x")]},
+    )
+    judge = family["judge"]
+    assert judge["auc_pooled"] == 1.0
+    assert judge["auc_all"] < judge["auc_pooled"]
+    assert "similar_to_known" not in judge["auc_pooled_generators"]
+    assert judge["ranked_judged"] == 2
+    assert judge["ranked_yes_rate"] == 1.0
+    assert judge["auc_by_generator"]["similar_to_known"]["judged"] == 2
 
 
 def test_cost_rolls_up_stages_requests_and_peak_memory(tmp_path: Path) -> None:
@@ -631,7 +687,7 @@ def test_json_output_carries_the_rule_and_every_section(
     }
     assert family["keys"]["labelled_lines"] == 1
     assert family["steps"][0]["step"] == "dirb"
-    assert family["judge"]["auc"] is None  # one class only: no separation to report
+    assert family["judge"]["auc_all"] is None  # one class only: no separation to report
     assert family["rule"].startswith("a notable covers a labelled line")
 
 
