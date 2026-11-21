@@ -28,10 +28,10 @@ negative control. `—` = not run yet.
 | family / index | S0 measurement | S1 enumeration | S2 spine | S3 cases | S4 detections | S5 weights | S6 localisation | S7 judge |
 |---|---|---|---|---|---|---|---|---|
 | santos / `_v2` | pass (baseline reproduced) | **pass** — 11 complete lists, 1,495 values, `first_seen_replaced 22`; `tstats suricata src_ip` 126 values in 0.44 s | pass — 6,175 entities, 19,296 episodes, 25,037 links | **pass** — `scenario covered yes`, violations 0, `coverage_complete False`, uncapped 0.586; judged-only shape unproven | pass (`alerts existed 76`) | reported (C4 fold table, §2) | **fail** — `mechanism=indexed`, `model=""`; rungs 2–3 work (4 windows, 9 anchored, `events_scanned` on every read) | **fail** — judges notables, not cases; 813/822 judged, 9 budget-exhausted |
-| kyoushi / `_v2` | — | — | — | — | — | — | — | — |
+| kyoushi / `_v2` | pass (baseline reproduced) | **pass** — 16 complete lists, 4,515 values, `first_seen_replaced 20`; `tstats suricata src_ip` 134 values in 0.44 s | pass — 9,513 entities, 26,685 episodes, 39,097 links | **fail** — `case members top50 0/12`, `scenario covered no`; violations 0, `coverage_complete False`, uncapped 0.716 | pass (`alerts existed 27`) | reported | **fail** — `mechanism=indexed`, `model=""`, `accel_window` [2021-03-22, 2021-03-28] but range 2 s outside it; rungs 2–3 work (3 windows, 9 anchored, 6 whole) | **fail** — notables, not cases; 755/755 judged, AUC 0.413 (anti-correlated) |
 | russell / `_v2` | — | — | — | — | — | — | — | — |
-| santos / original (control) | — | — | — | — | — | — | — | — |
-| kyoushi / original (control) | — | — | — | — | — | — | — | — |
+| santos / original (control) | pass | pass — 13 complete lists, 1,479 values, `first_seen_replaced 44`, `flows 17` | pass — 5,686 entities, 34,499 episodes, 62,928 links | pass — `scenario covered yes`, violations 0, uncapped 0.811, censored `{gap 5351, window 617, flow_roles 17}`; 3,467 cases | pass (`alerts existed 47`) | reported | **pass (negative control)** — four model probes `count=0`; `accel_window=null`, `mechanism=indexed`, `coverage=scan`; 1 window, 28 anchored / 20 whole | **fail** — notables; 800/881 judged, 81 budget-exhausted |
+| kyoushi / original (control) | pass | pass — 9 complete lists, 1,454 values, `first_seen_replaced 31`, `flows 21` | pass — 6,529 entities, 30,375 episodes, 52,783 links | pass — `scenario covered yes`, violations 0, uncapped 0.801, censored `{gap 4899, window 492, flow_roles 21}`; 4,856 cases | pass (`alerts existed 27`) | reported | **pass (negative control)** — `accel_window=null`, `mechanism=indexed`, `coverage=scan`; 4 anchored / 12 sampled / 17 whole | **fail** — notables; 800/800 judged, AUC 0.699 |
 | russell / original (control) | — | — | — | — | — | — | — | — |
 | botsv2 (control) | — | — | — | — | — | — | — | — |
 
@@ -49,11 +49,16 @@ S3 on the control: `scenario covered yes`, violations 0, `coverage_complete Fals
 |---|---|---|---|---|---|---|
 | santos | `hb_ait_santos_v2` | line | 16/21 | 11/21 | 8/11 | 18/21 / 12/21 / 11/12 |
 | santos | `hb_ait_santos` (control) | line | 15/21 | 12/21 | **11/12** | 18/21 / 12/21 / **11/12** |
+| kyoushi | `hb_kyoushi_s1_v2` | line | 11/12 | **7/12** | 7/7 | 11/12 / 11/12 / 11/11 |
+| kyoushi | `hb_kyoushi_s1` (control) | line | 11/12 | **11/12** | **11/11** | 11/12 / 11/12 / **11/11** |
 
-The control reproduces the plan's santos recall-of-reachable (11/12) exactly; its raw line recall
-is 15/21 against the stored run's 18/21, i.e. 3 steps are covered only outside the stored run's
-notable ordering. The tuned `_v2` index is *worse* on both: raw 16/21 (from a smaller, fully
-re-tagged index) but recall-of-reachable 8/11. Read fraction: `_v2` 5.7 %, original 1.4 %.
+The controls reproduce the plan's recall-of-reachable exactly (santos 11/12, kyoushi 11/11; raw
+@50 15/21 and 11/12). The tuned `_v2` indexes **lose reachable steps** — kyoushi 11→7, santos
+12→11 — while raw line recall stays flat (11/12) or rises (16/21). The scoreboard's line mode
+does not gate coverage on read reachability, so a step can be "covered" by a notable whose
+supporting line was never read; the honest coverage number is the reachable ceiling, and that is
+what fell. Read fractions: kyoushi `_v2` 10.0 % vs control 0.9 %; santos `_v2` 5.7 % vs control
+1.4 %. Reading a larger share of the tuned index reached fewer keyed lines.
 
 C4 marginal weights, stored-run LOFO (the only evidence available before all families finish):
 
@@ -71,6 +76,8 @@ C4 marginal weights, stored-run LOFO (the only evidence available before all fam
 |---|---|---|---|---|---|---|
 | santos `_v2` | 34.4 s | 186.3 s | 267.4 s | 8.0 s | 730.4 s | 1,207.9 s |
 | santos control | 352.2 s | 294.0 s | 213.0 s | 9.3 s | 746.1 s | 1,594.9 s |
+| kyoushi `_v2` | 30.6 s | 150.7 s | 202.4 s | 9.0 s | 618.3 s | 992.5 s |
+| kyoushi control | 50.6 s | 170.0 s | 273.7 s | 9.2 s | 636.8 s | 1,131.1 s |
 
 `behaviours` wall includes inventory (49.6 s / 76.0 s) and spine; `_v2` read 137,574 events of
 4,474,600 (5.7 %), the control 182,083 of 25,143,873 (1.4 %). `judge` is bounded by the 720 s hunt
