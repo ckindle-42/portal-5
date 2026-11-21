@@ -281,6 +281,19 @@ backends:
   # group (same class as the TASK_SAMPLING_PROFILE_AUDIT_V1 entries above).
   - id: portal5/spark-x2.6:q4_K_M-ctx64k
     supports_tools: true
+  # 2026-11-20 auto-daily cold-start screen (module: eval; PROMOTE_POLICY=confirm).
+  # The base Q4_K_M tags are the acquisition artifacts and the oMLX alias keys;
+  # the -ctx16k tags are baked at preflight from config/modelfiles/. supports_tools
+  # stays false until the orchestrator's typed tool-call probe passes on each
+  # engine/model -- the Qwen library tag stores a {{ .Prompt }} template.
+  - id: qwen3.5:9b-q4_K_M
+    supports_tools: false
+  - id: qwen3.5:9b-q4_K_M-ctx16k
+    supports_tools: false
+  - id: gemma4:12b-it-q4_K_M
+    supports_tools: false
+  - id: gemma4:12b-it-q4_K_M-ctx16k
+    supports_tools: false
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
@@ -726,6 +739,12 @@ backends:
     supports_tools: true
   - id: Qwen3.8-27B-oQ4e-mtp
     supports_tools: true
+  # 2026-11-20 auto-daily cold-start screen candidates (oQ4e, MTP kept).
+  # supports_tools stays false until the orchestrator's direct tool probe.
+  - id: Qwen3.5-9B-oQ4e-mtp
+    supports_tools: false
+  - id: gemma-4-12B-it-oQ4e-mtp
+    supports_tools: false
   # P5-FANOUT-001 lane-alignment audit (2026-09-25): granite4.1:30b-ctx96k is
   # deliberately NOT aliased here — the granite-4.1-30b-4bit conversion
   # returned EMPTY output on an 85k-token needle probe (400 correctly at 132k,
@@ -784,6 +803,12 @@ backends:
     hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
     # auto-general-uncensored::creative — the GGUF twin of the conversion above.
     fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
+    # 2026-11-20 auto-daily cold-start screen: both the acquisition tag and the
+    # 16k fallback shadow onto the same oQ4e checkpoint.
+    qwen3.5:9b-q4_K_M: Qwen3.5-9B-oQ4e-mtp
+    qwen3.5:9b-q4_K_M-ctx16k: Qwen3.5-9B-oQ4e-mtp
+    gemma4:12b-it-q4_K_M: gemma-4-12B-it-oQ4e-mtp
+    gemma4:12b-it-q4_K_M-ctx16k: gemma-4-12B-it-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 # omlx-reasoning: reasoning-group workspaces (auto-research, auto-compliance,
@@ -962,6 +987,15 @@ embedding_candidates:
 - id: Qwen/Qwen3-Embedding-8B
   notes: 'Qwen3-Embedding 8B (~8GB, Apache 2.0). Bench-eval only; too large to co-reside with the chat seats.'
 pipeline_bench_skip: []
+# Explicit-only auto-daily cold-start screen (2026-11-20). Nothing here is
+# production routing: `speed_gate.py run <tag> --phases C1` resolves each seat,
+# evicts it, and times the first Pipeline request. The speed bar is candidate
+# median first-token <= half the incumbent's; quality is a separate WFE run.
+cold_start_screen:
+  incumbent: auto-daily
+  candidates:
+  - bench-autodaily-qwen35-9b
+  - bench-autodaily-gemma4-12b
 workspace_routing:
   auto:
   - security
@@ -1063,4 +1097,8 @@ workspace_routing:
   bench-magistral-small:
   - general
   bench-spark-x26:
+  - general
+  bench-autodaily-qwen35-9b:
+  - general
+  bench-autodaily-gemma4-12b:
   - general

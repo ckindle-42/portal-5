@@ -2530,3 +2530,34 @@ LFM3-1.7B QAD-Q4_0 from the Ollama library (Ollama's own `lfm3` renderer/parser)
 ### `hf.co/unsloth/NVIDIA-Nemotron-3.5-Bolt-E4B-GGUF:UD-Q4_K_XL-ctx8k`
 
 Nemotron 3.5 Bolt E4B (Unsloth UD-Q4_K_XL), `num_ctx 8192`, stops re-declared from the base. Conditional second challenger for `tools-specialist::fast` (runs only if LFM3 drops). Registered in `general`, `supports_tools: true`.
+
+## Auto-daily cold-start intake (2026-11-20)
+
+Two candidate families for the `auto-daily` seat, staged explicit-only
+(`bench-autodaily-qwen35-9b`, `bench-autodaily-gemma4-12b`). `supports_tools` is
+`false` on every new entry until the orchestrator's typed tool-call probe passes;
+the intake finding is `coding_task/FINDING_AUTODAILY_COLDSTART_INTAKE.md`.
+
+### `qwen3.5:9b-q4_K_M`
+
+`qwen3.5:9b-q4_K_M` is the Ollama library build of Qwen3.5-9B (Qwen, released 2026-03-02, Apache 2.0, hybrid Gated-DeltaNet dense 9B, 262K native context, thinking on by default): 6.6 GB total, a 5.6 GB Q4_K_M language model plus a 922 MB BF16 vision projector. `config/backends.yaml` registers it in the `general` group with `supports_tools: false` because the library manifest's template blob is `{{ .Prompt }}` and no merged-tool probe is on record — Ollama's native `qwen35` renderer may still handle chat/tools, but that is unproven. The oMLX alias maps this hint to `Qwen3.5-9B-oQ4e-mtp`; the bench workspace `bench-autodaily-qwen35-9b` binds it with the Qwen3.5 card sampling (temperature 1.0, top_p 0.95, top_k 20, presence_penalty 1.5) and thinking on. PROMOTE_POLICY=confirm.
+
+### `qwen3.5:9b-q4_K_M-ctx16k`
+
+`qwen3.5:9b-q4_K_M-ctx16k` is the same Qwen3.5-9B weights with `PARAMETER num_ctx 16384` baked, built at preflight from `config/modelfiles/qwen3.5-9b.Q4_K_M-ctx16k.Modelfile` (`FROM qwen3.5:9b-q4_K_M`). Pipeline requests drop request-time `num_ctx`, so the fallback needs this tag to serve the seat's 16,384-token window. It is registered in `general` and aliased to the same oMLX checkpoint so the real-use arm resolves before the tag is built. `ctx_validated` is recorded only after the live working-window preflight; the bench workspace moves to this hint in the same edit.
+
+### `gemma4:12b-it-q4_K_M`
+
+`gemma4:12b-it-q4_K_M` is the Ollama library build of Gemma 4 12B Unified (Google DeepMind, released 2026-06-03, Apache 2.0, 11.95B dense, 256K context, native function calling, thinking modes): 8.0 GB, including a 423M Q8_0 assistant/draft. The tag advertises `tools` and `thinking`; `config/backends.yaml` registers it in `general` with `supports_tools: false` until the direct probe returns typed `tool_calls`. The QAT build (`gemma4:12b-it-qat`, 7.2 GB Q4_0) is the better 4-bit but not the brief's `q4_K_M`; it is a documented swap, not an additional arm. Card sampling is temperature 1.0, top_p 0.95, top_k 64. PROMOTE_POLICY=confirm.
+
+### `gemma4:12b-it-q4_K_M-ctx16k`
+
+`gemma4:12b-it-q4_K_M-ctx16k` is the same Gemma 4 12B weights with `PARAMETER num_ctx 16384` baked, built at preflight from `config/modelfiles/gemma4-12b-it.Q4_K_M-ctx16k.Modelfile` (`FROM gemma4:12b-it-q4_K_M`). Registered in `general` and aliased to the oMLX checkpoint for the same reason as the Qwen derived tag: the real-use arm must resolve before the live preflight bakes the tag, and the pipeline cannot set the window per request.
+
+### `Qwen3.5-9B-oQ4e-mtp`
+
+`Qwen3.5-9B-oQ4e-mtp` is the oMLX oQ4e checkpoint of Qwen3.5-9B (`bambocher/Qwen3.5-9B-oQ4e-mtp`, oMLX 0.7.3, updated 2026-11-13): 6.529 GB / 6.081 GiB, 5.411 effective bits/weight (4/5/6-bit affine plus BF16 norms), MTP head kept, 8.954B language weights + 456M vision + 243M MTP. `config/backends.yaml` registers it in `omlx-general` with `supports_tools: false` until the oMLX parser probe returns native calls; oMLX documents a Qwen3.5 XML function-call parser, but documentation is not a probe. Modalities are not the point here: `auto-daily` is text-only and image turns reroute to `auto-vision`, so the vision tower is loaded cost, not capability.
+
+### `gemma-4-12B-it-oQ4e-mtp`
+
+`gemma-4-12B-it-oQ4e-mtp` is the oMLX oQ4e checkpoint of Gemma 4 12B Unified (`Jundot/gemma-4-12B-it-oQ4e-mtp`, oMLX 0.7.3, updated 2026-10-29): 8.072 GB / 7.517 GiB, 5.215 effective bits/weight, MTP head merged from the Gemma 4 assistant. `config/backends.yaml` registers it in `omlx-general` with `supports_tools: false` until the probe; oMLX documents a Gemma `<start_function_call>` parser, and the model card documents native function calling, but neither substitutes for a typed tool-call result on this host.
