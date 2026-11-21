@@ -331,7 +331,9 @@ the receipt keeps the digests identical — verified offline on one file per cor
 `cloud_share/apache2/error.log`, `cloud_share/apache2/error.log.1`). Pointing the hunt at `_v2`
 therefore needs **no** key rebuild.
 
-**Cost** (measured ingest rates from the receipts: 52 k ev/s kyoushi, 31 k ev/s santos/russell):
+**Cost** (measured ingest rates from the receipts: 52 k ev/s kyoushi, 31 k ev/s santos/russell;
+the events-shipped column is pre-D6 — after the shipper-copy routing below it is 2,425,851 /
+2,573,164 / 2,261,780, i.e. slightly faster):
 
 | stage | events shipped | duration | disk added (estimate) |
 |---|---:|---|---|
@@ -379,7 +381,11 @@ comparison) — default is out.
 ```spl
 | eventcount summarize=false index=hb_ait_santos_v2
 ```
-→ `count` = 4,474,600 (± a few events; HEC is exact per event, and the count settles within ~1 min).
+→ `count` = **2,573,164** (± a few events; HEC is exact per event, and the count settles within
+~1 min). The pre-D6 expectation here was 4,474,600 — the difference is the 1,863,907 filebeat-copy
+events and the 37,529 journal events the routing change drops (kyoushi 2,425,851, russellmitchell
+2,261,780; a `reindex --ship` that still lands the old total means the app on the box is the old
+one).
 
 ```spl
 | tstats count where index=hb_ait_santos_v2 by sourcetype
