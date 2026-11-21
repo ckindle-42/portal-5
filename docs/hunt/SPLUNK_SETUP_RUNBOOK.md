@@ -192,12 +192,13 @@ expansion**, and `verify` reads it from the search job's `normalizedSearch` for 
 macros (a `` search `cim_Web_indexes` | head 0 `` probe):
 
 ```bash
-uv run python -m scripts.lab.splunk_setup verify | head -60
+uv run python -m scripts.lab.splunk_setup verify | tee coding_task/scratch/splunk_setup/verify.json | head -90
 ```
-→ six `"probe": "cim_macro:cim_<Model>_indexes"` entries, each `"failed": false` with an
-`"expansion"` that names all three `_v2` indexes. **Fail if** an expansion is `litsearch ()`, or
-names a non-`_v2` index — that is the 2026-11-21 finding, and it means the override did not land
-in Splunk_SA_CIM's local config. `rollback` restores the six defaults (`definition = ()`).
+→ the first six entries are `"probe": "cim_macro:cim_<Model>_indexes"`, each `"failed": false`
+with an `"expansion"` that names all three `_v2` indexes. **Fail if** an expansion is
+`litsearch ()`, or names a non-`_v2` index — that is the 2026-11-21 finding, and it means the
+override did not land in Splunk_SA_CIM's local config. `rollback` restores the seven defaults
+(`definition = ()`).
 
 ```spl
 | tstats count where index=hb_ait_santos by sourcetype
