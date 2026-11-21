@@ -20,32 +20,53 @@ UNMEASURED_WEIGHT = 1  # a generator the weights were never measured for keeps a
 RRF_K = 60  # reciprocal-rank fusion constant (Cormack et al. 2009); never per-corpus
 
 
-def conditional_weights(
+def remerge_without(
+    notables: Sequence[Notable],
+    priority: Sequence[str],
+    method: str,
+    weights: Mapping[str, int] | None,
+    generator: str,
+) -> list[Notable]:
+    """The same merge with one generator's list removed, its weight share not redistributed."""
+    kept = [notable for notable in notables if notable.generator != generator]
+    chosen = (
+        None
+        if weights is None
+        else {name: value for name, value in weights.items() if name != generator}
+    )
+    return merge_notables(kept, priority, method, chosen)[0]
+
+
+def marginal_weights(
     families: Sequence[Mapping[str, Any]], fallback: Mapping[str, int] | None = None
 ) -> dict[str, int]:
-    """Coverage where a generator had candidates; unit when it was never exercised.
+    """Mean re-merge marginal@50 over families where the generator had candidates.
 
-    Each family carries ``steps`` and one ``{"existed", "covered"}`` row per generator;
-    a family where ``existed`` is zero does not enter that generator's denominator.
+    Each family carries one ``{"candidates", "marginal@50"}`` row per generator; a family
+    where ``candidates`` is zero does not enter that generator's mean, and a generator whose
+    only hit was outside the head keeps a unit weight rather than being zeroed.
     """
     base = dict(DEFAULT_WEIGHTS if fallback is None else fallback)
     if not families:
         return base
     names = set(base)
     for family in families:
-        names.update(str(name) for name in family.get("generators") or {})
+        names.update(str(name) for name in family.get("marginal_generators") or {})
     weights: dict[str, int] = {}
     for name in sorted(names):
-        rates: list[float] = []
+        margins: list[int] = []
         for family in families:
-            detail = (family.get("generators") or {}).get(name)
+            detail = (family.get("marginal_generators") or {}).get(name)
             if not isinstance(detail, Mapping):
                 continue
-            existed = int(detail.get("existed") or 0)
-            if existed <= 0:
+            if int(detail.get("candidates") or 0) <= 0:
                 continue
-            rates.append(int(detail.get("covered") or 0) / existed)
-        weights[name] = max(0, round(100 * sum(rates) / len(rates))) if rates else UNMEASURED_WEIGHT
+            margins.append(int(detail.get("marginal@50") or 0))
+        weights[name] = (
+            max(UNMEASURED_WEIGHT, round(sum(margins) / len(margins)))
+            if margins
+            else UNMEASURED_WEIGHT
+        )
     return weights
 
 

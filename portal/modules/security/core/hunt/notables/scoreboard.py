@@ -30,8 +30,8 @@ from .merge import (
     DEFAULT_MERGE,
     DEFAULT_WEIGHTS,
     UNMEASURED_WEIGHT,
-    conditional_weights,
-    merge_notables,
+    marginal_weights,
+    remerge_without,
 )
 from .receipt import read_json
 from .relate import RELATE_FILE
@@ -1811,8 +1811,6 @@ def _remerge_without(
     candidates: list[MergeNotable] = []
     originals: dict[int, dict[str, Any]] = {}
     for row in rows:
-        if str(row.get("generator") or "") == generator:
-            continue
         candidate = _merge_candidate(row)
         candidates.append(candidate)
         originals[id(candidate)] = row
@@ -1823,7 +1821,7 @@ def _remerge_without(
     method = str(receipt.get("method") or DEFAULT_MERGE)
     weights = receipt.get("weights")
     weights = weights if isinstance(weights, Mapping) else None
-    merged, _merge_receipt = merge_notables(candidates, priority, method, weights)
+    merged = remerge_without(candidates, priority, method, weights, generator)
     return [originals[id(candidate)] for candidate in merged]
 
 
@@ -2659,88 +2657,42 @@ def _cause_paths(values: Sequence[str], families: Sequence[str]) -> dict[str, Pa
     return found
 
 
-def _weight_evidence(report: Mapping[str, Any], directory: Path) -> dict[str, Any]:
-    progress = read_json(directory / PROGRESS_FILE)
-    stages = progress.get("stages") if isinstance(progress.get("stages"), Mapping) else {}
-    notables = stages.get("notables") if isinstance(stages, Mapping) else None
-    stored = notables if isinstance(notables, Mapping) else {}
-    generators: dict[str, dict[str, int]] = {}
+def _weight_evidence(report: Mapping[str, Any]) -> dict[str, Any]:
     marginal_generators: dict[str, dict[str, int]] = {}
     measured_generators = report.get("generators")
     measured_generators = measured_generators if isinstance(measured_generators, Mapping) else {}
-    for name, detail in (report["recall"].get("by_generator") or {}).items():
-        receipt = stored.get(name)
+    for name in report["recall"].get("by_generator") or {}:
         measured = measured_generators.get(name)
-        existed = int(receipt.get("existed") or 0) if isinstance(receipt, Mapping) else 0
         if isinstance(measured, Mapping):
-            candidates = int(measured.get("candidates") or 0)
-            if name == "relate":
-                existed = candidates
             marginal_generators[name] = {
-                "candidates": candidates,
+                "candidates": int(measured.get("candidates") or 0),
                 "marginal@50": int(measured.get("marginal@50") or 0),
                 "marginal@100": int(measured.get("marginal@100") or 0),
                 "merge_weight": int(measured.get("merge_weight") or UNMEASURED_WEIGHT),
             }
-        generators[name] = {"existed": existed, "covered": int(detail.get("50") or 0)}
     return {
         "family": report["family"],
         "steps": report["recall"]["steps"],
-        "generators": generators,
         "marginal_generators": marginal_generators,
     }
 
 
 def _weights_block(evidence: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    folds = [{"held_out": None, "weights": conditional_weights(evidence)}]
+    folds = [{"held_out": None, "weights": marginal_weights(evidence)}]
     for family in evidence:
         rest = [item for item in evidence if item["family"] != family["family"]]
-        folds.append({"held_out": family["family"], "weights": conditional_weights(rest)})
-    marginal_folds = [{"held_out": None, "weights": _marginal_fold_weights(evidence)}]
-    for family in evidence:
-        rest = [item for item in evidence if item["family"] != family["family"]]
-        marginal_folds.append(
-            {"held_out": family["family"], "weights": _marginal_fold_weights(rest)}
-        )
+        folds.append({"held_out": family["family"], "weights": marginal_weights(rest)})
     return {
         "rule": (
-            "weight = 100 x mean coverage at @50 over the families where the generator had "
-            "candidates (existed > 0); a generator never exercised keeps a unit weight; no "
-            "evidence at all keeps DEFAULT_WEIGHTS"
+            "weight = mean re-merge marginal steps at @50 over the families where the "
+            "generator had candidates (candidates > 0); a generator that was never exercised, "
+            "or whose only hit fell outside the head, keeps a unit weight; no evidence at all "
+            "keeps DEFAULT_WEIGHTS"
         ),
         "default": dict(DEFAULT_WEIGHTS),
         "evidence": list(evidence),
         "folds": folds,
-        "marginal_rule": (
-            "weight = mean re-merge marginal steps at @50 over families with candidates; "
-            "each weight is floored at UNMEASURED_WEIGHT"
-        ),
-        "marginal_folds": marginal_folds,
     }
-
-
-def _marginal_fold_weights(evidence: Sequence[Mapping[str, Any]]) -> dict[str, int]:
-    names = set(DEFAULT_WEIGHTS)
-    for family in evidence:
-        rows = family.get("marginal_generators")
-        if isinstance(rows, Mapping):
-            names.update(str(name) for name in rows)
-    weights: dict[str, int] = {}
-    for name in sorted(names):
-        margins = []
-        for family in evidence:
-            rows = family.get("marginal_generators")
-            row = rows.get(name) if isinstance(rows, Mapping) else None
-            if isinstance(row, Mapping) and int(row.get("candidates") or 0) > 0:
-                margins.append(int(row.get("marginal@50") or 0))
-        weights[name] = (
-            max(UNMEASURED_WEIGHT, round(sum(margins) / len(margins)))
-            if margins
-            else UNMEASURED_WEIGHT
-            if evidence
-            else DEFAULT_WEIGHTS.get(name, UNMEASURED_WEIGHT)
-        )
-    return weights
 
 
 def score(
@@ -2769,10 +2721,7 @@ def score(
             reports.append(_family(family, directory, keys[family], logs, year))
     result: dict[str, Any] = {"families": reports}
     if weights:
-        evidence = [
-            _weight_evidence(report, directory)
-            for report, (_family_name, directory) in zip(reports, targets, strict=True)
-        ]
+        evidence = [_weight_evidence(report) for report in reports]
         result["weights"] = _weights_block(evidence)
     return result
 
@@ -2811,7 +2760,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--weights",
         action="store_true",
-        help="report the C4 conditional generator weights and their leave-one-family-out folds",
+        help="report the measured marginal generator weights and their leave-one-family-out folds",
     )
     parser.add_argument("--logs", type=Path, help="raw log tree holding the labelled lines")
     parser.add_argument("--year", type=int, help="year for a timestamp that carries none")
@@ -2829,28 +2778,12 @@ def _weights_lines(report: Mapping[str, Any]) -> list[str]:
         {name for fold in folds for name in fold["weights"] if name not in original_names}
     )
     names = [*original_names, *extras]
-    lines = ["C4 conditional generator weights  (" + str(weights["rule"]) + ")"]
+    lines = ["C4 marginal generator weights  (" + str(weights["rule"]) + ")"]
     lines.append("  held out   " + "  ".join(f"{name:<16}" for name in names))
     for fold in folds:
         label = "all" if fold["held_out"] is None else str(fold["held_out"])
         cells = "  ".join(f"{fold['weights'].get(name, 0):<16}" for name in names)
         lines.append(f"  {label:<10} {cells}")
-    marginal_folds = weights.get("marginal_folds") or ()
-    if marginal_folds:
-        marginal_names = sorted({name for fold in marginal_folds for name in fold["weights"]})
-        lines.extend(
-            [
-                "",
-                "C0.2 marginal generator weights (" + str(weights["marginal_rule"]) + ")",
-                "  held out   " + "  ".join(f"{name:<16}" for name in marginal_names),
-            ]
-        )
-        for fold in marginal_folds:
-            label = "all" if fold["held_out"] is None else str(fold["held_out"])
-            cells = "  ".join(
-                f"{fold['weights'].get(name, UNMEASURED_WEIGHT):<16}" for name in marginal_names
-            )
-            lines.append(f"  {label:<10} {cells}")
     return lines
 
 
