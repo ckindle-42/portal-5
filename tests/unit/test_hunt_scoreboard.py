@@ -65,6 +65,7 @@ def _run(
     notables: list[dict[str, Any]],
     keys: list[dict[str, Any]],
     files: dict[tuple[str, str], list[str]],
+    indexed: list[str] | None = None,
     stages: dict[str, Any] | None = None,
     peak: float | None = 512.5,
     judge: dict[str, Any] | None = None,
@@ -102,15 +103,35 @@ def _run(
     if peak is not None:
         progress["peak_memory_mb"] = peak
     (run / "progress.json").write_text(json.dumps(progress), encoding="utf-8")
+    listed = sorted(indexed if indexed is not None else {source for _h, source in files})
     (run / "sources.json").write_text(
         json.dumps(
             {
                 "index": "idx",
-                "cards": [{"facts": {"sources": sorted({source for _h, source in files})}}],
+                "cards": [{"facts": {"sources": listed, "source_count": len(listed)}}],
             }
         ),
         encoding="utf-8",
     )
+    if indexed is not None:
+        (run / "ledger.jsonl").write_text(
+            json.dumps(
+                {
+                    "stage": "cards",
+                    "source_id": "",
+                    "part": None,
+                    "capped": False,
+                    "reason": None,
+                    "query": '| tstats count where index="idx" by sourcetype source',
+                    "rows": len(listed),
+                    "values_extracted": listed,
+                    "window_start": 0.0,
+                    "window_end": 0.0,
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     (run / "keys.jsonl").write_text(
         "".join(json.dumps(row) + "\n" for row in keys), encoding="utf-8"
     )
@@ -855,3 +876,52 @@ def test_line_ceiling_counts_only_labelled_lines_the_run_actually_read(tmp_path:
     per_step = {row["step"]: row for row in ceiling["per_step"]}
     assert per_step["dirb"]["reachable"] is True
     assert per_step["nikto"]["reachable"] is False
+
+
+def test_a_step_whose_file_the_index_lacks_is_evidence_absent_not_unreachable(
+    tmp_path: Path,
+) -> None:
+    present = "/apache2/access.log.4"
+    dropped = "/logstash/intranet-server/2022-01-17-system.cpu.log"
+    read = _line("10.0.0.5", "/scan")
+    gone = [_line("10.0.0.7", "/guess"), _line("10.0.0.7", "/guess2")]
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", present, ["10.0.0.5"])],
+        keys=_keys(present, "web", {1: ["dirb"]})
+        + _keys(dropped, "mon", {1: ["crack"], 2: ["crack"]}),
+        files={("web", present): [read], ("mon", dropped): gone},
+        indexed=[present],
+    )
+    con = duckdb.connect(str(run / "behaviours.duckdb"))
+    con.execute("CREATE TABLE events (raw VARCHAR)")
+    con.execute("INSERT INTO events VALUES (?)", [read])
+    con.close()
+    base = tmp_path / "base"
+    base.mkdir()
+    (base / "notables.jsonl").write_text(
+        json.dumps(_notable("alerts", dropped, ["10.0.0.7"])) + "\n", encoding="utf-8"
+    )
+    (base / "progress.json").write_text(json.dumps({"stages": {"cards": {"start": FIRST}}}))
+    (base / "sources.json").write_text(json.dumps({"index": "idx", "cards": []}))
+    family = score(
+        run,
+        [str(run / "keys.jsonl")],
+        logs=tmp_path / "corpus" / "fam" / "gather",
+        baseline=base,
+    )["families"][0]
+    ceiling = family["ceiling"]
+    assert ceiling["keys_present"] == {"lines": 1, "of": 3}
+    assert ceiling["evidence_absent"] == [{"step": "crack", "absent": 2, "lines": 2}]
+    assert ceiling["steps"] == 1 and ceiling["steps_all"] == 2
+    assert ceiling["recall"]["50"] == 1.0
+    assert family["baseline"]["diff"] == {
+        "lost": ["crack"],
+        "gained": ["dirb"],
+        "reachable_lost": [],
+        "reachable_gained": ["dirb"],
+    }
+    printed = board.render(family)
+    assert "C0 ceiling  steps 1/1 reachable" in printed
+    assert "C0 evidence absent (excluded from the step denominator)  crack 2/2" in printed
+    assert "  reachable   lost -  gained dirb" in printed

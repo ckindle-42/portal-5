@@ -92,6 +92,18 @@ REACH_RULE = (
     "reachable steps, at the same cut."
 )
 
+INDEX_RULE = (
+    "a labelled line's evidence is in the index when its source path is one the run's own "
+    "estate map (| tstats count by sourcetype source, complete and uncapped) lists; a step "
+    "whose labelled lines are all absent is reported as evidence_absent and leaves the step "
+    "denominator, because no ranking can reach a line the index does not hold."
+)
+
+DIFF_RULE = (
+    "the step diff names steps, never a ratio: lost and gained are the covered @50 sets of "
+    "this run and the baseline run, reachable_lost and reachable_gained their reachable sets."
+)
+
 CAUSE_RULE = (
     "an audit-declared cause (keys row or --causes) is reported as written; without one the "
     "scoreboard derives it: covered = strict mode is about the artefact; instrument = it "
@@ -101,6 +113,7 @@ CAUSE_RULE = (
 )
 STORE_FILE = "behaviours.duckdb"
 SPINE_FILE = "entities.duckdb"
+LEDGER_FILE = "ledger.jsonl"
 INVENTORY_FILE = "inventory.json"
 STORE_COLUMNS = {
     "events": ("raw", "actor", "action", "object", "query", "host"),
@@ -604,6 +617,41 @@ def _line_reachability(
     return reached, found, seen
 
 
+def _index_paths(directory: Path) -> tuple[frozenset[str] | None, str]:
+    """The source paths the run's own estate map counted in its index, or None when unknown."""
+    path = directory / LEDGER_FILE
+    if not path.is_file():
+        return None, "the run wrote no ledger"
+    paths: set[str] = set()
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not raw.strip():
+            continue
+        row = json.loads(raw)
+        if str(row.get("stage") or "") != "cards" or row.get("capped"):
+            continue
+        if "by sourcetype source" not in str(row.get("query") or ""):
+            continue
+        found = {
+            str(cell) for cell in row.get("values_extracted") or () if str(cell).startswith("/")
+        }
+        if len(found) != int(row.get("rows") or 0):
+            continue
+        paths |= found
+    if not paths:
+        return None, "the run recorded no complete per-source index map"
+    return frozenset(paths), f"ledger estate map, {len(paths)} source paths"
+
+
+def _evidence_absent(keys: Sequence[KeyLine], index: frozenset[str]) -> dict[str, tuple[int, int]]:
+    """Per step, how many of its labelled lines name a source the index does not hold."""
+    counts: dict[str, tuple[int, int]] = {label: (0, 0) for line in keys for label in line.labels}
+    for line in keys:
+        for label in line.labels:
+            gone, total = counts[label]
+            counts[label] = (gone + (line.source not in index), total + 1)
+    return counts
+
+
 def _reach_recall(steps: Mapping[str, Step], reached: Mapping[str, bool]) -> dict[str, Any]:
     """Coverage restricted to steps whose evidence the run actually read."""
     reachable = [step for step in steps.values() if reached.get(step.label)]
@@ -876,10 +924,33 @@ def _line_ceiling(
     directory: Path, keys: Sequence[KeyLine], steps: Mapping[str, Step], logs: Path
 ) -> dict[str, Any]:
     reached, found, seen = _line_reachability(keys, logs, _line_read_lines(directory))
-    block = _reach_recall(steps, reached)
+    index, mechanism = _index_paths(directory)
+    absent = None if index is None else _evidence_absent(keys, index)
+    present = (
+        steps
+        if absent is None
+        else {label: step for label, step in steps.items() if absent[label][0] < absent[label][1]}
+    )
+    block = _reach_recall(present, reached)
     block.update(
         {
             "rule": REACH_RULE,
+            "index_rule": INDEX_RULE,
+            "index_map": mechanism,
+            "keys_present": None
+            if absent is None
+            else {
+                "lines": sum(total - gone for gone, total in absent.values()),
+                "of": sum(total for _gone, total in absent.values()),
+            },
+            "steps_all": len(steps),
+            "evidence_absent": None
+            if absent is None
+            else [
+                {"step": label, "absent": gone, "lines": total}
+                for label, (gone, total) in sorted(absent.items())
+                if gone == total
+            ],
             "lines_read": found,
             "labelled_lines": seen,
             "per_step": [
@@ -889,6 +960,9 @@ def _line_ceiling(
                     "cause": step.cause,
                     "reachable": bool(reached.get(step.label)),
                     "first_rank": step.first_rank,
+                    "evidence_absent": None
+                    if absent is None
+                    else {"absent": absent[step.label][0], "lines": absent[step.label][1]},
                 }
                 for step in steps.values()
             ],
@@ -2642,6 +2716,7 @@ def _render_entity(report: Mapping[str, Any]) -> str:
     lines += _entity_line_lines(report)
     lines += _entity_measure_lines(report)
     lines += _ceiling_lines(report)
+    lines += _diff_lines(report)
     relation_lines = _entity_relate_lines(report)
     if relation_lines:
         lines += ["", *relation_lines]
@@ -2692,6 +2767,33 @@ def _reach_text(block: Mapping[str, Any]) -> str:
     )
 
 
+def _evidence_absent_lines(ceiling: Mapping[str, Any]) -> list[str]:
+    rows = ceiling.get("evidence_absent")
+    if rows is None:
+        return [f"C0 evidence absent  n/a ({ceiling.get('index_map')})"]
+    return [
+        f"C0 evidence absent (excluded from the step denominator)  {row['step']} "
+        f"{row['absent']}/{row['lines']} labelled lines"
+        for row in rows
+    ]
+
+
+def _diff_lines(report: Mapping[str, Any]) -> list[str]:
+    base = report.get("baseline")
+    if not isinstance(base, Mapping):
+        return []
+    diff = base["diff"]
+
+    def named(key: str) -> str:
+        return ", ".join(diff[key]) or "-"
+
+    return [
+        f"C0 step diff vs {base['path']}",
+        f"  covered@50  lost {named('lost')}  gained {named('gained')}",
+        f"  reachable   lost {named('reachable_lost')}  gained {named('reachable_gained')}",
+    ]
+
+
 def _ceiling_lines(report: Mapping[str, Any]) -> list[str]:
     ceiling = report.get("ceiling")
     if not isinstance(ceiling, Mapping):
@@ -2703,6 +2805,7 @@ def _ceiling_lines(report: Mapping[str, Any]) -> list[str]:
             f"C0 ceiling  steps {ceiling['reachable']}/{ceiling['steps']} reachable  "
             f"labelled lines read verbatim {ceiling['lines_read']}/"
             f"{ceiling['labelled_lines']}",
+            *_evidence_absent_lines(ceiling),
             f"C0 recall-of-reachable  line {_reach_text(ceiling)}",
             f"C0 modes  line {overall['50']}/{steps} @50  {overall['100']}/{steps} @100  "
             f"{overall['None']}/{steps} all   strict n/a for per-line keys",
@@ -2753,6 +2856,7 @@ def render(report: Mapping[str, Any]) -> str:
     lines += ["", *_recall_lines(report)]
     lines += _line_generator_lines(report)
     lines += _ceiling_lines(report)
+    lines += _diff_lines(report)
     relation_lines = _relate_lines(report)
     if relation_lines:
         lines += ["", *relation_lines]
@@ -2782,6 +2886,62 @@ def _cause_paths(values: Sequence[str], families: Sequence[str]) -> dict[str, Pa
     if missing:
         raise ScoreboardError(f"causes file not found for {', '.join(missing)}")
     return found
+
+
+def _step_sets(report: Mapping[str, Any]) -> dict[str, list[str]]:
+    """This family's covered@50 and reachable step names, as sets a diff can name."""
+    ceiling = report.get("ceiling") or {}
+    return {
+        "covered": sorted(
+            str(row["step"])
+            for row in report.get("steps") or ()
+            if (row.get("covered") or {}).get("50")
+        ),
+        "reachable": sorted(
+            str(row["step"]) for row in ceiling.get("per_step") or () if row.get("reachable")
+        ),
+    }
+
+
+def _step_diff(now: Mapping[str, Any], baseline: Mapping[str, Any]) -> dict[str, list[str]]:
+    """The four step lists a regression is reported as, never a ratio."""
+    here, before = _step_sets(now), _step_sets(baseline)
+    return {
+        "lost": sorted(set(before["covered"]) - set(here["covered"])),
+        "gained": sorted(set(here["covered"]) - set(before["covered"])),
+        "reachable_lost": sorted(set(before["reachable"]) - set(here["reachable"])),
+        "reachable_gained": sorted(set(here["reachable"]) - set(before["reachable"])),
+    }
+
+
+def _baseline_dir(baseline: Path, family: str, single: bool) -> Path:
+    path = baseline if single else baseline / family
+    if not (path / NOTABLES_FILE).is_file():
+        raise ScoreboardError(f"baseline {path} holds no {NOTABLES_FILE} to diff against")
+    return path
+
+
+def _baseline_block(path: Path, other: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "path": str(path),
+        "family": other.get("family"),
+        "steps": other.get("recall", {}).get("steps"),
+        "sets": _step_sets(other),
+    }
+
+
+def _scored(
+    family: str,
+    directory: Path,
+    key_path: Path,
+    events: Path | None,
+    declared: dict[str, str] | None,
+    logs: Path | None,
+    year: int | None,
+) -> dict[str, Any]:
+    if _keys_are_entity(key_path):
+        return _entity_family(family, directory, key_path, events, declared)
+    return _family(family, directory, key_path, logs, year)
 
 
 def _weight_evidence(report: Mapping[str, Any]) -> dict[str, Any]:
@@ -2831,6 +2991,7 @@ def score(
     keyed_events: Sequence[str] | None = None,
     causes: Sequence[str] | None = None,
     weights: bool = False,
+    baseline: Path | None = None,
 ) -> dict[str, Any]:
     targets = _targets(out)
     families = [family for family, _directory in targets]
@@ -2839,13 +3000,17 @@ def score(
     cause_paths = _cause_paths(causes or (), families)
     reports = []
     for family, directory in targets:
-        if _keys_are_entity(keys[family]):
-            declared = _read_causes(cause_paths[family]) if family in cause_paths else None
-            reports.append(
-                _entity_family(family, directory, keys[family], events.get(family), declared)
-            )
-        else:
-            reports.append(_family(family, directory, keys[family], logs, year))
+        declared = _read_causes(cause_paths[family]) if family in cause_paths else None
+        report = _scored(family, directory, keys[family], events.get(family), declared, logs, year)
+        if baseline is not None:
+            path = _baseline_dir(baseline, family, len(targets) == 1)
+            other = _scored(family, path, keys[family], events.get(family), declared, logs, year)
+            report["baseline"] = {
+                **_baseline_block(path, other),
+                "diff": _step_diff(report, other),
+                "rule": DIFF_RULE,
+            }
+        reports.append(report)
     result: dict[str, Any] = {"families": reports}
     if weights:
         evidence = [_weight_evidence(report) for report in reports]
@@ -2891,6 +3056,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--logs", type=Path, help="raw log tree holding the labelled lines")
     parser.add_argument("--year", type=int, help="year for a timestamp that carries none")
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        help="another run's dir (its family dirs when --out holds several) to diff the step sets against",
+    )
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     return parser
 
@@ -2926,6 +3096,7 @@ def main(argv: list[str] | None = None) -> int:
             keyed_events=args.keyed_events,
             causes=args.causes,
             weights=args.weights,
+            baseline=args.baseline,
         )
     except ScoreboardError as error:
         print(f"scoreboard: {error}", file=sys.stderr)
