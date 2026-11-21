@@ -1,14 +1,14 @@
 # REPORT — hunt live proof run on the training families (2026-11-21)
 
-Grading run only. No code, Splunk configuration or held-out set was touched. Worktree
-`/Users/chris/projects/portal-5-hunt-proof-run`, lane `lane/hunt-proof-run`, base
-`35876168e` (S1 Tier A/B, S2 spine, S3 cases, S4 detections, S6 rungs 1–3 all merged).
-S7 was **not** on main at start or end of the run (`git log --all --grep=S7` has no hunt
-commit; `judge_notables.py` still judges notables, not cases).
+Grading run only: no code, Splunk configuration or held-out set was touched. Worktree
+`/Users/chris/projects/portal-5-hunt-proof-run`, lane `lane/hunt-proof-run`, base `35876168e`
+(S1 Tier A/B, S2 spine, S3 cases, S4 detections, S6 rungs 1–3 merged). S7 was **not** on main at
+start or end of the run: `git log --all --grep=S7` has no hunt commit and `judge_notables.py`
+still judges notables, not cases, so S7's judge-over-cases proofs do not exist to include.
 
 Lab Splunk `https://10.0.1.30:8089` (10.2.5). Credentials exported by name from the live
 checkout's `.env` (`LAB_SPLUNK_URL`, `LAB_SPLUNK_USER`, `LAB_SPLUNK_PASSWORD`,
-`LAB_SPLUNK_HEC_URL`, `LAB_SPLUNK_HEC_TOKEN`); `.env` was never sourced. `host.docker.internal`
+`LAB_SPLUNK_HEC_URL`, `LAB_SPLUNK_HEC_TOKEN`); `.env` was never sourced; `host.docker.internal`
 rewritten to `localhost`. Pipeline `:9099` served the judge (`hunt-reasoning`, served
 `gemma-4-26b-a4b-it-QAT-4bit`) and embeddings (`google/embeddinggemma-2`).
 
@@ -16,137 +16,188 @@ Index volumes (`| eventcount`, read-only): botsv2 226,337,781; hb_ait_santos_v2 
 hb_ait_santos 25,143,873; hb_kyoushi_s1_v2 2,465,043; hb_kyoushi_s1 24,504,858;
 hb_ait_russellmitchell_v2 4,191,003; hb_ait_russellmitchell 25,522,335.
 
-Run dirs: `coding_task/scratch/hunt_proof_20261120T232700/{v2,control,botsv2}/<family>/`.
-Stages were run in the `all` order (`cards → behaviours → notables → relate → judge`) so each
-slice's timing is in `progress.json`.
+Run dirs: `coding_task/scratch/hunt_proof_20261120T232700/{v2,control,botsv2}/<family>/`; raw
+logs and score outputs sit beside them. Stages ran in the `--stage all` order
+(`cards → behaviours → notables → relate → judge`), so `progress.json` carries each slice's
+receipt and seconds.
 
 ## 1. Per-family, per-slice table
 
-Slice acceptance is the plan's §4 property. `_v2` is the tuned index; the original index is the
-negative control. `—` = not run yet.
+Acceptance is the plan's §4 property. `_v2` is the tuned index; the original index is its
+negative control.
 
-| family / index | S0 measurement | S1 enumeration | S2 spine | S3 cases | S4 detections | S5 weights | S6 localisation | S7 judge |
-|---|---|---|---|---|---|---|---|---|
-| santos / `_v2` | pass (baseline reproduced) | **pass** — 11 complete lists, 1,495 values, `first_seen_replaced 22`; `tstats suricata src_ip` 126 values in 0.44 s | pass — 6,175 entities, 19,296 episodes, 25,037 links | **pass** — `scenario covered yes`, violations 0, `coverage_complete False`, uncapped 0.586; judged-only shape unproven | pass (`alerts existed 76`) | reported (C4 fold table, §2) | **fail** — `mechanism=indexed`, `model=""`; rungs 2–3 work (4 windows, 9 anchored, `events_scanned` on every read) | **fail** — judges notables, not cases; 813/822 judged, 9 budget-exhausted |
-| kyoushi / `_v2` | pass (baseline reproduced) | **pass** — 16 complete lists, 4,515 values, `first_seen_replaced 20`; `tstats suricata src_ip` 134 values in 0.44 s | pass — 9,513 entities, 26,685 episodes, 39,097 links | **fail** — `case members top50 0/12`, `scenario covered no`; violations 0, `coverage_complete False`, uncapped 0.716 | pass (`alerts existed 27`) | reported | **fail** — `mechanism=indexed`, `model=""`, `accel_window` [2021-03-22, 2021-03-28] but range 2 s outside it; rungs 2–3 work (3 windows, 9 anchored, 6 whole) | **fail** — notables, not cases; 755/755 judged, AUC 0.413 (anti-correlated) |
-| russell / `_v2` | — | — | — | — | — | — | — | — |
-| santos / original (control) | pass | pass — 13 complete lists, 1,479 values, `first_seen_replaced 44`, `flows 17` | pass — 5,686 entities, 34,499 episodes, 62,928 links | pass — `scenario covered yes`, violations 0, uncapped 0.811, censored `{gap 5351, window 617, flow_roles 17}`; 3,467 cases | pass (`alerts existed 47`) | reported | **pass (negative control)** — four model probes `count=0`; `accel_window=null`, `mechanism=indexed`, `coverage=scan`; 1 window, 28 anchored / 20 whole | **fail** — notables; 800/881 judged, 81 budget-exhausted |
-| kyoushi / original (control) | pass | pass — 9 complete lists, 1,454 values, `first_seen_replaced 31`, `flows 21` | pass — 6,529 entities, 30,375 episodes, 52,783 links | pass — `scenario covered yes`, violations 0, uncapped 0.801, censored `{gap 4899, window 492, flow_roles 21}`; 4,856 cases | pass (`alerts existed 27`) | reported | **pass (negative control)** — `accel_window=null`, `mechanism=indexed`, `coverage=scan`; 4 anchored / 12 sampled / 17 whole | **fail** — notables; 800/800 judged, AUC 0.699 |
-| russell / original (control) | — | — | — | — | — | — | — | — |
-| botsv2 (control) | — | — | — | — | — | — | — | — |
+| slice | santos `_v2` | kyoushi `_v2` | russell `_v2` | santos orig | kyoushi orig | russell orig | botsv2 |
+|---|---|---|---|---|---|---|---|
+| **S0** measurement | pass | pass | pass | pass | pass | pass | pass |
+| **S1** enumeration | pass (11 complete, 1,495 values, `first_seen_replaced 22`; tstats 0.44 s) | pass (16 complete, 4,515 values, `first_seen_replaced 20`) | pass (13 complete, 846 values, `first_seen_replaced 17`) | pass (13 complete, 1,479 values, `first_seen_replaced 44`; `eve.json src_ip` 1,285 values) | partial (9 complete, 1,454 values, `first_seen_replaced 31`; none over a wide source) | partial (6 complete, 240 values, `first_seen_replaced 2`; all tiny sources) | **fail** (Tier A 13 complete / 538 values, but 6 wide lists `unavailable:mechanism`; Tier B not met) |
+| **S2** spine | partial (6,175 ent / 19,296 ep / 25,037 links) | partial (9,513 / 26,685 / 39,097) | partial (7,931 / 21,935 / 27,587) | partial (5,686 / 34,499 / 62,928) | partial (6,529 / 30,375 / 52,783) | partial (6,277 / 66,421 / 127,997) | partial (15,921 / 125,016 / 219,230) |
+| **S3** cases | **pass** (3/21 B/P @50, `scenario covered yes`, violations 0, uncapped .586) | **fail** (0/12, `scenario covered no`, violations 0, uncapped .716) | **pass** (3/22, `scenario covered yes`, violations 0, uncapped .543) | pass (3/21, yes, uncapped .811) | pass (3/12, yes, uncapped .801) | pass (8/22, yes, uncapped .899) | **fail** (0/4, pass bar wanted ≥3/4; baseline also 0/4) |
+| **S4** detections | pass (alerts 76) | pass (27) | pass (22) | pass (47) | pass (27) | pass (14) | **pass** (existed 4 > 0) |
+| **S5** weights | partial (C4 fold measured, §3; run used default) | partial | partial | — | — | — | — |
+| **S6** localisation | **fail** rung 1 (`mechanism=indexed`, `model=""`, window 2 s short); rungs 2–3 pass (4 windows, 9 anchored, every read `events_scanned`) | **fail** rung 1 (window 2 s short at start, 9 s at end); rungs 2–3 pass (3 windows, 9 anchored / 6 whole) | **fail** rung 1 (2 s short at start); rungs 2–3 pass (4 windows, 10 anchored / 5 whole) | **pass** control (`accel_window=null`, `indexed`, 1 window) | **pass** control (`accel_window=null`, `indexed`, 0 windows; 4 anchored / 12 sampled / 17 whole) | **pass** control (`accel_window=null`, `indexed`, 1 window; 32 anchored / 31 whole) | **fail** acceptance (steps 6/14 vs ≥10/14) |
+| **S7** judge | **fail** (notables; 813/822, 9 budget) | **fail** (notables; 755/755, AUC 0.413) | **fail** (notables; 753/753, AUC 0.967) | fail (notables; 800/881) | fail (notables; 800/800, AUC 0.699) | fail (notables; 392/873, 481 budget) | fail (notables; 392/876, 484 budget) |
 
-Control detail (santos, original `hb_ait_santos`): S6 negative control **passes** — the four
-accelerated-model probes all returned `count=0`, so `accel_window=null`, `mechanism=indexed`,
-`coverage=scan`; rung 2 produced 1 window, 28 sources `anchored`, 20 `whole`. S1 on the control:
-13 complete lists, 1,479 values, `mechanisms {stats: 32}` (the original source names are file
-paths, so `tstats by` is not available), `first_seen_replaced 44`, `flows 17`, `joints 8`.
-S3 on the control: `scenario covered yes`, violations 0, `coverage_complete False`, uncapped
-0.811, censored `{gap: 5351, window: 617, flow_roles: 17}`, 3,467 cases, `flows 17`.
+Notes on the passes that carry a caveat:
+
+- **S2** is graded from the spine receipts (entities, episodes, links, `events_without_entity`)
+  and the scoreboard's use of the spine as a reach store (`stores {'spine': 4}` on botsv2). The
+  plan's per-step property — *the carrier entity of every graded step has an episode containing
+  its labelled line* — is not instrumented by the scoreboard; this run does not prove it.
+- **S3's judged-only half** (`promotion cannot add an unjudged row to a judged-only view`) has no
+  live shape: `promotion judged_only no` and the CLI has no `--judged-only`. The live run lifts
+  12 rows and marks all 12 `unjudged`. The unit test is the only proof.
+- **S7** is failed on the design, not on uptime: the stage ran and judged 813, 755, 753, 800,
+  800, 392 and 392 rows (v2 → controls → botsv2). There is no case-level judge in the merged code.
+- **S5** measurement exists and is marginal-based (§3), but the live runs merged with
+  `weights_source: default` (`merge.weights {alerts 0, deviation 26, misfit 6, peer_rare 0,
+  similar_to_known 31}`); the measured weights are not delivered to the run.
 
 ## 2. Scoreboard vs baseline
 
-| family | index | mode | @50 | reachable steps | recall of reachable @50 | §3 baseline (line / reach. / ROR) |
+Baseline is the plan §3 C0.1 table, reproduced first from `snap_neon_02cc2e3` (§4). The brief's
+`keys_reachable 8/24` is the pre-audit botsv2 key count; the current scoreboard audits 3
+artefacts out and de-duplicates 1 shared key, so it reports `7/20` on this run and `5/20` on the
+stored baseline. Both numbers are given for botsv2.
+
+| family | index | mode | @50 | reachable | recall of reachable @50 | §3 baseline (line / reach / ROR) |
 |---|---|---|---|---|---|---|
-| santos | `hb_ait_santos_v2` | line | 16/21 | 11/21 | 8/11 | 18/21 / 12/21 / 11/12 |
-| santos | `hb_ait_santos` (control) | line | 15/21 | 12/21 | **11/12** | 18/21 / 12/21 / **11/12** |
-| kyoushi | `hb_kyoushi_s1_v2` | line | 11/12 | **7/12** | 7/7 | 11/12 / 11/12 / 11/11 |
-| kyoushi | `hb_kyoushi_s1` (control) | line | 11/12 | **11/12** | **11/11** | 11/12 / 11/12 / **11/11** |
+| santos | `_v2` | line | 16/21 | 11/21 | 8/11 | 18/21 / 12/21 / 11/12 |
+| santos | orig | line | 15/21 | 12/21 | **11/12** | 18/21 / 12/21 / **11/12** |
+| kyoushi | `_v2` | line | 11/12 | **7/12** | 7/7 | 11/12 / 11/12 / 11/11 |
+| kyoushi | orig | line | 11/12 | **11/12** | **11/11** | 11/12 / 11/12 / **11/11** |
+| russell | `_v2` | line | 13/22 | **11/22** | 9/11 | 15/22 / 15/22 / 14/15 |
+| russell | orig | line | 15/22 | **15/22** | **14/15** | 15/22 / 15/22 / **14/15** |
+| botsv2 | botsv2 | entity loose | 2/14 | 6/14 (B+P 6/11) | 2/6 | 3/14 / 5/14 (B+P 5/11) / 3/5 |
+| botsv2 | botsv2 | entity strict | 1/14 | 6/14 | 1/6 | 2/14 / 5/14 / 2/5 |
 
-The controls reproduce the plan's recall-of-reachable exactly (santos 11/12, kyoushi 11/11; raw
-@50 15/21 and 11/12). The tuned `_v2` indexes **lose reachable steps** — kyoushi 11→7, santos
-12→11 — while raw line recall stays flat (11/12) or rises (16/21). The scoreboard's line mode
-does not gate coverage on read reachability, so a step can be "covered" by a notable whose
-supporting line was never read; the honest coverage number is the reachable ceiling, and that is
-what fell. Read fractions: kyoushi `_v2` 10.0 % vs control 0.9 %; santos `_v2` 5.7 % vs control
-1.4 %. Reading a larger share of the tuned index reached fewer keyed lines.
+Per-key cause on botsv2: `censored 9, covered 1, instrument 1, not_surfaced 2, unreached 1`.
+Cases: `case members top50 0/4` and `case recall 0/4`; `promotion effect promoted=12` (from
+relate; scoreboard case promotion report `judged_only no lifted 12 unjudged_lifted 12`).
 
-C4 marginal weights, stored-run LOFO (the only evidence available before all families finish):
+The controls reproduce the plan's recall-of-reachable **exactly** (santos 11/12, kyoushi 11/11,
+russell 14/15). The tuned `_v2` indexes *lose reachable steps* (santos 12→11, kyoushi 11→7,
+russell 15→11) while raw line recall is flat or higher. The scoreboard's line mode is not gated
+by read reachability, so a step can be "covered" by a notable whose supporting line was never
+read; the honest coverage number is the reachable ceiling and that fell.
+
+## 3. S5 — measured marginal weights (live `_v2` runs)
+
+`scoreboard --weights` over the three `_v2` family directories:
 
 | held out | deviation | misfit | similar_to_known | alerts | peer_rare | relate |
 |---|---|---|---|---|---|---|
-| all | 2 | 1 | 4 | 1 | 1 | 1 |
-| botsv2 | 2 | 1 | 5 | 1 | 1 | 1 |
-| kyoushi | 2 | 1 | 4 | 1 | 1 | 1 |
-| russell | 1 | 1 | 3 | 1 | 1 | 1 |
-| santos | 2 | 1 | 3 | 1 | 1 | 1 |
+| all | 6 | 1 | 2 | 1 | 1 | 1 |
+| kyoushi | 7 | 1 | 2 | 1 | 1 | 1 |
+| russell | 6 | 1 | 2 | 1 | 1 | 1 |
+| santos | 4 | 1 | 3 | 1 | 1 | 1 |
 
-## 3. Timings
+Stored-run LOFO (S0 check) gave `all 2 / 1 / 4 / 1 / 1 / 1`; the live tuned runs move `deviation`
+up and `similar_to_known` down. The fold table is non-trivial and marginal-based, so the S5
+*measurement* property holds; the delivery (`PORTAL_HUNT_MERGE_WEIGHTS` into the run) is not
+exercised — every live run reports `weights_source: default`.
 
-| family / index | cards | behaviours | notables | relate | judge | total wall |
+## 4. Timings (seconds, wall)
+
+| family / index | cards | behaviours | notables | relate | judge | total (incl. relate) |
 |---|---|---|---|---|---|---|
-| santos `_v2` | 34.4 s | 186.3 s | 267.4 s | 8.0 s | 730.4 s | 1,207.9 s |
-| santos control | 352.2 s | 294.0 s | 213.0 s | 9.3 s | 746.1 s | 1,594.9 s |
-| kyoushi `_v2` | 30.6 s | 150.7 s | 202.4 s | 9.0 s | 618.3 s | 992.5 s |
-| kyoushi control | 50.6 s | 170.0 s | 273.7 s | 9.2 s | 636.8 s | 1,131.1 s |
+| santos `_v2` | 34.4 | 186.3 | 267.4 | 5.5 | 719.8 | 1,213.5 |
+| santos orig | 351.8 | 293.8 | 212.8 | 7.8 | 736.6 | 1,602.7 |
+| kyoushi `_v2` | 30.6 | 150.7 | 202.4 | 6.9 | 608.8 | 999.5 |
+| kyoushi orig | 50.6 | 170.0 | 273.7 | 7.8 | 636.8 | 1,138.9 |
+| russell `_v2` | 37.8 | 162.0 | 288.7 | 5.8 | 766.3 | 1,260.6 |
+| russell orig | 395.6 | 272.3 | 341.9 | 6.4 | 692.8 | 1,709.0 |
+| botsv2 | 371.7 | 502.1 | 432.5 | 149.0 | 477.4 | 1,932.7 |
 
-`behaviours` wall includes inventory (49.6 s / 76.0 s) and spine; `_v2` read 137,574 events of
-4,474,600 (5.7 %), the control 182,083 of 25,143,873 (1.4 %). `judge` is bounded by the 720 s hunt
-job budget, not by notable count (813/822 and 800/881 judged; the rest `model_budget_exhausted`).
+`behaviours` includes inventory (49.5–76.0 s) and the spine. Read fractions: santos `_v2` 5.7 % /
+orig 1.4 %; kyoushi `_v2` 10.0 % / orig 0.9 %; russell `_v2` 5.3 % / orig 1.3 %; botsv2 0.19 %.
+`judge` is bounded by the 720 s hunt-job budget, not by notable count; slow-seat runs judged only
+392 rows (russell orig, botsv2).
 
-## 4. Verdict
+## 5. Verdict
 
-Pending the remaining families.
+**Falls short.** The plan's Step 3 pass bar is not met:
 
-## 5. Design-layer attribution
+1. *No build-family regression* — controls reproduce the baseline, but the tuned `_v2` indexes
+   lose 1, 4 and 4 reachable steps (santos, kyoushi, russell); ROR falls 11/12→8/11 and
+   14/15→9/11, and kyoushi's 7/7 is only because the reachable base collapsed to 7. Case coverage
+   fails on kyoushi `_v2` (0/12, scenario no).
+2. *Coverage* — botsv2 reaches 6/14 steps (B+P 6/11) against a required ≥10/14; keys 7/20
+   (pre-audit equivalent 8/24) against ≥12/24. One step and two keys above the stored baseline
+   is not the planned rise.
+3. *Cases* — botsv2 0/4 scenarios have a case in the top 50 (required ≥3/4); kyoushi `_v2` 0/12
+   B/P steps with `scenario covered no`.
+4. *Honesty* — S5 reports measured marginals, and every S4 alerts counter is non-zero; but S7's
+   case-level judge does not exist, and the run merges with default weights.
 
-Pending the remaining families.
+## 6. Design-layer attribution (each failure, its layer, its evidence)
 
-## 6. Evidence
+- **S6 — localisation, rung 1 is dead on every tuned index.** `localisation.indexes[0]` is
+  `mechanism=indexed, model=""` on all three `_v2` runs. The probe found complete summaries
+  (`Authentication`; for santos 2,736 events, kyoushi/russell likewise), and `accel_window` is
+  recorded, but `coverage_label` requires the searched range to be *inside* the summary window.
+  Measured facts vs the window: santos `[1616425561,1642487481]` vs
+  `[1616425563,1642485717]` (2 s early, 1,764 s late); kyoushi `[1616425561,1616890440]` vs
+  `[1616425563,1616890431]` (2 s early, 9 s late); russell `[1616425561,1643094189]` vs
+  `[1616425563,1643094189]` (2 s early). Every index has its first event 2 s before the first
+  *summarised* event, and the guard has no tolerance and no per-source window, so the accelerated
+  aggregate never runs. The rung's own acceptance ("a model covering the whole range localises
+  from its summary") is therefore not met by the live system even though the summary is marked
+  `complete=1`.
+- **S1 — the accelerated value list is dead for a second reason, independent of S6.**
+  `inventory.ACCEL_QUERY` is
+  `| rest /services/admin/summarization by_tstats=1 | fields datamodel_name …`. On this Splunk
+  the `rest` endpoint exposes `summary.*`, `id`, `title` but **no `datamodel_name` column**; the
+  query returns 10 rows with only `summary.complete/earliest_time/latest_time`. `accelerated()`
+  therefore yields an empty tuple (`model_probes 0` on every index, `accelerated []`), and a wide
+  source whose role field is not in the tsidx becomes `unavailable:mechanism / events_budget`
+  (botsv2: 6 lists incl. three `wineventlog:security` lists at 2,178,447 events). Tier B on
+  botsv2 is unreachable through the code as merged.
+- **S6/S2 — the narrow windows are not the labelled windows on the tuned indexes.** The controls
+  (original indexes) reach more keyed lines than the tuned ones while reading a smaller fraction:
+  kyoushi 1,944 labelled lines read of 408,038 (0.9 % read) vs `_v2` 287 (10.0 % read); santos
+  12/21 reachable vs `_v2` 11/21; russell 15/22 vs 11/22. The `_v2` indexes have the same source
+  paths and more of the huntable events (`hb_kyoushi_s1_v2` 2.46 M vs 24.5 M with `stats.log`
+  excluded), so this is not missing data; it is the localiser selecting peak buckets that do not
+  contain the attack activity. Reading *more* of the tuned index reached *fewer* graded lines.
+- **S5 — the measured marginal weights are not delivered.** Every live run reports
+  `weights_source: default` and the same constant merge weights; the scoreboard produces the
+  marginal fold table only when asked (`--weights`), and nothing writes it back. The ranking loss
+  on botsv2 (`steps 2/14 @50` vs baseline 3/14; `strict 1/14` vs 2/14) is consistent with a
+  default-weighted merge, not the measured marginals.
+- **S3 — cases fail where the read set changed, not uniformly.** kyoushi `_v2` has 0/12 B/P steps
+  in a top-50 case (`scenario covered no`) while kyoushi original has 3/12 (`scenario covered
+  yes`); botsv2 has 0/4 (baseline 0/4, but the bar wanted ≥3/4). The case rule itself produces
+  2,314 / 849 / 4,856 / 5,866 cases with zero two-evidence violations, so formation is not
+  broken; the product unit does not contain the graded activity on the tuned index. The 12 lifted
+  members are all `unjudged` and there is no judged-only shape.
+- **S7 — no case-level judge.** The stage judges 392–813 notables per run (not cases) with a
+  720 s budget. On kyoushi `_v2` the judge's `p_yes` is *anti*-correlated with the label
+  (`AUC 0.413`, bad yes-rate 0.645 vs good 0.780); on botsv2 it is near chance (`AUC 0.578`,
+  only 3 bad rows); on russell/santos it separates (0.967/0.952) but those are also the runs with
+  the most `bad` rows. The plan's "one call per case, ordering only, never a pass gate" is not
+  what ran.
+- **S0 — the instrument is better but still not a read gate.** The stored baseline reproduces
+  exactly and the ledger/spine/inventory reach stores exist (`stores {'behaviour','events',
+  'ledger','spine','misfit'}`), but raw line recall is not conditioned on reachability:
+  santos `_v2` reports 16/21 covered against 11/21 reachable, botsv2 2/14 loose covered against
+  6/14 reachable. `relate`'s own receipt says `coverage_complete=True` while the case receipt and
+  the scoreboard say `False` (censored gap/window), and case `unjudged` flags are written before
+  the judge stage (97 / 78 / 43 / 162 unjudged cases even though all but 9/0/0/484 rows were
+  judged afterwards). A reader can take these numbers as coverage when they are not.
 
-### S0 — stored-run rescore reproduces the plan's §3 baseline
+Minor, not a slice failure: two `suricata` partitions on santos `_v2` produce two receipts with
+the same `source_id`, so `events_read` and read fraction double-count the source and the receipt
+loses the partition key.
 
-`uv run python -m portal.modules.security.core.hunt.notables.scoreboard --out
-/Volumes/data01/portal5_hunt/snap_neon_02cc2e3/results/hunt/neon --weights ...` reproduced
-every §3 row: botsv2 `steps top50 3/14`, `strict 2/14`, `C0 ceiling keys 5/20 reachable steps
-5/14 (B+P 5/11)`; kyoushi `11/12` line, reachable 11/12; santos `18/21` line, reachable 12/21,
-recall-of-reachable 11/12; russell `15/22` line, reachable 15/22, 14/15. The C4 fold table is
-non-trivial (`deviation` 1–2, `similar_to_known` 3–5, others 1).
+## 7. What was not run / limits of this report
 
-Note on the brief's baseline: the brief says `keys_reachable 8/24`; the scoreboard on the same
-C0.1 run prints `keys 5/20 reachable`. The difference is the keys audit (3 artefacts
-`admitted=false` and 1 shared value removed by the scoreboard's own rule), not a change in the
-run. Both numbers are reported; `8/24` is the pre-audit count, `5/20` is the C0.1 ceiling the
-current scoreboard measures.
-
-### S1 — enumeration on santos `_v2`
-
-`inventory.json`: `fields {capped: 1, complete: 11, empty: 20}`, `values 1495`,
-`mechanisms {stats: 24, tstats: 8}`, `events_scanned 4,910,721`, `first_seen_replaced 22`.
-Widest list: `tstats suricata src_ip` complete, 126 values, 0.44 s, 334,566 events scanned.
-Direct probe `| tstats count min(_time) as first max(_time) as last where index=hb_ait_santos_v2
-sourcetype=suricata by src_ip` → 1,524 rows, `runDuration` 0.66 s. Tier B indexed half passes.
-
-`model_probes 0` / `accelerated []`: no selected field on a wide source was search-time only,
-so the accelerated rung was correctly not entered (plan's expected case). This means Tier B's
-`from datamodel=` half is **not exercised** by this run.
-
-### S6 — rung 1 does not fire on the tuned `_v2` index
-
-`localisation.indexes[0]` on santos `_v2`:
-
-```
-{"index":"hb_ait_santos_v2","width":3600.0,"hosts":1,"windows":4,"events":1169710,
- "mechanism":"indexed","model":"","coverage":"scan",
- "accel_window":[1616425563.0,1642485717.000001],"notes":[]}
-```
-
-The probe found a complete summary (`Authentication`, 2,736 events on this index) but
-`coverage_label` requires the searched range to sit inside the summary window. The index-wide
-sampled range is `[1616425561, 1642487481]`: 2 s before the summary's first summarised event and
-1,764 s after its last. The range is the union over all sampled sources for the index, while the
-summary only covers authentication events, so one late `syslog` event and one early event defeat
-containment. Rung 1 falls to rung 2 (`tstats … by host _time`), which works: 4 windows, 1,169,710
-events, 9 sources read `anchored`/`narrowed_scan`, every receipt carries `events_scanned`.
-
-Negative-control probe on the original `hb_ait_santos` (same command, four models): every
-`count=0`, so the control must report `accel_window=null`. That half of S6 is behaving as the
-finding predicted.
-
-### S3 — cases on santos `_v2`
-
-`case members top50 3/21 (B/P steps in a case) scenario covered yes`; `case evidence pieces min 2
-violations 0`; `coverage_complete False uncapped_fraction 0.586439 censored {'gap': 5419,
-'window': 851, 'flow_roles': 0}`; `case promotion judged_only no lifted 12 unjudged_lifted 12`.
-461 cases, 40 relate requests, 417 related events, 5.5 s. `flows 0` (no inventory flows on this
-index). `unjudged cases 97` is stale with respect to the judge stage: cases.json is built before
-judge, so the 813 rows judged afterwards are still marked unjudged in the case receipt.
+- Held-out sets (`hb_ait_wheeler`, `hb_cloudobs_aws`, `botsv1`) were never opened, queried or
+  read; no botsv1.
+- S7 was not on main; no judge-over-cases proof exists. The brief's conditional ("if S7 lands on
+  main mid-run, include its judge proofs") did not trigger.
+- S2's per-step carrier-episode property is not instrumented; only spine counts and the
+  scoreboard's spine reach store are reported.
+- S1 Tier B's `from datamodel=` half never entered (dead `ACCEL_QUERY`); its acceptance is not
+  tested positively, only shown unreachable.
+- The judge budget capped several runs (9, 81, 481, 484 unjudged); judged-only and promotion
+  effect are correspondingly partial.
