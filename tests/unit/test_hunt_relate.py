@@ -3,15 +3,16 @@ from __future__ import annotations
 from typing import Any
 
 from portal.modules.security.core.hunt.notables.relate import (
+    CaseUnit,
+    _case_from_members,
     _case_groups,
-    _case_order,
-    _cases,
     _entities,
     _entity_supported,
     _identity_role,
     _query,
     _route,
     _seed_records,
+    promote_case_members,
 )
 
 START = 1_700_000_000.0
@@ -138,119 +139,95 @@ def test_route_falls_back_to_empty_without_sources() -> None:
     assert _route({}) == ""
 
 
-def test_case_groups_link_by_shared_address_and_user_chain() -> None:
-    seeds = [
-        {
-            "id": "attack-a",
-            "source_id": "idx:access",
-            "start": START,
-            "end": START + 600,
-            "entities": [
-                {
-                    "role": "address",
-                    "value": "172.16.100.151",
-                    "case_anchor": True,
-                    "kind": "address",
-                }
-            ],
-        },
-        {
-            "id": "attack-b",
-            "source_id": "idx:access",
-            "start": START + 300,
-            "end": START + 900,
-            "entities": [
-                {
-                    "role": "address",
-                    "value": "172.16.100.151",
-                    "case_anchor": True,
-                    "kind": "address",
-                }
-            ],
-        },
-        {
-            "id": "noise",
-            "source_id": "idx:access",
-            "start": START + 300,
-            "end": START + 900,
-            "entities": [{"role": "actor", "value": "systemd-logind"}],
-        },
+def _unit(
+    kind: str,
+    key: str,
+    source: str,
+    start: float,
+    end: float,
+    *,
+    event_ids: tuple[str, ...] = (),
+    notable_id: str = "",
+    p_yes: float | None = None,
+    share: float = 0.1,
+) -> CaseUnit:
+    value = key.split(":", 1)[1]
+    return CaseUnit(
+        f"{notable_id or kind}-{value}-{start}",
+        kind,
+        key,
+        value,
+        source,
+        "h1",
+        start,
+        end,
+        event_ids=event_ids,
+        lines=({"line": "pivot line", "query": "search index=ix"},) if notable_id else (),
+        notable_id=notable_id,
+        measure=1.0,
+        share=share,
+        p_yes=p_yes,
+    )
+
+
+EVENTS = {
+    name: {"host": "h1", "source": "/var/log/app.log", "time": START, "raw_sha256": name}
+    for name in ("e1", "e2", "e3")
+}
+
+
+def test_a_single_signal_is_a_notable_not_a_case() -> None:
+    signal = _unit("signal", "user:abe", "idx:auth", START, START + 60, notable_id="n1", p_yes=0.9)
+    alone, _counters = _case_groups([signal])
+    assert _case_from_members(alone[0], EVENTS, set()) is None
+
+    episode = _unit("episode", "user:abe", "idx:audit", START + 30, START + 90, event_ids=("e1",))
+    linked, _counters = _case_groups([signal, episode])
+    case = _case_from_members(linked[0], EVENTS, set())
+    assert case is not None
+    assert len(case["sources"]) == 2
+    assert len(case["evidence"]) >= 2
+
+
+def test_an_entity_chain_censors_the_gap_and_the_day() -> None:
+    near = _unit("episode", "address:10.0.0.1", "idx:a", START, START + 60)
+    close = _unit("episode", "address:10.0.0.1", "idx:b", START + 2 * 3600, START + 7200 + 60)
+    far = _unit("episode", "address:10.0.0.1", "idx:c", START + 40 * 3600, START + 40 * 3600 + 60)
+    groups, counters = _case_groups([near, close, far])
+    assert len(groups) == 2
+    assert counters["gap"] == 1
+
+    hourly = [
+        _unit(
+            "episode",
+            "user:bob",
+            "idx:a",
+            START + index * 3 * 3600,
+            START + index * 3 * 3600 + 60,
+        )
+        for index in range(10)
     ]
-    assert _case_groups(seeds) == [["attack-a", "attack-b"]]
+    _groups, windowed = _case_groups(hourly)
+    assert windowed["window"] >= 1
 
 
-def test_case_groups_chain_users_in_the_same_source() -> None:
-    seeds = [
-        {
-            "id": "www-data",
-            "source_id": "idx:audit",
-            "start": START + 4000,
-            "end": START + 4100,
-            "entities": [{"role": "actor", "value": "33", "case_anchor": True, "kind": "user"}],
-        },
-        {
-            "id": "msperl",
-            "source_id": "idx:audit",
-            "start": START + 4050,
-            "end": START + 4120,
-            "entities": [{"role": "actor", "value": "1001", "case_anchor": True, "kind": "user"}],
-        },
+def test_promotion_never_lifts_an_unjudged_row_into_a_judged_view() -> None:
+    rows = [
+        {"notable_id": f"n{index}", "generator": "deviation", "p_yes": 0.9} for index in range(60)
     ]
-    assert _case_groups(seeds) == [["msperl", "www-data"]]
+    rows[55] = {"notable_id": "n55", "generator": "deviation", "p_yes": None}
+    cases = [{"case_id": "c1", "seed_notables": ["n0", "n55"], "related_notables": []}]
 
+    judged, receipt = promote_case_members(rows, cases, [], judged_only=True)
 
-def test_cases_keep_only_evidence_linked_to_an_episode_seed() -> None:
-    seeds = [
-        {
-            "id": "attack-a",
-            "source_id": "idx:access",
-            "start": START,
-            "end": START + 600,
-            "entities": [
-                {
-                    "role": "address",
-                    "value": "172.16.100.151",
-                    "case_anchor": True,
-                    "kind": "address",
-                }
-            ],
-        },
-        {
-            "id": "attack-b",
-            "source_id": "idx:access",
-            "start": START + 300,
-            "end": START + 900,
-            "entities": [
-                {
-                    "role": "address",
-                    "value": "172.16.100.151",
-                    "case_anchor": True,
-                    "kind": "address",
-                }
-            ],
-        },
-    ]
-    event = {"time": START + 400, "host": "web-1", "source": "/var/log/access.log"}
-    related = [
-        {
-            "notable_id": "attack-event",
-            "relation_score": 1.0,
-            "relations": [{"seed_id": "attack-a", "shared_entities": ["172.16.100.151"]}],
-            "evidence": [{"event": event}],
-        },
-        {
-            "notable_id": "unrelated-seed-event",
-            "relation_score": 0.5,
-            "relations": [{"seed_id": "some-other-seed", "shared_entities": ["10.0.0.9"]}],
-            "evidence": [{"event": {**event, "time": START + 500}}],
-        },
-    ]
+    assert receipt["lifted"] == 0
+    assert [row["notable_id"] for row in judged[:3]] == ["n0", "n1", "n2"]
 
-    cases = _cases(seeds, related)
+    open_view, unjudged_receipt = promote_case_members(rows, cases, [], judged_only=False)
 
-    assert len(cases) == 1
-    assert cases[0]["anchor_entity"] == "172.16.100.151"
-    assert cases[0]["related_notables"] == ["attack-event"]
+    assert unjudged_receipt["lifted"] == 1
+    assert unjudged_receipt["ids"][0]["unjudged"] is True
+    assert open_view[1]["notable_id"] == "n55"
 
 
 def test_seed_records_rank_by_identity_not_file_order() -> None:
@@ -298,176 +275,6 @@ def test_seed_records_rank_by_identity_not_file_order() -> None:
     # the attack notable sits beyond the old top-40 yet still becomes a seed, ranked first
     assert "attack-late" in seed_ids
     assert seed_ids.index("attack-late") < seed_ids.index("benign-first")
-
-
-def test_cases_order_by_independent_seed_agreement_before_seed_rank_and_size() -> None:
-    seeds = []
-    related = []
-    for seed_id, rank, address, share, generator in (
-        ("benign-a", 0, "10.0.0.1", 0.9, "similar_to_known"),
-        ("benign-b", 1, "10.0.0.1", 0.9, "similar_to_known"),
-        ("attack-a", 10, "10.0.0.2", 0.1, "similar_to_known"),
-        ("attack-b", 11, "10.0.0.2", 0.1, "similar_to_known"),
-    ):
-        seeds.append(
-            {
-                "id": seed_id,
-                "source_id": "idx:access",
-                "start": START,
-                "end": START + 5000,
-                "entities": [
-                    {
-                        "value": address,
-                        "case_anchor": True,
-                        "kind": "address",
-                        "weight": share,
-                    }
-                ],
-                "rank": rank,
-                "original_rank": rank,
-                "row": {"generator": generator},
-            }
-        )
-    for index in range(4):
-        related.append(
-            {
-                "notable_id": f"benign-event-{index}",
-                "relation_score": 10.0,
-                "relations": [
-                    {"seed_id": "benign-a" if index % 2 == 0 else "benign-b", "seed_rank": index}
-                ],
-                "evidence": [
-                    {
-                        "event": {
-                            "time": START + 1000 * (index + 1),
-                            "host": "web-1",
-                            "source": "/access.log",
-                        }
-                    }
-                ],
-            }
-        )
-    for index, moment in enumerate((START + 100, START + 110)):
-        related.append(
-            {
-                "notable_id": f"attack-event-{index}",
-                "relation_score": 0.1,
-                "relations": [
-                    {"seed_id": "attack-a", "seed_rank": 10},
-                    {"seed_id": "attack-b", "seed_rank": 11},
-                ],
-                "evidence": [{"event": {"time": moment, "host": "web-1", "source": "/access.log"}}],
-            }
-        )
-
-    cases = _cases(seeds, related)
-
-    assert [case["anchor_entity"] for case in cases[:2]] == ["10.0.0.2", "10.0.0.1"]
-
-
-def test_cases_order_by_independent_generators_when_seed_support_ties() -> None:
-    seeds = []
-    related = []
-    for prefix, address, generators in (
-        ("independent", "10.0.0.1", ("alerts", "similar_to_known")),
-        ("same-generator", "10.0.0.2", ("similar_to_known", "similar_to_known")),
-    ):
-        for suffix, generator in zip(("a", "b"), generators, strict=True):
-            seeds.append(
-                {
-                    "id": f"{prefix}-{suffix}",
-                    "source_id": "idx:access",
-                    "start": START,
-                    "end": START + 5000,
-                    "entities": [
-                        {"value": address, "case_anchor": True, "kind": "address", "weight": 0.1}
-                    ],
-                    "rank": 5 + int(suffix == "b"),
-                    "original_rank": 5 + int(suffix == "b"),
-                    "row": {"generator": generator},
-                }
-            )
-        related.append(
-            {
-                "notable_id": f"event-{prefix}",
-                "relation_score": 10.0 if prefix == "same-generator" else 0.1,
-                "relations": [
-                    {"seed_id": f"{prefix}-a", "seed_rank": 5},
-                    {"seed_id": f"{prefix}-b", "seed_rank": 6},
-                ],
-                "evidence": [
-                    {"event": {"time": START + 100, "host": "web-1", "source": "/access.log"}}
-                ],
-            }
-        )
-
-    cases = _cases(seeds, related)
-
-    assert [case["anchor_entity"] for case in cases] == ["10.0.0.1", "10.0.0.2"]
-
-
-def test_case_order_prefers_distinctive_identities_then_shorter_span() -> None:
-    distinctive = {"case_id": "distinctive", "start": START, "end": START + 100, "score": 0.1}
-    common = {"case_id": "common", "start": START, "end": START + 10, "score": 10.0}
-    assert _case_order(distinctive, 1, 1, 0.1) < _case_order(common, 1, 1, 0.9)
-
-    short = {"case_id": "short", "start": START, "end": START + 10, "score": 0.1}
-    long = {"case_id": "long", "start": START, "end": START + 100, "score": 10.0}
-    assert _case_order(short, 1, 1, 0.5) < _case_order(long, 1, 1, 0.5)
-
-
-def test_cases_use_relation_score_after_ordering_features_tie() -> None:
-    seeds = []
-    related = []
-    for prefix, rank, score, address in (
-        ("later", 4, 10.0, "10.0.0.1"),
-        ("seed-tie-low", 2, 0.5, "10.0.0.2"),
-        ("seed-tie-high", 2, 2.0, "10.0.0.3"),
-    ):
-        ids = [f"{prefix}-a", f"{prefix}-b"]
-        for seed_id, seed_rank in zip(ids, (rank, rank + 1), strict=True):
-            seeds.append(
-                {
-                    "id": seed_id,
-                    "source_id": f"idx:{prefix}",
-                    "start": START,
-                    "end": START + 600,
-                    "entities": [
-                        {
-                            "role": "address",
-                            "value": address,
-                            "case_anchor": True,
-                            "kind": "address",
-                        }
-                    ],
-                    "rank": seed_rank,
-                    "original_rank": seed_rank,
-                }
-            )
-        related.append(
-            {
-                "notable_id": f"event-{prefix}",
-                "relation_score": score,
-                "relations": [{"seed_id": ids[0], "seed_rank": rank}],
-                "evidence": [
-                    {
-                        "event": {
-                            "time": START + rank,
-                            "host": "web-1",
-                            "source": f"/{prefix}.log",
-                        }
-                    }
-                ],
-            }
-        )
-
-    cases = _cases(seeds, related)
-
-    assert [case["anchor_entity"] for case in cases] == [
-        "10.0.0.1",
-        "10.0.0.3",
-        "10.0.0.2",
-    ]
 
 
 def test_relate_scopes_shared_sources_from_legacy_cards(tmp_path):

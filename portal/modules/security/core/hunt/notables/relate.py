@@ -1,12 +1,15 @@
-"""Pull distinctive-identity neighbours from Stage 1 notables and assemble episodes.
+"""Pull distinctive-identity neighbours from Stage 1 notables and assemble cases over the spine.
 
 v2 (from docs/hunt/RELATE_LINKAGE_REPORT.md): pivot on the identity-field values a card
 declares — the attacker's source IP for web sources, the user for auth/audit sources — not on
 program names or cross-host-rare-but-actually-common values. Distinctiveness is the entity's
 share of its own source's events (dominance), learned from the run's behaviour store, not a
 host/source rarity table. The pivot window is the episode: the measured activity span of the
-seed's identities, bounded by the run's own time range, never a fixed ±1 h. A case is one
-episode of linked distinctive identities.
+seed's identities, bounded by the run's own time range, never a fixed ±1 h.
+
+S3: cases are built over the spine (S2) — union-find over the episodes and signals that share
+an entity, and over flow values whose endpoint role vectors differ, bounded by a 24 h window
+and requiring two independent pieces of evidence. A single signal is a notable, not a case.
 """
 
 from __future__ import annotations
@@ -20,8 +23,8 @@ import sys
 import time
 from collections import defaultdict
 from collections.abc import Collection, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from statistics import median
 from typing import Any
 
 import duckdb
@@ -33,8 +36,10 @@ from .knowledge import PROOF_INDEXES
 from .receipt import progress_update, read_json, write_json
 from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, configure_ledger, read_notables
 from .sample import shared_source_names, source_route
+from .spine import SPINE_FILE, SPINE_RECEIPT
 
 RELATE_FILE = "relate.json"
+CASES_FILE = "cases.json"
 MAX_SEEDS = 40  # effort budget: seed notables expanded into episodes
 MAX_ENTITIES_PER_SEED = 5  # effort budget: identity pivots read from one notable
 MAX_EVENTS_PER_QUERY = 20  # effort budget: neighbouring rows retained per identity query
@@ -42,9 +47,17 @@ EVIDENCE_CHARS = 400  # effort budget: event preview kept beside its reproducibl
 PROMOTE_HEAD = 50  # the scoreboard's smallest recall cut; a case already inside it is strong
 PROMOTE_PER_CASE = 3  # effort budget: weak members one strong case may lift into the head
 PROMOTE_TOTAL = 12  # effort budget: lifts across every strong case in the run
+CASE_MAX_SPAN_SECONDS = 24 * 3600.0  # a case is one day at most
+CASE_LINK_GAP_SECONDS = 4 * 3600.0  # the spine's episode adjacency window
+CASE_MIN_EVIDENCE = 2  # a case is two independent pieces of evidence, never one signal
+CASE_EVIDENCE_ROWS = 20  # effort budget: evidence rows kept beside a case
+CASE_WEIGHTS = (1.0, 1.0, 1.0, 1.0, 1.0)  # sources, signals, anchor, distinctiveness, coherence
+_ROLE_ORDER = {"actor": 0, "action": 1, "object": 2, "from": 3, "to": 4, "outcome": 5}
+_DECIDING_ROLES = frozenset({"actor", "from", "to"})  # a participant, not merely a holder
 _PROGRAM_FIELD = "program"  # a template source keys its actor on the program, not an identity
 _IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
 _CLF_TIME = re.compile(r"\[\d{1,2}/\w{3}/\d{4}:")  # an access-log timestamp is not an identity
+_SOURCE_IN_QUERY = re.compile(r'source="([^"]+)"')  # the source path the read actually named
 # attack-signal generators rank ahead of the statistical ones when seeds are chosen
 _SEED_GENERATOR_PRIORITY = {"similar_to_known": 0, "alerts": 1}
 
@@ -54,7 +67,7 @@ def _is_timestamp(value: str) -> bool:
 
 
 def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
-    """Per source_id: the structure and which fields the behaviours stage keyed as identities.
+    """Per source_id: the structure, the identity fields and the card's full role plan.
 
     The cards carry their recorded `role_overrides` (the behaviours stage's identity plan):
     the actor field is the identity unless it is `program` (a template source, where the
@@ -72,6 +85,8 @@ def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
             overrides = {}
         actor = overrides.get("actor")
         actor_field = str((actor or {}).get("field") or "")
+        action = overrides.get("action")
+        action_field = str((action or {}).get("field") or "")
         objects = [
             str(item.get("field") or "")
             for item in overrides.get("objects") or ()
@@ -82,7 +97,9 @@ def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
             {
                 "fmt": str(card.get("structure") or "text"),
                 "actor_field": "",
+                "action_field": "",
                 "objects": [],
+                "roles": {},
                 "sources": [],
                 "sourcetype": str(card.get("sourcetype") or ""),
                 "shared_sources": [],
@@ -90,7 +107,15 @@ def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
         )
         if actor_field:
             entry["actor_field"] = actor_field
+        if action_field:
+            entry["action_field"] = action_field
         entry["objects"] = sorted(set(entry["objects"]) | set(objects))
+        planned = card.get("roles")
+        if isinstance(planned, Mapping):
+            for name, fields in planned.items():
+                entry["roles"][str(name)] = sorted(
+                    set(entry["roles"].get(str(name), [])) | {str(field) for field in fields or ()}
+                )
         facts = card.get("facts")
         if isinstance(facts, Mapping):
             entry["sources"] = sorted(
@@ -617,12 +642,6 @@ def _union(parent: dict[str, str], left: str, right: str) -> None:
         parent[max(a, b)] = min(a, b)
 
 
-def _overlap(left: Mapping[str, Any], right: Mapping[str, Any]) -> bool:
-    return max(float(left["start"]), float(right["start"])) < min(
-        float(left["end"]), float(right["end"])
-    )
-
-
 def relatable_index(index: str) -> None:
     """Relate runs on any index except the held-out proof indexes."""
     cleaned = index.strip()
@@ -632,216 +651,513 @@ def relatable_index(index: str) -> None:
         raise ValueError(f"{cleaned} is a proof index and is not hunted")
 
 
-def _union_flows(
-    parent: dict[str, str], seeds: Sequence[Mapping[str, Any]], flow_values: Collection[str]
-) -> None:
-    """A stored cross-source value links seeds on different sources without a time overlap."""
-    flows = {value.casefold() for value in flow_values if value}
-    if not flows:
-        return
-    by_flow: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
-    for seed in seeds:
-        for entity in seed.get("entities") or ():
+@dataclass(frozen=True)
+class CaseUnit:
+    """One piece of case evidence: an episode, a signal occurrence or a flow value."""
+
+    unit_id: str
+    kind: str  # episode | signal | flow
+    key: str  # "<entity kind>:<value>" or the flow's own value
+    value: str
+    source_id: str
+    host: str
+    start: float
+    end: float
+    event_ids: tuple[str, ...] = ()
+    lines: tuple[Mapping[str, Any], ...] = ()
+    notable_id: str = ""
+    generator: str = ""
+    measure: float = 0.0
+    share: float = 0.0
+    endpoints: tuple[str, ...] = ()
+    roles: tuple[str, ...] = ()
+    p_yes: float | None = None
+    rank: int = 0
+
+
+def _step_role(step: Mapping[str, Any], identity: Mapping[str, Mapping[str, Any]]) -> str:
+    """The role a flow step's field plays at its source, from that card's own role plan.
+
+    A directional role comes first: `from` then `to` is what makes a value a transition.
+    """
+    info = identity.get(str(step.get("source_id") or "")) or {}
+    field = str(step.get("field") or "")
+    planned = info.get("roles")
+    roles: Mapping[str, Sequence[str]] = planned if isinstance(planned, Mapping) else {}
+    for role in ("from", "to", "actor", "action", "object", "outcome"):
+        if field and field in (roles.get(role) or ()):
+            return role
+    return ""
+
+
+def _role_transition(left: str, right: str) -> bool:
+    """A value held in a different role at each endpoint is a transition, not ambient data."""
+    return bool(left) and bool(right) and left != right
+
+
+def _pick_key(options: Mapping[str, set[str]]) -> str:
+    """The entity key a value most broadly carries: most sources, then the lexicographic key."""
+    if not options:
+        return ""
+    return min(options, key=lambda key: (-len(options[key]), key))
+
+
+def _spine_units(
+    out: Path,
+) -> tuple[list[CaseUnit], dict[str, dict[str, set[str]]], dict[tuple[str, str], float]]:
+    """Episode units from the spine, the entity keys each value carries, and each key's share."""
+    if not (out / SPINE_FILE).is_file():
+        return [], {}, {}
+    con = duckdb.connect(str(out / SPINE_FILE), read_only=True)
+    try:
+        entities = con.execute(
+            "SELECT entity_kind, value, source_id, events FROM entities"
+        ).fetchall()
+        episodes = con.execute(
+            "SELECT episode_id, entity_kind, value, source_id, host, start_time, end_time,"
+            " event_ids, events FROM episodes"
+        ).fetchall()
+    finally:
+        con.close()
+    totals: dict[str, float] = defaultdict(float)
+    for source_id, info in (read_json(out / SPINE_RECEIPT).get("sources") or {}).items():
+        if isinstance(info, Mapping):
+            totals[str(source_id)] = float(info.get("events") or 0.0)
+    seen: dict[tuple[str, str], float] = defaultdict(float)
+    paths: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    for kind, value, source_id, events in entities:
+        key = f"{kind}:{str(value).casefold()}"
+        seen[(key, str(source_id))] += float(events)
+        paths[str(value).casefold()][key].add(str(source_id))
+    for source_id, total in list(totals.items()):
+        if not total:
+            totals[source_id] = sum(
+                events for (key, source), events in seen.items() if source == source_id
+            )
+    shares = {key: _share_of(seen, totals, key[0], key[1]) for key in seen}
+    units = [
+        CaseUnit(
+            str(episode_id),
+            "episode",
+            f"{kind}:{str(value).casefold()}",
+            str(value),
+            str(source_id),
+            str(host or ""),
+            float(start),
+            float(end),
+            tuple(json.loads(str(event_ids or "[]"))),
+            measure=float(events or 0),
+            share=shares.get((f"{kind}:{str(value).casefold()}", str(source_id)), 0.0),
+        )
+        for episode_id, kind, value, source_id, host, start, end, event_ids, events in episodes
+    ]
+    return units, paths, shares
+
+
+def _share_of(
+    seen: Mapping[tuple[str, str], float], totals: Mapping[str, float], key: str, source_id: str
+) -> float:
+    """An entity's share of its source's events: the dominance measure relate already uses."""
+    total = float(totals.get(source_id, 0.0))
+    return float(seen.get((key, source_id), 0.0)) / total if total else 0.0
+
+
+def _signal_span(row: Mapping[str, Any]) -> tuple[float, float] | None:
+    """When the signal occurred: its evidence line, else the behaviour's own span."""
+    for item in row.get("evidence") or ():
+        if isinstance(item, Mapping) and _number(item.get("earliest")) is not None:
+            low = float(_number(item.get("earliest")) or 0.0)
+            return low, float(_number(item.get("latest")) or low)
+    first, last = _number(row.get("first_seen")), _number(row.get("last_seen"))
+    if first is None:
+        return None
+    return float(first), float(last if last is not None else first)
+
+
+def _signal_units(
+    rows: Sequence[Mapping[str, Any]],
+    paths: Mapping[str, Mapping[str, set[str]]],
+    shares: Mapping[tuple[str, str], float],
+) -> list[CaseUnit]:
+    """One unit per (signal, entity key) a notable carries, so union-find can key on entities."""
+    units: list[CaseUnit] = []
+    for rank, row in enumerate(rows):
+        span = _signal_span(row)
+        notable_id = str(row.get("notable_id") or "")
+        if span is None or not notable_id:
+            continue
+        measure = row.get("measure")
+        measure = measure if isinstance(measure, Mapping) else {}
+        value_measure = float(_number(measure.get("value")) or 0.0)
+        p_yes = row.get("p_yes")
+        source_id = str(row.get("source_id") or "")
+        for entity in row.get("entities") or ():
             if not isinstance(entity, Mapping):
                 continue
-            value = str(entity.get("value") or "").casefold()
-            if value in flows:
-                by_flow[value].append(seed)
-    for matches in by_flow.values():
-        for offset, left in enumerate(matches):
-            for right in matches[offset + 1 :]:
-                if str(left.get("source_id")) != str(right.get("source_id")):
-                    _union(parent, str(left["id"]), str(right["id"]))
+            value = str(entity.get("value") or "")
+            key = _pick_key(paths.get(value.casefold()) or {})
+            if not key:
+                continue
+            units.append(
+                CaseUnit(
+                    f"{notable_id}#{key}",
+                    "signal",
+                    key,
+                    value,
+                    source_id,
+                    "",
+                    span[0],
+                    span[1],
+                    lines=tuple(
+                        item for item in row.get("evidence") or () if isinstance(item, Mapping)
+                    ),
+                    notable_id=notable_id,
+                    generator=str(row.get("generator") or ""),
+                    measure=value_measure,
+                    share=float(shares.get((key, source_id), 0.0)),
+                    p_yes=None if p_yes is None else float(p_yes),
+                    rank=rank,
+                )
+            )
+    return units
 
 
-def _case_groups(
-    seeds: Sequence[Mapping[str, Any]], flow_values: Collection[str] = ()
-) -> list[list[str]]:
-    """Union-find seeds into episodes: a shared identity anchor or a same-source user chain."""
-    parent = {str(seed["id"]): str(seed["id"]) for seed in seeds}
-    by_value: dict[tuple[str, str], list[Mapping[str, Any]]] = defaultdict(list)
-    by_source: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
-    for seed in seeds:
-        has_user = False
-        for entity in seed["entities"]:
-            if entity.get("case_anchor"):
-                by_value[(str(entity.get("kind")), str(entity["value"]).casefold())].append(seed)
-            if entity.get("kind") == "user":
-                has_user = True
-        if has_user:
-            by_source[str(seed["source_id"])].append(seed)
-    for matches in (*by_value.values(), *by_source.values()):
-        for offset, left in enumerate(matches):
-            for right in matches[offset + 1 :]:
-                if _overlap(left, right):
-                    _union(parent, str(left["id"]), str(right["id"]))
-    _union_flows(parent, seeds, flow_values)
-    components: dict[str, list[str]] = defaultdict(list)
-    for node in parent:
-        components[_root(parent, node)].append(node)
-    return sorted(sorted(nodes) for nodes in components.values() if len(nodes) > 1)
-
-
-def _anchor_label(seed_ids: Sequence[str], by_seed: Mapping[str, Mapping[str, Any]]) -> str:
-    values: list[str] = []
-    for seed_id in seed_ids:
-        for entity in by_seed[seed_id]["entities"]:
-            if entity.get("case_anchor") and entity.get("kind") == "address":
-                values.append(str(entity["value"]))
-    return ",".join(sorted(set(values))) or str(by_seed[seed_ids[0]]["source_id"])
-
-
-def _seed_generator(seed: Mapping[str, Any]) -> str:
-    row = seed.get("row")
-    return str(row.get("generator") or "") if isinstance(row, Mapping) else ""
-
-
-def _seed_source_share(seed: Mapping[str, Any]) -> float:
-    weights = [
-        weight
-        for entity in seed.get("entities") or ()
-        if isinstance(entity, Mapping)
-        and (weight := _number(entity.get("weight"))) is not None
-        and weight > 0
-    ]
-    return max(weights, default=1.0)
-
-
-def _case_order(
-    case: Mapping[str, Any], generator_agreement: float, seed_agreement: float, source_share: float
-) -> tuple[float, float, float, float, float, float, str]:
-    """Prefer independent support, distinctive identities, and compact episodes."""
-    return (
-        -generator_agreement,
-        -seed_agreement,
-        source_share,
-        float(case["end"]) - float(case["start"]),
-        -float(case["score"]),
-        float(case["start"]),
-        str(case["case_id"]),
-    )
-
-
-def _transition(flow: Mapping[str, Any]) -> dict[str, Any]:
-    steps = [step for step in flow.get("steps") or () if isinstance(step, Mapping)]
-    return {
-        "value": flow.get("value"),
-        "ingress": flow.get("ingress") or (steps[0].get("source_id") if steps else ""),
-        "later": flow.get("later") or (steps[-1].get("source_id") if steps else ""),
-        "steps": steps,
-    }
-
-
-def _matching_flows(
-    seed_ids: Sequence[str],
-    by_seed: Mapping[str, Mapping[str, Any]],
+def _flow_units(
     flows: Sequence[Mapping[str, Any]],
-) -> list[dict[str, Any]]:
-    values: set[str] = set()
-    for seed_id in seed_ids:
-        for entity in by_seed[seed_id].get("entities") or ():
-            if isinstance(entity, Mapping):
-                values.add(str(entity.get("value") or "").casefold())
-    return [
-        _transition(flow)
-        for flow in flows
-        if str(flow.get("value") or "").casefold() in values and len(flow.get("steps") or ()) >= 2
-    ]
-
-
-def _flow_case(
-    seed_ids: Sequence[str],
-    by_seed: Mapping[str, Mapping[str, Any]],
-    flows: Sequence[Mapping[str, Any]],
-) -> dict[str, Any] | None:
-    """A case whose only link is a stored cross-source value, with no pivot rows yet."""
-    transitions = _matching_flows(seed_ids, by_seed, flows)
-    if not transitions:
-        return None
-    seed_ids_out = sorted(str(by_seed[seed_id]["id"]) for seed_id in seed_ids)
-    starts = [float(by_seed[seed_id]["start"]) for seed_id in seed_ids_out]
-    ends = [float(by_seed[seed_id]["end"]) for seed_id in seed_ids_out]
-    return {
-        "case_id": hashlib.sha1("|".join(seed_ids_out).encode()).hexdigest()[:16],
-        "anchor_entity": _anchor_label(seed_ids_out, by_seed),
-        "score": 0.0,
-        "seed_notables": seed_ids_out,
-        "related_notables": [],
-        "start": min(starts),
-        "end": max(ends),
-        "links": [],
-        "evidence": [],
-        "transitions": transitions,
-    }
-
-
-def _cases(
-    seeds: Sequence[Mapping[str, Any]],
-    related: Sequence[Mapping[str, Any]],
-    flows: Sequence[Mapping[str, Any]] = (),
-) -> list[dict[str, Any]]:
-    flow_values = [str(item.get("value") or "") for item in flows]
-    groups = _case_groups(seeds, flow_values)
-    by_seed = {str(seed["id"]): seed for seed in seeds}
-    ordered_cases: list[
-        tuple[tuple[float, float, float, float, float, float, str], dict[str, Any]]
-    ] = []
-    for seed_ids in groups:
-        seed_set = set(seed_ids)
-        events = [
-            row for row in related if any(link["seed_id"] in seed_set for link in row["relations"])
+    identity: Mapping[str, Mapping[str, Any]],
+    paths: Mapping[str, Mapping[str, set[str]]],
+) -> tuple[list[CaseUnit], int]:
+    """A flow is a value whose endpoint roles differ and one endpoint can decide the step."""
+    units: list[CaseUnit] = []
+    skipped = 0
+    for flow in flows:
+        steps = [step for step in flow.get("steps") or () if isinstance(step, Mapping)]
+        roles = (_step_role(steps[0], identity), _step_role(steps[-1], identity)) if steps else ()
+        key = _pick_key(paths.get(str(flow.get("value") or "").casefold()) or {})
+        times = [_number(step.get("first_seen")) for step in steps] + [
+            _number(step.get("last_seen")) for step in steps
         ]
-        if not events:
-            flow_case = _flow_case(seed_ids, by_seed, flows)
-            if flow_case is not None:
-                ordered_cases.append((_case_order(flow_case, 0.0, 0.0, 1.0), flow_case))
+        present = [float(item) for item in times if item is not None]
+        if (
+            len(steps) < 2
+            or not key
+            or not _role_transition(*roles)
+            or not _DECIDING_ROLES.intersection(roles)
+            or not present
+        ):
+            skipped += 1
             continue
-        links = [link for row in events for link in row["relations"] if link["seed_id"] in seed_set]
-        evidence = [row["evidence"][0]["event"] for row in events]
-        seed_ids_out = sorted(str(by_seed[seed_id]["id"]) for seed_id in seed_ids)
-        score = round(sum(float(row["relation_score"]) for row in events), 8)
-        all_ids = sorted([*seed_ids_out, *(str(row["notable_id"]) for row in events)])
-        case_id = hashlib.sha1("|".join([*seed_ids_out, *all_ids]).encode()).hexdigest()[:16]
-        case = {
-            "case_id": case_id,
-            "anchor_entity": _anchor_label(seed_ids_out, by_seed),
-            "score": score,
-            "seed_notables": seed_ids_out,
-            "related_notables": [str(row["notable_id"]) for row in events],
-            "start": min(float(event["time"]) for event in evidence),
-            "end": max(float(event["time"]) for event in evidence),
-            "links": links,
-            "evidence": sorted(
-                evidence, key=lambda event: (event["time"], event["host"], event["source"])
-            ),
-            "transitions": _matching_flows(seed_ids_out, by_seed, flows),
-        }
-        event_seed_counts: list[int] = []
-        event_generator_counts: list[int] = []
-        supported_seed_ids: set[str] = set()
-        for event in events:
-            supported = {
-                str(link["seed_id"])
-                for link in event["relations"]
-                if str(link.get("seed_id")) in seed_set
-            }
-            supported_seed_ids.update(supported)
-            event_seed_counts.append(len(supported))
-            event_generators = {_seed_generator(by_seed[seed_id]) for seed_id in supported}
-            event_generator_counts.append(len(event_generators - {""}))
-        source_shares = [_seed_source_share(by_seed[seed_id]) for seed_id in supported_seed_ids]
-        ordered_cases.append(
-            (
-                _case_order(
-                    case,
-                    float(median(event_generator_counts)),
-                    float(median(event_seed_counts)),
-                    max(source_shares, default=1.0),
-                ),
-                case,
+        endpoints = tuple(str(step.get("source_id") or "") for step in steps)
+        units.append(
+            CaseUnit(
+                f"flow-{hashlib.sha1(str(flow.get('value')).encode()).hexdigest()[:16]}",
+                "flow",
+                key,
+                str(flow.get("value") or ""),
+                "",
+                "",
+                min(present),
+                max(present),
+                measure=float(len(steps)),
+                endpoints=endpoints,
+                roles=tuple(roles),
             )
         )
-    return [case for _, case in sorted(ordered_cases, key=lambda item: item[0])]
+    return units, skipped
+
+
+def _link_chain(
+    parent: dict[str, str], group: Sequence[CaseUnit], counters: dict[str, int]
+) -> None:
+    """Chain one value's units: consecutive spans within the gap, the case capped at a day."""
+    ordered = sorted((unit for unit in group if unit.kind != "flow"), key=_unit_order)
+    if len(ordered) < 2:
+        return
+    chain_start = ordered[0].start
+    for before, after in zip(ordered, ordered[1:], strict=False):
+        if after.start - before.end > CASE_LINK_GAP_SECONDS:
+            counters["gap"] += 1
+            chain_start = after.start
+            continue
+        if max(after.end, before.end) - min(after.start, chain_start) > CASE_MAX_SPAN_SECONDS:
+            counters["window"] += 1
+            chain_start = after.start
+            continue
+        _union(parent, before.unit_id, after.unit_id)
+        counters["links"] += 1
+
+
+def _link_flows(
+    parent: dict[str, str], group: Sequence[CaseUnit], counters: dict[str, int]
+) -> None:
+    """A flow unions the episodes at its own endpoint sources inside the case window."""
+    episodes = [unit for unit in group if unit.kind != "flow"]
+    for flow in (unit for unit in group if unit.kind == "flow"):
+        for unit in episodes:
+            if unit.source_id not in flow.endpoints:
+                continue
+            if unit.start - flow.end > CASE_LINK_GAP_SECONDS:
+                continue
+            if flow.start - unit.end > CASE_LINK_GAP_SECONDS:
+                continue
+            if max(flow.end, unit.end) - min(flow.start, unit.start) > CASE_MAX_SPAN_SECONDS:
+                counters["window"] += 1
+                continue
+            _union(parent, flow.unit_id, unit.unit_id)
+            counters["links"] += 1
+
+
+def _unit_order(unit: CaseUnit) -> tuple[float, float, str]:
+    return (unit.start, unit.end, unit.unit_id)
+
+
+def _case_groups(units: Sequence[CaseUnit]) -> tuple[list[list[CaseUnit]], dict[str, int]]:
+    """Union-find the units: shared entities chain, and a flow links its endpoint episodes."""
+    parent = {unit.unit_id: unit.unit_id for unit in units}
+    counters = {"links": 0, "gap": 0, "window": 0}
+    by_key: dict[str, list[CaseUnit]] = defaultdict(list)
+    for unit in units:
+        by_key[unit.key].append(unit)
+    for group in by_key.values():
+        _link_chain(parent, group, counters)
+        _link_flows(parent, group, counters)
+    components: dict[str, list[CaseUnit]] = defaultdict(list)
+    for unit in units:
+        components[_root(parent, unit.unit_id)].append(unit)
+    return [components[node] for node in sorted(components)], counters
+
+
+def _case_score(
+    members: Sequence[CaseUnit], sources: int, generators: int, anchor: CaseUnit
+) -> float:
+    """The plan's five terms: sources, signals, anchor, distinctiveness, coherence."""
+    w1, w2, w3, w4, w5 = CASE_WEIGHTS
+    span = max(unit.end for unit in members) - min(unit.start for unit in members)
+    hosts = len({unit.host for unit in members if unit.host})
+    strength = 1.0 / (1.0 + anchor.rank) if anchor.kind == "signal" else min(1.0, anchor.share)
+    share = max((unit.share for unit in members), default=0.0)
+    coherence = 1.0 / (1.0 + span / 3600.0) / (1.0 + max(0, hosts - 1))
+    return round(w1 * sources + w2 * generators + w3 * strength + w4 * share + w5 * coherence, 8)
+
+
+def _case_evidence(
+    members: Sequence[CaseUnit], events: Mapping[str, Mapping[str, Any]]
+) -> list[dict[str, Any]]:
+    """Reproducible evidence rows, round-robin across members: breadth before depth."""
+    rows: list[dict[str, Any]] = []
+    queues = [list(unit.event_ids) for unit in members]
+    depth = 0
+    while len(rows) < CASE_EVIDENCE_ROWS and any(depth < len(queue) for queue in queues):
+        for queue in queues:
+            if depth >= len(queue):
+                continue
+            stored = events.get(queue[depth])
+            if stored is not None:
+                rows.append({**stored, "event_id": queue[depth]})
+            if len(rows) >= CASE_EVIDENCE_ROWS:
+                return rows
+        depth += 1
+    for unit in members:
+        for item in unit.lines:
+            rows.append(
+                {
+                    "line": item.get("line"),
+                    "query": item.get("query"),
+                    "earliest": item.get("earliest"),
+                    "latest": item.get("latest"),
+                    "host": "",
+                    "source": "",
+                }
+            )
+            if len(rows) >= CASE_EVIDENCE_ROWS:
+                return rows
+    return rows
+
+
+def _case_member(unit: CaseUnit) -> dict[str, Any]:
+    return {
+        "type": unit.kind,
+        "id": unit.unit_id,
+        "value": unit.value,
+        "source_id": unit.source_id,
+        "host": unit.host,
+        "start": round(unit.start, 3),
+        "end": round(unit.end, 3),
+        "measure": unit.measure,
+        "notable_id": unit.notable_id,
+        "generator": unit.generator,
+        "unjudged": unit.kind == "signal" and unit.p_yes is None,
+    }
+
+
+def _case_from_members(
+    members: Sequence[CaseUnit],
+    events: Mapping[str, Mapping[str, Any]],
+    related_ids: Collection[str],
+) -> dict[str, Any] | None:
+    """A case needs two independent pieces of evidence; one signal is only a notable."""
+    sources = sorted({unit.source_id for unit in members if unit.source_id})
+    signals = sorted({unit.notable_id for unit in members if unit.notable_id})
+    generators = len(
+        {unit.generator for unit in members if unit.kind == "signal" and unit.generator}
+    )
+    flows = [unit for unit in members if unit.kind == "flow"]
+    if not (len(sources) >= 2 or len(signals) >= 2 or (sources and flows)):
+        return None
+    anchor = max(members, key=lambda unit: (unit.share, unit.measure, -unit.start, unit.unit_id))
+    ranked = [
+        anchor,
+        *sorted(
+            (unit for unit in members if unit is not anchor),
+            key=lambda unit: (-unit.measure, unit.source_id, *_unit_order(unit)),
+        ),
+    ]
+    evidence = _case_evidence(ranked, events)
+    if not evidence:
+        return None
+    start = min(unit.start for unit in members)
+    end = max(unit.end for unit in members)
+    identifiers = sorted(unit.unit_id for unit in members)
+    return {
+        "case_id": hashlib.sha1("|".join(identifiers).encode()).hexdigest()[:16],
+        "anchor_entity": anchor.value,
+        "anchor_episode": anchor.unit_id if anchor.kind == "episode" else "",
+        "score": _case_score(members, len(sources), generators, anchor),
+        "pieces": len(sources) + len(signals) + len(flows),
+        "seed_notables": [name for name in signals if name not in related_ids],
+        "related_notables": [name for name in signals if name in related_ids],
+        "members": [{**_case_member(unit), "rank": rank} for rank, unit in enumerate(ranked)],
+        "entities": sorted({unit.key for unit in members if unit.kind != "flow"}),
+        "sources": sources,
+        "start": start,
+        "end": end,
+        "timeline": [
+            {"type": unit.kind, "value": unit.value, "start": unit.start, "end": unit.end}
+            for unit in sorted(members, key=_unit_order)
+        ],
+        "links": [
+            {"entity": unit.key, "value": unit.value, "source_id": unit.source_id}
+            for unit in ranked
+            if unit.kind == "episode"
+        ],
+        "evidence": evidence,
+        "transitions": [
+            {
+                "value": unit.value,
+                "ingress": unit.endpoints[0] if unit.endpoints else "",
+                "later": unit.endpoints[-1] if unit.endpoints else "",
+                "roles": list(unit.roles),
+                "steps": [],
+            }
+            for unit in flows
+        ],
+        "unjudged": any(unit.kind == "signal" and unit.p_yes is None for unit in members),
+        "why": f"{len(sources)} sources, {len(signals)} signals, {len(flows)} flow links",
+    }
+
+
+def _inventory_coverage(document: Mapping[str, Any]) -> dict[str, Any]:
+    """How much of the value-list enumeration completed, from the inventory's own statuses."""
+    lists = [item for item in document.get("fields") or () if isinstance(item, Mapping)]
+    complete = sum(1 for item in lists if item.get("status") == "complete")
+    return {
+        "lists": len(lists),
+        "complete": complete,
+        "capped": sum(1 for item in lists if item.get("status") == "capped"),
+        "unavailable": sum(1 for item in lists if str(item.get("status") or "").startswith("un")),
+        "uncapped_fraction": round(complete / len(lists), 6) if lists else None,
+    }
+
+
+def _judged(rows: Sequence[Mapping[str, Any]], judged_only: bool) -> list[Mapping[str, Any]]:
+    """A judged-only view holds rows the judge scored; an unjudged row is never admitted."""
+    return [row for row in rows if not judged_only or row.get("p_yes") is not None]
+
+
+def build_cases(
+    out: Path, related: Sequence[Mapping[str, Any]] = (), judged_only: bool = False
+) -> dict[str, Any]:
+    """Assemble cases over the spine and write cases.json beside the run."""
+    began = time.monotonic()
+    units, paths, shares = _spine_units(out)
+    identity = _identity_fields(out)
+    rows = _judged(read_notables(out / NOTABLES_FILE), judged_only)
+    related = _judged(related, judged_only)
+    units.extend(_signal_units([*rows, *related], paths, shares))
+    inventory = load_inventory(out / INVENTORY_FILE)
+    flows = [item for item in inventory.get("flows") or () if isinstance(item, Mapping)]
+    flow_units, flows_skipped = _flow_units(flows, identity, paths)
+    units.extend(flow_units)
+    groups, counters = _case_groups(units)
+    related_ids = {str(row.get("notable_id") or "") for row in related}
+    events = _event_rows(out, identity)
+    cases = []
+    for group in groups:
+        case = _case_from_members(group, events, related_ids)
+        if case is not None:
+            cases.append(case)
+    cases.sort(key=lambda case: (-case["score"], case["start"], case["case_id"]))
+    for rank, case in enumerate(cases):
+        case["rank"] = rank
+    attempted = counters["links"] + counters["gap"] + counters["window"]
+    receipt = {
+        "units": len(units),
+        "episodes": sum(1 for unit in units if unit.kind == "episode"),
+        "signals": sum(1 for unit in units if unit.kind == "signal"),
+        "flows": len(flow_units),
+        "flows_skipped": flows_skipped,
+        "cases": len(cases),
+        "links": counters["links"],
+        "censored": {
+            "gap": counters["gap"],
+            "window": counters["window"],
+            "flow_roles": flows_skipped,
+        },
+        "uncapped_fraction": round(counters["links"] / attempted, 6) if attempted else None,
+        "coverage_complete": not counters["gap"] and not counters["window"],
+        "evidence_violations": sum(
+            1 for case in cases if int(case.get("pieces") or 0) < CASE_MIN_EVIDENCE
+        ),
+        "lists": _inventory_coverage(inventory),
+        "window_seconds": CASE_MAX_SPAN_SECONDS,
+        "link_gap_seconds": CASE_LINK_GAP_SECONDS,
+        "weights": list(CASE_WEIGHTS),
+        "seconds": round(time.monotonic() - began, 3),
+    }
+    write_json(out / CASES_FILE, {"receipt": receipt, "cases": cases})
+    return {"receipt": receipt, "cases": cases, "flows": flows}
+
+
+def _event_rows(out: Path, identity: Mapping[str, Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Every stored event the spine can name, keyed by the spine's content hash."""
+    from .spine import event_id
+
+    if not (out / STORE_FILE).is_file():
+        return {}
+    con = duckdb.connect(str(out / STORE_FILE), read_only=True)
+    try:
+        rows = con.execute("SELECT source_id, host, ts, raw, query FROM events").fetchall()
+    finally:
+        con.close()
+    found: dict[str, dict[str, Any]] = {}
+    for source_id, host, ts, raw, query in rows:
+        text = str(raw or "")
+        moment = float(ts or 0.0)
+        identifier = event_id(str(source_id), str(host or ""), moment, text)
+        named = _SOURCE_IN_QUERY.search(str(query or ""))
+        sources = (identity.get(str(source_id)) or {}).get("sources") or [""]
+        found[identifier] = {
+            "host": str(host or ""),
+            "source": named.group(1) if named else str(sources[0]),
+            "sourcetype": str(source_id).partition(":")[2],
+            "time": moment,
+            "raw_sha256": hashlib.sha256(text.encode()).hexdigest(),
+            "line": text[:EVIDENCE_CHARS],
+            "query": str(query or ""),
+            "earliest": moment - 1,
+            "latest": moment + 1,
+        }
+    return found
 
 
 def _row_index(rows: Sequence[Mapping[str, Any]]) -> dict[str, int]:
@@ -895,7 +1211,14 @@ def _apply_lifts(
             if notable_id in by_id:
                 remove.add(by_id[notable_id])
             lifts[anchor].append(dict(row))
-            lifted.append({"case_id": case_id, "notable_id": notable_id, "after_rank": anchor})
+            lifted.append(
+                {
+                    "case_id": case_id,
+                    "notable_id": notable_id,
+                    "after_rank": anchor,
+                    "unjudged": _unjudged(row),
+                }
+            )
     rebuilt: list[dict[str, Any]] = []
     for index, stored in enumerate(rows):
         if index in remove:
@@ -909,6 +1232,8 @@ def promote_case_members(
     rows: Sequence[Mapping[str, Any]],
     cases: Sequence[Mapping[str, Any]],
     related: Sequence[Mapping[str, Any]],
+    *,
+    judged_only: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """A case already inside the head lifts its weak members to sit just after its anchor."""
     by_id = _row_index(rows)
@@ -921,14 +1246,25 @@ def promote_case_members(
         if (picked := _weak_members(case, rows, by_id, related_by_id)) is not None
         for anchor, weak in (picked,)
     ]
+    if judged_only:
+        kept = [
+            (anchor, case_id, [(position, row) for position, row in weak if not _unjudged(row)])
+            for anchor, case_id, weak in planned
+        ]
+        planned = [(anchor, case_id, weak) for anchor, case_id, weak in kept if weak]
     rebuilt, lifted = _apply_lifts(rows, planned, by_id)
     return rebuilt, {
         "lifted": len(lifted),
+        "judged_only": judged_only,
         "head": PROMOTE_HEAD,
         "per_case": PROMOTE_PER_CASE,
         "total": PROMOTE_TOTAL,
         "ids": lifted,
     }
+
+
+def _unjudged(row: Mapping[str, Any]) -> bool:
+    return row.get("p_yes") is None
 
 
 def _write_notables(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
@@ -957,10 +1293,9 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
     began = time.monotonic()
     candidates, coverage = _gather(executor, requests, details)
     related = _related_rows(index, candidates)
-    inventory = load_inventory(out / INVENTORY_FILE)
-    flows = [item for item in inventory.get("flows") or () if isinstance(item, Mapping)]
-    cases = _cases(seeds, related, flows)
-    promoted, promotion = promote_case_members(notables, cases, related)
+    built = build_cases(out, related, judged_only)
+    cases = built["cases"]
+    promoted, promotion = promote_case_members(selected, cases, related, judged_only=judged_only)
     promoted = [{**row, "unjudged": row.get("p_yes") is None} for row in promoted]
     _write_notables(out / NOTABLES_FILE, promoted)
     snapshot = executor.budget.snapshot()
@@ -972,7 +1307,8 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
         "requests": len(requests),
         "related_events": len(related),
         "cases": len(cases),
-        "flows": len(flows),
+        "case_receipt": built["receipt"],
+        "flows": len(built["flows"]),
         "promotion": promotion,
         "seconds": round(time.monotonic() - began, 3),
         "coverage_complete": bool(coverage)
@@ -983,7 +1319,7 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
     }
     write_json(
         out / RELATE_FILE,
-        {"receipt": receipt, "notables": related, "cases": cases, "flows": flows},
+        {"receipt": receipt, "notables": related, "cases": cases, "flows": built["flows"]},
     )
     progress_update(out, "relate", receipt)
     return receipt
@@ -992,7 +1328,14 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
 def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, type=Path, help="Stage 1 output directory")
+    parser.add_argument(
+        "--cases",
+        action="store_true",
+        help="assemble cases from the stored spine and inventory, with no searches",
+    )
     args = parser.parse_args(argv)
+    if args.cases:
+        return _cases_main(args.out)
     try:
         receipt = relate_stage(
             out=args.out, search=search if search is not None else _default_search()
@@ -1005,6 +1348,26 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
         f"related_events={receipt['related_events']} cases={receipt['cases']} "
         f"coverage_complete={receipt['coverage_complete']} wall={receipt['seconds']}s "
         f"-> {args.out / RELATE_FILE}"
+    )
+    return 0
+
+
+def _cases_main(out: Path) -> int:
+    """Offline case assembly: the stored run is the proof surface, no Splunk needed."""
+    try:
+        built = build_cases(out)
+    except (FileNotFoundError, ValueError) as error:
+        print(f"relate: {error}", file=sys.stderr)
+        return 2
+    receipt = built["receipt"]
+    print(
+        f"cases: units={receipt['units']} episodes={receipt['episodes']} "
+        f"signals={receipt['signals']} flows={receipt['flows']} cases={receipt['cases']} "
+        f"links={receipt['links']} censored={receipt['censored']} "
+        f"uncapped_fraction={receipt['uncapped_fraction']} "
+        f"coverage_complete={receipt['coverage_complete']} "
+        f"evidence_violations={receipt['evidence_violations']} wall={receipt['seconds']}s "
+        f"-> {out / CASES_FILE}"
     )
     return 0
 

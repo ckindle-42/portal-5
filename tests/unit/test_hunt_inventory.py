@@ -22,8 +22,9 @@ from portal.modules.security.core.hunt.notables.inventory import (
 from portal.modules.security.core.hunt.notables.misfit import generate_misfit
 from portal.modules.security.core.hunt.notables.parse import FieldStat
 from portal.modules.security.core.hunt.notables.relate import (
+    CaseUnit,
     _case_groups,
-    _cases,
+    _flow_units,
     promote_case_members,
     relatable_index,
 )
@@ -437,63 +438,34 @@ def test_value_flow_orders_ingress_before_the_later_source() -> None:
     assert document["flows"][0]["later"] == "hb_kyoushi_s1:audit.log"
 
 
-def test_flow_links_seeds_on_different_sources_without_a_time_overlap() -> None:
-    seeds = [
-        {
-            "id": "web",
-            "source_id": "hb_kyoushi_s1:access.log",
-            "start": 100.0,
-            "end": 200.0,
-            "entities": [{"value": "172.16.100.151", "case_anchor": True, "kind": "address"}],
-        },
-        {
-            "id": "auth",
-            "source_id": "hb_kyoushi_s1:audit.log",
-            "start": 5000.0,
-            "end": 5100.0,
-            "entities": [{"value": "172.16.100.151", "kind": "address"}],
-        },
+def test_flow_links_two_sources_sharing_a_value_with_adjacent_roles() -> None:
+    identity = {
+        "ix:web": {"roles": {"actor": ["v1"], "from": ["v1"]}},
+        "ix:auth": {"roles": {"to": ["uid"], "actor": ["uid"]}},
+    }
+    paths = {"10.1.1.1": {"address:10.1.1.1": {"ix:web", "ix:auth"}}}
+    steps = [
+        {"source_id": "ix:web", "field": "v1", "first_seen": 100.0, "last_seen": 200.0},
+        {"source_id": "ix:auth", "field": "uid", "first_seen": 30_000.0, "last_seen": 30_100.0},
     ]
+    flow = {"value": "10.1.1.1", "steps": steps}
 
-    assert _case_groups(seeds) == []
-    assert _case_groups(seeds, ["172.16.100.151"]) == [["auth", "web"]]
-
-
-def test_stored_flow_becomes_a_case_without_pivot_events() -> None:
-    seeds = [
-        {
-            "id": "web",
-            "source_id": "hb_kyoushi_s1:access.log",
-            "start": 100.0,
-            "end": 200.0,
-            "entities": [{"value": "172.16.100.151", "case_anchor": True, "kind": "address"}],
-        },
-        {
-            "id": "auth",
-            "source_id": "hb_kyoushi_s1:audit.log",
-            "start": 5000.0,
-            "end": 5100.0,
-            "entities": [{"value": "172.16.100.151", "kind": "address"}],
-        },
+    units, skipped = _flow_units([flow], identity, paths)
+    assert skipped == 0
+    assert units[0].roles == ("from", "to")
+    episodes = [
+        CaseUnit("web", "episode", "address:10.1.1.1", "10.1.1.1", "ix:web", "h1", 100.0, 200.0),
+        CaseUnit(
+            "auth", "episode", "address:10.1.1.1", "10.1.1.1", "ix:auth", "h1", 30_000.0, 30_100.0
+        ),
     ]
-    flows = [
-        {
-            "value": "172.16.100.151",
-            "ingress": "hb_kyoushi_s1:access.log",
-            "later": "hb_kyoushi_s1:audit.log",
-            "steps": [
-                {"source_id": "hb_kyoushi_s1:access.log", "first_seen": 100.0},
-                {"source_id": "hb_kyoushi_s1:audit.log", "first_seen": 5000.0},
-            ],
-        }
-    ]
+    groups, counters = _case_groups([*episodes, *units])
 
-    cases = _cases(seeds, [], flows)
-
-    assert len(cases) == 1
-    assert cases[0]["transitions"][0]["ingress"] == "hb_kyoushi_s1:access.log"
-    assert cases[0]["transitions"][0]["later"] == "hb_kyoushi_s1:audit.log"
-    assert cases[0]["seed_notables"] == ["auth", "web"]
+    assert len(groups) == 1
+    assert counters["links"] == 2
+    # the same role at both ends is ambient data, not a transition
+    same = [{"source_id": "ix:web", "field": "v1"}, {"source_id": "ix:auth", "field": "uid"}]
+    assert _flow_units([{"value": "10.1.1.1", "steps": same}], identity, paths) == ([], 1)
 
 
 def test_relatable_index_allows_botsv2_and_refuses_a_proof_index() -> None:
