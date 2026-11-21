@@ -35,9 +35,46 @@ negative control. `—` = not run yet.
 | russell / original (control) | — | — | — | — | — | — | — | — |
 | botsv2 (control) | — | — | — | — | — | — | — | — |
 
+Control detail (santos, original `hb_ait_santos`): S6 negative control **passes** — the four
+accelerated-model probes all returned `count=0`, so `accel_window=null`, `mechanism=indexed`,
+`coverage=scan`; rung 2 produced 1 window, 28 sources `anchored`, 20 `whole`. S1 on the control:
+13 complete lists, 1,479 values, `mechanisms {stats: 32}` (the original source names are file
+paths, so `tstats by` is not available), `first_seen_replaced 44`, `flows 17`, `joints 8`.
+S3 on the control: `scenario covered yes`, violations 0, `coverage_complete False`, uncapped
+0.811, censored `{gap: 5351, window: 617, flow_roles: 17}`, 3,467 cases, `flows 17`.
+
 ## 2. Scoreboard vs baseline
 
+| family | index | mode | @50 | reachable steps | recall of reachable @50 | §3 baseline (line / reach. / ROR) |
+|---|---|---|---|---|---|---|
+| santos | `hb_ait_santos_v2` | line | 16/21 | 11/21 | 8/11 | 18/21 / 12/21 / 11/12 |
+| santos | `hb_ait_santos` (control) | line | 15/21 | 12/21 | **11/12** | 18/21 / 12/21 / **11/12** |
+
+The control reproduces the plan's santos recall-of-reachable (11/12) exactly; its raw line recall
+is 15/21 against the stored run's 18/21, i.e. 3 steps are covered only outside the stored run's
+notable ordering. The tuned `_v2` index is *worse* on both: raw 16/21 (from a smaller, fully
+re-tagged index) but recall-of-reachable 8/11. Read fraction: `_v2` 5.7 %, original 1.4 %.
+
+C4 marginal weights, stored-run LOFO (the only evidence available before all families finish):
+
+| held out | deviation | misfit | similar_to_known | alerts | peer_rare | relate |
+|---|---|---|---|---|---|---|
+| all | 2 | 1 | 4 | 1 | 1 | 1 |
+| botsv2 | 2 | 1 | 5 | 1 | 1 | 1 |
+| kyoushi | 2 | 1 | 4 | 1 | 1 | 1 |
+| russell | 1 | 1 | 3 | 1 | 1 | 1 |
+| santos | 2 | 1 | 3 | 1 | 1 | 1 |
+
 ## 3. Timings
+
+| family / index | cards | behaviours | notables | relate | judge | total wall |
+|---|---|---|---|---|---|---|
+| santos `_v2` | 34.4 s | 186.3 s | 267.4 s | 8.0 s | 730.4 s | 1,207.9 s |
+| santos control | 352.2 s | 294.0 s | 213.0 s | 9.3 s | 746.1 s | 1,594.9 s |
+
+`behaviours` wall includes inventory (49.6 s / 76.0 s) and spine; `_v2` read 137,574 events of
+4,474,600 (5.7 %), the control 182,083 of 25,143,873 (1.4 %). `judge` is bounded by the 720 s hunt
+job budget, not by notable count (813/822 and 800/881 judged; the rest `model_budget_exhausted`).
 
 ## 4. Verdict
 
