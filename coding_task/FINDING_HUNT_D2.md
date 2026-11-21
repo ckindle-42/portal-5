@@ -91,3 +91,7 @@ Kyoushi `_v2`, same replay: 63 s, 43 searches, 40 complete lists over 15 cards, 
   it. Verified working as the lab admin in the replay above.
 - `flows` rises from 0 to 1330/4693. That is D9's signal, not this slice's; the number is
   reported, not judged.
+- The numbers above were measured before sibling slice **D3** (capped lists keep their rarest
+  values) merged into the same file. D3 changes what a `capped` list contains and adds one tail
+  query per capped list; it does not touch the parse-only rule or the budget, and after the
+  rebase the two coexist (`_values` returns `capped_share` beside `parse_only`).
