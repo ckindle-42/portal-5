@@ -40,8 +40,11 @@ saying "this name cannot exist", which the plan never allowed.
    once a template card could contribute eight names.
 4. `searches` is now `queries − probe_queries`, so a labelled row can never count as a search.
 
-Effort budgets: `INVENTORY_MAX_FIELD_SEARCHES` 32 → 40 (three lists per source) and two new
-probe budgets. Cost measured below.
+Effort budgets: `INVENTORY_MAX_FIELD_SEARCHES` 32 → 40 (three lists per source), plus
+`INVENTORY_MAX_PRESENCE_PROBES = 48` (a run samples at most 48 sources for a vocabulary),
+`INVENTORY_PROBE_EVENTS = 1000` and `INVENTORY_MAX_PROBE_FIELDS = 96`. A source beyond the
+presence budget contributes no list at all — no query and no claim — which is why the
+131-card control family does not pay 131 probes. Cost measured below.
 
 ## Live proof (read-only replay of the stored cards, lab Splunk, santos `_v2`)
 
@@ -68,11 +71,16 @@ figures.
 
 Other measured effects on santos `_v2`: 35 complete lists over 12 cards (was 11 over 9),
 `flows: 1330` (was 0 — the lists now have cross-source values to compare), statuses
-`{parse_only: 59, complete: 35, capped: 4, failed:censored: 1}`. The one censored list is
-`syslog.dest`, a 1.86 M-event scan cut at the 30 s query budget — RC10 again.
+`{parse_only: 59, complete: 35, capped: 4, failed:censored: 1}`, 127 queries, 105 s. The one
+censored list is `syslog.dest`, a 1.86 M-event scan cut at the 30 s query budget — RC10 again.
 
 Kyoushi `_v2`, same replay: 63 s, 43 searches, 40 complete lists over 15 cards, 0 `empty`,
 0 parse-local queries (`access_combined:c_ip` 23, `suricata:fast:signature` 13).
+
+Control santos (131 per-day cards, no stage-3 index-time fields): 114 s and 46 searches
+against 76 s and 36 searches before, with 38 complete lists over 17 of the 48 sampled cards
+including `linux_audit:acct` (13) and `audit.log:type` (15) — and 0 `empty`, where the stored
+control run reported 19.
 
 ## Property and test
 
@@ -91,7 +99,7 @@ Kyoushi `_v2`, same replay: 63 s, 43 searches, 40 complete lists over 15 cards, 
   it. Verified working as the lab admin in the replay above.
 - `flows` rises from 0 to 1330/4693. That is D9's signal, not this slice's; the number is
   reported, not judged.
-- The numbers above were measured before sibling slice **D3** (capped lists keep their rarest
-  values) merged into the same file. D3 changes what a `capped` list contains and adds one tail
-  query per capped list; it does not touch the parse-only rule or the budget, and after the
-  rebase the two coexist (`_values` returns `capped_share` beside `parse_only`).
+- The numbers above were measured on the rebased tree *after* sibling slice **D3** (capped
+  lists keep their rarest values) merged into the same file: `dnsmasq:dns_query` and
+  `access_combined:cs_uri_stem` now report `capped` with 5000/4667 values. D3 does not touch
+  the parse-only rule or the budgets.
