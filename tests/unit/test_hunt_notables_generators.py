@@ -79,11 +79,11 @@ class _AlertExecutor:
         return Read([dict(row) for row in self.rows], False, None)
 
 
-def test_an_alert_without_an_action_is_a_notable_only_when_it_names_an_entity() -> None:
+def test_an_activity_card_with_detection_lines_feeds_alerts_and_needs_an_entity() -> None:
     card = SourceCard(
         index="ix",
         sourcetype="alerts",
-        kind="alert",
+        kind="activity",
         roles={},
         understood=True,
         reason=None,
@@ -94,14 +94,19 @@ def test_an_alert_without_an_action_is_a_notable_only_when_it_names_an_entity() 
         facts={},
         model={},
         cache_key="k",
+        kind_facts={"alert_lines": 1},
     )
     rows = [
         {
-            "_raw": json.dumps({"signature": "ET SCAN", "src": "10.0.0.9"}),
+            "_raw": json.dumps({"event_type": "alert", "signature": "ET SCAN", "src": "10.0.0.9"}),
             "_time": 1.0,
             "host": "h1",
         },
-        {"_raw": json.dumps({"signature": "ET SCAN"}), "_time": 2.0, "host": ""},
+        {
+            "_raw": json.dumps({"event_type": "alert", "alert": {"signature": "ET SCAN"}}),
+            "_time": 2.0,
+            "host": "",
+        },
     ]
     notables, receipt = alerts(
         _AlertExecutor(rows),
