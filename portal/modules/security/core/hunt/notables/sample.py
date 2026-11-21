@@ -33,6 +33,17 @@ LOCALISE_BUCKETS = 288  # effort budget: time buckets one localiser aggregates a
 LOCALISE_ROWS = 40_000  # effort budget: host/time bucket rows read by one localiser
 LOCALISE_WINDOWS = 4  # effort budget: peak windows one anchored read narrows to
 LOCALISE_Z = 2.0  # a bucket is a peak this many robust deviations above the source baseline
+# The CIM models the hunt setup app accelerates (runbook stage 3); a summary read is only
+# preferred over the index aggregate when one of these covers the whole searched range.
+ACCEL_MODELS = (
+    "Authentication",
+    "Endpoint",
+    "Intrusion_Detection",
+    "Network_Resolution",
+    "Network_Traffic",
+    "Web",
+)
+ACCEL_PROBE_ROWS = 100  # effort budget: window rows one accelerated-model probe reads
 
 
 @dataclass(frozen=True)
@@ -90,6 +101,26 @@ class LocalWindow:
     start: float
     end: float
     events: int
+
+
+@dataclass(frozen=True)
+class AccelSummary:
+    """One accelerated model's summary coverage for an index: the range it can answer."""
+
+    model: str
+    window: tuple[float, float]
+
+
+@dataclass
+class Localisation:
+    """Where a read's windows came from: a summary, the index aggregate, or neither."""
+
+    windows: list[LocalWindow] = field(default_factory=list)
+    mechanism: str = ""  # accelerated | indexed | ""
+    model: str = ""
+    accel_window: tuple[float, float] | None = None
+    coverage: str = "scan"  # accelerated | scan
+    notes: list[str] = field(default_factory=list)
 
 
 def read_mode(events: int, *, whole_budget: int = WHOLE_READ_MAX_EVENTS) -> str:
@@ -163,11 +194,91 @@ def _coalesce(windows: Sequence[LocalWindow], width: float) -> list[LocalWindow]
     return merged
 
 
+def accel_probe_query(model: str, index: str) -> str:
+    """Rung 1's guard: the window a model's summaries hold for this index."""
+    return (
+        f"| tstats summariesonly=true count min(_time) as first max(_time) as last"
+        f" from datamodel={model} where index={_quoted(index)}"
+    )
+
+
+def accel_localise_query(model: str, index: str, width: float) -> str:
+    """Rung 1: the summary's own host/time buckets; a summary read scans no events."""
+    return (
+        f"| tstats summariesonly=true count from datamodel={model}"
+        f" where index={_quoted(index)} by host _time span={int(width)}s"
+    )
+
+
+def summary_window(rows: Iterable[Mapping[str, Any]]) -> tuple[float, float] | None:
+    """The earliest and latest summarized event the probe returned; None when it holds none."""
+    firsts: list[float] = []
+    lasts: list[float] = []
+    for row in rows:
+        if _count(row.get("count")) <= 0:
+            continue
+        first = _number(row.get("first"))
+        last = _number(row.get("last")) or first
+        if first is None or last is None:
+            continue
+        firsts.append(first)
+        lasts.append(last)
+    if not firsts:
+        return None
+    return (min(firsts), max(lasts) + 0.000001)
+
+
+def accel_summaries(executor: HuntExecutor, index: str) -> tuple[list[AccelSummary], list[str]]:
+    """One summariesonly probe per accelerated model: which cover this index, over what window."""
+    found: list[AccelSummary] = []
+    notes: list[str] = []
+    end = time.time() + 1.0
+    for model in ACCEL_MODELS:
+        rows, reason = _read_range(
+            executor,
+            accel_probe_query(model, index),
+            0.0,
+            end,
+            kind="localise_accel",
+            row_cap=ACCEL_PROBE_ROWS,
+        )
+        if reason:
+            notes.append(f"accel:{model}:{reason}")
+            continue
+        window = summary_window(rows)
+        if window:
+            found.append(AccelSummary(model, window))
+    return found, notes
+
+
 def localise(
     executor: HuntExecutor, index: str, start: float, end: float, *, width: float | None = None
-) -> tuple[list[LocalWindow], list[str]]:
-    """Rung 2: one indexed aggregate locates the source's busy host/time windows."""
+) -> Localisation:
+    """Rung 1 over a covering summary, else rung 2's index aggregate: where and when, never who."""
     chosen = width or localise_width(end - start)
+    summaries, notes = accel_summaries(executor, index)
+    covered = [
+        item for item in summaries if coverage_label(item.window, start, end) == "accelerated"
+    ]
+    accel_window = covered[0].window if covered else (summaries[0].window if summaries else None)
+    for summary in covered:
+        rows, reason = _read_range(
+            executor,
+            accel_localise_query(summary.model, index, chosen),
+            start,
+            end,
+            kind="localise",
+            row_cap=LOCALISE_ROWS,
+        )
+        if reason:
+            notes.append(f"accel:{summary.model}:{reason}")
+            continue
+        windows = select_local_windows(rows, chosen)
+        if windows:
+            return Localisation(
+                windows, "accelerated", summary.model, summary.window, "accelerated", notes
+            )
+        notes.append(f"accel:no_windows:{summary.model}")
     rows, reason = _read_range(
         executor,
         localise_query(index, chosen),
@@ -176,8 +287,11 @@ def localise(
         kind="localise",
         row_cap=LOCALISE_ROWS,
     )
-    notes = [f"localise:{reason}"] if reason else []
-    return select_local_windows(rows, chosen), notes
+    if reason:
+        notes.append(f"localise:{reason}")
+    return Localisation(
+        select_local_windows(rows, chosen), "indexed", "", accel_window, "scan", notes
+    )
 
 
 def _number(value: Any) -> float | None:
@@ -446,6 +560,7 @@ def read_anchors(
     per_window: int,
     kind: str,
     max_sources: int = SAMPLE_SOURCES,
+    accel_window: tuple[float, float] | None = None,
 ) -> RowSet:
     """Rung 3: read only the host/time windows rung 2 produced, capped per window."""
     route, route_name = route_filter(facts, max_sources)
@@ -460,6 +575,7 @@ def read_anchors(
     found.rung = "narrowed_scan"
     found.events_scanned = sum(anchor.events for anchor in readable)
     found.coverage = "scan"
+    found.accel_window = accel_window
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
     with ThreadPoolExecutor(max_workers=min(len(readable) or 1, concurrency)) as pool:
         futures = [
@@ -522,10 +638,16 @@ def read_alert_rows(
 
 
 __all__ = [
+    "ACCEL_MODELS",
     "ALERT_TERM",
+    "AccelSummary",
+    "Localisation",
     "LocalWindow",
     "RowSet",
     "SourceFacts",
+    "accel_localise_query",
+    "accel_probe_query",
+    "accel_summaries",
     "cadence_facts",
     "coverage_label",
     "index_facts",
@@ -539,5 +661,6 @@ __all__ = [
     "route_filter",
     "sample_windows",
     "select_local_windows",
+    "summary_window",
     "window_bounds",
 ]

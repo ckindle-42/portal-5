@@ -592,6 +592,32 @@ def test_the_read_receipt_reports_whole_anchored_and_sampled():
     assert anchor_windows(inventory, "ix:big") == [(1_000.0, 1_200.000001), (9_000.0, 9_000.000001)]
 
 
+def test_the_localisation_receipt_carries_the_window_a_range_outside_it_is_a_scan():
+    from portal.modules.security.core.hunt.executor import Read
+    from portal.modules.security.core.hunt.notables.behaviours import _localise_sources
+
+    class _Exec:
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del start, end, kind, row_cap
+            if "summariesonly=true count min(_time)" in query:
+                if "datamodel=Authentication" in query:
+                    return Read([{"count": "9", "first": 0.0, "last": 500.0}], False, None)
+                return Read([], False, None)
+            rows = [{"_time": index * 300.0, "host": "h1", "count": "21"} for index in range(24)]
+            return Read(rows, False, None)
+
+    facts = SourceFacts("ix", "st", 55_000_000, 0.0, 7200.0, ("h1",), 1, ("s1",), 1)
+    anchors, block = _localise_sources(_Exec(), [("ix:st", [_card()], facts, 0.0)], 100)
+
+    entry = block["indexes"][0]
+    assert entry["mechanism"] == "indexed"
+    assert entry["coverage"] == "scan"
+    assert entry["accel_window"] == [0.0, 500.000001]
+    assert anchors == {}
+
+
 def test_collect_behaviours_keeps_s2_value_spans_when_localisation_finds_nothing(tmp_path):
     from portal.modules.security.core.hunt.executor import Read
     from portal.modules.security.core.hunt.notables.behaviours import collect_behaviours
