@@ -462,8 +462,8 @@ count 2.59 M events on `botsv2`.
 → six model-root entries with `summary.complete = 1`, keyed `DM_Splunk_SA_CIM_<Model>`; child
 objects (`DM_Splunk_SA_CIM_Endpoint.Processes`, …) are separate ids. `summary.size` replaces the
 5–15 % assumption with a measurement — record it. It is 0 for `Endpoint`'s root (`Ports`, no
-listening-port data in the corpus) while `Endpoint.Processes` is non-zero from the 28 auditd
-`SYSCALL` records; completeness, not size, is the property. (`datamodel_name`, `title` and
+listening-port data in the corpus); `Endpoint.Processes` draws on the 28 auditd `SYSCALL` records
+and should be non-zero after the rebuild — completeness, not size, is the property. (`datamodel_name`, `title` and
 `summary_size` are not fields on this endpoint; a query on them returns no rows, which reads as
 "nothing is accelerated".)
 

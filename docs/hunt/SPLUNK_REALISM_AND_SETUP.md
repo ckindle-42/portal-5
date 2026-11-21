@@ -519,9 +519,9 @@ Expected outcome on the AIT families: `Authentication` from `linux_secure`/`linu
 `Endpoint.Processes`/`Filesystem` from `linux_audit`, `Web` from `access_combined`,
 `Network_Traffic` from `suricata`/proxy logs, `Network_Resolution` from `dnsmasq`,
 `Intrusion_Detection` from `suricata:fast`. Measured 2026-11-21: `linux_audit` in the three
-families holds only 28 `SYSCALL` records — 0 kyoushi, 4 santos, 24 russellmitchell — so
-`Endpoint.Processes` is populated from those, not from a process-event stream, and
-`Endpoint.Filesystem`/`Registry`/`Services` stay empty. On botsv2: `Authentication` from
+families holds only 28 `SYSCALL` records — 0 kyoushi, 4 santos, 24 russellmitchell — so they
+are the only source for `Endpoint.Processes`, and `Endpoint.Filesystem`/`Registry`/`Services`
+stay empty. On botsv2: `Authentication` from
 `WinEventLog:Security` (4624/4625), `Endpoint` from Sysmon, `Network_Traffic`/`Web` from
 `pan:traffic`/`stream:*`, `Intrusion_Detection` from `suricata`.
 
