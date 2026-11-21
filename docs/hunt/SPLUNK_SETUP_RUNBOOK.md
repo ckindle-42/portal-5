@@ -7,7 +7,7 @@ the next starts. The order is forced by the measurement in that document:
 **sourcetype → TA/CIM → reindex → acceleration → summaries**.
 
 Everything is generated from one source of truth, `scripts/lab/splunk_setup/plan.py`, so the
-reindex mapping and the `props`/`transforms`/`tags`/`datamodels`/`savedsearches` conf files cannot
+reindex mapping and the `props`/`transforms`/`tags`/`savedsearches` conf files cannot
 disagree:
 
 ```bash
@@ -133,10 +133,11 @@ uv run python -m scripts.lab.splunk_setup apply --dry-run        # prints every 
 uv run python -m scripts.lab.splunk_setup apply
 ```
 
-`apply` renders the app with `datamodels.conf` **empty** (acceleration is stage 3, after the data
-exists — the doc's forced order). The committed tree under
-`scripts/lab/splunk_setup/app/portal5_hunt_setup/default/` is the **stage-3** state (acceleration
-on); `app --check` proves it is exactly what the renderer produces.
+`apply` renders the app **without** `datamodels.conf`: acceleration is stage 3, after the data
+exists (the doc's forced order), and the model object lives in Splunk_SA_CIM, so stage 3 writes it
+there over REST rather than into this app. The committed tree under
+`scripts/lab/splunk_setup/app/portal5_hunt_setup/default/` is exactly what the renderer produces,
+at every stage; `app --check` proves it.
 
 **The conf files it installs** (committed, generated — `scripts/lab/splunk_setup/app/portal5_hunt_setup/default/`):
 
@@ -146,7 +147,7 @@ on); `app --check` proves it is exactly what the renderer produces.
 | `transforms.conf` | one regex per index-time field (auditd `acct`/`exe`/`addr`/`terminal`/`uid`; auth `user`/`src`; access-log `c_ip`/`c_user`/`vhost`/`cs_method`/`cs_uri_stem`/`sc_status`; fast-log `signature`/`src`/`dest`; dnsmasq `dns_query`/`src`) — one `[ph_ix_*]` stanza per field, each with `WRITE_META = true` |
 | `fields.conf` | `INDEXED = true` for every index-time field, incl. the JSON keys the doc names (`alert.signature`, `dns.rrname`, `http.url`, …) |
 | `eventtypes.conf` + `tags.conf` | the CIM tag constraints: `authentication`, `web`, `ids`+`attack`, `network`+`communicate`, `network`+`resolution`, `endpoint`+`process`+`report` |
-| `datamodels.conf` | empty at stage 1; stage 3 writes acceleration for the six models, `acceleration.earliest_time = -10y` |
+| `datamodels.conf` | **not shipped** — the model object belongs to Splunk_SA_CIM, and a copy here loses to it; stage 3 writes the acceleration into the CIM app over REST |
 | `savedsearches.conf` | one `collect` per tuned index (stage 4) |
 
 The `cim_*_indexes` macros are **not** in this app: `apply` POSTs them to
@@ -156,6 +157,17 @@ A copy under `portal5_hunt_setup` was rendered until 2026-11-21; it loses to Spl
 empty `()` default in every app context, so it was dropped. An app install left on the box by an
 earlier run may still hold it — it is inert (it loses too) and `rollback`'s app removal takes it
 out with the rest of the app.
+
+The same precedence applies to acceleration, and stage 3 is where it lands. `apply --accelerate`
+POSTs `acceleration = true`, `acceleration.earliest_time = -10y`,
+`acceleration.cron_schedule = */10 * * * *` and `acceleration.max_concurrent = 1` to
+`/servicesNS/nobody/Splunk_SA_CIM/configs/conf-datamodels/<Model>`. Measured live 2026-11-21:
+with those four keys in `portal5_hunt_setup/default/datamodels.conf`, the model endpoint
+(`GET /servicesNS/nobody/Splunk_SA_CIM/datamodel/model/<Model>`) still reported
+`enabled: False`, earliest `-1y`/`-3mon`, and no summary was built. The same four keys written into
+Splunk_SA_CIM's local conf made it report `enabled: True`, `-10y`. `install_app` therefore removes
+the stale `default/datamodels.conf` of an earlier install (a tar extract overwrites, it never
+deletes), and `verify --accelerate` asserts the model endpoint — not the row.
 
 **Index-time fields need `WRITE_META = true`.** A `TRANSFORMS-*` stanza extracts the value, but
 without `WRITE_META` Splunk keeps it out of the tsidx — so `tstats` cannot group by it — and
@@ -260,7 +272,8 @@ uv run python -m scripts.lab.splunk_setup rollback --index santos
 ```
 
 It resets the seven `cim_*_indexes` macros in Splunk_SA_CIM to CIM's own `()` default (a no-op for
-`cim_Change_indexes` unless `--with-change` was applied) and prints, for you to run: remove
+`cim_Change_indexes` unless `--with-change` was applied), deletes the model acceleration row stage 3
+writes there (a no-op before stage 3), and prints, for you to run: remove
 `/opt/splunk/etc/apps/portal5_hunt_setup`, restart, and
 `POST …/apps/local/<ta>/disable` for every TA the stage enabled.
 
@@ -380,10 +393,15 @@ disk and unchanged).
 
 ## Stage 3 — accelerate the six models over `-10y` (~5–15 min, 100–300 MB)
 
-**What it does:** writes `datamodels.conf` (acceleration on, window, cron `*/10`,
-`max_concurrent = 1` so the build is serial on a 14-core VM), re-installs the app, restarts, and
-waits for the first build. `Change` is opt-in (`--with-change`) and is **not** recommended here:
-its volume is `winregistry`, which only exists in `botsv2`, which is the control.
+**What it does:** re-renders and installs the app, restarts, then writes each model's acceleration
+into **Splunk_SA_CIM**'s local `datamodels.conf` over REST — `acceleration = true`,
+`acceleration.earliest_time = -10y`, `acceleration.cron_schedule = */10 * * * *`,
+`acceleration.max_concurrent = 1` so the build is serial on a 14-core VM — and waits for the first
+build. The row goes where the model object lives, because a copy in `portal5_hunt_setup` loses to
+the CIM app's own defaults (measured 2026-11-21). The write is idempotent: `apply` reads the model
+endpoint first and writes only when that does not already report enabled over `-10y`. `Change` is
+opt-in (`--with-change`) and is **not** recommended here: its volume is `winregistry`, which only
+exists in `botsv2`, which is the control.
 
 **Cost:** a build is one search per model over its events. Measured `tstats`-class scan rates put
 each family's six-model build at ~10 s per model (doc §5.3), so **~3 min of compute** plus up to
@@ -403,6 +421,14 @@ each), so the "accelerate an empty index" mistake cannot happen silently. It als
 
 **Verification:**
 
+```bash
+uv run python -m scripts.lab.splunk_setup verify --accelerate | tee coding_task/scratch/splunk_setup/verify.json | head -60
+```
+→ six `"probe": "acceleration:<Model>"` entries, each `"failed": false` with
+`"reported": {"enabled": true, "earliest_time": "-10y", …}`. **Fail if** one is `failed: true`
+with `reports enabled=False -1y` (or `-3mon`) — that is the 2026-11-21 finding: the four keys were
+written into the app, not into Splunk_SA_CIM, and the model endpoint never saw them.
+
 ```spl
 | tstats summariesonly=true count from datamodel=Authentication by Authentication.user
 ```
@@ -411,10 +437,11 @@ query returned 0 rows in 0.12 s; unaccelerated (`summariesonly=false`) the model
 count 2.59 M events on `botsv2`.
 
 ```spl
-| rest /services/admin/summarization | table title summary_size complete
+| rest /services/admin/summarization by_tstats=t | table datamodel_name summary.size summary.complete
 ```
-→ six entries with `complete = 1` and `summary_size > 0`. `summary_size` replaces the 5–15 %
-assumption with a measurement — record it.
+→ six entries with `summary.complete = 1` and `summary.size > 0`. `summary.size` replaces the
+5–15 % assumption with a measurement — record it. (`title` and `summary_size` are not fields on
+this endpoint; a query on them returns no rows, which reads as "nothing is accelerated".)
 
 **Control probe (the degradation must survive):**
 
@@ -426,12 +453,19 @@ assumption with a measurement — record it.
 not even look at it. `summariesonly=false` is the point — with `true` the probe would return 0
 rows whether or not the macro worked. If this returns the 2.59 M events the realism doc measured,
 the macro precedence went the wrong way (stage 1's `verify` would already have failed) — fix before continuing.
-Second check: `| rest /services/admin/summarization | table title earliest latest` must show no
-entry covering 2017-08..2018-10.
+Second check: `| rest /services/admin/summarization by_tstats=t | table datamodel_name summary.earliest_time summary.latest_time`
+must show no entry covering 2017-08..2018-10.
 
-**Rollback:** re-run `apply` **without** `--accelerate` (one command: strips `datamodels.conf`,
-installs, restarts). Existing summaries stop being maintained and are removed by Splunk after the
-window; no index is touched.
+**Rollback:**
+
+```bash
+uv run python -m scripts.lab.splunk_setup rollback --dry-run   # shows what changes
+uv run python -m scripts.lab.splunk_setup rollback
+```
+→ deletes each model's local row in Splunk_SA_CIM, so the model reports the CIM default again
+(`enabled: false`, its own `earliest_time`). Existing summaries stop being maintained and are
+removed by Splunk after the window; no index is touched. Re-running `apply` **without**
+`--accelerate` no longer turns acceleration off — it never wrote it.
 
 ---
 
@@ -477,11 +511,12 @@ exists to remove). Then `index=summary hunt_entities_index=hb_ait_santos | head 
 ## Stage 5 — the full verification pass
 
 ```bash
-uv run python -m scripts.lab.splunk_setup verify --index santos | tee coding_task/scratch/splunk_setup/verify.json
+uv run python -m scripts.lab.splunk_setup verify --index santos --accelerate | tee coding_task/scratch/splunk_setup/verify.json
 ```
 
-Run it once per tuned index. Each pass runs the six `cim_*_indexes` parser expansions, the chosen
-index's `entity_indexed:<index>` (`by acct`) and `vhost_indexed:<index>` (`by vhost`) probes, its
+Run it once per tuned index. Each pass runs the six `cim_*_indexes` parser expansions, the six
+`acceleration:<Model>` model-endpoint probes (`--accelerate`), the chosen index's
+`entity_indexed:<index>` (`by acct`) and `vhost_indexed:<index>` (`by vhost`) probes, its
 events / sourcetypes / accelerated-model probes, and the three control probes. It reports `rows`,
 `scan_count`, `run_seconds` and the expected result for each, and **fails on a probe that returned
 fewer rows than it declares**, not only on a failed job. What "worked" looks like, in one place:
@@ -489,6 +524,7 @@ fewer rows than it declares**, not only on a failed job. What "worked" looks lik
 | probe | expected | what a failure means |
 |---|---|---|
 | `cim_macro:cim_<Model>_indexes` ×6 | the expansion names all three `_v2` indexes | the override is not in Splunk_SA_CIM's local conf — re-run `apply` |
+| `acceleration:<Model>` ×6 (`--accelerate`) | the model endpoint reports `enabled` over `-10y` | the row is not in Splunk_SA_CIM's local conf — re-run `apply --accelerate`; a row in the hunt app reports `enabled: False` |
 | `eventcount index=<i>_v2` | = the table's kept count | a file failed to ship — `--resume` |
 | `tstats … by sourcetype` on `_v2` | ≤16 rows, no date-in-filename names | mapping missed a class |
 | `entity_indexed:<i>_v2` (`tstats … by acct`) | >0 rows | the transform did not write meta (`WRITE_META` missing) or the index predates the fix — rebuild the index, a restart cannot repair it |
@@ -514,8 +550,9 @@ accepted against.
 | ship duration | **estimated** from each corpus's own measured ingest rate |
 | `_v2` disk use | **estimate** (104 B/event proxy, +40–100 % extraction) until `dbinspect` after stage 2 |
 | acceleration build time | **estimate** from the doc's measured scan rates; `cron */10` adds up to 10 min of waiting |
-| summary size | **assumption** (doc's 5–15 %); replaced by `summary_size` after stage 3 |
+| summary size | **assumption** (doc's 5–15 %); replaced by `summary.size` after stage 3 |
 | macro precedence over the CIM defaults | **measured live 2026-11-21** — the app copy loses to Splunk_SA_CIM's `()` defaults in every app context, so `apply` now writes the override into Splunk_SA_CIM's local conf and `verify` asserts the parser expansion |
+| acceleration precedence over the CIM defaults | **measured live 2026-11-21** — the four keys in `portal5_hunt_setup/default/datamodels.conf` left the model endpoint at `enabled: False` / `-1y`; the same keys in Splunk_SA_CIM's local conf report `enabled: True` / `-10y`, so stage 3 writes them there and `verify --accelerate` asserts the endpoint |
 | that an index-time field reaches the tsidx | **measured live 2026-11-21** by the orchestrator — without `WRITE_META` the `santos_v2` `tstats … by acct` answered 0 rows; with it, one HEC probe event answered `by acct exe`. Not yet re-measured on a full re-shipped index |
 | that the live Splunk accepts this conf | **unproven** — no stage was run |
 

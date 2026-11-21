@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.lab.splunk_setup import cli, conf, plan, reindex, rest
+from scripts.lab.splunk_setup import cli, conf, host, plan, reindex, rest
 
 APP_ROOT = Path(conf.__file__).parent / "app"
 
@@ -74,11 +74,13 @@ def test_every_ingested_sourcetype_normalises() -> None:
     assert len({plan.classify(n).target for n in names if plan.classify(n).target}) <= 20
 
 
-def test_shipped_conf_is_rendered_from_the_plan_and_extracts() -> None:
+def test_shipped_conf_is_rendered_from_the_plan_and_extracts(tmp_path: Path) -> None:
     """The committed app tree is exactly the renderer's output, and it extracts on real lines."""
     assert conf.diff_app(APP_ROOT) == []
     rendered = conf.conf_files()
     assert "macros.conf" not in rendered  # the CIM app owns the macro; a copy here loses to it
+    assert "datamodels.conf" not in rendered  # and the model object, so acceleration is REST
+    assert not (APP_ROOT / plan.APP_NAME / "default" / "datamodels.conf").exists()
     transforms = rendered["transforms.conf"]
     fields = rendered["fields.conf"]
     props = rendered["props.conf"]
@@ -95,6 +97,15 @@ def test_shipped_conf_is_rendered_from_the_plan_and_extracts() -> None:
     # an index-time value only reaches the tsidx (and so tstats) when the transform writes meta
     assert transforms.count("WRITE_META = true") == sum(len(f) for f in conf.INDEX_FIELDS.values())
     assert transforms.count("WRITE_META = true") == transforms.count("[ph_ix_")
+    # an app installed before the drop keeps the file: tar overwrites, so the installer removes it
+    conf.write_app(tmp_path, with_change=True)
+    stale = tmp_path / plan.APP_NAME / "default" / "datamodels.conf"
+    stale.write_text("[Web]\nacceleration = true\n")
+    conf.write_app(tmp_path)
+    assert not stale.exists()
+    assert f"rm -f /opt/splunk/etc/apps/{plan.APP_NAME}/default/datamodels.conf" in (
+        host.install_command(plan.APP_NAME)
+    )
 
 
 def test_vhost_combined_lines_keep_the_client_in_c_ip() -> None:
@@ -161,13 +172,21 @@ def test_reindex_writes_only_new_indexes_and_routes_noise_out(tmp_path: Path) ->
 
 def test_acceleration_scope_window_and_control() -> None:
     """Only the doc's models are accelerated, over the whole corpus span, never the control."""
-    assert conf.datamodels_conf(accelerate=False).count("acceleration = true") == 0
-    text = conf.datamodels_conf()
-    assert set(re.findall(r"^\[(\w+)\]$", text, re.M)) == set(plan.ACCELERATED)
-    assert text.count(f"acceleration.earliest_time = {plan.ACCEL_WINDOW}") == len(plan.ACCELERATED)
-    assert plan.ACCEL_WINDOW == "-10y"  # a -90d window would cover no event in these corpora
-    with_change = conf.datamodels_conf(with_change=True)
-    assert "[Change]" in with_change and "[Change]" not in text
+    settings = plan.accel_settings()
+    assert settings["acceleration"] == "true"
+    assert settings["acceleration.earliest_time"] == plan.ACCEL_WINDOW == "-10y"
+    assert settings["acceleration.cron_schedule"] == "*/10 * * * *"
+    assert settings["acceleration.max_concurrent"] == "1"
+    assert plan.accelerated_models() == (
+        "Authentication",
+        "Endpoint",
+        "Intrusion_Detection",
+        "Network_Resolution",
+        "Network_Traffic",
+        "Web",
+    )
+    assert plan.accelerated_models(with_change=True)[-1] == "Change"
+    assert plan.CIM_APP == "Splunk_SA_CIM"
     assert plan.CONTROL_INDEX not in " ".join(s.target_index for s in plan.TUNED)
     assert plan.CONTROL_INDEX not in " ".join(s.source_index for s in plan.TUNED)
 
@@ -198,6 +217,25 @@ class _FakeSplunk:
         }
         self.apps = {"Splunk_TA_nix": True}
         self.macros = dict.fromkeys(plan.cim_macros(True), plan.CIM_DEFAULT_DEFINITION)
+        self.defaults = {
+            model: {"enabled": False, "earliest_time": "-1y"}
+            for model in plan.accelerated_models(with_change=True)
+        }
+        self.models = {model: dict(state) for model, state in self.defaults.items()}
+
+    def _datamodel(self, method: str, path: str, data):
+        """Only Splunk_SA_CIM's row reaches the model: a copy in any other app reports nothing."""
+        clean = path.split("?")[0]
+        app = clean.split("/servicesNS/nobody/")[-1].split("/")[0]
+        model = clean.rsplit("/", 1)[-1]
+        if app == plan.CIM_APP and method == "POST":
+            self.models[model] = {
+                "enabled": data["acceleration"] == "true",
+                "earliest_time": data["acceleration.earliest_time"],
+            }
+        if app == plan.CIM_APP and method == "DELETE":
+            self.models[model] = dict(self.defaults[model])
+        return {"entry": [{"content": {"acceleration": dict(self.models[model])}}]}
 
     def _config(self, method: str, path: str, data):
         name = path.split("/configs/conf-macros/")[-1].split("?")[0]
@@ -212,6 +250,8 @@ class _FakeSplunk:
             self.writes.append((path, json.dumps(data, sort_keys=True)))
         if "/configs/conf-macros/" in path:
             return self._config(method, path, data)
+        if "/datamodel/model/" in path or "/configs/conf-datamodels/" in path:
+            return self._datamodel(method, path, data or {})
         if "/configs/" in path:
             return {"entry": []}
         if path.startswith("/services/apps/local/"):
@@ -329,3 +369,56 @@ def test_verify_judges_the_parser_expansion_not_the_conf_row() -> None:
     )
     assert report["cim_macro:cim_Authentication_indexes"]["failed"] is True
     assert "does not name" in report["cim_macro:cim_Authentication_indexes"]["messages"][0]
+
+
+def test_acceleration_is_written_where_the_model_reports_it() -> None:
+    """`apply --accelerate` writes Splunk_SA_CIM's row; the model endpoint is what decides a write."""
+    fake = _FakeSplunk()
+    svc = rest.SplunkREST(transport=fake)
+    first = cli._accelerate(svc, with_change=False, dry_run=False)
+    assert [action["changed"] for action in first] == [True] * len(plan.ACCELERATED)
+    assert [path for path, _data in fake.writes] == [
+        f"/servicesNS/nobody/{plan.CIM_APP}/configs/conf-datamodels/{model}?output_mode=json"
+        for model in plan.accelerated_models()
+    ]
+    assert json.loads(fake.writes[0][1]) == plan.accel_settings()
+    assert fake.models["Authentication"] == {"enabled": True, "earliest_time": "-10y"}
+    # idempotent: the second run reads the models and writes nothing
+    writes_after_first = list(fake.writes)
+    second = cli._accelerate(svc, with_change=False, dry_run=False)
+    assert [action["changed"] for action in second] == [False] * len(plan.ACCELERATED)
+    assert fake.writes == writes_after_first
+    # rollback drops the local row, so the model reports the CIM default again
+    reverted = [
+        svc.revert_datamodel_acceleration(plan.CIM_APP, model)
+        for model in plan.accelerated_models()
+    ]
+    assert all(action.changed for action in reverted)
+    assert fake.models["Web"] == fake.defaults["Web"]
+    assert not svc.revert_datamodel_acceleration(plan.CIM_APP, "Web").changed
+
+
+def test_verify_fails_a_model_that_reports_no_acceleration() -> None:
+    """Stage 3's property is the model endpoint: enabled over `-10y`, not the conf row."""
+
+    class _Svc:
+        reports = {
+            model: {"enabled": True, "earliest_time": plan.ACCEL_WINDOW}
+            for model in plan.accelerated_models()
+        }
+
+        def datamodel_acceleration(self, app: str, model: str) -> dict:
+            return dict(self.reports[model])
+
+    svc = _Svc()
+    clean = {row["probe"]: row for row in cli._datamodel_probes(svc)}
+    assert len(clean) == len(plan.ACCELERATED) and not any(row["failed"] for row in clean.values())
+    svc.reports["Web"] = {"enabled": False, "earliest_time": "-1y"}
+    svc.reports["Endpoint"] = {"enabled": True, "earliest_time": "-3mon"}
+    report = {row["probe"]: row for row in cli._datamodel_probes(svc)}
+    assert {name for name, row in report.items() if row["failed"]} == {
+        "acceleration:Web",
+        "acceleration:Endpoint",
+    }
+    assert "reports enabled=False -1y" in report["acceleration:Web"]["messages"][0]
+    assert cli.build_parser().parse_args(["verify", "--accelerate"]).accelerate

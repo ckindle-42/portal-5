@@ -1,4 +1,4 @@
-"""Render the Splunk app (props, transforms, tags, fields, datamodels, savedsearches) from plan."""
+"""Render the Splunk app (props, transforms, tags, fields, savedsearches) from plan."""
 
 from __future__ import annotations
 
@@ -169,21 +169,6 @@ def tags_conf() -> str:
     return "\n".join(out)
 
 
-def datamodels_conf(with_change: bool = False, accelerate: bool = True) -> str:
-    models = list(plan.ACCELERATED) + (list(plan.ACCELERATED_OPTIONAL) if with_change else [])
-    if not accelerate:
-        models = []
-    out = [HEADER]
-    for model in models:
-        out.append(f"[{model}]")
-        out.append("acceleration = true")
-        out.append(f"acceleration.earliest_time = {plan.ACCEL_WINDOW}")
-        out.append("acceleration.cron_schedule = */10 * * * *")
-        out.append("acceleration.max_concurrent = 1")
-        out.append("")
-    return "\n".join(out)
-
-
 def summary_search(spec: plan.IndexSpec) -> str:
     return (
         f'index={spec.target_index} sourcetype="linux_audit" '
@@ -216,8 +201,8 @@ def app_conf() -> str:
     )
 
 
-def conf_files(with_change: bool = False, accelerate: bool = True) -> dict[str, str]:
-    """filename -> text for every conf file the app ships (macros live in Splunk_SA_CIM)."""
+def conf_files(with_change: bool = False) -> dict[str, str]:
+    """filename -> text for every conf file the app ships (CIM owns macros and acceleration)."""
     return {
         "app.conf": app_conf(),
         "props.conf": props_conf(),
@@ -225,24 +210,25 @@ def conf_files(with_change: bool = False, accelerate: bool = True) -> dict[str, 
         "fields.conf": fields_conf(),
         "eventtypes.conf": eventtypes_conf(),
         "tags.conf": tags_conf(),
-        "datamodels.conf": datamodels_conf(with_change, accelerate),
         "savedsearches.conf": savedsearches_conf(),
     }
 
 
-def write_app(root: Path, with_change: bool = False, accelerate: bool = True) -> Path:
+def write_app(root: Path, with_change: bool = False) -> Path:
     app_dir = root / plan.APP_NAME / "default"
     app_dir.mkdir(parents=True, exist_ok=True)
-    for name, text in conf_files(with_change, accelerate).items():
+    for name, text in conf_files(with_change).items():
         (app_dir / name).write_text(text)
+    for name in plan.LEGACY_CONF_FILES:
+        (app_dir / name).unlink(missing_ok=True)
     return root / plan.APP_NAME
 
 
-def diff_app(root: Path, with_change: bool = False, accelerate: bool = True) -> list[str]:
+def diff_app(root: Path, with_change: bool = False) -> list[str]:
     """Files whose committed copy differs from the renderer (empty means in sync)."""
     app_dir = root / plan.APP_NAME / "default"
     out = []
-    for name, text in conf_files(with_change, accelerate).items():
+    for name, text in conf_files(with_change).items():
         path = app_dir / name
         if not path.exists() or path.read_text() != text:
             out.append(name)

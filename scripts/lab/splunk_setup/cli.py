@@ -51,14 +51,10 @@ def cmd_inventory(args: argparse.Namespace) -> int:
 
 def cmd_app(args: argparse.Namespace) -> int:
     if args.check:
-        drift = conf.diff_app(
-            Path(args.out), with_change=args.with_change, accelerate=not args.no_accelerate
-        )
+        drift = conf.diff_app(Path(args.out), with_change=args.with_change)
         _print({"in_sync": not drift, "drift": drift})
         return 0 if not drift else 1
-    app_dir = conf.write_app(
-        Path(args.out), with_change=args.with_change, accelerate=not args.no_accelerate
-    )
+    app_dir = conf.write_app(Path(args.out), with_change=args.with_change)
     print(f"rendered {app_dir}")
     return 0
 
@@ -102,7 +98,7 @@ def cmd_apply(args: argparse.Namespace) -> int:
     svc = rest.SplunkREST(transport=_transport(args))
     if accelerate:
         _require_indexed_families(svc)
-    conf.write_app(root, with_change=args.with_change, accelerate=accelerate)
+    conf.write_app(root, with_change=args.with_change)
     actions: list[dict] = []
     if not args.dry_run:
         actions.append({"changed": True, "detail": host.install_app(app_dir, lxc_id=args.lxc_id)})
@@ -131,8 +127,24 @@ def cmd_apply(args: argparse.Namespace) -> int:
     if not args.dry_run and not args.no_restart:
         actions.append({"changed": True, "detail": host.restart(lxc_id=args.lxc_id)})
         _wait_for_rest(svc)
+    if accelerate:
+        actions.extend(_accelerate(svc, with_change=args.with_change, dry_run=args.dry_run))
     _print({"app": str(app_dir), "dry_run": args.dry_run, "actions": actions})
     return 0
+
+
+def _accelerate(
+    svc: rest.SplunkREST, *, with_change: bool, dry_run: bool
+) -> list[dict[str, object]]:
+    """Stage 3 after the restart: the model object lives in Splunk_SA_CIM, so the row goes there."""
+    return [
+        asdict(
+            svc.ensure_datamodel_acceleration(
+                plan.CIM_APP, model, plan.accel_settings(), dry_run=dry_run
+            )
+        )
+        for model in plan.accelerated_models(with_change)
+    ]
 
 
 def _require_indexed_families(svc: rest.SplunkREST) -> None:
@@ -253,6 +265,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
     if args.index:
         probes = list(plan.verify_probes(_spec(args.index))) + probes
     report = _cim_macro_probes(svc)
+    if args.accelerate:
+        report.extend(_datamodel_probes(svc))
     for probe in probes:
         report.append(_probe_result(svc, probe))
     _print(report)
@@ -306,6 +320,35 @@ def _cim_macro_probes(svc: rest.SplunkREST) -> list[dict[str, object]]:
     return report
 
 
+def _datamodel_probes(svc: rest.SplunkREST) -> list[dict[str, object]]:
+    """The property is what the model reports, not the conf row: a row in another app loses."""
+    report = []
+    for model in plan.accelerated_models():
+        reported = svc.datamodel_acceleration(plan.CIM_APP, model)
+        window = str(plan.ACCEL_WINDOW)
+        enabled = bool(reported.get("enabled"))
+        covered = enabled and reported.get("earliest_time") == window
+        report.append(
+            {
+                "probe": f"acceleration:{model}",
+                "spl": f"GET /servicesNS/nobody/{plan.CIM_APP}/datamodel/model/{model}",
+                "expect": f"enabled over {window}",
+                "reported": reported,
+                "rows": [],
+                "row_count": 0,
+                "scan_count": 0,
+                "run_seconds": 0.0,
+                "failed": not covered,
+                "messages": (
+                    []
+                    if covered
+                    else [f"{model} reports enabled={enabled} {reported.get('earliest_time', '?')}"]
+                ),
+            }
+        )
+    return report
+
+
 def cmd_rollback(args: argparse.Namespace) -> int:
     spec = _spec(args.index) if args.index else plan.TUNED[0]
     svc = rest.SplunkREST(transport=_transport(args))
@@ -319,6 +362,10 @@ def cmd_rollback(args: argparse.Namespace) -> int:
             )
         )
         for macro in plan.cim_macros(with_change=True)
+    ]
+    acceleration = [
+        asdict(svc.revert_datamodel_acceleration(plan.CIM_APP, model, dry_run=args.dry_run))
+        for model in plan.accelerated_models(with_change=True)
     ]
     commands = {
         "app": [
@@ -341,7 +388,14 @@ def cmd_rollback(args: argparse.Namespace) -> int:
             f"index={spec.source_index} is never written by any stage; no rollback is needed for it"
         ),
     }
-    _print({"dry_run": args.dry_run, "cim_macros": restores, "commands": commands})
+    _print(
+        {
+            "dry_run": args.dry_run,
+            "cim_macros": restores,
+            "acceleration": acceleration,
+            "commands": commands,
+        }
+    )
     return 0
 
 
@@ -367,7 +421,6 @@ def build_parser() -> argparse.ArgumentParser:
     app.add_argument("--out", default=str(Path(__file__).parent / "app"))
     app.add_argument("--check", action="store_true", help="compare against the committed tree")
     app.add_argument("--with-change", action="store_true", help="include the Change model")
-    app.add_argument("--no-accelerate", action="store_true", help="omit datamodels.conf")
     app.set_defaults(func=cmd_app)
 
     pre = sub.add_parser("preflight", help="read-only inventory of the live instance")
@@ -412,6 +465,7 @@ def _stage_parsers(sub) -> None:
 
     verify = sub.add_parser("verify", help="stage 5 probes (add --index for a tuned index)")
     verify.add_argument("--index")
+    verify.add_argument("--accelerate", action="store_true", help="also assert the model endpoints")
     verify.add_argument("--offline", action="store_true")
     verify.set_defaults(func=cmd_verify)
 

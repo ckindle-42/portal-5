@@ -12,6 +12,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from . import plan
+
 DEFAULT_LXC = "301"
 DEFAULT_CONTAINER = "splunk"
 _SAFE = re.compile(r"^[A-Za-z0-9_.\-]+$")
@@ -56,11 +58,20 @@ def in_container(lxc_id: str, container: str, inner: str, user: str = "") -> str
     return f"pct exec {lxc} -- docker exec {as_user}-i {box} {inner}"
 
 
+def install_command(app_name: str) -> str:
+    """Drop the files this release no longer ships, then extract the app over the box's copy."""
+    app = _guarded(app_name, "app name")
+    legacy = " ".join(
+        f"/opt/splunk/etc/apps/{app}/default/{name}" for name in plan.LEGACY_CONF_FILES
+    )
+    return f"sh -c 'rm -f {legacy} && exec tar -C /opt/splunk/etc/apps -xf -'"
+
+
 def install_app(
     app_root: Path, *, lxc_id: str = DEFAULT_LXC, container: str = DEFAULT_CONTAINER
 ) -> str:
     """Stream the rendered app into the container's apps dir (idempotent overwrite)."""
-    remote = in_container(lxc_id, container, "tar -C /opt/splunk/etc/apps -xf -", user="splunk")
+    remote = in_container(lxc_id, container, install_command(app_root.name), user="splunk")
     tar = subprocess.Popen(
         ["tar", "-C", str(app_root.parent), "-cf", "-", app_root.name],
         stdout=subprocess.PIPE,

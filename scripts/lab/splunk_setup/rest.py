@@ -20,6 +20,10 @@ DEFAULT_URL = "https://10.0.1.30:8089"
 POLL_SECONDS = 3.0
 
 
+def _datamodel_path(kind: str, app: str, model: str) -> str:
+    return f"/servicesNS/nobody/{quote(app, safe='')}/{kind}/{quote(model, safe='')}"
+
+
 class SplunkError(RuntimeError):
     """A Splunk REST call failed; the message carries the status and body."""
 
@@ -160,6 +164,59 @@ class SplunkREST:
         if not dry_run:
             self.request("POST", path, {"definition": definition})
         return Action(True, f"{app} {name} set")
+
+    # -- data models ---------------------------------------------------------------
+    def datamodel_acceleration(self, app: str, model: str) -> dict[str, Any]:
+        """What the model reports it accelerates over: the effective state, not the conf row."""
+        entry = self.entry(_datamodel_path("datamodel/model", app, model))
+        content = dict((entry or {}).get("content") or {})
+        reported = content.get("acceleration")
+        state: dict[str, Any] = dict(reported) if isinstance(reported, dict) else {}
+        if isinstance(reported, bool):
+            state["enabled"] = reported
+        state.update(
+            {
+                key.split(".", 1)[1]: value
+                for key, value in content.items()
+                if key.startswith("acceleration.")
+            }
+        )
+        state["enabled"] = str(state.get("enabled", "")).lower() in ("1", "true", "t")
+        return state
+
+    def ensure_datamodel_acceleration(
+        self, app: str, model: str, settings: dict[str, str], *, dry_run: bool = False
+    ) -> Action:
+        """Write the settings into ``app``'s local conf unless the model already reports them."""
+        reported = self.datamodel_acceleration(app, model)
+        window = settings["acceleration.earliest_time"]
+        if reported.get("enabled") and reported.get("earliest_time") == window:
+            return Action(False, f"{app} {model} already reports enabled {window}")
+        before = f"{'enabled' if reported.get('enabled') else 'disabled'} " + str(
+            reported.get("earliest_time", "?")
+        )
+        if not dry_run:
+            self.request("POST", _datamodel_path("configs/conf-datamodels", app, model), settings)
+        return Action(True, f"{app} {model} reports {before} -> enabled {window}")
+
+    def revert_datamodel_acceleration(
+        self, app: str, model: str, *, dry_run: bool = False
+    ) -> Action:
+        """Drop the local override so the model reports the app's own default again."""
+        if not self.datamodel_acceleration(app, model).get("enabled"):
+            return Action(False, f"{app} {model} already reports its default")
+        detail = f"{app} {model} local row would be removed"
+        if not dry_run:
+            try:
+                self.request("DELETE", _datamodel_path("configs/conf-datamodels", app, model))
+            except SplunkError as exc:
+                if exc.status != 404:
+                    raise
+            reported = self.datamodel_acceleration(app, model)
+            detail = (
+                f"{app} {model} local row removed; reports {reported.get('earliest_time', '?')}"
+            )
+        return Action(True, detail)
 
     # -- searches ------------------------------------------------------------------
     def search(
