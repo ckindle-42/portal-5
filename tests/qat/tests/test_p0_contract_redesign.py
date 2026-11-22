@@ -9,6 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from tests.qat import config as qat_config
 from tests.qat import gate, hardening, preflight, report, runner, scenarios
 from tests.qat.config import McpFleetEntry
 from tests.qat.models import QATResult, QATScenario, Status
@@ -481,3 +482,220 @@ def test_registry_hunt_timeout_and_separate_mcp_contracts(tmp_path: Path) -> Non
     assert by_id["s2-p6-auto-audio::video"].timeout_s == 1800
     assert by_id["s2-p6-auto-audio::music"].timeout_s == 900
     assert "s2-p6-auto-audio-stt" in by_id and "s2-p6-auto-audio-tts" in by_id
+
+
+def test_primary_model_for_reads_base_and_variant_hints() -> None:
+    portal_data = {
+        "workspaces": {
+            "auto": {"model_hint": "router-primary"},
+            "auto-coding": {
+                "model_hint": "coding-primary",
+                "variants": {"cad": {"model_hint": "cad-primary"}, "bigfix": {}},
+            },
+        }
+    }
+
+    assert qat_config.primary_model_for("auto", portal_data) == ""
+    assert qat_config.primary_model_for("auto-coding", portal_data) == "coding-primary"
+    assert qat_config.primary_model_for("auto-coding::cad", portal_data) == "cad-primary"
+    assert qat_config.primary_model_for("auto-coding::bigfix", portal_data) == "coding-primary"
+
+
+def test_completed_chat_matches_primary_and_records_actual_model(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from types import SimpleNamespace
+
+    outcome = SimpleNamespace(
+        chat_id="chat-1",
+        text="the answer",
+        trace={"workspace": "auto-coding", "model": "coding-primary", "backend": "omlx"},
+        served_model="auto-coding",
+        artifact_urls=(),
+        leak_marker=None,
+        tool_calls=(),
+    )
+
+    class FakeResponse:
+        is_success = True
+        status_code = 200
+        headers: dict[str, str] = {}
+
+    class FakeClient:
+        def __init__(self, settings: object) -> None:
+            pass
+
+        def signin(self) -> str:
+            return "token"
+
+        def create_chat(self, *args: object, **kwargs: object) -> str:
+            return "chat-1"
+
+        def send_turn(self, *args: object, **kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+        def poll_turn(self, *args: object, **kwargs: object) -> object:
+            return outcome
+
+    monkeypatch.setattr(runner, "OWUIClient", FakeClient)
+    portal_data = {"workspaces": {"auto-coding": {"model_hint": "coding-primary"}}}
+    monkeypatch.setattr(
+        runner,
+        "primary_model_for",
+        lambda workspace: qat_config.primary_model_for(workspace, portal_data),
+    )
+    monkeypatch.setattr(runner, "_finalize_chat", lambda *args: (True, "archived"))
+    settings = make_settings(tmp_path)
+    scenario = QATScenario(
+        "primary-chat", "Primary chat", 2, "phase", 1, "auto-coding", prompts=("hello",)
+    )
+
+    result = runner._run_chat(
+        settings,
+        scenario,
+        runner.RunState(settings, tmp_path, make_discovery()),
+        runner.RunnerOptions({2}, set(), set()),
+    )
+
+    assert result.status is Status.PASS
+    assert result.served_model == "coding-primary"
+
+
+def test_pipeline_backstop_fails_and_preserves_fallback_spans(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    trace = {
+        "workspace": "auto-coding::cad",
+        "model": "coding-backstop",
+        "backend": "ollama-coding",
+        "spans": [
+            {"name": "backend.failed", "error": "primary engine unavailable"},
+            {"name": "backend.fallback", "reason": "selected backstop model"},
+        ],
+    }
+
+    class FakeResponse:
+        status_code = 200
+        headers = {"X-Correlation-ID": "corr-1"}
+
+        def json(self) -> dict[str, object]:
+            return {"choices": [{"message": {"content": "the answer"}}]}
+
+    class FakeHTTPClient:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> FakeHTTPClient:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def post(self, *args: object, **kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+    monkeypatch.setattr(runner.httpx, "Client", FakeHTTPClient)
+    monkeypatch.setattr(runner, "primary_model_for", lambda workspace: "coding-primary")
+    monkeypatch.setattr(
+        runner.OWUIClient,
+        "lookup_trace",
+        lambda self, **kwargs: trace,
+    )
+    scenario = QATScenario(
+        "primary-backstop",
+        "Backstop response",
+        2,
+        "phase",
+        1,
+        "auto-coding::cad",
+        kind="pipeline",
+        prompts=("hello",),
+    )
+
+    result = runner._run_pipeline_chat(make_settings(tmp_path), scenario)
+
+    assert result.status is Status.FAIL
+    assert result.defect_class.value == "INFRA_ENV_GAP"
+    assert "expected coding-primary, served coding-backstop" in result.detail
+    assert result.evidence["primary_mismatch"]["failed_fallback_spans"] == trace["spans"]
+
+
+def test_dynamic_auto_chat_checks_resolved_trace_workspace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from types import SimpleNamespace
+
+    portal_data = {
+        "workspaces": {
+            "auto": {"model_hint": "router-primary"},
+            "auto-coding": {
+                "model_hint": "coding-primary",
+                "variants": {"cad": {"model_hint": "cad-primary"}},
+            },
+        }
+    }
+    resolved_workspaces: list[str] = []
+    outcome = SimpleNamespace(
+        chat_id="chat-1",
+        text="the answer",
+        trace={"workspace": "auto-coding::cad", "model": "cad-primary", "backend": "omlx"},
+        served_model="auto",
+        artifact_urls=(),
+        leak_marker=None,
+        tool_calls=(),
+    )
+
+    class FakeResponse:
+        is_success = True
+        status_code = 200
+        headers: dict[str, str] = {}
+
+    class FakeClient:
+        def __init__(self, settings: object) -> None:
+            pass
+
+        def signin(self) -> str:
+            return "token"
+
+        def create_chat(self, *args: object, **kwargs: object) -> str:
+            return "chat-1"
+
+        def send_turn(self, *args: object, **kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+        def poll_turn(self, *args: object, **kwargs: object) -> object:
+            return outcome
+
+    def resolve(workspace: str) -> str:
+        resolved_workspaces.append(workspace)
+        return qat_config.primary_model_for(workspace, portal_data)
+
+    monkeypatch.setattr(runner, "OWUIClient", FakeClient)
+    monkeypatch.setattr(runner, "primary_model_for", resolve)
+    monkeypatch.setattr(runner, "_finalize_chat", lambda *args: (True, "archived"))
+    settings = make_settings(tmp_path)
+    scenario = QATScenario(
+        "auto-primary", "Dynamic auto", 2, "phase", 1, "auto", prompts=("hello",)
+    )
+
+    result = runner._run_chat(
+        settings,
+        scenario,
+        runner.RunState(settings, tmp_path, make_discovery()),
+        runner.RunnerOptions({2}, set(), set()),
+    )
+
+    assert result.status is Status.PASS
+    assert result.served_model == "cad-primary"
+    assert resolved_workspaces == ["auto-coding::cad"]
+
+
+def test_report_uses_actual_served_model_in_acceptance_matrix(tmp_path: Path) -> None:
+    scenario = QATScenario("actual-model", "Actual model", 2, "phase", 1, "auto-coding")
+    result = QATResult(
+        "actual-model", Status.PASS, "chat turn completed", served_model="coding-primary"
+    )
+
+    path = report.write_markdown(tmp_path, make_discovery(), [scenario], [result])
+
+    assert "| actual-model | coding-primary | PASS |" in path.read_text(encoding="utf-8")
