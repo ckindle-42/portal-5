@@ -665,7 +665,7 @@ workspaces:
       at xhigh thinking. Those are the vendor's harness numbers on NVIDIA B200s,
       not this host's. PROMOTE_POLICY=confirm.
     model_hint: Qwen3.8-27B-oQ4e-mtp:opencode
-    context_limit: 131072
+    # ctx: oMLX profile enforces max_context_window 131072 — a workspace context_limit would fail BW
     predict_limit: 32768
     max_concurrent: 1
     # Card sampling (training sampling; the card's own evaluation settings).
@@ -689,7 +689,7 @@ workspaces:
       Terminal-Bench 2.1 39.5% -> 55.8%. Pair it with the P40/pi GGUF fallback in
       config/modelfiles/qwen38-27b-pi-lora-ctx32k.Modelfile. PROMOTE_POLICY=confirm.
     model_hint: Qwen3.8-27B-oQ4e-mtp:pi
-    context_limit: 131072
+    # ctx: oMLX profile enforces max_context_window 131072 — a workspace context_limit would fail BW
     predict_limit: 32768
     max_concurrent: 1
     # Card sampling (training sampling, identical to the opencode card).
@@ -713,7 +713,7 @@ workspaces:
       (default 0.9 = "high"); the card warns that minimum effort does not disable
       reasoning. PROMOTE_POLICY=confirm.
     model_hint: Inkling-2-Mini-oQ4e-mtp
-    context_limit: 262144
+    # ctx: oMLX-enforced window — no workspace context_limit without a baked -ctxNk tag (check BW)
     predict_limit: 32768
     max_concurrent: 1
     temperature: 1.0

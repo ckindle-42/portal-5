@@ -186,6 +186,30 @@ models:
     # a single-cap seat serves reasoning AND answer from one budget, so the
     # card's final-response figure is what that budget must cover.
     recommended_max_output: 131072
+  # harness-hub LoRA adapter cards, keyed on the full served oMLX profile id so
+  # they never shadow the qwen3.8 family card for the bare base seat.
+  "qwen3.8-27b-oq4e-mtp:opencode":
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/harness-hub/Qwen3.8-27B-opencode-adapted (2026-11-20)"
+    source_tier: "1 — build provider (harness-hub): the adapter's own card, not the base Qwen3.8-27B card"
+    recommended_sampling: {temperature: 0.8, top_p: 1.0}
+    # max_context is the deployment's enforced ceiling (~/.omlx/model_profiles.json, read 2026-11-21)
+    max_context: 131072
+    harness_policy:
+      think: "false"
+      notes: "Card: thinking off — it adds nothing significant and costs ~6x the tokens."
+  "qwen3.8-27b-oq4e-mtp:pi":
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/harness-hub/Qwen3.8-27B-pi-adapted (2026-11-20)"
+    source_tier: "1 — build provider (harness-hub): the adapter's own card, sampling identical to the opencode adapter's"
+    recommended_sampling: {temperature: 0.8, top_p: 1.0}
+    # max_context is the deployment's enforced ceiling (~/.omlx/model_profiles.json, read 2026-11-21)
+    max_context: 131072
+    harness_policy:
+      think: "false"
+      notes: "Card: evaluated with thinking off, like the opencode adapter."
   gemma4:
     status: verified-card
     verified: true
