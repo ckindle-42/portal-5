@@ -301,3 +301,20 @@ class TestAdversarialExcerpt:
             runner.RunnerOptions({3}, set(), set()),
         )
         assert result.status is Status.PASS
+
+
+def test_evict_omlx_accepts_http_202(tmp_path: Path) -> None:
+    import httpx
+
+    from tests.qat import gate
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/unload"):
+            return httpx.Response(202, json={"status": "unloading"})
+        return httpx.Response(404)
+
+    settings = make_settings(tmp_path)
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        res = gate.evict_omlx(client, settings, ["Qwen3.8-27B-oQ4e-mtp"])
+    assert res.status is Status.PASS
+    assert "evicted 1" in res.detail

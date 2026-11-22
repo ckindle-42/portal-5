@@ -143,7 +143,7 @@ def evict_omlx(client: httpx.Client, settings: Settings, resident: list[str]) ->
                     headers=settings.omlx_headers(),
                     timeout=15.0,
                 )
-            if r.status_code not in (200, 400):
+            if r.status_code not in (200, 202, 204, 400):
                 return QATResult(
                     "gate-evict-omlx", Status.FAIL, f"unload {name}: HTTP {r.status_code}"
                 )
