@@ -536,6 +536,29 @@ def test_classify_splits_backends_from_seats_and_models() -> None:
     assert pins.classify("granite4.1:8b-ctx8k", backends, {"auto-coding"}) == "model"
 
 
+def test_pin_name_matches_real_pins_and_skips_lookalike_tokens() -> None:
+    for name in ("DEFAULT_JUDGE_BACKEND", "FOO_SEAT", "BAR_PIN", "DEFAULT_JUDGE", "JUDGE_MODEL"):
+        assert pins.PIN_NAME.search(name), name
+    for name in ("SPINE_FILE", "SPINE_RECEIPT", "JUDGE_RANKED_GENERATOR"):
+        assert not pins.PIN_NAME.search(name), name
+
+
+def test_discover_pins_keeps_the_judge_backend_and_skips_spine_constants(
+    tmp_path: Path,
+) -> None:
+    module = tmp_path / "portal" / "notables.py"
+    module.parent.mkdir(parents=True)
+    module.write_text(
+        "DEFAULT_JUDGE_BACKEND = 'omlx-general'\n"
+        "SPINE_FILE = 'entities.duckdb'\n"
+        "SPINE_RECEIPT = 'spine.json'\n"
+        "JUDGE_RANKED_GENERATOR = 'similar_to_known'\n",
+        encoding="utf-8",
+    )
+    found = {pin.name: pin.value for pin in pins.discover_pins(tmp_path)}
+    assert found == {"DEFAULT_JUDGE_BACKEND": "omlx-general"}
+
+
 def test_alias_hop_verdict_follows_the_engine_model_list() -> None:
     backend = pins.Backend("omlx-general", "omlx", "http://x", {})
     served = engines.EngineModels(omlx={"gemma-4-26b-a4b-it-QAT-4bit"})

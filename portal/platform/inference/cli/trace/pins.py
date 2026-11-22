@@ -15,7 +15,10 @@ from .context import TraceContext, expand_env
 from .engines import EngineModels, fetch_engine_models
 from .model import Hop, Status, short
 
-PIN_NAME = re.compile(r"(BACKEND|SEAT|PIN|JUDGE)")
+#: An underscore-delimited ``BACKEND``/``SEAT``/``PIN`` token, or a ``JUDGE`` pin token.
+PIN_NAME = re.compile(
+    r"(?:^|_)(?:BACKEND|SEAT|PIN)(?:_|$)|(?:^|_)JUDGE(?:_(?:MODEL|SEAT|BACKEND|PIN))?$"
+)
 #: A pin's value is an id or tag, never a prompt body.
 IDENTIFIER = re.compile(r"^[\w./:@%+\-]{1,120}$")
 BACKENDS_YAML = Path("config") / "backends.yaml"
@@ -43,7 +46,7 @@ class Backend:
 
 
 def discover_pins(root: Path) -> list[Pin]:
-    """Module-level ``*BACKEND*`` / ``*SEAT*`` / ``*PIN*`` / ``*JUDGE*`` string constants."""
+    """Module-level constants naming a backend, seat, pin or judge in underscore tokens."""
     pins: list[Pin] = []
     for path in sorted((root / "portal").rglob("*.py")):
         try:
