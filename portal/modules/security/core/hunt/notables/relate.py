@@ -18,6 +18,7 @@ import argparse
 import hashlib
 import ipaddress
 import json
+import os
 import re
 import sys
 import time
@@ -37,6 +38,7 @@ from .receipt import progress_update, read_json, write_json
 from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, configure_ledger, read_notables
 from .sample import shared_source_names, source_route
 from .spine import FILE, SPINE_FILE, SPINE_RECEIPT, classify, event_id
+from .verdicts import apply_verdict_priors, stage4_verdicts_enabled
 
 RELATE_FILE = "relate.json"
 CASES_FILE = "cases.json"
@@ -1287,6 +1289,18 @@ def build_cases(
     cases.sort(key=lambda case: (-case["score"], case["start"], case["case_id"]))
     for rank, case in enumerate(cases):
         case["rank"] = rank
+    if stage4_verdicts_enabled():
+        store = os.environ.get("PORTAL_HUNT_KNOWLEDGE_STORE")
+        if not store:
+            raise ValueError("PORTAL_HUNT_KNOWLEDGE_STORE is required for Stage 4 verdict feedback")
+        cases = [
+            dict(row)
+            for row in apply_verdict_priors(
+                [{**case, "index_name": index} for case in cases],
+                store=Path(store),
+                enabled=True,
+            )
+        ]
     attempted = counters["links"] + counters["gap"] + counters["window"]
     receipt = {
         "units": len(units),
