@@ -97,6 +97,15 @@ orchestration_arm:
     yield_lock_dir: "~/.portal5/locks/"
     escalation:
       enabled: false
+      # Blocked-job escalation target: cloud = legacy dispatch.py lanes (default);
+      # portal = local Portal seats only, never cloud; portal_then_cloud = local seats
+      # first, one cloud attempt only when queue.personal_cloud.enabled is true.
+      # Env override: PORTAL_ESCALATION_TARGET.
+      target: cloud
+      # Local seat ladder by job kind: attempt 1 primary seat, attempt 2+ deep seat.
+      portal_seats:
+        code: [auto-coding, auto-reasoning::deep]
+        security: [auto-security, auto-reasoning::deep]
       oracle:
         enabled: true
         tiers: [sol, grok-max, flagship, oc-deep-flash, oc-glm-flash, deep-pro]

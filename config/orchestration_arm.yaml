@@ -56,6 +56,14 @@ queue:
   yield_lock_dir: ~/.portal5/locks/
   escalation:
     enabled: false
+    target: cloud
+    portal_seats:
+      code:
+      - auto-coding
+      - auto-reasoning::deep
+      security:
+      - auto-security
+      - auto-reasoning::deep
     oracle:
       enabled: true
       tiers:
