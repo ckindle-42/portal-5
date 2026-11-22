@@ -47,8 +47,9 @@ def write_markdown(
 ) -> Path:
     by_id = {r.scenario_id: r for r in results}
     counts = Counter(r.status.value for r in results)
+    failed_rows = [row for row in results if row.status is Status.FAIL]
     defects = Counter(
-        r.defect_class.value for r in results if r.status is Status.FAIL and r.defect_class
+        row.defect_class.value if row.defect_class else "UNCLASSIFIED" for row in failed_rows
     )
     lines: list[str] = [
         "# Portal 5 — Release 1.0 QAT Report",
@@ -79,7 +80,7 @@ def write_markdown(
     else:
         lines.append("- none: designed roster == OWUI presets")
     lines += ["", "## Categorized defects (FAIL rows)", ""]
-    if defects:
+    if failed_rows:
         lines += [f"- {kind}: {count}" for kind, count in sorted(defects.items())]
         lines += ["", "| Scenario | Defect class | Detail |", "|---|---|---|"]
         for scenario in scenarios:
@@ -123,6 +124,7 @@ def write_review_html(
             f"</td><td>{html.escape(scenario.model_slug)}</td>"
             f"<td>{row.status.value}</td><td>{html.escape(row.detail[:200])}</td>"
             f"<td><select data-sid='{html.escape(scenario.scenario_id)}'>"
+            + "<option selected>PENDING</option>"
             + "".join(f"<option>{s.value}</option>" for s in VERDICT_STATUSES)
             + "</select></td></tr>"
         )

@@ -183,6 +183,11 @@ class TestPreflightInterpreter:
 @dataclass
 class FakeResponse:
     status_code: int = 200
+    headers: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def is_success(self) -> bool:
+        return 200 <= self.status_code < 300
 
 
 @dataclass
@@ -194,6 +199,7 @@ class FakeOutcome:
     artifact_urls: tuple[str, ...] = ()
     leak_marker: str | None = None
     trace: dict = field(default_factory=lambda: {"backend": "omlx-general"})
+    tool_calls: tuple[dict, ...] = ()
 
 
 VALID_WAV = b"RIFF\x24\x00\x00\x00WAVEfmt " + b"\x00" * 16
@@ -215,7 +221,7 @@ class FakeOWUI:
     def signin(self) -> str:
         return "token"
 
-    def create_chat(self, token: str, model_slug: str, title: str) -> str:
+    def create_chat(self, token: str, model_slug: str, title: str, prompt: str = "") -> str:
         return "chat-1"
 
     def send_turn(
@@ -226,12 +232,13 @@ class FakeOWUI:
         prompt: str,
         tool_ids: tuple[str, ...] = (),
         function_calling: bool = False,
+        prior_messages: list[dict] | None = None,
+        files: list[dict] | None = None,
+        deadline: float | None = None,
     ) -> FakeResponse:
         return FakeResponse()
 
-    def poll_turn(
-        self, token: str, chat_id: str, max_wait_s: float = 0.0, min_messages: int = 1
-    ) -> FakeOutcome:
+    def poll_turn(self, token: str, chat_id: str, **kwargs: object) -> FakeOutcome:
         mode = type(self).mode
         return FakeOutcome(
             text="leak JSONDecodeError happened" if mode == "leak" else "the answer",
@@ -245,9 +252,9 @@ class FakeOWUI:
     def rename_chat(self, token: str, chat_id: str, title: str) -> None:
         self.renamed.append((chat_id, title))
 
-    def archive_chat(self, token: str, chat_id: str, date: str) -> bool:
+    def archive_chat(self, token: str, chat_id: str, date: str) -> tuple[bool, str]:
         self.archived.append(chat_id)
-        return True
+        return True, "archived"
 
     def delete_chat(self, token: str, chat_id: str) -> bool:
         self.deleted.append(chat_id)
@@ -315,7 +322,7 @@ class TestChatExecution:
         state = rn.RunState(settings=settings, run_dir=tmp_path, discovery=make_discovery())
         result = rn._execute_one(settings, scenario, state, _chat_opts())
         assert result.status is Status.FAIL
-        assert "expected 1 artifact" in result.detail
+        assert "no artifact URL matches wav" in result.detail
 
     def test_leak_marker_is_product_bug(self, fake_owui, tmp_path: Path) -> None:
         FakeOWUI.mode = "leak"
@@ -419,9 +426,15 @@ class TestCascade:
     def test_gate_block_cascades_blocked_rows(
         self, monkeypatch: pytest.MonkeyPatch, fake_owui, tmp_path: Path
     ) -> None:
-        monkeypatch.setattr(
-            rn.gate, "run_gate", lambda *a, **k: GateReport(phase="p2", ok=False, blocked=True)
-        )
+        gate_calls = 0
+
+        def gate_sequence(*args: object, **kwargs: object) -> GateReport:
+            nonlocal gate_calls
+            gate_calls += 1
+            blocked = gate_calls > 1
+            return GateReport(phase="p2", ok=not blocked, blocked=blocked)
+
+        monkeypatch.setattr(rn.gate, "run_gate", gate_sequence)
         settings = make_settings(tmp_path)
         plan = [
             _scn("s2-p1-a", tier=10),

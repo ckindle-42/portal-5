@@ -362,7 +362,8 @@ class TestRegistry:
     def test_media_artifact_kinds(self) -> None:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
         kinds = {s.scenario_id: s.artifact_kind for s in registry if s.phase == "media_heavy"}
-        assert kinds["s2-p6-auto-audio"] == "wav"
+        assert kinds["s2-p6-auto-audio-stt"] == ""
+        assert kinds["s2-p6-auto-audio-tts"] == "wav"
         assert kinds["s2-p6-auto-audio::image"] == "png"
         assert kinds["s2-p6-auto-audio::video"] == "mp4"
         assert kinds["s2-p6-auto-audio::music"] == "audio"
@@ -448,9 +449,11 @@ class TestRegistry:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
         hunt = [s for s in registry if s.scenario_id.startswith("s3-hunt-") and s.kind == "chat"]
         joined = " ".join(p for s in hunt for p in s.prompts)
-        assert "WinEventLog:" in joined
-        assert "Sysmon" in joined
+        assert "windows:security" in joined
+        assert "windows:sysmon" in joined
         assert "fgt_" in joined
+        assert "earliest=-7d@d" in joined
+        assert all(s.expected_tools == ("splunk",) for s in hunt)
 
     def test_injection_and_lab_gate_probes_present(self) -> None:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())

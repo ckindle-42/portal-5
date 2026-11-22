@@ -26,13 +26,12 @@ SUBPROCESS_TIMEOUT_S = 900
 
 
 def run_cmd(cmd: list[str], cwd: Path, timeout_s: int = SUBPROCESS_TIMEOUT_S) -> tuple[int, str]:
-    """Run a repo CLI, returning (exit_code, combined-output tail)."""
+    """Run a repo CLI, returning its complete combined output."""
     try:
         proc = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, timeout=timeout_s)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 124, f"subprocess failed: {exc}"
-    tail = (proc.stdout + proc.stderr)[-2000:]
-    return proc.returncode, tail
+    return proc.returncode, proc.stdout + proc.stderr
 
 
 def retired_aliases(repo_root: Path) -> list[str]:
@@ -104,8 +103,44 @@ def run_trace_sections(settings: Settings) -> QATResult:
     for section in TRACE_SECTIONS:
         cmd.extend(["--section", section])
     rc, out = run_cmd(cmd, settings.repo_root)
-    status = Status.PASS if rc == 0 else Status.FAIL
-    return QATResult("p0-portal-trace", status, f"sections={','.join(TRACE_SECTIONS)} exit={rc}")
+    try:
+        payload = json.loads(out[out.index("{") : out.rindex("}") + 1])
+        sections = payload.get("sections", [])
+    except (ValueError, TypeError):
+        return QATResult("p0-portal-trace", Status.FAIL, "portal trace returned invalid JSON")
+    present = {str(section.get("key", "")) for section in sections if isinstance(section, dict)}
+    failed, warned = [], []
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+        key = str(section.get("key", "unknown"))
+        for hop in section.get("hops", []):
+            if not isinstance(hop, dict):
+                continue
+            label = f"{key}/{hop.get('name', 'unknown')}"
+            if str(hop.get("status", "")).upper() == "FAIL":
+                failed.append(label)
+            elif str(hop.get("status", "")).upper() == "WARN":
+                warned.append(label)
+    missing = sorted(set(TRACE_SECTIONS) - present)
+    status = Status.FAIL if rc != 0 or failed else Status.WARN if warned or missing else Status.PASS
+    problems = [f"failed: {', '.join(failed)}"] if failed else []
+    problems.extend([f"warned: {', '.join(warned)}"] if warned else [])
+    problems.extend([f"missing sections: {', '.join(missing)}"] if missing else [])
+    detail = "; ".join(problems) or f"{len(present)} trace sections clean"
+    return QATResult(
+        "p0-portal-trace",
+        status,
+        f"{detail}; exit={rc}",
+        evidence={
+            "requested_sections": list(TRACE_SECTIONS),
+            "present_sections": sorted(present),
+            "missing_sections": missing,
+            "failed_hops": failed,
+            "warned_hops": warned,
+            "exit_code": rc,
+        },
+    )
 
 
 def run_lab_ready(settings: Settings) -> QATResult:

@@ -66,6 +66,9 @@ class QATScenario:
     expected: str = ""
     enabled: bool = True
     requires: tuple[str, ...] = ()
+    expected_tools: tuple[str, ...] = ()
+    timeout_s: float = 180.0
+    attachment: str = ""
 
     def cascade_key(self) -> tuple[int, str, str]:
         return (self.tier, self.model_slug, self.scenario_id)
