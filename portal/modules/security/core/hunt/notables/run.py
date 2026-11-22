@@ -256,6 +256,7 @@ def _fact_dict(card: SourceCard) -> SourceFacts:
         active_periods=int(facts.get("active_periods") or 0),
         periods=int(facts.get("periods") or 0),
         count_cv=float(facts.get("count_cv") or 0.0),
+        search_sourcetype=str(facts.get("search_sourcetype") or ""),
         files=tuple(
             IndexFile(
                 str(item.get("path") or ""),

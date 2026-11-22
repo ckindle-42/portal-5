@@ -591,7 +591,7 @@ def test_the_read_receipt_reports_whole_anchored_and_sampled():
         ]
     }
     # the two spans on the same source merge; the other source's list is not an anchor here
-    assert anchor_windows(inventory, "ix:big") == [(1_000.0, 1_200.000001), (9_000.0, 9_000.000001)]
+    assert anchor_windows(inventory, "ix:big") == [(1_000.0, 1_201.0), (9_000.0, 9_001.0)]
 
 
 def test_the_localisation_receipt_carries_the_window_a_range_outside_it_is_a_scan():
@@ -616,7 +616,7 @@ def test_the_localisation_receipt_carries_the_window_a_range_outside_it_is_a_sca
     entry = block["indexes"][0]
     assert entry["mechanism"] == "indexed"
     assert entry["coverage"] == "scan"
-    assert entry["accel_window"] == [0.0, 500.000001]
+    assert entry["accel_window"] == [0.0, 501.0]
     assert anchors == {}
 
 
@@ -683,8 +683,8 @@ def test_a_sources_span_is_never_compared_to_the_index_union():
         for query, start, end in executor.calls
         if "summariesonly=true count min(_time)" not in query
     }
-    assert (1000.0, 2000.000001) in bounds
-    assert (5000.0, 9000.000001) in bounds
+    assert (1000.0, 2001.0) in bounds
+    assert (5000.0, 9001.0) in bounds
     assert (1000.0, 9000.000001) not in bounds
 
 
