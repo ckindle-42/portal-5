@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import json
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -74,7 +75,7 @@ def retired_alias_guard(repo_root: Path, discovery: Discovery) -> QATResult:
 
 
 def run_preflight_script(settings: Settings) -> QATResult:
-    rc, out = run_cmd(["python3", PREFLIGHT_SCRIPT, "--json"], settings.repo_root)
+    rc, out = run_cmd([sys.executable, PREFLIGHT_SCRIPT, "--json"], settings.repo_root)
     if rc != 0:
         return QATResult("p0-execute-preflight", Status.FAIL, f"exit {rc}: {out[-300:]}")
     try:
@@ -92,14 +93,14 @@ def run_preflight_script(settings: Settings) -> QATResult:
 
 
 def run_routing_regression(settings: Settings) -> QATResult:
-    rc, out = run_cmd(["python3", ROUTING_SCRIPT, "--assert-baseline"], settings.repo_root)
+    rc, out = run_cmd([sys.executable, ROUTING_SCRIPT, "--assert-baseline"], settings.repo_root)
     status = Status.PASS if rc == 0 else Status.FAIL
     detail = out.strip().splitlines()[-1] if out.strip() else f"exit {rc}"
     return QATResult("p0-routing-baseline", status, detail[:300])
 
 
 def run_trace_sections(settings: Settings) -> QATResult:
-    cmd = ["uv", "run", "portal", "trace", "--json"]
+    cmd = [sys.executable, "-m", "portal.platform.inference.cli", "trace", "--json"]
     for section in TRACE_SECTIONS:
         cmd.extend(["--section", section])
     rc, out = run_cmd(cmd, settings.repo_root)
@@ -108,7 +109,7 @@ def run_trace_sections(settings: Settings) -> QATResult:
 
 
 def run_lab_ready(settings: Settings) -> QATResult:
-    rc, out = run_cmd(["python3", LAB_SCRIPT], settings.repo_root)
+    rc, out = run_cmd([sys.executable, LAB_SCRIPT], settings.repo_root)
     status = Status.PASS if rc == 0 else Status.WARN
     detail = "lab ready" if rc == 0 else f"lab not ready (exit {rc}) — lab-exec scenarios SKIP"
     return QATResult("p0-lab-ready", status, detail, evidence={"tail": out[-300:]})
