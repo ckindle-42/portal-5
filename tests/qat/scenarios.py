@@ -10,7 +10,7 @@ disabled scenarios so they are visible, never silently skipped.
 
 from __future__ import annotations
 
-from .config import Discovery, Settings
+from .config import Discovery, Settings, workspace_tools_for
 from .models import QATScenario, RubricCriterion
 
 STAGE2_PHASES: tuple[str, ...] = (
@@ -359,6 +359,60 @@ def _coding_phase_timeout(pid: str) -> float:
 def _canonical_timeout(scenario_id: str) -> float:
     # Deep chains outlived the 180s client cap: the engine succeeded just after cutoff.
     return 360.0 if "deep" in scenario_id else 180.0
+
+
+def _stage4_timeout(pid: str) -> float:
+    # Release 1.0: five heavy Stage-4 seats timed out at the inherited 180s cap.
+    if pid == "auto-research" or "::cad" in pid or pid.split("::", 1)[0] == "auto-compliance":
+        return 600.0
+    return 360.0
+
+
+# Release 1.0 Stage 4: the generic -tools prompt drew tool_calls=0 on these seats.
+_STAGE4_TOOL_ACTIONS: dict[str, tuple[str, str]] = {
+    "auto-audio": (
+        "transcribe_with_speakers",
+        "Use the transcribe_with_speakers tool to transcribe the attached audio sample "
+        "and label each speaker.",
+    ),
+    "auto-audio::image": (
+        "generate_image",
+        "Use the generate_image tool to generate a PNG of a red lighthouse on a cliff "
+        "at dusk, then cite the saved file path.",
+    ),
+    "auto-daily": (
+        "remember",
+        "Use the remember tool to store that my preferred text editor is vim, then "
+        "confirm what you stored.",
+    ),
+    "auto-daily::nemotron": (
+        "remember",
+        "Use the remember tool to store that my preferred text editor is vim, then "
+        "confirm what you stored.",
+    ),
+    "auto-documents": (
+        "create_word_document",
+        "Use the create_word_document tool to create a one-page DOCX status report "
+        "titled 'QAT Stage 4', then cite the saved file path.",
+    ),
+    "auto-security": (
+        "lookup_cve",
+        "Use the lookup_cve tool to look up CVE-2021-44228 and summarise its severity "
+        "and the affected product.",
+    ),
+    "auto-vision": (
+        "generate_image",
+        "Use the generate_image tool to generate a PNG of a green version of the "
+        "attached image's subject, then cite the saved file path.",
+    ),
+}
+
+
+def _stage4_tools_prompt(pid: str) -> str:
+    action = _STAGE4_TOOL_ACTIONS.get(pid)
+    if action is not None and action[0] in workspace_tools_for(pid):
+        return action[1]
+    return "Use your attached tools to verify one fact, then cite the tool result."
 
 
 def _artifact_kind(preset_id: str) -> str:
@@ -750,7 +804,7 @@ def _adaptive_scenario(pid: str, dim: str, system: str, d: Discovery) -> QATScen
     elif dim == "format":
         prompts = ("Deliver exactly the required section structure for a sample task.",)
     elif dim == "tools":
-        prompts = ("Use your attached tools to verify one fact, then cite the tool result.",)
+        prompts = (_stage4_tools_prompt(pid),)
     elif dim == "continuity":
         prompts = (
             "Remember the code name ORCHID-9 for this conversation.",
@@ -761,6 +815,10 @@ def _adaptive_scenario(pid: str, dim: str, system: str, d: Discovery) -> QATScen
     else:
         prompts = ("Answer with one word: yes or no — is water wet under standard conditions?",)
     criteria = _rubric(*[(dim, f"{dim} dimension satisfied")])
+    attachment = ""
+    if dim == "tools" and pid == "auto-audio":
+        # Whisper-only seat: the tools turn needs real audio to transcribe.
+        attachment = "tests/fixtures/sample_two_speakers.wav"
     return _scn(
         4,
         "adaptive_deep",
@@ -768,6 +826,8 @@ def _adaptive_scenario(pid: str, dim: str, system: str, d: Discovery) -> QATScen
         f"{pid} · {dim}",
         pid,
         prompts=prompts,
+        timeout_s=_stage4_timeout(pid),
+        attachment=attachment,
         tools=d.preset_tools(pid),
         function_calling=d.presets[pid].function_calling,
         expected=f"operator rubric scores {dim} dimension",

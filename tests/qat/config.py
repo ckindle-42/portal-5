@@ -220,6 +220,21 @@ def primary_model_for(workspace_slug: str, portal_data: dict[str, Any] | None = 
     return str(workspace.get("model_hint") or "")
 
 
+def workspace_tools_for(
+    workspace_slug: str, portal_data: dict[str, Any] | None = None
+) -> tuple[str, ...]:
+    """Concrete tool names declared for a workspace or inherited variant."""
+    portal = portal_data if portal_data is not None else _load_yaml(PORTAL_YAML)
+    workspaces = portal.get("workspaces") or {}
+    try:
+        from portal.platform.inference.config import effective_workspace
+
+        workspace = effective_workspace(workspaces, workspace_slug)
+    except (KeyError, TypeError):
+        return ()
+    return tuple(str(t) for t in workspace.get("tools") or ())
+
+
 def load_bench_workspaces() -> dict[str, WorkspaceDef]:
     if not BENCH_YAML.is_file():
         return {}
