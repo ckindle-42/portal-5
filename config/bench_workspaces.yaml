@@ -257,6 +257,7 @@ workspaces:
     description: |-
       HEAD-TO-HEAD EVAL 2026-06-24: Gemma4-E2B-QAT abliterated (3GB, 71.6 t/s) vs baronllm (auto-pentest primary, 8B). Mirrors auto-pentest system prompt exactly — same tools, same lab environment, same hard constraints. Scoring: theory quality, refusal rate, MITRE ATT&CK coverage. If E2b-qat matches baronllm: promotes to auto-pentest primary, 18GB memory savings per concurrent request.
     model_hint: huihui_ai/gemma-4-abliterated:E2b-qat
+    max_concurrent: 1
     keep_alive: 15m
     # SEAT_CARD_CONFORMANCE_FIX: gemma4 card values (settings_audit served_vs_card)
     temperature: 1.0
@@ -339,6 +340,7 @@ workspaces:
     ctx_validated: true
     context_limit: 32768  # 2026-10-06: fixed overhead (system+20 tool schemas) measured 5193 tok = 31.7% of 16384
     predict_limit: 16384
+    max_concurrent: 1
     # SEAT_CARD_CONFORMANCE_FIX: qwen3.8 instruct card values (settings_audit served_vs_card)
     temperature: 0.7
     top_p: 0.8
@@ -395,6 +397,7 @@ workspaces:
     ctx_validated: true
     context_limit: 16384
     predict_limit: 16384
+    max_concurrent: 1
     temperature: 0.7
     top_p: 0.8
     top_k: 20
