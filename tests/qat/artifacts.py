@@ -59,6 +59,22 @@ def validate_audio(data: bytes) -> str | None:
     return validate_mp3(data)
 
 
+# Kokoro/mcp-tts may return WAV, MP3, Ogg, or FLAC. MPEG sync here is the two
+# frame headers the speech check accepts, not every 0xFFE0 sync.
+_TTS_AUDIO_PREFIXES = (b"ID3", b"\xff\xfb", b"\xff\xf3", b"OggS", b"fLaC")
+
+
+def validate_tts_audio(data: bytes) -> str | None:
+    """Non-empty speech bytes with WAV, MP3, Ogg, or FLAC magic."""
+    if not data:
+        return "empty audio"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WAVE":
+        return None
+    if any(data.startswith(prefix) for prefix in _TTS_AUDIO_PREFIXES):
+        return None
+    return f"not audio magic (first bytes {data[:12]!r})"
+
+
 def validate_stl(data: bytes) -> str | None:
     """Binary STL (80-byte header + uint32 count + 50*N bytes) or ASCII
     (solid..endsolid). The size check disambiguates: binary STLs may also
