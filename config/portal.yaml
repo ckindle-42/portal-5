@@ -1632,6 +1632,18 @@ workspaces:
         # Not the base seat: keep the pre-a537c9d17 effective serving (think unset, no presence pin).
         presence_penalty: null
         think: null
+        # 2026-11-22: the inherited 72-tool schema + system prompt exceed the 8k
+        # window's ~6k prompt budget, so every turn was refused by the context guard.
+        # Trimmed to northmini's proven-fitting ctx8k tool set.
+        tools:
+        - execute_python
+        - execute_nodejs
+        - execute_bash
+        - sandbox_status
+        - read_word_document
+        - read_pdf
+        - remember
+        - recall
       gemma4-heretic-coder:
         module: "coding"
         model_hint: "portal5/gemma4-26b-heretic:q4_K_M-ctx256k"
