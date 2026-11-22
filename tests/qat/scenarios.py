@@ -356,6 +356,11 @@ def _coding_phase_timeout(pid: str) -> float:
     return 180.0
 
 
+def _canonical_timeout(scenario_id: str) -> float:
+    # Deep chains outlived the 180s client cap: the engine succeeded just after cutoff.
+    return 360.0 if "deep" in scenario_id else 180.0
+
+
 def _artifact_kind(preset_id: str) -> str:
     if "cad" in preset_id:
         return "stl+png"
@@ -589,11 +594,12 @@ def _phase_security_canonical(_s: Settings, d: Discovery) -> list[QATScenario]:
                 continue
             offensive = variant in OFFENSIVE_SECURITY_VARIANTS
             kind = "chat" if pid in d.presets else "pipeline"
+            sid = f"s3-canonical-{pid.replace('::', '-')}"
             out.append(
                 _scn(
                     3,
                     "security_canonical",
-                    f"s3-canonical-{pid.replace('::', '-')}",
+                    sid,
                     pid,
                     pid,
                     kind=kind,
@@ -601,6 +607,7 @@ def _phase_security_canonical(_s: Settings, d: Discovery) -> list[QATScenario]:
                         "Draft the TTP chain for a phishing-to-privilege-escalation path "
                         "with MITRE IDs.",
                     ),
+                    timeout_s=_canonical_timeout(sid),
                     tools=d.preset_tools(pid),
                     expected="canonical security turn with MITRE-structured output",
                     rubric=_rubric(("mitre", "MITRE ATT&CK IDs present and plausible")),
