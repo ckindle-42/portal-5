@@ -106,7 +106,9 @@ from portal.platform.inference.router.tool_repeat import (
     apply_tool_byte_budget,
     followup_tool_choice,
     hold_ungrounded_answer,
+    next_tool_action,
     no_tool_call_retry,
+    prepare_cited_synthesis,
     prepare_toolless_finalizer,
     tool_result_byte_budget,
 )
@@ -142,6 +144,7 @@ from portal.platform.inference.router.workspaces import (
     _PERSONA_MAP,
     MAX_TOOL_HOPS,
     WORKSPACES,
+    _configured_tool_calls,
     _resolve_persona_tool_choice,
     _resolve_persona_tools,
     _tool_hop_limit,
@@ -1034,13 +1037,12 @@ async def _dispatch_hop_tool_calls(
     return assistant_msg, dispatch_results
 
 
-def _prepare_budget_finalizer(
-    body: dict[str, Any], guard: ToolRepeatGuard, result_bytes: int, budget: int
-) -> bool:
-    if not body.get("tools") or budget <= 0 or result_bytes < budget:
-        return False
-    prepare_toolless_finalizer(body, guard)
-    return True
+def _arm_final_answer(body: dict[str, Any], guard: ToolRepeatGuard, *, cited: bool) -> None:
+    """One more hop with tools withheld. Cited asks for sources."""
+    if cited:
+        prepare_cited_synthesis(body, guard)
+    else:
+        prepare_toolless_finalizer(body, guard)
 
 
 async def _return_client_owned_calls(
@@ -1194,8 +1196,8 @@ async def _tool_loop_frames_impl(
     4. **After stream completes**, if ``finish_reason ==
        "tool_calls"``:
        - Collect tool_calls from the OpenAI-format buffer.
-       - Bail with "Tool-use limit reached" content if
-         ``hop`` reaches the workspace's configured maximum.
+       - At the hop cap or the fresh-call cap, withhold tools and run one
+         synthesis hop instead of returning a partial stub or more calls.
        - Dispatch the hop's tool calls
          one at a time, in emitted order (dependent calls must see each other land).
        - Append assistant turn + tool results to
@@ -1259,6 +1261,8 @@ async def _tool_loop_frames_impl(
     _repeat_guard = ToolRepeatGuard()
     _tool_byte_budget = tool_result_byte_budget(workspace_context_limit(workspace_id))
     _tool_result_bytes = 0
+    _call_limit = _configured_tool_calls(workspace_id)
+    _calls_dispatched = 0
     finalizer_pending = False
     _download_lines = DownloadLineFilter(prior_office_filenames(body.get("messages")))
     _successful_creation = False
@@ -1799,42 +1803,36 @@ async def _tool_loop_frames_impl(
                 (tc.get("function") or {}).get("name", "").strip() in effective_tools
                 for tc in all_tool_calls
             )
-
-            # Hop limit guard
-            if hop >= hop_limit and not (bite_hops_supplied and client_owned):
-                if not client_owned and _prepare_budget_finalizer(
-                    current_body, _repeat_guard, _tool_result_bytes, _tool_byte_budget
-                ):
-                    finalizer_pending = True
-                    continue
-                limit_content = (
-                    f"\n\n[Tool-use limit ({hop_limit} hops) reached. Returning partial result.]"
-                )
-                if carry := format_tool_result_carry(carry_tool_calls, carry_results):
-                    limit_content += f"\n\n{carry}"
-                limit_msg = {
-                    "id": request_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": workspace_id,
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {"content": limit_content},
-                            "finish_reason": "stop",
-                        }
-                    ],
-                }
+            action = next_tool_action(
+                hop=hop,
+                hop_limit=hop_limit,
+                bite_returns_client=bool(bite_hops_supplied and client_owned and hop >= hop_limit),
+                synthesis_hop=not current_body.get("tools") and _repeat_guard.force_synthesis,
+                calls=all_tool_calls,
+                repeat_flags=[_repeat_guard.would_repeat(tc) for tc in all_tool_calls],
+                dispatched=_calls_dispatched,
+                call_limit=_call_limit,
+                client_owned=client_owned,
+                owned_names=effective_tools,
+            )
+            _calls_dispatched = action.dispatched
+            if action.kind == "stop":
                 if _exec_audit and _exec_audit_calls:
                     yield _exec_audit_event(_exec_audit_calls)
-                yield f"data: {json.dumps(limit_msg)}\n\n".encode()
+                if not _content_emitted:
+                    for _f in _no_answer_frames(request_id, workspace_id, NO_ANSWER_MESSAGE):
+                        yield _f
+                    return
+                yield _completion_finish_chunk("stop")
                 yield b"data: [DONE]\n\n"
                 return
-
-            # Client calls go back to the caller. Owned calls in that turn are dispatched first.
-            if client_owned:
+            if action.kind == "synthesize":
+                _arm_final_answer(current_body, _repeat_guard, cited=action.cited)
+                finalizer_pending = True
+                continue
+            if action.kind == "client":
                 async for _frame in _return_client_owned_calls(
-                    all_tool_calls,
+                    action.calls,
                     effective_tools,
                     workspace_id,
                     persona,
@@ -1854,7 +1852,7 @@ async def _tool_loop_frames_impl(
 
             # Dispatch the hop's tool calls in emitted order
             assistant_msg, dispatch_results = await _dispatch_hop_tool_calls(
-                all_tool_calls,
+                action.calls,
                 effective_tools,
                 workspace_id,
                 persona,
@@ -1863,7 +1861,7 @@ async def _tool_loop_frames_impl(
                 hop_limit,
                 _repeat_guard,
             )
-            carry_tool_calls.extend(all_tool_calls)
+            carry_tool_calls.extend(action.calls)
             carry_results.extend(dispatch_results)
             assistant_msg["content"] = _content_buf if _content_buf.strip() else None
             if _thinking_allowed and _reasoning_buf:
@@ -1881,7 +1879,7 @@ async def _tool_loop_frames_impl(
                 current_body.get("messages", []) + [assistant_msg] + dispatch_results
             )
             current_body["tool_choice"] = followup_tool_choice(
-                current_body.get("tool_choice"), all_tool_calls
+                current_body.get("tool_choice"), action.calls
             )
             _tool_result_bytes = apply_tool_byte_budget(
                 _tool_result_bytes,
@@ -1889,14 +1887,17 @@ async def _tool_loop_frames_impl(
                 _tool_byte_budget,
                 workspace_id,
             )
-            if _repeat_guard.force_synthesis:
+            if action.cited:
+                _arm_final_answer(current_body, _repeat_guard, cited=True)
+                finalizer_pending = True
+            elif _repeat_guard.force_synthesis:
                 prepare_toolless_finalizer(current_body, _repeat_guard)
                 finalizer_pending = True
             if _exec_audit:
                 _exec_audit_calls.extend(
                     [
                         {**tc, "_output": dr.get("content", "")}
-                        for tc, dr in zip(all_tool_calls, dispatch_results)
+                        for tc, dr in zip(action.calls, dispatch_results, strict=True)
                     ]
                 )
             # Continue loop for next iteration

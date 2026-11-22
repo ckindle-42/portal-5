@@ -2650,6 +2650,9 @@ workspaces:
     # without completing the search (finish_reason=stop, zero tool_calls
     # emitted) — force the model to actually follow through.
     tool_choice: required
+    # QAT s2-p2: 17 web calls then Open WebUI looped to 600s. Cap, then one cited answer.
+    max_tool_hops: 4
+    max_tool_calls: 6
     owui_system_prompt: |-
       You are a research assistant. Synthesize information from multiple sources. Distinguish primary from secondary sources. Always acknowledge the limits of your knowledge.
     variants:
@@ -2681,6 +2684,9 @@ workspaces:
         - list_session
         enable_web_search: true
         tool_choice: null
+        # Do not inherit the research web-call cap; this seat's loop is SQL and Python.
+        max_tool_hops: null
+        max_tool_calls: null
         owui_system_prompt: |-
           You are a data analyst. Help with data analysis, statistics, visualization design, and interpretation. Show your calculations. Explain statistical concepts clearly.
   auto-vision:
