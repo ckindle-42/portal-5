@@ -20,6 +20,8 @@ from portal.modules.security.core.hunt.observations import (
     literal_matches,
     literal_query,
     observe,
+    rescore,
+    search_sourcetype,
 )
 
 START = 1_700_000_000 // HOUR * HOUR
@@ -558,3 +560,85 @@ def test_small_grid_observation_bytes_use_plain_search_terms() -> None:
     assert hashlib.sha256(encoded.encode()).hexdigest() == (
         "45568d0383f8108b0dccba234dd288998ff1d4095ddd9bb740274a649f05e303"
     )
+
+
+def test_search_sourcetype_resolves_case_folded_and_falls_back() -> None:
+    renames = {"fgt_traffic": "fortigate_traffic"}
+
+    assert search_sourcetype("FGT_TRAFFIC", renames) == "fortigate_traffic"
+    assert search_sourcetype("unknown_st", renames) == "unknown_st"
+    assert search_sourcetype("fgt_traffic", None) == "fgt_traffic"
+    assert search_sourcetype("fgt_traffic", {}) == "fgt_traffic"
+
+
+def test_literal_query_uses_the_search_time_name_when_a_rename_applies() -> None:
+    renames = {"wineventlog:security": "WinEventLog", "fgt_traffic": "fortigate_traffic"}
+
+    source = literal_query("source", INDEX, "node-a", "svc\tWinEventLog:Security", renames=renames)
+    stream = literal_query("stream", INDEX, "node-a", "fgt_traffic\tabc", renames=renames)
+
+    assert 'where sourcetype="WinEventLog"' in source
+    assert "WinEventLog:Security" not in source
+    assert 'where sourcetype="fortigate_traffic"' in stream
+    assert "fgt_traffic" not in stream
+    assert 'where punct="abc"' in stream
+
+
+def test_literal_query_keeps_the_indexed_name_without_a_rename() -> None:
+    source = literal_query("source", INDEX, "node-a", "svc\tWinEventLog:Security")
+    stream = literal_query("stream", INDEX, "node-a", "fgt_traffic\tabc", renames={})
+    unknown = literal_query(
+        "stream", INDEX, "node-a", "fgt_traffic\tabc", renames={"other": "renamed"}
+    )
+
+    assert 'where sourcetype="WinEventLog:Security"' in source
+    assert 'where sourcetype="fgt_traffic"' in stream
+    assert 'where sourcetype="fgt_traffic"' in unknown
+
+
+def test_observe_searches_the_renamed_name_and_keeps_indexed_names_on_grids() -> None:
+    events = _event(START, "h", "uid=one", source="svc", sourcetype="fgt_traffic") + _event(
+        START + HOUR, "h", "uid=one", source="svc", sourcetype="fgt_traffic", n=5
+    )
+    grid = GridSearch(events)
+    renames = {"fgt_traffic": "fortigate_traffic"}
+
+    run = observe(grid, INDEX, float(START), float(END), renames=renames)
+    stream = next(obs for obs in run.observations if obs.kind == "stream")
+    source = next(obs for obs in run.observations if obs.kind == "source")
+
+    assert stream.entity.startswith("fgt_traffic\t")
+    assert source.entity.endswith("\tfgt_traffic")
+    assert 'where sourcetype="fortigate_traffic"' in stream.evidence["literal"]
+    assert 'where sourcetype="fortigate_traffic"' in source.evidence["literal"]
+    assert all("fortigate_traffic" not in query for query in grid.calls)
+
+    renamed_row = {
+        "host": "h",
+        "source": "svc",
+        "sourcetype": "fortigate_traffic",
+        "punct": ".",
+        "_raw": "uid=one",
+    }
+    indexed_row = {**renamed_row, "sourcetype": "fgt_traffic"}
+    assert literal_matches(renamed_row, stream.evidence["literal"])
+    assert not literal_matches(indexed_row, stream.evidence["literal"])
+
+
+def test_observe_without_renames_keeps_the_indexed_name_in_literals() -> None:
+    events = _event(START, "h", "uid=one", source="svc", sourcetype="fgt_traffic")
+
+    run = observe(GridSearch(events), INDEX, float(START), float(END))
+    stream = next(obs for obs in run.observations if obs.kind == "stream")
+
+    assert 'where sourcetype="fgt_traffic"' in stream.evidence["literal"]
+
+
+def test_rescore_rebuilds_literals_with_the_search_time_name() -> None:
+    events = _event(START, "h", "uid=one", source="svc", sourcetype="fgt_traffic")
+    run = observe(GridSearch(events), INDEX, float(START), float(END))
+
+    again = rescore(run.grids, run.coverage, INDEX, renames={"fgt_traffic": "fortigate_traffic"})
+    stream = next(obs for obs in again.observations if obs.kind == "stream")
+
+    assert 'where sourcetype="fortigate_traffic"' in stream.evidence["literal"]
