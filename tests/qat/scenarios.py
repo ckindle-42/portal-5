@@ -40,6 +40,8 @@ REDTEAM_ANNOTATION = "disabled: module security_redteam off — annotated, not s
 
 PERSONA_SWEEP_MAX = 12
 ROUTING_PROBE = "In one sentence, state which specialist you are and what you handle."
+INLINE_VISION_PNG = "inline:red-square-png"
+VISION_PROBE = "Describe this image in one sentence: name the dominant color and the shape."
 HUNT_PROMPTS: dict[str, str] = {
     "windows": "Use the Splunk tool on index=botsv1 sourcetype=windows:security "
     "earliest=-7d@d latest=now to find suspicious logons for host we8105306. Return the SPL "
@@ -126,7 +128,8 @@ def _phase_smoke_routing(_s: Settings, d: Discovery) -> list[QATScenario]:
             f"s2-p1-{pid}",
             f"Router smoke: {pid}",
             pid,
-            prompts=(ROUTING_PROBE,),
+            prompts=(VISION_PROBE if pid == "auto-vision" else ROUTING_PROBE,),
+            attachment=INLINE_VISION_PNG if pid == "auto-vision" else "",
             tools=d.preset_tools(pid),
             function_calling=d.presets[pid].function_calling,
             expected="served model matches routing resolution; non-empty answer",
@@ -166,7 +169,7 @@ def _phase_reasoning_vision_research(_s: Settings, d: Discovery) -> list[QATScen
             "Council question: should a small team self-host or rent GPU capacity?",
             ("council", "multiple perspectives"),
         ),
-        "auto-vision": ("Describe this image...", ("vision", "grounded visual description")),
+        "auto-vision": (VISION_PROBE, ("vision", "grounded visual description")),
         "auto-research": (
             "Research: what changed in oMLX 0.8.1 vs 0.7? Cite sources.",
             ("research", "cites SearXNG/RAG/wiki tool output"),
@@ -181,6 +184,7 @@ def _phase_reasoning_vision_research(_s: Settings, d: Discovery) -> list[QATScen
             pid,
             prompts=(text,),
             timeout_s=600,
+            attachment=INLINE_VISION_PNG if pid == "auto-vision" else "",
             tools=d.preset_tools(pid),
             function_calling=d.presets[pid].function_calling,
             expected=what,
@@ -220,7 +224,7 @@ def _phase_coding_cad_docs_data_infra(s: Settings, d: Discovery) -> list[QATScen
             f"{pid} journey",
             pid,
             prompts=(text,),
-            timeout_s=600 if "::cad" in pid else 180,
+            timeout_s=_coding_phase_timeout(pid),
             tools=d.preset_tools(pid),
             function_calling=d.presets[pid].function_calling,
             artifact_kind=_artifact_kind(pid),
@@ -295,6 +299,14 @@ def _infra_scenarios(
             )
         )
     return out
+
+
+def _coding_phase_timeout(pid: str) -> float:
+    if "::cad" in pid:
+        return 600.0
+    if pid == "auto-coding":
+        return 360.0
+    return 180.0
 
 
 def _artifact_kind(preset_id: str) -> str:

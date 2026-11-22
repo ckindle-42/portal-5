@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import base64
 import mimetypes
 import re
+import struct
 import time
 import uuid
+import zlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +23,30 @@ from .config import Settings
 POLL_INTERVAL_S = 2.0
 ARTIFACT_URL_RE = re.compile(r"/api/v1/files/[0-9a-fA-F-]{8,}/content/\S+")
 TERMINAL_STATES = {"completed", "complete", "done", "success"}
+_RED = (255, 0, 0)
+
+
+def red_square_png(side: int = 64) -> bytes:
+    raw = b"".join(b"\x00" + bytes(_RED) * side for _ in range(side))
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(b"IHDR", struct.pack(">IIBBBBB", side, side, 8, 2, 0, 0, 0))
+        + _png_chunk(b"IDAT", zlib.compress(raw))
+        + _png_chunk(b"IEND", b"")
+    )
+
+
+def _png_chunk(tag: bytes, data: bytes) -> bytes:
+    body = tag + data
+    return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+
+
+def vision_message_content(prompt: str, png: bytes) -> list[dict[str, Any]]:
+    url = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+    return [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": url}},
+    ]
 
 
 @dataclass
@@ -131,6 +158,7 @@ class OWUIClient:
         function_calling: bool = False,
         prior_messages: list[dict[str, Any]] | None = None,
         files: list[dict[str, Any]] | None = None,
+        image_png: bytes | None = None,
         deadline: float | None = None,
     ) -> httpx.Response:
         turn = self._turns.get(chat_id)
@@ -140,9 +168,12 @@ class OWUIClient:
             turn = {**turn, "user_id": str(uuid.uuid4()), "message_id": str(uuid.uuid4())}
             self._turns[chat_id] = turn
         message_id = turn["message_id"]
+        content: str | list[dict[str, Any]] = prompt
+        if image_png is not None:
+            content = vision_message_content(prompt, image_png)
         body: dict[str, Any] = {
             "model": model_slug,
-            "messages": [*(prior_messages or []), {"role": "user", "content": prompt}],
+            "messages": [*(prior_messages or []), {"role": "user", "content": content}],
             "stream": True,
             "id": message_id,
             "chat_id": chat_id,
