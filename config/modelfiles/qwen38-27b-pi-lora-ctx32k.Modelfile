@@ -1,0 +1,33 @@
+# qwen38-27b-pi-lora:ctx32k — GGUF LoRA fallback for the
+# `Qwen3.8-27B-oQ4e-mtp:pi` oMLX 0.8.1 seat (pi harness adapter). This is the
+# P40/pi-lane tag: the oMLX profile is Apple-silicon only.
+#
+# Adapter: harness-hub/Qwen3.8-27B-pi-adapted-GGUF,
+#          Qwen3.8-27B-pi-lora-F16.gguf (318,802,304 bytes).
+#          That repo also carries Qwen3.8-27B-pi-Q8_0.gguf (28.6 GB) — the base
+#          the card pairs with the LoRA — but it does not fit a 24 GB card.
+# Base:    hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M.
+# Card:    thinking off, temperature 0.8, top_p 1.0 (the adapter's training
+#          sampling). The card's pi configuration needs
+#          "api": "openai-completions" in ~/.pi/agent/models.json — without it pi
+#          uses the Responses API, which the adapter was neither trained nor
+#          evaluated with.
+#
+# Create on the box that serves it, with the adapter file in the same directory:
+#   ollama create qwen38-27b-pi-lora:ctx32k \
+#     -f config/modelfiles/qwen38-27b-pi-lora-ctx32k.Modelfile
+# Do not run this against the live Mac Ollama.
+#
+# MEASURED 2026-11-21: Ollama 0.40.16 refuses this build — `Error: LoRA adapters
+# are no longer supported` — so the tag cannot exist on thebrain. Serve the same
+# recipe with llama.cpp instead, alias = the tag name:
+#   llama-server -m <qwen3.8:code32k Q4_K_M blob> \
+#     --lora Qwen3.8-27B-pi-lora-F16.gguf -ngl 99 -c 32768 -fa on -np 1 \
+#     --alias qwen38-27b-pi-lora:ctx32k --temp 0.8 --top-p 1.0 --top-k 0 \
+#     --min-p 0 -rea off
+# (-rea off is the card's "thinking off"; the Qwen3.8 template defaults to medium.)
+FROM hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
+ADAPTER ./Qwen3.8-27B-pi-lora-F16.gguf
+PARAMETER temperature 0.8
+PARAMETER top_p 1.0
+PARAMETER num_ctx 32768

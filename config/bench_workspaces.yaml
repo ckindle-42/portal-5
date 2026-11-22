@@ -648,3 +648,77 @@ workspaces:
     emits_reasoning: true
     expose_to_owui: false
     enable_web_search: false
+  # oMLX 0.8.1 intake candidates (2026-11-20). Explicit-only: reachable through
+  # ?model=<hint> / the pipeline's workspace id, not exposed in Open WebUI and
+  # referenced by no production workspace or variant. The seat values are the
+  # published cards' evaluation sampling, not a bench default.
+  bench-qwen38-opencode-adapter:
+    module: eval
+    name: 🔬 Bench · Qwen3.8-27B opencode LoRA (oMLX)
+    description: |-
+      Benchmark: harness-hub/Qwen3.8-27B-opencode-adapted applied as an oMLX 0.8.1
+      LoRA profile on Qwen3.8-27B-oQ4e-mtp (served id
+      Qwen3.8-27B-oQ4e-mtp:opencode; adapter r32/a64 on q,k,v,o,gate,up,down,
+      608 MiB on disk, base weights shared). Card, under OpenCode with thinking
+      off at temperature 0.8 / top-p 1.0: SWE-bench Pro (hard 51) 35.3% -> 51.0%,
+      Terminal-Bench 2.1 46.4% -> 52.4%, 6-8x fewer generated tokens than the base
+      at xhigh thinking. Those are the vendor's harness numbers on NVIDIA B200s,
+      not this host's. PROMOTE_POLICY=confirm.
+    model_hint: Qwen3.8-27B-oQ4e-mtp:opencode
+    # ctx: oMLX profile enforces max_context_window 131072 — a workspace context_limit would fail BW
+    predict_limit: 32768
+    max_concurrent: 1
+    # Card sampling (training sampling; the card's own evaluation settings).
+    temperature: 0.8
+    top_p: 1.0
+    # Card: keep thinking off — turning it on for the adapter adds nothing
+    # significant and costs ~6x the tokens.
+    think: false
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-qwen38-pi-adapter:
+    module: eval
+    name: 🔬 Bench · Qwen3.8-27B pi LoRA (oMLX)
+    description: |-
+      Benchmark: harness-hub/Qwen3.8-27B-pi-adapted as an oMLX 0.8.1 LoRA profile
+      on Qwen3.8-27B-oQ4e-mtp (served id Qwen3.8-27B-oQ4e-mtp:pi; same adapter
+      shape as the opencode one, different RL run). Card, under pi with thinking
+      off at temperature 0.8 / top-p 1.0: SWE-bench Pro (hard 51) 39.2% -> 64.7%,
+      Terminal-Bench 2.1 39.5% -> 55.8%. Pair it with the P40/pi GGUF fallback in
+      config/modelfiles/qwen38-27b-pi-lora-ctx32k.Modelfile. PROMOTE_POLICY=confirm.
+    model_hint: Qwen3.8-27B-oQ4e-mtp:pi
+    # ctx: oMLX profile enforces max_context_window 131072 — a workspace context_limit would fail BW
+    predict_limit: 32768
+    max_concurrent: 1
+    # Card sampling (training sampling, identical to the opencode card).
+    temperature: 0.8
+    top_p: 1.0
+    think: false
+    emits_reasoning: false
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
+  bench-inkling-2-mini:
+    module: eval
+    name: 🔬 Bench · Inkling 2 Mini (oMLX oQ4e-mtp)
+    description: |-
+      Benchmark: mlx-community/Inkling-2-Mini-oQ4e-mtp (Thinking Machines Lab
+      Inkling 2 Mini, 26.4B total / 3.4B active looped MoE, text+image in, up to
+      1M context, DSpark draft bundled). oMLX 0.8.1 loads it and runs Lightning
+      MTP on it. Sampling has no vendor row beyond generation_config.json
+      (temperature 1.0, do_sample true); top_p is oMLX's global default, not a
+      card value. Reasoning effort is the template's `reasoning_effort` kwarg
+      (default 0.9 = "high"); the card warns that minimum effort does not disable
+      reasoning. PROMOTE_POLICY=confirm.
+    model_hint: Inkling-2-Mini-oQ4e-mtp
+    # ctx: oMLX-enforced window — no workspace context_limit without a baked -ctxNk tag (check BW)
+    predict_limit: 32768
+    max_concurrent: 1
+    temperature: 1.0
+    top_p: 0.95
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
