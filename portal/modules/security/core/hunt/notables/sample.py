@@ -54,6 +54,13 @@ ACCEL_MODELS = (
     "Web",
 )
 ACCEL_PROBE_ROWS = 100  # effort budget: window rows one accelerated-model probe reads
+SPLUNK_TIME_EPSILON = 1.0  # an exclusive Splunk latest needs a whole second to hold the last event
+RENAME_DISCOVERY_QUERY = "| rest splunk_server=local /servicesNS/-/-/configs/conf-props | search rename=* | table title rename"
+
+
+def inclusive_end(last: float) -> float:
+    """A Splunk `latest` bound that still contains an event stamped `last`."""
+    return last + SPLUNK_TIME_EPSILON
 
 
 @dataclass(frozen=True)
@@ -107,11 +114,17 @@ class SourceFacts:
     count_cv: float = 0.0
     shared_sources: tuple[str, ...] = ()
     files: tuple[IndexFile, ...] = ()
+    search_sourcetype: str = ""
 
 
 def file_span(facts: SourceFacts, item: IndexFile) -> tuple[float, float]:
     """A file's own range, or its source's when the run recorded none (0.0 ⇒ unknown)."""
     return (item.first, item.last) if item.last > 0.0 else (facts.first, facts.last)
+
+
+def search_sourcetype_of(facts: SourceFacts) -> str:
+    """The name a raw `search` must use: the search-time rename, else the indexed name."""
+    return facts.search_sourcetype or facts.sourcetype
 
 
 @dataclass
@@ -292,7 +305,7 @@ def summary_window(rows: Iterable[Mapping[str, Any]]) -> tuple[float, float] | N
         lasts.append(last)
     if not firsts:
         return None
-    return (min(firsts), max(lasts) + 0.000001)
+    return (min(firsts), inclusive_end(max(lasts)))
 
 
 def accel_summaries(executor: HuntExecutor, index: str) -> tuple[list[AccelSummary], list[str]]:
@@ -509,7 +522,7 @@ def _span_windows(first: float, last: float, count: int) -> list[tuple[float, fl
     """`count` equal slices of a range, its last slice ending after an event at `last`."""
     if last < first or count <= 0:
         return []
-    end = last + 0.000001
+    end = inclusive_end(last)
     if last == first:
         return [(first, end)]
     bounds = window_bounds(first, last, count)
@@ -610,6 +623,27 @@ def shared_source_names(by_type: Mapping[str, Iterable[str]]) -> set[str]:
     return {name for name, types in owners.items() if len(types) > 1}
 
 
+def sourcetype_renames(executor: HuntExecutor) -> tuple[dict[str, str], list[str]]:
+    """The instance's live `props.conf` renames, case-folded: indexed name -> search name."""
+    rows, reason = _read_range(
+        executor,
+        RENAME_DISCOVERY_QUERY,
+        0.0,
+        time.time() + SPLUNK_TIME_EPSILON,
+        kind="discovery",
+        row_cap=METADATA_ROWS,
+    )
+    if reason:
+        return {}, [f"sourcetype_renames:{reason}"]
+    found: dict[str, str] = {}
+    for row in rows:
+        title = str(row.get("title") or "").strip()
+        rename = str(row.get("rename") or "").strip()
+        if title and rename and title.casefold() != rename.casefold():
+            found[title.casefold()] = rename
+    return found, []
+
+
 def index_facts(
     executor: HuntExecutor, index: str, start: float, end: float
 ) -> tuple[list[SourceFacts], list[str]]:
@@ -628,6 +662,8 @@ def index_facts(
         notes.append(f"volume_metadata:{reason}")
     if not volume:
         return [], notes + ["index_metadata_empty"]
+    renames, rename_notes = sourcetype_renames(executor)
+    notes.extend(rename_notes)
     sources, source_reason = _meta_rows(
         executor, index, "by sourcetype source host", start, end, span=True
     )
@@ -670,6 +706,7 @@ def index_facts(
                 count_cv=cv,
                 shared_sources=tuple(src for src, _ in ranked_sources if src.casefold() in shared),
                 files=files,
+                search_sourcetype=renames.get(name.casefold(), ""),
             )
         )
     return facts, notes
@@ -744,8 +781,10 @@ def _file_hosts(rows: Sequence[_FileRow]) -> tuple[str, ...]:
 
 
 def route_filter(facts: SourceFacts, max_sources: int = SAMPLE_SOURCES) -> tuple[str, str]:
-    """Filter that selects this source's events: indexed sources where known, else the name."""
-    return source_route(facts.sourcetype, facts.sources[:max_sources], facts.shared_sources)
+    """This source's raw-search filter: indexed sources where known, else its search-time name."""
+    return source_route(
+        search_sourcetype_of(facts), facts.sources[:max_sources], facts.shared_sources
+    )
 
 
 def source_route(
@@ -917,11 +956,19 @@ def read_card_sample(executor: HuntExecutor, facts: SourceFacts, *, kind: str) -
     return found
 
 
-def file_route(facts: SourceFacts, path: str, host: str = "", shared: Sequence[str] = ()) -> str:
-    """One indexed file's own route; a path another sourcetype also carries stays scoped."""
+def file_route(
+    facts: SourceFacts,
+    path: str,
+    host: str = "",
+    shared: Sequence[str] = (),
+    *,
+    indexed: bool = False,
+) -> str:
+    """One indexed file's own route; a shared path stays scoped (`indexed=True`: TSIDX name)."""
+    name = facts.sourcetype if indexed else search_sourcetype_of(facts)
     route = f"source={_quoted(path)}"
-    if path.casefold() in {name.casefold() for name in (shared or facts.shared_sources)}:
-        route = f"sourcetype={_quoted(facts.sourcetype)} {route}"
+    if path.casefold() in {src.casefold() for src in (shared or facts.shared_sources)}:
+        route = f"sourcetype={_quoted(name)} {route}"
     return f"{route} host={_quoted(host)}" if host else route
 
 
@@ -1098,7 +1145,7 @@ def _file_reads(
     whole at its own event count, with no probe ahead of it.
     """
     if item.events <= per_window:
-        bounds = _file_windows(item, 1) or [(facts.first, facts.last + 0.000001)]
+        bounds = _file_windows(item, 1) or [(facts.first, inclusive_end(facts.last))]
         return [(bounds[0][0], bounds[-1][1], max(1, item.events), False)]
     own = _file_windows(item, _file_window_count(item.events, per_window, per_window))
     bounds = own or _spread_windows(
@@ -1177,7 +1224,8 @@ def _window_events(
     if key not in cache:
         rows, reason = _read_range(
             executor,
-            f"| tstats count where index={_quoted(facts.index)} {file_route(facts, path)}",
+            f"| tstats count where index={_quoted(facts.index)} "
+            f"{file_route(facts, path, indexed=True)}",
             start,
             end,
             kind="discovery",
@@ -1322,7 +1370,7 @@ def read_alert_rows(
         executor,
         query,
         facts.first,
-        facts.last + 0.000001,
+        inclusive_end(facts.last),
         kind="alert_probe",
         row_cap=per_window,
         source_id=f"{facts.index}:{facts.sourcetype}",
@@ -1343,7 +1391,9 @@ __all__ = [
     "IndexFile",
     "Localisation",
     "LocalWindow",
+    "RENAME_DISCOVERY_QUERY",
     "RowSet",
+    "SPLUNK_TIME_EPSILON",
     "SourceFacts",
     "accel_localise_query",
     "accel_probe_query",
@@ -1352,6 +1402,7 @@ __all__ = [
     "coverage_label",
     "file_omitted",
     "file_route",
+    "inclusive_end",
     "index_facts",
     "localise",
     "localise_query",
@@ -1365,7 +1416,10 @@ __all__ = [
     "route_filter",
     "sample_files",
     "sample_windows",
+    "search_sourcetype_of",
     "select_local_windows",
+    "source_route",
+    "sourcetype_renames",
     "summary_window",
     "window_bounds",
 ]

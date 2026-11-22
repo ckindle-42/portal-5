@@ -22,9 +22,11 @@ from portal.modules.security.core.hunt.notables.sample import (
     Localisation,
     LocalWindow,
     SourceFacts,
+    file_route,
     file_span,
     index_facts,
     localise,
+    read_alert_rows,
     read_anchors,
     read_card_sample,
     read_files,
@@ -33,7 +35,10 @@ from portal.modules.security.core.hunt.notables.sample import (
     route_filter,
     sample_files,
     sample_windows,
+    search_sourcetype_of,
     select_local_windows,
+    source_route,
+    sourcetype_renames,
     window_bounds,
 )
 
@@ -197,7 +202,7 @@ def test_a_model_covering_the_range_localises_from_its_summary_not_a_scan():
     assert found.mechanism == "accelerated"
     assert found.model == "Authentication"
     assert found.coverage == "accelerated"
-    assert found.accel_window == (0.0, 7200.000001)
+    assert found.accel_window == (0.0, 7201.0)
     assert len(found.windows) == 1 and found.windows[0].events == 484
     assert not any(query.startswith("| tstats count where") for query in executor.queries)
 
@@ -208,7 +213,7 @@ def test_a_range_outside_the_acceleration_window_is_localised_by_a_scan_not_empt
 
     assert found.mechanism == "indexed"
     assert found.coverage == "scan"
-    assert found.accel_window == (0.0, 500.000001)
+    assert found.accel_window == (0.0, 501.0)
     assert len(found.windows) == 1
     assert any(query.startswith("| tstats count where") for query in executor.queries)
 
@@ -220,13 +225,13 @@ def test_a_partially_covered_source_declares_the_covered_and_scanned_ranges():
     assert found.mechanism == "accelerated_partial"
     assert found.model == "Authentication"
     assert found.coverage == "accelerated_partial"
-    assert found.covered_window == (3000.0, 6000.000001)
-    assert found.scanned_window == [(0.0, 3000.0), (6000.000001, 7200.0)]
+    assert found.covered_window == (3000.0, 6001.0)
+    assert found.scanned_window == [(0.0, 3000.0), (6001.0, 7200.0)]
     assert found.windows
     # the summary read covers the covered sub-range, the scan reads the two remainders
-    assert (3000.0, 6000.000001) in executor.bounds
+    assert (3000.0, 6001.0) in executor.bounds
     assert (0.0, 3000.0) in executor.bounds
-    assert (6000.000001, 7200.0) in executor.bounds
+    assert (6001.0, 7200.0) in executor.bounds
 
 
 class _QueryExecutor:
@@ -592,7 +597,7 @@ def test_a_files_windows_land_on_the_files_own_burst_not_the_sources():
     planned = [call for call in executor.row_reads() if 'source="/a"' in call[0]]
     assert planned
     assert min(start for _query, start, _end, _cap in planned) == 3000.0
-    assert all(start >= 3000.0 and end <= 4000.000001 for _query, start, end, _cap in planned)
+    assert all(start >= 3000.0 and end <= 4001.0 for _query, start, end, _cap in planned)
     assert any(start <= 3400.0 and end > 3459.0 for _query, start, end, _cap in planned)
 
 
@@ -684,7 +689,7 @@ def test_the_last_slice_of_a_file_is_always_planned():
     planned = [
         (start, end) for query, start, end, _cap in executor.row_reads() if 'source="/a"' in query
     ]
-    assert (3000.0, 4000.000001) in planned  # the file's own tail slice, last event included
+    assert (3000.0, 4001.0) in planned  # the file's own tail slice, last event included
     assert any(start <= 4000.0 < end for start, end in planned)
 
     fallback = [
@@ -865,6 +870,8 @@ class _EstateExecutor:
     ) -> Read:
         del start, end, kind, row_cap
         self.queries.append(query)
+        if "| rest" in query:
+            return Read([], False, None)
         if "span=1d" in query:
             return Read([], False, None)
         if "by sourcetype source host" in query:
@@ -942,3 +949,225 @@ def test_the_estate_map_still_declares_no_files_when_the_counts_do_not_add_up():
 
     assert facts[0].files == ()
     assert "files_incomplete:stream:http" in notes
+
+
+class _RenamedSplunk:
+    """A Splunk that renames at search time: tstats answers one name, raw search the other."""
+
+    def __init__(
+        self,
+        volume: list[dict[str, object]],
+        renames: list[dict[str, object]] | None = None,
+        rows: list[dict[str, object]] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.volume = volume
+        self.renames = renames or []
+        self.rows = rows or []
+        self.error = error
+        self.queries: list[str] = []
+        self.bounds: list[tuple[float, float]] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del kind
+        self.queries.append(query)
+        self.bounds.append((start, end))
+        if "| rest" in query:
+            if self.error is not None:
+                raise self.error
+            return Read([dict(row) for row in self.renames], False, None)
+        if "by sourcetype source host" in query or "by sourcetype host" in query:
+            return Read([], False, None)
+        if "span=1d" in query:
+            return Read([], False, None)
+        if "min(_time) as first max(_time) as last" in query:
+            return Read([dict(row) for row in self.volume], False, None)
+        inside = [row for row in self.rows if start <= float(row["_time"]) < end]
+        if query.startswith("| tstats"):
+            for name in re.findall(r'sourcetype="([^"]+)"', query):
+                inside = [row for row in inside if row.get("indexed_sourcetype") == name]
+            for path in re.findall(r'source="([^"]+)"', query):
+                inside = [row for row in inside if row.get("source") == path]
+            return Read([{"count": str(len(inside))}], False, None)
+        for name in re.findall(r'sourcetype="([^"]+)"', query):
+            inside = [row for row in inside if row.get("sourcetype") == name]
+        for path in re.findall(r'source="([^"]+)"', query):
+            inside = [row for row in inside if row.get("source") == path]
+        inside.sort(key=lambda row: float(row["_time"]), reverse=True)
+        return Read([dict(row) for row in inside[: row_cap or len(inside)]], False, None)
+
+
+_RENAMES = [
+    {"title": "WinEventLog:Security", "rename": "WinEventLog"},
+    {"title": "fgt_traffic", "rename": "fortigate_traffic"},
+    {"title": "identical", "rename": "identical"},  # a stanza renaming to itself: not a rename
+    {"title": "", "rename": "blank_title"},  # blank stanzas carry no usable name
+    {"title": "blank_rename", "rename": ""},
+]
+
+
+def _renamed_volume() -> list[dict[str, object]]:
+    return [
+        {"sourcetype": "WinEventLog:Security", "count": "9", "first": 0.0, "last": 100.0},
+        {"sourcetype": "wineventlog:security", "count": "3", "first": 0.0, "last": 100.0},
+        {"sourcetype": "fgt_traffic", "count": "5", "first": 0.0, "last": 100.0},
+    ]
+
+
+def _renamed_rows(source: str = "/sec") -> list[dict[str, object]]:
+    return [
+        {
+            "_time": 10.0 + number,
+            "host": "h1",
+            "source": source,
+            "sourcetype": "WinEventLog",
+            "indexed_sourcetype": "WinEventLog:Security",
+            "_raw": f"event {number}",
+        }
+        for number in range(5)
+    ]
+
+
+def test_props_renames_are_discovered_live_and_matched_caselessly():
+    executor = _RenamedSplunk(_renamed_volume(), _RENAMES, _renamed_rows())
+    facts, notes = index_facts(executor, "ix", 0.0, 100.0)
+
+    assert notes == []
+    by_name = {item.sourcetype: item for item in facts}
+    assert by_name["WinEventLog:Security"].search_sourcetype == "WinEventLog"
+    assert by_name["wineventlog:security"].search_sourcetype == "WinEventLog"
+    assert by_name["fgt_traffic"].search_sourcetype == "fortigate_traffic"
+    assert by_name["fgt_traffic"].sourcetype == "fgt_traffic"  # the indexed name is untouched
+    discovery = [query for query in executor.queries if "| rest" in query]
+    assert discovery == [
+        "| rest splunk_server=local /servicesNS/-/-/configs/conf-props"
+        " | search rename=* | table title rename"
+    ]
+
+
+def test_sourcetype_renames_returns_the_folded_map_without_blank_or_identical_stanzas():
+    found, notes = sourcetype_renames(_RenamedSplunk(_renamed_volume(), _RENAMES, _renamed_rows()))
+
+    assert notes == []
+    assert found == {
+        "wineventlog:security": "WinEventLog",
+        "fgt_traffic": "fortigate_traffic",
+    }
+
+
+def test_a_denied_rename_discovery_never_fails_the_estate_map():
+    executor = _RenamedSplunk(
+        _renamed_volume(), _RENAMES, _renamed_rows(), error=RuntimeError("denied")
+    )
+    found, notes = sourcetype_renames(executor)
+
+    assert found == {}
+    assert notes == ["sourcetype_renames:read_failed:RuntimeError"]
+
+    facts, notes = index_facts(executor, "ix", 0.0, 100.0)
+    assert facts
+    assert all(item.search_sourcetype == "" for item in facts)
+    assert "sourcetype_renames:read_failed:RuntimeError" in notes
+
+
+def test_route_builders_emit_the_search_time_name_for_raw_search():
+    facts = SourceFacts(
+        "ix",
+        "WinEventLog:Security",
+        4,
+        0.0,
+        100.0,
+        ("h1",),
+        1,
+        ("/sec", "/sec2"),
+        2,
+        shared_sources=("/sec", "/sec2"),
+        search_sourcetype="WinEventLog",
+    )
+
+    route, name = route_filter(facts)
+    assert route == 'sourcetype="WinEventLog" (source="/sec" OR source="/sec2")'
+    assert name == "source"
+    indexed_route, _ = source_route(facts.sourcetype, [], ())
+    assert indexed_route == 'sourcetype="WinEventLog:Security"'
+    assert file_route(facts, "/sec") == 'sourcetype="WinEventLog" source="/sec"'
+    scoped = file_route(facts, "/sec", indexed=True)
+    assert scoped == 'sourcetype="WinEventLog:Security" source="/sec"'
+    assert search_sourcetype_of(facts) == "WinEventLog"
+    unrenamed = SourceFacts("ix", "st", 1, 0.0, 1.0, (), 0, (), 0)
+    assert search_sourcetype_of(unrenamed) == "st"
+
+
+def test_raw_reads_use_the_search_time_name_and_tstats_keeps_the_indexed_name():
+    facts = SourceFacts(
+        "ix",
+        "WinEventLog:Security",
+        5_000,
+        0.0,
+        100.0,
+        ("h1",),
+        1,
+        ("/big",),
+        1,
+        shared_sources=("/big",),
+        files=(IndexFile("/big", 5_000, ("h1",), 0.0, 100.0),),
+        search_sourcetype="WinEventLog",
+    )
+    executor = _RenamedSplunk(_renamed_volume(), _RENAMES, _renamed_rows("/big"))
+
+    windows = window_bounds(0.0, 100.0, 3)
+    pooled = read_windows(executor, facts, windows, per_window=100, kind="x")
+    assert pooled.rows
+    pooled_reads = [query for query in executor.queries if query.startswith("search")]
+    assert all('sourcetype="WinEventLog"' in query for query in pooled_reads)
+
+    card = read_card_sample(executor, facts, kind="x")
+    assert card.rows
+
+    spread = read_files(executor, facts, windows, per_window=100, kind="x")
+    assert spread.rows
+    probes = [query for query in executor.queries if query.startswith("| tstats")]
+    assert probes
+    assert all('sourcetype="WinEventLog:Security"' in query for query in probes)
+    assert not any('sourcetype="WinEventLog"' in query for query in probes)
+    raw_reads = [query for query in executor.queries if query.startswith("search")]
+    assert all('sourcetype="WinEventLog"' in query for query in raw_reads)
+    assert not any("WinEventLog:Security" in query for query in raw_reads)
+
+
+def test_a_single_second_source_spans_a_whole_second_in_splunk_bounds():
+    stamp = 1_643_118_128.0
+    facts = SourceFacts("ix", "st", 5, stamp, stamp, (), 0, (), 0)
+    windows = sample_windows(facts)
+    assert windows == [(stamp, stamp + 1.0)]
+
+    executor = _NewestExecutor([{"_time": stamp, "_raw": "one", "host": "h1"}])
+    read = read_alert_rows(executor, facts)
+    assert executor.calls == [(stamp, stamp + 1.0, 400)]
+    assert read.notes == []
+
+
+def test_card_facts_carry_the_search_time_name_only_when_it_differs():
+    renamed = SourceFacts(
+        "ix",
+        "WinEventLog:Security",
+        4,
+        0.0,
+        100.0,
+        ("h1",),
+        1,
+        ("/sec",),
+        1,
+        search_sourcetype="WinEventLog",
+    )
+    raw = card_facts(renamed)
+    assert raw["search_sourcetype"] == "WinEventLog"
+    restored = _fact_dict(
+        card_from_dict({"index": "ix", "sourcetype": "WinEventLog:Security", "facts": raw})
+    )
+    assert search_sourcetype_of(restored) == "WinEventLog"
+
+    plain = card_facts(SourceFacts("ix", "st", 1, 0.0, 1.0, (), 0, (), 0))
+    assert "search_sourcetype" not in plain

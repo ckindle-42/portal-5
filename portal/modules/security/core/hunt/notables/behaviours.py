@@ -30,6 +30,7 @@ from .sample import (
     SourceFacts,
     accel_summaries,
     file_omitted,
+    inclusive_end,
     localise,
     localise_width,
     read_files,
@@ -769,7 +770,7 @@ def anchor_windows(
             first = _time_value(value.get("first_seen"))
             last = _time_value(value.get("last_seen")) or first
             if last >= first:
-                spans.append((first, last + 0.000001, int(value.get("events") or 0)))
+                spans.append((first, inclusive_end(last), int(value.get("events") or 0)))
     if not spans:
         return []
     spans.sort()
@@ -839,7 +840,7 @@ def _burst_windows_by_source(
         return {}
     index = sampled[0].index
     start = min(facts.first for facts in sampled)
-    end = max(facts.last for facts in sampled) + 0.000001
+    end = inclusive_end(max(facts.last for facts in sampled))
     query = f"| tstats count where index={_quote(index)} by sourcetype _time span=4h"
     try:
         result = executor.read(
@@ -1227,7 +1228,10 @@ def _localise_sources(
             by_width.setdefault(widths[source_id], []).append(facts)
         caches = {
             width: ScanCache(
-                (min(facts.first for facts in group), max(facts.last for facts in group) + 0.000001)
+                (
+                    min(facts.first for facts in group),
+                    inclusive_end(max(facts.last for facts in group)),
+                )
             )
             for width, group in by_width.items()
         }
@@ -1258,7 +1262,7 @@ def _localise_one(
         executor,
         index,
         facts.first,
-        facts.last + 0.000001,
+        inclusive_end(facts.last),
         width=width,
         summaries=summaries,
         scan_cache=scan_cache,

@@ -509,7 +509,7 @@ def _failure(
 
 
 def _facts(facts: SourceFacts) -> dict[str, Any]:
-    return {
+    payload = {
         "events": facts.events,
         "first": facts.first,
         "last": facts.last,
@@ -532,6 +532,9 @@ def _facts(facts: SourceFacts) -> dict[str, Any]:
         "periods": facts.periods,
         "count_cv": facts.count_cv,
     }
+    if facts.search_sourcetype and facts.search_sourcetype != facts.sourcetype:
+        payload["search_sourcetype"] = facts.search_sourcetype
+    return payload
 
 
 class _Inputs:

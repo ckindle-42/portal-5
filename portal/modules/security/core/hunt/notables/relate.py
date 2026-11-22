@@ -109,6 +109,7 @@ def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
                 "roles": {},
                 "sources": [],
                 "sourcetype": str(card.get("sourcetype") or ""),
+                "search_sourcetype": "",
                 "shared_sources": [],
             },
         )
@@ -131,6 +132,7 @@ def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
             entry["shared_sources"] = sorted(
                 set(entry["shared_sources"]) | set(facts.get("shared_sources") or ())
             )
+            entry["search_sourcetype"] = str(facts.get("search_sourcetype") or "")
     shared = shared_source_names({key: entry["sources"] for key, entry in info.items()})
     for entry in info.values():
         entry["shared_sources"].extend(s for s in entry["sources"] if s.casefold() in shared)
@@ -138,11 +140,13 @@ def _identity_fields(out: Path) -> dict[str, dict[str, Any]]:
 
 
 def _route(info: Mapping[str, Any]) -> str:
-    """A source filter selecting this seed's own source, mirroring the behaviour-stage route."""
+    """A source filter selecting this seed's own source: the search-time name when renamed."""
     sources = info.get("sources") or ()
     if sources:
         route, _ = source_route(
-            str(info.get("sourcetype") or ""), sources, info.get("shared_sources") or ()
+            str(info.get("search_sourcetype") or "") or str(info.get("sourcetype") or ""),
+            sources,
+            info.get("shared_sources") or (),
         )
         return route
     return ""
