@@ -25,7 +25,26 @@ LABEL_KINDS = frozenset({"known_bad", "known_good"})
 GOOD_BASES = frozenset({"unlabelled", "non_attack_day"})
 BAD_BASES = frozenset({"attack_step", "technique"})
 PROOF_INDEXES = frozenset(
-    {"wheeler", "hb_ait_wheeler", "cloudobs_aws", "hb_cloudobs_aws", "botsv1"}
+    {
+        "wheeler",
+        "hb_ait_wheeler",
+        "cloudobs_aws",
+        "hb_cloudobs_aws",
+        "botsv1",
+        "hb_flaws_aws",
+        "hb_ait_wardbeck",
+        "hb_ait_wilson",
+    }
+)
+TRAINING_INDEXES = frozenset(
+    {
+        "hb_kyoushi_s1",
+        "hb_ait_santos",
+        "hb_ait_russellmitchell",
+        "hb_ait_fox",
+        "hb_ait_harrison",
+        "hb_ait_shaw",
+    }
 )
 ATTACK_ONLY_INDEXES = frozenset(
     {"labelled_corpus", "portal5_lab", "attack_data_refresh", "attack_data_refresh_20261107"}
