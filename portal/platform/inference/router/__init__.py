@@ -11,6 +11,9 @@ app
     ``FastAPI(...)`` instance and ``@app.<method>`` route wiring.
 auth
     Bearer-token verification for /v1/* and /admin/* endpoints.
+client_tools
+    Shared client-tool merge: external schemas join the workspace's offered
+    tools; OWUI ``portal_*`` mirrors of Portal MCP tools are dropped.
 concurrency
     Global request semaphore, per-workspace/API-key semaphores,
     :class:`RequestSlot` — single-owner lifecycle for all three semaphores
