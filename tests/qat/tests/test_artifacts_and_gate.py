@@ -125,13 +125,19 @@ def _router(
         if request.method == "POST" and url.path == "/api/generate":
             state["ollama_ps"] = []
             return httpx.Response(200, json={})
+        if url.path == "/v1/models/status":
+            models = [
+                {"id": str(m.get("name") or m.get("id")), "loaded": True}
+                for m in state["omlx_loaded"]
+            ]
+            return httpx.Response(200, json={"models": models})
         if url.path == "/v1/models/loaded":
             return httpx.Response(200, json={"models": state["omlx_loaded"]})
         if url.path == "/v1/models":
             return httpx.Response(200, json={"data": state["omlx_loaded"]})
-        if request.method == "POST" and url.path == "/v1/models/unload":
+        if request.method == "POST" and url.path.startswith("/admin/api/models/"):
             if unload_calls is not None:
-                unload_calls.append(json.loads(request.content.decode()))
+                unload_calls.append(request.url.raw_path.decode())
             if unload_status == 400:
                 return httpx.Response(400, json={"error": "model not loaded"})
             state["omlx_loaded"] = []
@@ -256,7 +262,7 @@ class TestOWUIAuthentication:
         with httpx.Client(transport=transport) as client:
             result = gate.evict_omlx(client, SETTINGS, ["mlx-4bit"])
         assert result.status is Status.PASS
-        assert unload_calls == [{"model": "mlx-4bit"}]
+        assert unload_calls == ["/admin/api/models/mlx-4bit/unload"]
 
     def test_evict_omlx_fails_on_500(self) -> None:
         transport = _router(unload_status=500)
@@ -306,7 +312,7 @@ class TestVmStat:
     def test_parse_vm_stat(self) -> None:
         used_pct, free_gb = gate.parse_vm_stat(self.FIXTURE)
         total = 812543 + 1739745 + 654321 + 112233 + 987654
-        expected = (1739745 + 112233 + 987654) / total * 100
+        expected = (1739745 + 987654) / total * 100
         assert used_pct == pytest.approx(expected, abs=0.01)
         assert free_gb == pytest.approx(812543 * 16384 / 1024**3, abs=0.01)
 
@@ -366,7 +372,7 @@ class TestRunGate:
         )
         transport = _router()
         report = gate.run_gate(SETTINGS, "next_phase", transport=transport, wait=False)
-        assert report.blocked is False
+        assert report.blocked is True
         assert report.ok is False
         assert report.memory_used_pct == pytest.approx(91.0)
 

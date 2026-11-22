@@ -69,7 +69,12 @@ def parse_stages(raw: str) -> set[int]:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     settings = Settings.load()
-    if not args.dry_run and not settings.owui_pass:
+    if (
+        not args.dry_run
+        and not args.emit_worksheets
+        and not args.ingest_worksheets
+        and not settings.owui_pass
+    ):
         print(
             "OPENWEBUI_ADMIN_PASSWORD not set (named key in .env) — live stages need it",
             file=sys.stderr,

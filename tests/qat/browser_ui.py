@@ -15,7 +15,7 @@ from pathlib import Path
 from .config import Settings
 
 RELEASE_OVERLAY_TEXTS = ("Okay, Let's Go!", "Okay, Let's Go", "Got it")
-STOP_CIRCLE_SELECTOR = "[class*='stop']"
+STOP_CIRCLE_SELECTOR = "button[aria-label='Stop'], path[d*='9.564a1.312']"
 
 
 class PlaywrightError(RuntimeError):
@@ -69,9 +69,16 @@ class BrowserUI:
         page.on("pageerror", lambda exc: self.errors.page_errors.append(str(exc)))
 
     def stop(self) -> None:
-        for closer in (self._browser, self._pw):
-            if closer is not None:
-                closer.close()
+        try:
+            if self._browser is not None:
+                self._browser.close()
+        except Exception:
+            pass
+        try:
+            if self._pw is not None:
+                self._pw.stop()
+        except Exception:
+            pass
         self._page = self._browser = self._pw = None
 
     def login(self) -> None:
@@ -96,15 +103,22 @@ class BrowserUI:
     def workspace_roster(self) -> set[str]:
         """Workspace names visible in the model selector."""
         page = self._require_page()
-        page.click("button[id='model-selector-button']", timeout=15_000)
+        page.locator("button[id^='model-selector-']").first.click(timeout=15_000)
         page.wait_for_timeout(800)
         names: set[str] = set()
-        for el in page.query_selector_all(
-            "[id='model-selector-dropdown'] [role='row'], [id='model-selector-dropdown'] li"
-        ):
+        listbox = page.locator("[role='listbox']")
+        for el in listbox.locator("[role='option'], button").all():
             label = (el.inner_text() or "").strip().splitlines()
             if label and label[0]:
                 names.add(label[0])
+            for attribute in ("data-value", "id", "aria-label"):
+                value = el.get_attribute(attribute)
+                if value:
+                    names.add(value)
+        if not names and listbox.count():
+            names.update(
+                line.strip() for line in listbox.last.inner_text().splitlines() if line.strip()
+            )
         page.keyboard.press("Escape")
         return names
 
@@ -118,16 +132,27 @@ class BrowserUI:
         page.fill("#chat-input, textarea", prompt)
         page.keyboard.press("Enter")
         deadline = time.monotonic() + max_wait_s
-        while time.monotonic() < deadline:
-            if page.locator(STOP_CIRCLE_SELECTOR).count() == 0:
+        stop = page.locator(STOP_CIRCLE_SELECTOR)
+        grace_deadline = min(deadline, time.monotonic() + 3.0)
+        appeared = False
+        while time.monotonic() < grace_deadline:
+            if stop.count():
+                appeared = True
                 break
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(100)
+        while appeared and time.monotonic() < deadline and stop.count():
+            page.wait_for_timeout(500)
+        if appeared and stop.count():
+            raise TimeoutError("Open WebUI Stop control remained visible past the scenario budget")
         page.wait_for_timeout(1500)
         return self.last_assistant_text()
 
     def last_assistant_text(self) -> str:
         page = self._require_page()
-        nodes = page.query_selector_all("[id^='message-'] .markdown-prose, [id^='message-']")
+        nodes = page.query_selector_all(
+            "[data-message-author-role='assistant'] .markdown-prose, "
+            "[data-message-author-role='assistant']"
+        )
         return nodes[-1].inner_text().strip() if nodes else ""
 
     def toggle_details(self) -> bool:

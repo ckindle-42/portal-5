@@ -18,7 +18,7 @@ from .models import QATResult, Status, classify_defect
 
 BROWSER_MCP_PORT = 8923
 BROWSER_MANIFEST = "config/inference/tools_manifest_browser_mcp.json"
-OK_STATUSES = frozenset({200, 400, 404, 413, 422})
+OK_STATUSES = frozenset({400, 404, 413, 422})
 SSRF_PROBES: tuple[str, ...] = (
     "http://localhost:8080/health",
     "http://127.0.0.1:9099/health",
@@ -50,10 +50,31 @@ def _health_all(settings: Settings, client: httpx.Client) -> QATResult:
         body = r.json() if r.status_code == 200 else {}
     except Exception as exc:
         return QATResult("s1-health-all", Status.FAIL, f"unreachable: {exc}")
-    ok = sum(1 for v in body.values() if isinstance(v, dict) and v.get("status") == "ok")
-    detail = f"{ok}/{len(body)} services ok" if body else f"HTTP {r.status_code}"
-    status = Status.PASS if r.status_code == 200 and ok >= len(body) else Status.WARN
-    return QATResult("s1-health-all", status, detail, evidence={"services": sorted(body)})
+    healthy = {
+        name
+        for name, value in body.items()
+        if isinstance(value, dict)
+        and (value.get("status") == "ok" or isinstance(value.get("models"), list))
+    }
+    non_ok = {
+        name: str(value.get("status", "unknown"))
+        for name, value in body.items()
+        if name not in healthy and isinstance(value, dict)
+    }
+    detail = f"{len(healthy)}/{len(body)} services healthy"
+    if non_ok:
+        detail += "; non-ok: " + ", ".join(
+            f"{name}={state}" for name, state in sorted(non_ok.items())
+        )
+    elif not body:
+        detail = f"HTTP {r.status_code}; no services returned"
+    status = Status.PASS if r.status_code == 200 and body and not non_ok else Status.WARN
+    return QATResult(
+        "s1-health-all",
+        status,
+        detail,
+        evidence={"services": sorted(body), "non_ok": non_ok},
+    )
 
 
 def _metrics_gauges(settings: Settings, client: httpx.Client) -> QATResult:
@@ -119,14 +140,24 @@ def _negative_probes(settings: Settings, client: httpx.Client) -> list[QATResult
         ("empty-prompt", {"model": "auto", "messages": [{"role": "user", "content": ""}]}),
         (
             "oversized-prompt",
-            {"model": "auto", "messages": [{"role": "user", "content": "x " * 300_000}]},
+            {"model": "auto", "messages": [{"role": "user", "content": "x" * (4_500 * 1024)}]},
         ),
         (
             "invalid-slug",
-            {"model": "auto-does-not-exist", "messages": [{"role": "user", "content": "hi"}]},
+            {
+                "model": "auto-does-not-exist",
+                "messages": [{"role": "user", "content": "hi"}],
+                "portal_strict_seat": True,
+            },
         ),
         ("malformed-json", '{"model": "auto", "messages": ['),
     )
+    expected = {
+        "empty-prompt": {400, 422},
+        "oversized-prompt": {413},
+        "invalid-slug": {404},
+        "malformed-json": {400, 422},
+    }
     results: list[QATResult] = []
     for name, body in probes:
         try:
@@ -138,12 +169,15 @@ def _negative_probes(settings: Settings, client: httpx.Client) -> list[QATResult
                 )
             else:
                 r = client.post(
-                    f"{settings.pipeline_url}/v1/chat/completions", json=body, headers=headers
+                    f"{settings.pipeline_url}/v1/chat/completions",
+                    json=body,
+                    headers=headers,
+                    timeout=5.0 if name == "empty-prompt" else 30.0,
                 )
         except Exception as exc:
             results.append(QATResult(f"s1-neg-{name}", Status.FAIL, f"probe raised: {exc}"))
             continue
-        if r.status_code in OK_STATUSES:
+        if r.status_code in expected[name]:
             results.append(
                 QATResult(f"s1-neg-{name}", Status.PASS, f"graceful HTTP {r.status_code}")
             )
@@ -244,6 +278,12 @@ def _browser_redaction(base: str, client: httpx.Client) -> QATResult:
     if REDACTION_CANARY in r.text:
         return QATResult(
             "s1-browser-redaction", Status.FAIL, "sensitive text echoed in tool response"
+        )
+    if r.status_code not in (200, 400, 403):
+        return QATResult(
+            "s1-browser-redaction",
+            Status.FAIL,
+            f"unexpected HTTP {r.status_code}; redaction was not demonstrated",
         )
     return QATResult(
         "s1-browser-redaction",
