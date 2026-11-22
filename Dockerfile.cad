@@ -1,7 +1,10 @@
 # Dedicated CAD image (mcp-cad-render, :8926) — linux/arm64 native.
 # OCP + VTK + scipy + OpenSCAD do not belong in the shared Dockerfile.mcp that
 # the other MCP services build from (TASK_CAD_ARM_REDEVELOP_V1 P1).
-FROM python:3.11-slim
+# OpenSCAD comes from the official openscad/openscad:dev base (linux/arm64,
+# Debian 13, Manifold built in) — the openSUSE OBS openscad-nightly apt repo it
+# replaces kept failing builds on mirror sync errors.
+FROM openscad/openscad:dev
 
 # Build stamp read by `portal trace` (launch.sh passes git HEAD as a build arg).
 ARG PORTAL_BUILD_SHA=unknown
@@ -12,12 +15,15 @@ RUN test "$(uname -m)" = aarch64 || (echo "CAD image must be built natively for 
 
 WORKDIR /app
 
-# curl/ca-certificates: healthcheck + OpenSCAD repo key fetch.
+# The base image ships OpenSCAD (at /usr/local/bin/openscad) but no Python.
+# trixie's python3 is 3.13 — build123d/build123d-mcp need >=3.11 and publish
+# cp313 manylinux_2_31_aarch64 wheels. curl/ca-certificates: healthcheck.
 # libgl1/libegl1/libosmesa6/...: VTK offscreen (build123d-mcp render) + trimesh/pyrender.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-venv \
     curl \
     ca-certificates \
-    gnupg \
     libgl1 \
     libegl1 \
     libosmesa6 \
@@ -27,16 +33,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libx11-6 \
     && rm -rf /var/lib/apt/lists/*
 
-# OpenSCAD with the Manifold backend: openscad.org's nightly package from the
-# openSUSE OBS repo home:t-paul (Debian_13) — it publishes an arm64 build. Debian's
-# own openscad is 2021.01 (CGAL only). Branch taken: nightly-manifold.
-RUN curl -fsSL https://download.opensuse.org/repositories/home:/t-paul/Debian_13/Release.key \
-        | gpg --dearmor -o /usr/share/keyrings/openscad-nightly.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/openscad-nightly.gpg arch=arm64] https://download.opensuse.org/repositories/home:/t-paul/Debian_13/ /" \
-        > /etc/apt/sources.list.d/openscad-nightly.list \
-    && apt-get update && apt-get install -y --no-install-recommends openscad-nightly \
-    && rm -rf /var/lib/apt/lists/*
-ENV OPENSCAD_BIN=openscad-nightly CAD_OPENSCAD_BACKEND=manifold
+# Clean venv on PATH so `python` (ENTRYPOINT CMD) and `pip` resolve inside it
+# (trixie's system Python is PEP 668 externally-managed).
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
+
+# OpenSCAD 2026.11.16 from the base image; the binary accepts --backend=manifold.
+ENV OPENSCAD_BIN=openscad CAD_OPENSCAD_BACKEND=manifold
 
 # Core deps
 RUN pip install --no-cache-dir \

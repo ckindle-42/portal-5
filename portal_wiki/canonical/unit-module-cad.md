@@ -161,8 +161,10 @@ binaries/wheels, and Docker images built for `linux/arm64`); `Dockerfile.cad`
 asserts `aarch64` at build time. build123d `0.11.1` + build123d-mcp `0.3.90`
 are pip arm64 wheels (pinned together: build123d-mcp requires
 `build123d>=0.10,<0.12`); there is no conda/micromamba layer any more.
-OpenSCAD is the arm64 `openscad-nightly` with the Manifold backend
-(`CAD_OPENSCAD_BACKEND=manifold`). `capabilities.cad_capabilities()` still
+OpenSCAD is the official `openscad/openscad:dev` base image — native
+`linux/arm64`, Debian 13, Manifold built in (the OBS `openscad-nightly` apt
+repo it replaced kept failing builds on mirror sync errors) — with the
+Manifold backend (`CAD_OPENSCAD_BACKEND=manifold`). `capabilities.cad_capabilities()` still
 probes what is really present (`openscad_bin|version|backend`, `build123d`,
 `ocp`, `build123d_mcp`, `arch`; `cad_status()` adds the live `engine` flag) and
 is served at `/capabilities`; `convert_cad`'s STEP path gates on
