@@ -309,6 +309,7 @@ def _host_hour_rows(
     ordered: list[Any],
     judge: JudgeClient | None,
     judge_model: str | None,
+    renames: Mapping[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Final host-hour order. Unconfigured and stopped judges say so and do not score."""
     from portal.modules.security.core.hunt.evidence import (
@@ -346,6 +347,7 @@ def _host_hour_rows(
         evidence_mode="rarest",
         event_chars=MAX_EVENT_CHARACTERS,
         stop=lambda: _judge_stopped(search),
+        renames=renames,
     )
     cost = ranked["judge_cost"]
     return ranked["leads"], {
@@ -387,6 +389,18 @@ def _order_leads(episodes: list[Any], leads: list[Lead], rows: list[dict[str, An
     return ordered
 
 
+def _discover_renames(search: Search) -> dict[str, str]:
+    """Live props.conf renames; a failed read or a bare test double degrades to none."""
+    from portal.modules.security.core.hunt.executor import executor_for
+    from portal.modules.security.core.hunt.notables.sample import sourcetype_renames
+
+    try:
+        found, _notes = sourcetype_renames(executor_for(search))
+    except Exception:
+        return {}
+    return found
+
+
 def hunt(
     search: Search,
     index: str,
@@ -396,15 +410,19 @@ def hunt(
     candidates: int = 15,
     judge: JudgeClient | None = None,
     judge_model: str | None = None,
+    renames: Mapping[str, str] | None = None,
 ) -> list[Lead]:
     """Seeds are host-hours. `candidates` bounds how many host-hours are investigated."""
     from portal.modules.security.core.hunt.episodes import accumulate, to_lead
     from portal.modules.security.core.hunt.observations import observe
     from portal.modules.security.core.hunt.order import positive_seeds
 
-    run = observe(search, index, start, end, baseline="current")
+    resolved_renames = renames if renames is not None else _discover_renames(search)
+    run = observe(search, index, start, end, baseline="current", renames=resolved_renames)
     ordered = list(run.observations)
-    rows, block = _host_hour_rows(search, index, start, end, ordered, judge, judge_model)
+    rows, block = _host_hour_rows(
+        search, index, start, end, ordered, judge, judge_model, resolved_renames
+    )
     seeds = positive_seeds(ordered, rows, candidates, SEEDS_PER_HOST_HOUR)
     place = {
         (obs.kind, obs.host, obs.entity, obs.hour, str(obs.evidence.get("signal", ""))): index
