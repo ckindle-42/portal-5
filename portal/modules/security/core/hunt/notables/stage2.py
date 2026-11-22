@@ -34,7 +34,7 @@ from ..judge import (
     judge_cell,
 )
 from .judge_notables import JUDGE_PROMPT_CHARS, notable_body, notable_prompt
-from .knowledge import PROOF_INDEXES
+from .knowledge import PROOF_INDEXES, TRAINING_INDEXES
 from .pipeline import content_of, model_from_env, model_requirement
 from .receipt import read_json, utc_now, write_json
 from .run import _judge_order
@@ -60,7 +60,6 @@ from .scoreboard import (
     _year,
 )
 
-TRAINING_INDEXES = frozenset({"hb_kyoushi_s1", "hb_ait_santos", "hb_ait_russellmitchell"})
 COUNCIL_WORKSPACE = "auto-council"
 STAGE2_PROBE_CALLS = 4  # effort budget: calibration sample per arm
 STAGE2_DEADLINE_SECONDS = 720.0  # effort budget: the hunt job wall time, per arm
@@ -400,7 +399,7 @@ def evaluate_family(
     _check_family(index, keys, run_sources)
     if index in PROOF_INDEXES or index not in TRAINING_INDEXES:
         raise Stage2Error(
-            f"{index!r} is not a training index (kyoushi, santos, russellmitchell only)"
+            f"{index!r} is not a training index ({', '.join(sorted(TRAINING_INDEXES))})"
         )
     honesty = _honesty(progress, family)
     resolved = logs if logs is not None else _default_logs(keys_path)
