@@ -125,6 +125,7 @@ from portal.platform.inference.router.trace import (
     span as trace_span,
 )
 from portal.platform.inference.router.truncation import set_estimate as set_prompt_estimate
+from portal.platform.inference.router.validation import empty_prompt_error
 from portal.platform.inference.router.workspaces import (
     _PERSONA_MAP,
     WORKSPACES,
@@ -750,6 +751,9 @@ async def _resolve_request_route(
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body") from None
+    _empty_prompt = empty_prompt_error(body)
+    if _empty_prompt is not None:
+        raise HTTPException(status_code=400, detail=_empty_prompt)
     workspace_id = body.get("model") or "auto"
     _original_model_id = workspace_id
     # Phase 2: Resolve persona slug → workspace_model (e.g. "dailydriver" → "auto-daily")
@@ -1142,7 +1146,7 @@ async def chat_completions(
     the concurrent-requests gauge for the request's lifetime.
 
     Raises:
-        HTTPException: 400 (invalid JSON), 401 (bad auth), 413 (body too
+        HTTPException: 400 (invalid JSON, empty prompt), 401 (bad auth), 413 (body too
             large), 429 (semaphore timeout), 502 (all backends failed), 503
             (registry not initialised; no healthy backends).
     """
