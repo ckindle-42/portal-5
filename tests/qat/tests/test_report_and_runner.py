@@ -216,6 +216,7 @@ class FakeOWUI:
         self.renamed: list[tuple[str, str]] = []
         self.archived: list[str] = []
         self.deleted: list[str] = []
+        self.sent_images: list[bytes | None] = []
         FakeOWUI.instances.append(self)
 
     def signin(self) -> str:
@@ -234,8 +235,10 @@ class FakeOWUI:
         function_calling: bool = False,
         prior_messages: list[dict] | None = None,
         files: list[dict] | None = None,
+        image_png: bytes | None = None,
         deadline: float | None = None,
     ) -> FakeResponse:
+        self.sent_images.append(image_png)
         return FakeResponse()
 
     def poll_turn(self, token: str, chat_id: str, **kwargs: object) -> FakeOutcome:
@@ -499,6 +502,149 @@ class TestWorksheets:
         ws.write_text(json.dumps(data))
         rn._ingest_worksheets(tmp_path, [scenario])
         assert json.loads((tmp_path / "worksheets_frozen.json").read_text()) == {}
+
+
+class TestIntraPhaseEviction:
+    def test_change_evicts_and_same_primary_does_not(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        evicted: list[str] = []
+        hints = {"ws-a": "model-a", "ws-b": "model-b", "ws-b2": "model-b"}
+        real_change = rn._evict_on_primary_change
+
+        def evict(settings: object) -> None:
+            evicted.append("evict")
+
+        def on_change(settings: object, previous: str | None, scenario: QATScenario) -> str | None:
+            before = len(evicted)
+            primary = real_change(settings, previous, scenario)  # type: ignore[arg-type]
+            if len(evicted) != before:
+                evicted[-1] = scenario.scenario_id
+            return primary
+
+        monkeypatch.setattr(rn, "_evict_resident_engines", evict)
+        monkeypatch.setattr(rn, "_evict_on_primary_change", on_change)
+        monkeypatch.setattr(rn.gate, "run_gate", lambda *a, **k: GateReport(phase="p", ok=True))
+        monkeypatch.setattr(
+            rn, "primary_model_for", lambda slug, portal_data=None: hints.get(slug, "")
+        )
+        monkeypatch.setattr(
+            rn,
+            "_execute_one",
+            lambda settings, scenario, state, opts: QATResult(scenario.scenario_id, Status.PASS),
+        )
+        disabled = _scn("disabled-b", phase="one", model="ws-b")
+        disabled.enabled = False
+        plan = [
+            _scn("same-1", phase="one", model="ws-a"),
+            disabled,
+            _scn("same-2", phase="one", model="ws-a"),
+            _scn("switch-b", phase="one", model="ws-b"),
+            _scn("same-hint", phase="one", model="ws-b2"),
+            _scn("infra", phase="one", model="ws-a", kind="infra"),
+            _scn("switch-pipe", phase="one", model="ws-a", kind="pipeline"),
+            _scn("phase-reset", phase="two", model="ws-b"),
+            _scn("phase-switch", phase="two", model="ws-a"),
+        ]
+        settings = make_settings(tmp_path)
+        state = rn.RunState(
+            settings=settings, run_dir=tmp_path, discovery=make_discovery(), scenarios=plan
+        )
+        rn._execute(settings, plan, state, _chat_opts(), previous={})
+        assert evicted == ["switch-b", "switch-pipe", "phase-switch"]
+
+    def test_resumed_scenario_does_not_arm_eviction(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        evicted: list[str] = []
+        monkeypatch.setattr(rn, "_evict_resident_engines", lambda settings: evicted.append("x"))
+        monkeypatch.setattr(rn.gate, "run_gate", lambda *a, **k: GateReport(phase="p", ok=True))
+        monkeypatch.setattr(
+            rn,
+            "primary_model_for",
+            lambda slug, portal_data=None: {"ws-a": "model-a", "ws-b": "model-b"}.get(slug, ""),
+        )
+        monkeypatch.setattr(
+            rn,
+            "_execute_one",
+            lambda settings, scenario, state, opts: QATResult(scenario.scenario_id, Status.PASS),
+        )
+        plan = [
+            _scn("ran-earlier", phase="one", model="ws-a"),
+            _scn("first-this-process", phase="one", model="ws-b"),
+        ]
+        settings = make_settings(tmp_path)
+        state = rn.RunState(
+            settings=settings, run_dir=tmp_path, discovery=make_discovery(), scenarios=plan
+        )
+        previous = {"ran-earlier": QATResult("ran-earlier", Status.PASS)}
+        rn._execute(settings, plan, state, _chat_opts(), previous=previous)
+        assert evicted == []
+
+    def test_resident_engines_unload_only_when_resident(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        calls: list[tuple[str, tuple[str, ...]]] = []
+
+        def cold(client: object, settings: object) -> tuple[QATResult, list[str]]:
+            return QATResult("gate", Status.PASS, "cold"), []
+
+        monkeypatch.setattr(rn.gate, "ollama_residency", cold)
+        monkeypatch.setattr(rn.gate, "omlx_residency", cold)
+        monkeypatch.setattr(
+            rn.gate, "evict_ollama", lambda *a, **k: calls.append(("ol", ())) or QATResult("g")
+        )
+        monkeypatch.setattr(
+            rn.gate, "evict_omlx", lambda *a, **k: calls.append(("ox", ())) or QATResult("g")
+        )
+        rn._evict_resident_engines(make_settings(tmp_path))
+        assert calls == []
+
+        monkeypatch.setattr(
+            rn.gate,
+            "ollama_residency",
+            lambda c, s: (QATResult("g", Status.WARN, "resident"), ["gguf:a"]),
+        )
+        monkeypatch.setattr(
+            rn.gate,
+            "omlx_residency",
+            lambda c, s: (QATResult("g", Status.WARN, "resident"), ["mlx-a"]),
+        )
+        monkeypatch.setattr(
+            rn.gate,
+            "evict_ollama",
+            lambda c, s, resident: calls.append(("ol", tuple(resident))) or QATResult("g"),
+        )
+        monkeypatch.setattr(
+            rn.gate,
+            "evict_omlx",
+            lambda c, s, resident: calls.append(("ox", tuple(resident))) or QATResult("g"),
+        )
+        rn._evict_resident_engines(make_settings(tmp_path))
+        assert calls == [("ol", ("gguf:a",)), ("ox", ("mlx-a",))]
+
+
+class TestVisionImage:
+    def test_auto_vision_turn_sends_png_bytes(
+        self, fake_owui: type[FakeOWUI], tmp_path: Path
+    ) -> None:
+        from tests.qat import scenarios as scn
+
+        settings = make_settings(tmp_path)
+        scenario = _scn(
+            "s2-p2-auto-vision",
+            model="auto-vision",
+            phase="reasoning_vision_research",
+            attachment=scn.INLINE_VISION_PNG,
+            prompts=(scn.VISION_PROBE,),
+        )
+        state = rn.RunState(settings=settings, run_dir=tmp_path, discovery=make_discovery())
+        result = rn._execute_one(settings, scenario, state, _chat_opts())
+        assert result.status is Status.PASS
+        png = fake_owui.instances[0].sent_images[0]
+        assert png is not None
+        assert png.startswith(b"\x89PNG\r\n\x1a\n")
+        assert png[16:24] == b"\x00\x00\x00@\x00\x00\x00@"
 
 
 class TestBrowserExecution:

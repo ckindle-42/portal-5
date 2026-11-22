@@ -22,7 +22,7 @@ from . import scenarios as scn
 from .browser_ui import BrowserUI, PlaywrightUnavailable
 from .config import Discovery, Settings, discover, primary_model_for
 from .models import GateReport, QATResult, QATScenario, StageSummary, Status, classify_defect
-from .owui_client import OWUIClient, TurnOutcome
+from .owui_client import OWUIClient, TurnOutcome, red_square_png
 
 DEFAULT_OUTPUT_REL = "results/qat"
 
@@ -266,9 +266,11 @@ def _execute(
 ) -> None:
     current_phase: tuple[int, str] | None = None
     gate_report: GateReport | None = None
+    resident_primary: str | None = None
     for scenario in selected:
         if (scenario.stage, scenario.phase) != current_phase:
             current_phase = (scenario.stage, scenario.phase)
+            resident_primary = None
             gate_report = None
             if state.stages or _uses_gpu(scenario):
                 gate_report = gate.run_gate(settings, scenario.phase)
@@ -283,6 +285,7 @@ def _execute(
             state.results.append(previous[scenario.scenario_id])
             state.stages[-1].results.append(previous[scenario.scenario_id])
             continue
+        resident_primary = _evict_on_primary_change(settings, resident_primary, scenario)
         started = time.monotonic()
         result = _execute_one(settings, scenario, state, opts)
         result.duration_s = time.monotonic() - started
@@ -311,6 +314,33 @@ def _block_remaining(selected: list[QATScenario], first: QATScenario, state: Run
 
 def _uses_gpu(scenario: QATScenario) -> bool:
     return scenario.stage >= 2 and scenario.kind in {"chat", "browser", "pipeline", "adversarial"}
+
+
+def _gpu_primary(scenario: QATScenario) -> str | None:
+    if not scenario.enabled or scenario.kind not in {"chat", "pipeline"}:
+        return None
+    return primary_model_for(scenario.model_slug) or scenario.model_slug
+
+
+def _evict_on_primary_change(
+    settings: Settings, previous: str | None, scenario: QATScenario
+) -> str | None:
+    primary = _gpu_primary(scenario)
+    if primary is None:
+        return previous
+    if previous is not None and previous != primary:
+        _evict_resident_engines(settings)
+    return primary
+
+
+def _evict_resident_engines(settings: Settings) -> None:
+    with httpx.Client(timeout=15.0) as client:
+        _, ollama_resident = gate.ollama_residency(client, settings)
+        _, omlx_resident = gate.omlx_residency(client, settings)
+        if ollama_resident:
+            gate.evict_ollama(client, settings, ollama_resident)
+        if omlx_resident:
+            gate.evict_omlx(client, settings, omlx_resident)
 
 
 def _checkpoint_result(run_dir: Path, result: QATResult) -> None:
@@ -658,17 +688,23 @@ def _run_chat(
         )
 
 
+def _chat_turn_extras(
+    client: OWUIClient, token: str, scenario: QATScenario, index: int, deadline: float
+) -> tuple[list[dict[str, str]] | None, bytes | None]:
+    if index != 1 or not scenario.attachment:
+        return None, None
+    if scenario.attachment == scn.INLINE_VISION_PNG:
+        return None, red_square_png()
+    return [client.upload_attachment(token, scenario.attachment, deadline)], None
+
+
 def _run_chat_turns(
     client: OWUIClient, token: str, chat_id: str, scenario: QATScenario, deadline: float
 ) -> tuple[TurnOutcome | None, QATResult | None]:
     branch: list[dict[str, str]] = []
     outcome: TurnOutcome | None = None
     for index, prompt in enumerate(scenario.prompts, start=1):
-        files = (
-            [client.upload_attachment(token, scenario.attachment, deadline)]
-            if index == 1 and scenario.attachment
-            else None
-        )
+        files, image_png = _chat_turn_extras(client, token, scenario, index, deadline)
         started_at = time.time()
         response = client.send_turn(
             token,
@@ -679,6 +715,7 @@ def _run_chat_turns(
             scenario.function_calling,
             prior_messages=branch,
             files=files,
+            image_png=image_png,
             deadline=deadline,
         )
         if not response.is_success:

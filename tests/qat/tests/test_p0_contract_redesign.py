@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import json
+import struct
 import subprocess
+import zlib
 from pathlib import Path
 
 import httpx
@@ -13,7 +16,7 @@ from tests.qat import config as qat_config
 from tests.qat import gate, hardening, preflight, report, runner, scenarios
 from tests.qat.config import McpFleetEntry
 from tests.qat.models import QATResult, QATScenario, Status
-from tests.qat.owui_client import OWUIClient
+from tests.qat.owui_client import OWUIClient, red_square_png
 
 from .test_config_and_scenarios import make_discovery, make_settings
 
@@ -477,6 +480,7 @@ def test_registry_hunt_timeout_and_separate_mcp_contracts(tmp_path: Path) -> Non
         s.scenario_id.endswith("proxmox-readonly") and "unifi" in s.tags for s in registry
     )
     by_id = {s.scenario_id: s for s in registry}
+    assert by_id["s2-p3-auto-coding"].timeout_s >= 360.0
     assert by_id["s2-p3-auto-coding::cad"].timeout_s == 600
     assert by_id["s2-p6-auto-audio::image"].timeout_s == 900
     assert by_id["s2-p6-auto-audio::video"].timeout_s == 1800
@@ -688,6 +692,59 @@ def test_dynamic_auto_chat_checks_resolved_trace_workspace(
     assert result.status is Status.PASS
     assert result.served_model == "cad-primary"
     assert resolved_workspaces == ["auto-coding::cad"]
+
+
+def _png_idat(png: bytes) -> bytes:
+    pos = 8
+    blobs: list[bytes] = []
+    while pos + 8 <= len(png):
+        length = struct.unpack(">I", png[pos : pos + 4])[0]
+        kind = png[pos + 4 : pos + 8]
+        data = png[pos + 8 : pos + 8 + length]
+        if kind == b"IDAT":
+            blobs.append(data)
+        pos += 12 + length
+        if kind == b"IEND":
+            break
+    return zlib.decompress(b"".join(blobs))
+
+
+def test_auto_vision_scenarios_request_inline_png(tmp_path: Path) -> None:
+    registry = scenarios.build_registry(make_settings(tmp_path), make_discovery())
+    wanted = {"s2-p1-auto-vision", "s2-p2-auto-vision"}
+    vision = [s for s in registry if s.scenario_id in wanted]
+    assert {s.scenario_id for s in vision} == wanted
+    assert all(s.attachment == scenarios.INLINE_VISION_PNG for s in vision)
+    assert all(s.prompts == (scenarios.VISION_PROBE,) for s in vision)
+
+
+def test_send_turn_posts_red_square_image_url() -> None:
+    settings = make_settings(Path("/tmp"), OWUI_API_KEY="qat-token")
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/chats/new":
+            return httpx.Response(201, json={"id": "chat-vision"})
+        if request.url.path == "/api/chat/completions":
+            bodies.append(json.loads(request.content))
+            return httpx.Response(200, json={})
+        return httpx.Response(404)
+
+    png = red_square_png()
+    client = OWUIClient(settings, httpx.MockTransport(handler))
+    chat_id = client.create_chat("token", "auto-vision", "vision", prompt=scenarios.VISION_PROBE)
+    client.send_turn("token", chat_id, "auto-vision", scenarios.VISION_PROBE, image_png=png)
+    content = bodies[0]["messages"][-1]["content"]
+    assert content[0] == {"type": "text", "text": scenarios.VISION_PROBE}
+    image = content[1]
+    assert image["type"] == "image_url"
+    url = image["image_url"]["url"]
+    assert url.startswith("data:image/png;base64,")
+    decoded = base64.b64decode(url.removeprefix("data:image/png;base64,"))
+    assert decoded == png
+    assert decoded[16:24] == struct.pack(">II", 64, 64)
+    assert decoded[24:26] == bytes((8, 2))
+    assert _png_idat(decoded) == (b"\x00" + bytes((255, 0, 0)) * 64) * 64
 
 
 def test_report_uses_actual_served_model_in_acceptance_matrix(tmp_path: Path) -> None:
