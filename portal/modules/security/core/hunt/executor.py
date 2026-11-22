@@ -99,16 +99,27 @@ def per_sample_cap(query: str) -> int | None:
 
 
 def plan_within_requests[T](
-    plan: Sequence[T], remaining: int | None, *, priority: Callable[[T], Any]
+    plan: Sequence[T],
+    remaining: int | None,
+    *,
+    priority: Callable[[T], Any],
+    cost: Callable[[T], int] | None = None,
 ) -> tuple[list[T], list[T]]:
-    """Keep the highest-priority planned reads the unspent ceiling pays for; declare the rest."""
-    if remaining is None or remaining >= len(plan):
+    """Keep the highest-priority planned reads the unspent ceiling pays for; declare the rest.
+
+    `cost` prices a plan entry in requests (a density probe plus its evidence read is 2);
+    unplanned-for prices default to one request each.
+    """
+    if remaining is None or (cost is None and remaining >= len(plan)):
         return list(plan), []
-    keep = set(
-        sorted(range(len(plan)), key=lambda index: (priority(plan[index]), index))[
-            : max(0, remaining)
-        ]
-    )
+    spent = 0
+    keep: set[int] = set()
+    for index in sorted(range(len(plan)), key=lambda order: (priority(plan[order]), order)):
+        price = max(1, cost(plan[index])) if cost else 1
+        if spent + price > remaining:
+            continue
+        keep.add(index)
+        spent += price
     return (
         [item for index, item in enumerate(plan) if index in keep],
         [item for index, item in enumerate(plan) if index not in keep],

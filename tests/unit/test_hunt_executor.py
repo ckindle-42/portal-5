@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import inspect
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -143,3 +145,64 @@ def test_the_observer_sees_a_request_budget_refusal() -> None:
 
     assert [read.reason for read in seen] == ["request_budget_exhausted"]
     assert seen[0].rows == [] and seen[0].censored
+
+
+def test_relate_runs_after_a_behaviours_stage_whose_clock_expired(tmp_path: Path) -> None:
+    """relate starts its own stage clock: a behaviours deadline expiry never aborts its reads."""
+    from portal.modules.security.core.hunt.executor import DEFAULT_BUDGETS
+    from portal.modules.security.core.hunt.notables.relate import relate_stage
+
+    class _AnsweringSearch:
+        def iter_post_bounded(
+            self,
+            query: str,
+            start: float,
+            end: float,
+            *,
+            timeout_seconds: float = 0,
+            max_results: int | None = None,
+        ) -> list[dict[str, Any]]:
+            del query, start, end, timeout_seconds, max_results
+            return [{"_time": 15.0, "host": "h1", "source": "/a.log", "_raw": "uid=33"}]
+
+    budget = HuntBudget(dict(DEFAULT_BUDGETS) | {"job_seconds": 60.0})
+    budget.started -= 600.0  # behaviours spent the shared wall clock; the expiry is sticky
+    budget.exhausted = "job_deadline_exceeded"
+    budget.queries = 17
+    search: Any = _AnsweringSearch()
+    search.executor = HuntExecutor(search, budget)
+    cards = [
+        {
+            "index": "ix",
+            "sourcetype": "st",
+            "source_id": "ix:st",
+            "structure": "kv",
+            "role_overrides": {"actor": {"field": "uid"}},
+            "facts": {"sources": ["/a.log"]},
+        }
+    ]
+    (tmp_path / "sources.json").write_text(
+        json.dumps({"index": "ix", "start": 0.0, "end": 100.0, "cards": cards}),
+        encoding="utf-8",
+    )
+    notables = [
+        {
+            "source_id": "ix:st",
+            "notable_id": "n1",
+            "generator": "alerts",
+            "host": "h1",
+            "first_seen": 10.0,
+            "last_seen": 20.0,
+            "entities": [{"role": "actor", "value": "33"}],
+        }
+    ]
+    (tmp_path / "notables.jsonl").write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in notables), encoding="utf-8"
+    )
+
+    receipt = relate_stage(out=tmp_path, search=search)
+
+    assert (receipt["seeds"], receipt["requests"]) == (1, 1)  # relate issued its own read
+    assert budget.expired_reason() is None
+    assert budget.job_remaining() > 59.0
+    assert budget.queries == 18  # the request ceiling stays global across the clock restart

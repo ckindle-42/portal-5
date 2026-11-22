@@ -27,6 +27,7 @@ ALERT_PROBE_LINES = 400  # effort budget: events read per window to detect an al
 ALERT_TERM = 'event_type="alert"'  # the search term that selects a JSON detection event
 BEHAVIOUR_SOURCES = 8  # effort budget: indexed sources one pooled read covers
 READ_FILES_MAX = 32  # effort budget: indexed files one behaviour read covers
+DENSITY_PROBE_MAX = 4  # effort budget: density probes one source read spends on its largest files
 FILE_READ_MIN_WINDOWS = 3  # a file is sampled at several points, never only its tail
 MAX_HOST_NAMES = 24  # effort budget: host names listed on one source's facts
 # The results endpoint returns at most 50,000 rows per request; caps stay below it.
@@ -160,6 +161,14 @@ class AccelSummary:
 
     model: str
     window: tuple[float, float]
+
+
+@dataclass
+class ScanCache:
+    """One index aggregate per (index, width): fetched over `span` once, sliced per source."""
+
+    span: tuple[float, float]
+    rows: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -317,6 +326,7 @@ def localise(
     *,
     width: float | None = None,
     summaries: Sequence[AccelSummary] | None = None,
+    scan_cache: ScanCache | None = None,
 ) -> Localisation:
     """Rung 1 over a covering summary, else rung 2's index aggregate: one source's own span."""
     chosen = width or localise_width(end - start)
@@ -342,7 +352,7 @@ def localise(
         found = _partial_localisation(executor, index, partial, start, end, chosen, notes)
         if found is not None:
             return found
-    scanned_rows = _scan_windows(executor, index, start, end, chosen, notes)
+    scanned_rows = _scan_windows(executor, index, start, end, chosen, notes, scan_cache)
     return Localisation(
         windows=scanned_rows,
         mechanism="indexed",
@@ -378,15 +388,48 @@ def _summary_windows(
 
 
 def _scan_windows(
-    executor: HuntExecutor, index: str, start: float, end: float, width: float, notes: list[str]
+    executor: HuntExecutor,
+    index: str,
+    start: float,
+    end: float,
+    width: float,
+    notes: list[str],
+    scan_cache: ScanCache | None = None,
 ) -> list[LocalWindow]:
-    """The peak buckets the index aggregate answers for a sub-range no summary holds."""
+    """The peak buckets the index aggregate answers for a sub-range no summary holds.
+
+    With a cache, the aggregate is fetched once over the shared span and sliced per source.
+    """
+    if scan_cache is not None and scan_cache.rows is not None:
+        return select_local_windows(_rows_within(scan_cache.rows, start, end), width)
+    fetch_start, fetch_end = scan_cache.span if scan_cache is not None else (start, end)
     rows, reason = _read_range(
-        executor, localise_query(index, width), start, end, kind="localise", row_cap=LOCALISE_ROWS
+        executor,
+        localise_query(index, width),
+        fetch_start,
+        fetch_end,
+        kind="localise",
+        row_cap=LOCALISE_ROWS,
     )
     if reason:
         notes.append(f"localise:{reason}")
+        return select_local_windows(rows, width)
+    if scan_cache is not None:
+        scan_cache.rows = rows
+        rows = _rows_within(rows, start, end)
     return select_local_windows(rows, width)
+
+
+def _rows_within(
+    rows: Sequence[Mapping[str, Any]], start: float, end: float
+) -> list[dict[str, Any]]:
+    """The aggregate's buckets whose own stamp falls inside one source's span."""
+    kept = []
+    for row in rows:
+        stamp = _number(row.get("_time"))
+        if stamp is not None and start <= stamp < end:
+            kept.append(dict(row))
+    return kept
 
 
 def _partial_summary(
@@ -921,19 +964,22 @@ def read_files(
         executor, facts, source_bounds, per_window, per_read, host, max_files, source_id
     )
     found.files.extend(skipped)
-    requests = [
-        (item, file_host, start, end, head)
+    counts: dict[tuple[str, float, float], int] = {}
+    planned_reads = [
+        (item, file_host, start, end, cap, probed)
         for item, file_host, reads in planned
-        for start, end, head in reads
+        for start, end, cap, probed in reads
     ]
-    requests, dropped = plan_within_requests(
-        requests,
+    _cap_density_probes(planned_reads)
+    kept, dropped = plan_within_requests(
+        planned_reads,
         _remaining_requests(executor),
         priority=lambda request: (-request[0].events, request[0].path, -request[2]),
+        cost=lambda request: 2 if request[5] else 1,
     )
-    for item, file_host, start, end, head in dropped:
+    for item, file_host, start, end, cap, _probed in dropped:
         _omit_window(
-            executor, facts, item, file_host, start, end, head, source_id, REQUEST_BUDGET_EXHAUSTED
+            executor, facts, item, file_host, start, end, cap, source_id, REQUEST_BUDGET_EXHAUSTED
         )
         found.files.append(
             FileRead(
@@ -947,6 +993,8 @@ def read_files(
                 item.hosts,
             )
         )
+    _density_counts(executor, facts, kept, counts)
+    requests = _headed_requests(kept, counts)
     if requests:
         item, file_host, _start, _end, head = requests[0]
         found.query = (
@@ -1009,11 +1057,10 @@ def _plan_files(
     host: str,
     max_files: int,
     source_id: str,
-) -> tuple[list[tuple[IndexFile, str, list[tuple[float, float, int]]]], list[FileRead]]:
+) -> tuple[list[tuple[IndexFile, str, list[tuple[float, float, int, bool]]]], list[FileRead]]:
     """One read plan per file; every file not read is a receipt with its reason."""
-    planned: list[tuple[IndexFile, str, list[tuple[float, float, int]]]] = []
+    planned: list[tuple[IndexFile, str, list[tuple[float, float, int, bool]]]] = []
     skipped: list[FileRead] = []
-    counts: dict[tuple[str, float, float], int] = {}
     reading = 0
     for item in facts.files:
         if host and item.hosts and host not in item.hosts:
@@ -1033,42 +1080,82 @@ def _plan_files(
             )
             continue
         planned.append(
-            (
-                item,
-                file_host,
-                _file_reads(executor, facts, item, source_bounds, per_window, per_read, counts),
-            )
+            (item, file_host, _file_reads(facts, item, source_bounds, per_window, per_read))
         )
     return planned, skipped
 
 
 def _file_reads(
-    executor: HuntExecutor,
     facts: SourceFacts,
     item: IndexFile,
     source_bounds: Sequence[tuple[float, float]],
     per_window: int,
     per_read: int,
-    cache: dict[tuple[str, float, float], int],
-) -> list[tuple[float, float, int]]:
-    """One file's (window, head) plan: its own range sliced, else the source schedule."""
+) -> list[tuple[float, float, int, bool]]:
+    """One file's (window, cap) plan: its own range sliced, else the source schedule.
+
+    The cap is the head ceiling the window's density probe may cut; a small file is read
+    whole at its own event count, with no probe ahead of it.
+    """
     if item.events <= per_window:
         bounds = _file_windows(item, 1) or [(facts.first, facts.last + 0.000001)]
-        return [(bounds[0][0], bounds[-1][1], max(1, item.events))]
+        return [(bounds[0][0], bounds[-1][1], max(1, item.events), False)]
     own = _file_windows(item, _file_window_count(item.events, per_window, per_window))
     bounds = own or _spread_windows(
         source_bounds, _file_window_count(item.events, per_window, per_read)
     )
+    return [(start, end, per_window if own else per_read, True) for start, end in bounds]
+
+
+def _cap_density_probes(
+    requests: list[tuple[IndexFile, str, float, float, int, bool]],
+) -> None:
+    """Beyond `DENSITY_PROBE_MAX`, the largest files keep probes and the rest read at cap."""
+    probed = [order for order, item in enumerate(requests) if item[5]]
+    for order in sorted(
+        probed,
+        key=lambda order: (
+            -requests[order][0].events,
+            requests[order][0].path,
+            -requests[order][2],
+        ),
+    )[DENSITY_PROBE_MAX:]:
+        item = requests[order]
+        requests[order] = (item[0], item[1], item[2], item[3], item[4], False)
+
+
+def _density_counts(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    requests: Sequence[tuple[IndexFile, str, float, float, int, bool]],
+    cache: dict[tuple[str, float, float], int],
+) -> None:
+    """Every kept window's own count, probed concurrently: one tstats request each."""
+    probed = [item for item in requests if item[5]]
+    concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+    with ThreadPoolExecutor(max_workers=min(len(probed) or 1, concurrency)) as pool:
+        futures = [
+            pool.submit(_window_events, executor, facts, item[0].path, item[2], item[3], cache)
+            for item in probed
+        ]
+        for future in futures:
+            future.result()
+
+
+def _headed_requests(
+    requests: Sequence[tuple[IndexFile, str, float, float, int, bool]],
+    counts: Mapping[tuple[str, float, float], int],
+) -> list[tuple[IndexFile, str, float, float, int]]:
+    """Final heads: the window's own density, or the planned cap when no count came back."""
     return [
         (
+            item,
+            file_host,
             start,
             end,
-            _file_head(
-                _window_events(executor, facts, item.path, start, end, cache),
-                per_window if own else per_read,
-            ),
+            cap if not probed else _file_head(counts.get((item.path, start, end), -1), cap),
         )
-        for start, end in bounds
+        for item, file_host, start, end, cap, probed in requests
     ]
 
 

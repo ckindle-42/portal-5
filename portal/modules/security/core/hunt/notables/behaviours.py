@@ -26,6 +26,7 @@ from .sample import (
     Localisation,
     LocalWindow,
     RowSet,
+    ScanCache,
     SourceFacts,
     accel_summaries,
     file_omitted,
@@ -1218,8 +1219,20 @@ def _localise_sources(
     for index, sources in sorted(by_index.items()):
         summaries, probe_notes = accel_summaries(executor, index)
         notes.extend(probe_notes)
+        widths = {
+            source_id: localise_width(facts.last - facts.first) for source_id, facts in sources
+        }
+        by_width: dict[float, list[SourceFacts]] = {}
         for source_id, facts in sources:
-            located = _localise_one(executor, index, facts, summaries)
+            by_width.setdefault(widths[source_id], []).append(facts)
+        caches = {
+            width: ScanCache(
+                (min(facts.first for facts in group), max(facts.last for facts in group) + 0.000001)
+            )
+            for width, group in by_width.items()
+        }
+        for source_id, facts in sources:
+            located = _localise_one(executor, index, facts, summaries, caches[widths[source_id]])
             notes.extend(located.notes)
             if located.windows:
                 anchors[source_id] = located
@@ -1233,7 +1246,11 @@ def _localise_sources(
 
 
 def _localise_one(
-    executor: HuntExecutor, index: str, facts: SourceFacts, summaries: Sequence[AccelSummary]
+    executor: HuntExecutor,
+    index: str,
+    facts: SourceFacts,
+    summaries: Sequence[AccelSummary],
+    scan_cache: ScanCache | None = None,
 ) -> Localisation:
     """A source's own `[first, last]` is the operand; the summary probe is shared per index."""
     width = localise_width(facts.last - facts.first)
@@ -1244,6 +1261,7 @@ def _localise_one(
         facts.last + 0.000001,
         width=width,
         summaries=summaries,
+        scan_cache=scan_cache,
     )
 
 

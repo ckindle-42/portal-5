@@ -1525,6 +1525,7 @@ def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dic
     seeds = _seed_records(selected, start, end, identity, shares, spans)
     requests, details = _requests(index, seeds)
     executor = executor_for(search)
+    executor.budget.restart_clock()  # behaviours owns the wall clock to here; relate starts its own
     executor.budget.phase = "investigating"
     began = time.monotonic()
     candidates, coverage = _gather(executor, requests, details)
