@@ -219,6 +219,9 @@ def build_store(
             family_names,
             manifest_digest,
         )
+        from .verdicts import carry_verdicts
+
+        carry_verdicts(store_path, temporary)
         os.replace(temporary, store_path)
     finally:
         temporary.unlink(missing_ok=True)
