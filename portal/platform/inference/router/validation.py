@@ -64,6 +64,59 @@ def _validate_workspace_hints(registry: BackendRegistry) -> list[str]:
     return errors
 
 
+_EMPTY_PROMPT_ERROR = {
+    "message": "Empty prompt: provide message content or an attachment.",
+    "type": "invalid_request_error",
+}
+
+
+def _part_has_payload(part: Any) -> bool:
+    """One content part: non-blank text, or any non-text (media) part."""
+    if isinstance(part, str):
+        return bool(part.strip())
+    if not isinstance(part, dict):
+        return True
+    if part.get("type") not in (None, "text"):
+        return True
+    text = part.get("text")
+    if isinstance(text, str):
+        return bool(text.strip())
+    return "text" not in part
+
+
+def _content_has_payload(content: Any) -> bool:
+    """True when content carries non-blank text or any non-text (media) part."""
+    if content is None:
+        return False
+    if isinstance(content, str):
+        return bool(content.strip())
+    if not isinstance(content, list):
+        return True
+    return any(_part_has_payload(part) for part in content)
+
+
+def empty_prompt_error(body: Any) -> dict[str, str] | None:
+    """The OpenAI-style 400 error object for a chat request with no prompt, else None."""
+    if not isinstance(body, dict):
+        return None
+    if any(body.get(key) for key in ("files", "attachments", "portal_attached_files")):
+        return None
+    messages = body.get("messages")
+    if not isinstance(messages, list) or not messages:
+        return dict(_EMPTY_PROMPT_ERROR)
+    for message in messages:
+        if isinstance(message, dict) and (
+            message.get("files") or message.get("attachments") or message.get("tool_calls")
+        ):
+            return None
+    last = messages[-1]
+    if not isinstance(last, dict) or last.get("role") != "user":
+        return None
+    if _content_has_payload(last.get("content")):
+        return None
+    return dict(_EMPTY_PROMPT_ERROR)
+
+
 def _note_applied_options(body: dict[str, Any], workspace_id: str) -> None:
     """Stamp the APPLIED request fields onto the turn's trace (P5-FANOUT-001
     receipt work; TASK_COMPLIANCE_PIPELINE_ALIGNMENT_V1 §P3).

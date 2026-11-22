@@ -6,8 +6,9 @@ import importlib.metadata
 import logging
 import os
 
-from fastapi import FastAPI
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from portal.platform.inference.router import embeddings, handlers, ollama_passthrough
 from portal.platform.inference.router.lifespan import lifespan
@@ -24,6 +25,14 @@ except importlib.metadata.PackageNotFoundError:
     _PKG_VERSION = "dev"
 
 app = FastAPI(title="Portal Pipeline", version=_PKG_VERSION, lifespan=lifespan)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def _http_error_response(_request: Request, exc: StarletteHTTPException) -> JSONResponse:
+    # A dict detail is an OpenAI-style error object (empty-prompt 400); strings keep {"detail": ...}.
+    content = {"error": exc.detail} if isinstance(exc.detail, dict) else {"detail": exc.detail}
+    return JSONResponse(content, status_code=exc.status_code, headers=exc.headers)
+
 
 # Per-request correlation id: mint/accept at entry, bind to a contextvar for
 # uniform log stamping, echo back in the response header. See router.correlation.
