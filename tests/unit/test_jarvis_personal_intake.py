@@ -68,6 +68,42 @@ def test_owui_submit_requires_the_allowlisted_telegram_id(
     assert enqueue_personal(root, "owui", "42", "second").startswith("pt-")
 
 
+def test_allowlist_reads_the_repo_env_file_when_the_key_is_unset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """pipeline-mcp runs under launchd without .env sourced (host-plists-no-env)."""
+    import portal.modules.orchestration.personal_intake as personal_intake
+
+    (tmp_path / ".env").write_text('TELEGRAM_USER_IDS="42, 99"\n', encoding="utf-8")
+    monkeypatch.setattr(personal_intake, "_REPO_ENV", tmp_path / ".env")
+    monkeypatch.delenv("TELEGRAM_USER_IDS", raising=False)
+    assert personal_intake.allowlisted_user_ids() == {42, 99}
+
+
+def test_allowlist_fails_closed_when_the_key_is_absent_everywhere(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import portal.modules.orchestration.personal_intake as personal_intake
+
+    monkeypatch.setattr(personal_intake, "_REPO_ENV", tmp_path / ".env")  # no file
+    monkeypatch.delenv("TELEGRAM_USER_IDS", raising=False)
+    assert personal_intake.allowlisted_user_ids() == set()
+
+
+def test_allowlist_env_wins_and_an_explicit_empty_stays_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import portal.modules.orchestration.personal_intake as personal_intake
+
+    env_file = tmp_path / ".env"
+    env_file.write_text("TELEGRAM_USER_IDS=42\n", encoding="utf-8")
+    monkeypatch.setattr(personal_intake, "_REPO_ENV", env_file)
+    monkeypatch.setenv("TELEGRAM_USER_IDS", "7")
+    assert personal_intake.allowlisted_user_ids() == {7}
+    monkeypatch.setenv("TELEGRAM_USER_IDS", "")
+    assert personal_intake.allowlisted_user_ids() == set()
+
+
 def test_unknown_source_is_refused(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="source"):
         enqueue_personal(tmp_path, "email", "1", "hello")
