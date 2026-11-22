@@ -804,6 +804,7 @@ def run_bench(
             "failures": failures,
             "notes": notes,
         }
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
             f.write("\n")
