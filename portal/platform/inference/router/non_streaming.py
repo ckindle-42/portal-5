@@ -65,8 +65,10 @@ from portal.platform.inference.router.tool_repeat import (
     UNGROUNDED_NOTICE,
     ToolRepeatGuard,
     apply_tool_byte_budget,
+    clip_fresh_calls,
     followup_tool_choice,
     no_tool_call_retry,
+    prepare_cited_synthesis,
     prepare_toolless_finalizer,
     tool_result_byte_budget,
 )
@@ -92,6 +94,7 @@ from portal.platform.inference.router.validation import (
 from portal.platform.inference.router.workspaces import (
     _PERSONA_MAP,
     WORKSPACES,
+    _configured_tool_calls,
     _resolve_persona_tool_choice,
     _resolve_persona_tools,
 )
@@ -598,6 +601,52 @@ async def _dispatch_owned_for_carry(
     return results
 
 
+async def _seal_capped_client_calls(
+    data: dict[str, Any],
+    seal: bool,
+    mixed: bool,
+    owned: list[dict[str, Any]],
+    client_calls: list[dict[str, Any]],
+    results: list[dict[str, Any]],
+    client: Any,
+    url: str,
+    timeout: httpx.Timeout,
+    req_body: dict[str, Any],
+    messages: list[dict[str, Any]],
+    guard: ToolRepeatGuard,
+    workspace_id: str,
+    thinking_allowed: bool,
+    creation_succeeded: bool,
+    model_started: float,
+    carry_tool_calls: list[dict[str, Any]],
+    carry_results: list[dict[str, Any]],
+) -> tuple[dict[str, Any], float, bool, str | None] | None:
+    """A capped workspace answers instead of handing calls back to Open WebUI."""
+    if not seal:
+        return None
+    if mixed:
+        history = [
+            *messages,
+            _assistant_turn(data, owned, thinking_allowed, creation_succeeded),
+            *results,
+        ]
+        data, model_started = await _replace_with_cited_answer(
+            client, url, timeout, req_body, history, guard, workspace_id
+        )
+        return (
+            data,
+            model_started,
+            creation_succeeded,
+            format_tool_result_carry(carry_tool_calls, carry_results, force=True),
+        )
+    if client_calls:
+        data, model_started = await _replace_with_cited_answer(
+            client, url, timeout, req_body, messages, guard, workspace_id
+        )
+        return data, model_started, creation_succeeded, None
+    return None
+
+
 async def _settle_client_owned_turn(
     data: dict[str, Any],
     tool_calls: list[dict[str, Any]],
@@ -619,11 +668,13 @@ async def _settle_client_owned_turn(
     thinking_allowed: bool,
     target_model: str,
     model_started: float,
+    seal_client_calls: bool = False,
 ) -> tuple[dict[str, Any], float, bool, str | None]:
     """Dispatch owned calls on a mixed turn, then keep the all-client and all-owned exits."""
     owned_names = set(pipeline_tools or ())
     owned, client_calls = partition_tool_calls(tool_calls, owned_names)
     mixed = bool(owned and client_calls)
+    results: list[dict[str, Any]] = []
     if mixed:
         results = await _dispatch_owned_for_carry(owned, owned_names, workspace_id, persona, guard)
         creation_succeeded = creation_succeeded or any(
@@ -631,6 +682,13 @@ async def _settle_client_owned_turn(
         )
         carry_tool_calls.extend(owned)
         carry_results.extend(results)
+    head = (data, seal_client_calls, mixed, owned, client_calls, results, client, url)
+    mid = (timeout, req_body, messages, guard, workspace_id, thinking_allowed)
+    tail = (creation_succeeded, model_started, carry_tool_calls, carry_results)
+    sealed = await _seal_capped_client_calls(*head, *mid, *tail)
+    if sealed is not None:
+        return sealed
+    if mixed:
         _retain_client_tool_calls(data, client_calls)
         tool_calls = client_calls
     client_owned = {
@@ -728,6 +786,41 @@ def _record_intermediate_model(
     )
     add_model_turn(timing_data, measured={"total_s": max(0.0, time.monotonic() - started)})
     trace_note(portal_timings=current_portal_timings())
+
+
+def _clip_ns_batch(
+    calls: list[dict[str, Any]], guard: ToolRepeatGuard, dispatched: int, limit: int | None
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Fresh-call prefix that still fits the workspace cap."""
+    return clip_fresh_calls(calls, [guard.would_repeat(call) for call in calls], dispatched, limit)
+
+
+async def _replace_with_cited_answer(
+    client: Any,
+    url: str,
+    timeout: httpx.Timeout,
+    req_body: dict[str, Any],
+    messages: list[dict[str, Any]],
+    guard: ToolRepeatGuard,
+    workspace_id: str,
+) -> tuple[dict[str, Any], float]:
+    """One toolless cited answer. Leftover calls are stripped, not returned."""
+    body = {**req_body, "messages": list(messages)}
+    prepare_cited_synthesis(body, guard)
+    started = time.monotonic()
+    resp = await _post_fitted(client, url, body, timeout, workspace_id)
+    _raise_for_backend_status(resp)
+    data = _completion_body(resp, workspace_id)
+    _recover_or_withhold_markup(data, None, str(req_body.get("model", "")), workspace_id)
+    _strip_emitted_tool_markup(data)
+    if not any(
+        _visible_answer(choice.get("message") or {}) for choice in data.get("choices") or []
+    ):
+        for choice in data.get("choices") or []:
+            message = choice.setdefault("message", {})
+            message["content"] = NO_ANSWER_MESSAGE
+            choice["finish_reason"] = "stop"
+    return data, started
 
 
 def _strip_tool_calls(data: dict[str, Any]) -> list[str]:
@@ -1352,6 +1445,9 @@ async def _try_non_streaming(
             _ns_messages = list(req_body.get("messages") or [])
             _ns_hops = 0
             _ns_guard = ToolRepeatGuard()
+            _ns_call_limit = _configured_tool_calls(workspace_id)
+            _ns_fresh_total = 0
+            _close_for_budget = False
             _ns_tool_byte_budget = tool_result_byte_budget(workspace_context_limit(workspace_id))
             _ns_tool_result_bytes = 0
             # no file tools offered: nothing to filter
@@ -1400,6 +1496,13 @@ async def _try_non_streaming(
                     _ns_dispatchable = bool(_ns_tools) and _all_offered(_ns_tool_calls, _ns_tools)
             while _ns_tool_calls and _ns_dispatchable:
                 _record_intermediate_model(data, target_model, workspace_id, _model_started)
+                _kept, _ns_fresh_total, _spent_batch = _clip_ns_batch(
+                    _ns_tool_calls, _ns_guard, _ns_fresh_total, _ns_call_limit
+                )
+                if not _kept:
+                    _close_for_budget = True
+                    break
+                _ns_tool_calls = _kept
                 _ns_hops += 1
                 _ns_repeats = [_ns_guard.seen(tc) for tc in _ns_tool_calls]
                 # In emitted order, one at a time: dependent calls must see each other land.
@@ -1448,9 +1551,11 @@ async def _try_non_streaming(
                 )
                 # Every turn but the last keeps the tools, so a turn that needs a second
                 # lookup gets it; the last is the synthesis, run with none.
-                _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis
-                if _ns_guard.force_synthesis and (
-                    not _ns_messages or _ns_messages[-1] != FINAL_ANSWER_REQUEST
+                _ns_last = _ns_hops >= max_hops or _ns_guard.force_synthesis or _spent_batch
+                if (
+                    _ns_guard.force_synthesis
+                    and not _spent_batch
+                    and (not _ns_messages or _ns_messages[-1] != FINAL_ANSWER_REQUEST)
                 ):
                     _ns_messages = [*_ns_messages, FINAL_ANSWER_REQUEST]
                 _ns_synth_choice = followup_tool_choice(req_body.get("tool_choice"), _ns_tool_calls)
@@ -1460,7 +1565,9 @@ async def _try_non_streaming(
                     "tools": None if _ns_last else req_body.get("tools"),
                     "tool_choice": None if _ns_last else _ns_synth_choice,
                 }
-                if _ns_guard.force_synthesis:
+                if _spent_batch:
+                    prepare_cited_synthesis(_synth_body, _ns_guard)
+                elif _ns_guard.force_synthesis:
                     prepare_toolless_finalizer(_synth_body, _ns_guard)
                 _last_request_body = _synth_body
                 _model_started = time.monotonic()
@@ -1499,6 +1606,18 @@ async def _try_non_streaming(
                     and _all_offered(_ns_tool_calls, _ns_tools)
                 )
 
+            if _close_for_budget:
+                data, _model_started = await _replace_with_cited_answer(
+                    _http_client,
+                    backend.chat_url,
+                    _timeout_obj,
+                    req_body,
+                    _ns_messages,
+                    _ns_guard,
+                    workspace_id,
+                )
+                _ns_tool_calls = []
+
             # Client calls go back to the caller. Owned calls in that turn are dispatched first.
             (
                 data,
@@ -1525,6 +1644,7 @@ async def _try_non_streaming(
                 thinking_allowed=_ns_thinking_allowed,
                 target_model=target_model,
                 model_started=_model_started,
+                seal_client_calls=_ns_call_limit is not None,
             )
 
             if _ns_guard.grounding_retried and not _ns_guard.grounded:

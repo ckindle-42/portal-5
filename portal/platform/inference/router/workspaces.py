@@ -140,6 +140,12 @@ def _tool_hop_limit(workspace_id: str, default: int | None = None) -> int:
     return MAX_TOOL_HOPS if default is None else default
 
 
+def _configured_tool_calls(workspace_id: str) -> int | None:
+    """Fresh tool-call cap for one turn. ``None`` means the hop cap is the only limit."""
+    value = WORKSPACES.get(workspace_id, {}).get("max_tool_calls")
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def _workspace_tools(workspace_id: str) -> list[str]:
     """Return the default tool whitelist for ``workspace_id``.
 

@@ -194,6 +194,8 @@ class WorkspaceSpec(BaseModel):
     thinking_budget: int | None = Field(default=None, ge=1, strict=True)
     context_limit: int | None = None
     max_tool_hops: int | None = Field(default=None, ge=1, strict=True)
+    # Fresh tool calls dispatched in one turn. None means no call cap (hop cap only).
+    max_tool_calls: int | None = Field(default=None, ge=1, strict=True)
 
     # --- Concurrency ---
     max_concurrent: int | None = None
@@ -266,6 +268,13 @@ class WorkspaceSpec(BaseModel):
                 or max_tool_hops < 1
             ):
                 raise ValueError(f"variant {name!r}: max_tool_hops must be a positive integer")
+            max_tool_calls = cfg.get("max_tool_calls") if isinstance(cfg, dict) else None
+            if max_tool_calls is not None and (
+                isinstance(max_tool_calls, bool)
+                or not isinstance(max_tool_calls, int)
+                or max_tool_calls < 1
+            ):
+                raise ValueError(f"variant {name!r}: max_tool_calls must be a positive integer")
         return self
 
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from portal.platform.inference.router.trace import note
@@ -39,6 +40,15 @@ FINAL_ANSWER_REQUEST = {
     "content": (
         "No more tool calls are available. Using the tool results already above, give your "
         "final answer now."
+    ),
+}
+#: Call-budget exhaustion asks for one cited answer with tools withheld.
+CITED_SYNTHESIS_REQUEST = {
+    "role": "user",
+    "content": (
+        "No more tool calls are available. Synthesize the tool results already above into "
+        "one cited final answer now. Name the sources you used. Do not call a tool and do "
+        "not return an empty reply."
     ),
 }
 #: Sent once on a workspace that requires a tool before it answers (portal.yaml
@@ -149,6 +159,11 @@ class ToolRepeatGuard:
         self.dispatched = False
         self._query_grounded = False
 
+    def would_repeat(self, call: dict[str, Any]) -> bool:
+        """True when this call would be served from the cache. Does not count it."""
+        key = call_key(call)
+        return is_read_only(key[0]) and key in self._results
+
     def seen(self, call: dict[str, Any]) -> bool:
         """True when this exact call already ran this turn; counts the request."""
         key = call_key(call)
@@ -206,6 +221,98 @@ def prepare_toolless_finalizer(body: dict[str, Any], guard: ToolRepeatGuard) -> 
     if not messages or messages[-1] != FINAL_ANSWER_REQUEST:
         body["messages"] = [*messages, FINAL_ANSWER_REQUEST]
     guard.force_synthesis = True
+
+
+def prepare_cited_synthesis(body: dict[str, Any], guard: ToolRepeatGuard) -> None:
+    """Withhold tools and ask for one cited answer. ``tool_choice`` is ``none``."""
+    body["tools"] = None
+    body["tool_choice"] = "none"
+    messages = body.get("messages") or []
+    if not messages or messages[-1] != CITED_SYNTHESIS_REQUEST:
+        body["messages"] = [*messages, CITED_SYNTHESIS_REQUEST]
+    guard.force_synthesis = True
+
+
+def clip_fresh_calls(
+    calls: list[dict[str, Any]],
+    repeat_flags: list[bool],
+    dispatched: int,
+    limit: int | None,
+) -> tuple[list[dict[str, Any]], int, bool]:
+    """Fresh-call prefix that fits ``limit``. Repeats are free. None keeps every call."""
+    if limit is None:
+        return list(calls), dispatched, False
+    kept: list[dict[str, Any]] = []
+    used = dispatched
+    omitted = False
+    for call, repeated in zip(calls, repeat_flags, strict=True):
+        if not repeated and used >= limit:
+            omitted = True
+            break
+        if not repeated:
+            used += 1
+        kept.append(call)
+    return kept, used, omitted or used >= limit
+
+
+@dataclass(frozen=True)
+class ToolHopAction:
+    """stop, synthesize, client, or dispatch for one hop's calls."""
+
+    kind: str
+    calls: list[dict[str, Any]]
+    dispatched: int
+    cited: bool = False
+
+
+def _call_name(call: dict[str, Any]) -> str:
+    return str((call.get("function") or {}).get("name", "")).strip()
+
+
+def next_tool_action(
+    *,
+    hop: int,
+    hop_limit: int,
+    bite_returns_client: bool,
+    synthesis_hop: bool,
+    calls: list[dict[str, Any]],
+    repeat_flags: list[bool],
+    dispatched: int,
+    call_limit: int | None,
+    client_owned: bool,
+    owned_names: set[str],
+) -> ToolHopAction:
+    """Choose dispatch, a client handoff, or one toolless synthesis for this hop."""
+    if synthesis_hop:
+        return ToolHopAction("stop", [], dispatched)
+    if bite_returns_client:
+        return ToolHopAction("client", list(calls), dispatched)
+    if hop >= hop_limit:
+        return ToolHopAction("synthesize", [], dispatched, cited=call_limit is not None)
+    if call_limit is not None and client_owned:
+        # Capped workspaces never hand calls back; that restarts Open WebUI's tool loop.
+        owned = [
+            (call, flag)
+            for call, flag in zip(calls, repeat_flags, strict=True)
+            if _call_name(call) in owned_names
+        ]
+        kept, used, _spent = clip_fresh_calls(
+            [call for call, _flag in owned],
+            [flag for _call, flag in owned],
+            dispatched,
+            call_limit,
+        )
+        if not kept:
+            return ToolHopAction("synthesize", [], dispatched, cited=True)
+        return ToolHopAction("dispatch", kept, used, cited=True)
+    kept, used, spent = clip_fresh_calls(calls, repeat_flags, dispatched, call_limit)
+    if not kept:
+        return ToolHopAction("synthesize", [], dispatched, cited=True)
+    if client_owned:
+        return ToolHopAction("client", list(calls), dispatched)
+    if spent:
+        return ToolHopAction("dispatch", kept, used, cited=True)
+    return ToolHopAction("dispatch", kept, used, cited=False)
 
 
 def followup_tool_choice(choice: Any, calls: list[dict[str, Any]]) -> Any:
