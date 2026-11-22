@@ -11,7 +11,7 @@ from typing import Any
 from .engine import HOUR, _literal_term_segments, _search_literal
 from .executor import HuntBudgetExceededError, HuntExecutor
 from .identity import host_filter
-from .observations import Observation, literal_matches
+from .observations import Observation, literal_matches, search_sourcetype
 
 EVIDENCE_REQUESTS = 100  # effort budget: evidence reads issued through the shared executor
 JUDGE_CELLS = 50  # effort budget: host-hours judged from the accumulated order
@@ -126,7 +126,9 @@ def _searchmatch_term(entity: str) -> str:
     return " AND ".join(predicates)
 
 
-def _observation_tests(observation: Observation) -> tuple[str, str] | None:
+def _observation_tests(
+    observation: Observation, renames: Mapping[str, str] | None = None
+) -> tuple[str, str] | None:
     """Search predicate and eval equality. Both quote through `_search_literal`."""
     entity = observation.entity
     if observation.kind == "shape":
@@ -134,13 +136,15 @@ def _observation_tests(observation: Observation) -> tuple[str, str] | None:
         return test, test
     if observation.kind == "source" and "\t" in entity:
         source, sourcetype = entity.split("\t", 1)
-        search = f"source={_search_literal(source)} sourcetype={_search_literal(sourcetype)}"
-        eval_test = f"source={_search_literal(source)} AND sourcetype={_search_literal(sourcetype)}"
+        name = search_sourcetype(sourcetype, renames)
+        search = f"source={_search_literal(source)} sourcetype={_search_literal(name)}"
+        eval_test = f"source={_search_literal(source)} AND sourcetype={_search_literal(name)}"
         return search, eval_test
     if observation.kind == "stream" and "\t" in entity:
         sourcetype, punct = entity.split("\t", 1)
-        search = f"sourcetype={_search_literal(sourcetype)} punct={_search_literal(punct)}"
-        eval_test = f"sourcetype={_search_literal(sourcetype)} AND punct={_search_literal(punct)}"
+        name = search_sourcetype(sourcetype, renames)
+        search = f"sourcetype={_search_literal(name)} punct={_search_literal(punct)}"
+        eval_test = f"sourcetype={_search_literal(name)} AND punct={_search_literal(punct)}"
         return search, eval_test
     if observation.kind == "value" and entity:
         terms = _literal_term_segments(entity)
@@ -179,12 +183,13 @@ def _cell_query(
     *,
     breadth_first: bool,
     host_aliases: Sequence[str] = (),
+    renames: Mapping[str, str] | None = None,
 ) -> str | None:
     """One read of the candidate observations, capped at the rows the judge can show."""
     searches: list[str] = []
     cases: list[str] = []
     for observation_index, observation in enumerate(observations):
-        built = _observation_tests(observation)
+        built = _observation_tests(observation, renames)
         if built is None:
             continue
         search, eval_test = built
@@ -434,6 +439,7 @@ def read_cell(
     *,
     event_chars: int = MAX_EVENT_CHARACTERS,
     evidence_mode: str = "rarest",
+    renames: Mapping[str, str] | None = None,
 ) -> EvidenceRead:
     """Read a cell once. Each event is kept for the first observation it matches."""
     began = time.monotonic()
@@ -449,6 +455,7 @@ def read_cell(
         plan.named,
         breadth_first=plan.breadth,
         host_aliases=cell.host_aliases,
+        renames=renames,
     )
     if query is None:
         return _empty_read(cell, "no_narrowing_observations", False, 0.0, plan.selection)
@@ -485,6 +492,7 @@ def read_cells(
     *,
     event_chars: int = MAX_EVENT_CHARACTERS,
     evidence_mode: str = "rarest",
+    renames: Mapping[str, str] | None = None,
 ) -> list[EvidenceRead]:
     """Read cells concurrently under the executor's existing shared budget and deadline."""
     ordered = list(cells)
@@ -500,6 +508,7 @@ def read_cells(
                 end,
                 event_chars=event_chars,
                 evidence_mode=evidence_mode,
+                renames=renames,
             )
             for cell in ordered
         ]

@@ -109,6 +109,13 @@ def learned_pairs(raw: str) -> dict[str, str]:
     return found
 
 
+def search_sourcetype(name: str, renames: Mapping[str, str] | None) -> str:
+    """The search-time name for an indexed sourcetype; unchanged when no rename applies."""
+    if not renames:
+        return name
+    return renames.get(name.casefold(), "") or name
+
+
 def literal_query(
     kind: str,
     index: str,
@@ -116,6 +123,7 @@ def literal_query(
     entity: str,
     *,
     host_aliases: Sequence[str] | None = None,
+    renames: Mapping[str, str] | None = None,
 ) -> str:
     """Build the search expression that rechecks a learned observation."""
     index_lit = _search_literal(index)
@@ -127,7 +135,7 @@ def literal_query(
         return (
             f"search index={index_lit} {host_lit} "
             f"| where source={where_literal(source)} "
-            f"| where sourcetype={where_literal(sourcetype)}"
+            f"| where sourcetype={where_literal(search_sourcetype(sourcetype, renames))}"
         )
     if kind == "shape":
         return f"search index={index_lit} {host_lit} | where punct={where_literal(entity)}"
@@ -135,7 +143,7 @@ def literal_query(
         sourcetype, punct = entity.split("\t", 1)
         return (
             f"search index={index_lit} {host_lit} "
-            f"| where sourcetype={where_literal(sourcetype)} "
+            f"| where sourcetype={where_literal(search_sourcetype(sourcetype, renames))} "
             f"| where punct={where_literal(punct)}"
         )
     if kind == "value":
@@ -1270,7 +1278,10 @@ def _host_aliases_for_grids(grids: Mapping[str, list[dict[str, Any]]]) -> HostAl
 
 
 def _with_host_aliases(
-    observations: Iterable[Observation], index: str, aliases: HostAliases
+    observations: Iterable[Observation],
+    index: str,
+    aliases: HostAliases,
+    renames: Mapping[str, str] | None = None,
 ) -> list[Observation]:
     found: list[Observation] = []
     for observation in observations:
@@ -1278,7 +1289,12 @@ def _with_host_aliases(
         spellings = aliases.spellings(host)
         evidence = dict(observation.evidence)
         evidence["literal"] = literal_query(
-            observation.kind, index, host, observation.entity, host_aliases=spellings
+            observation.kind,
+            index,
+            host,
+            observation.entity,
+            host_aliases=spellings,
+            renames=renames,
         )
         if len(spellings) > 1:
             evidence["host_aliases"] = list(spellings)
@@ -1305,11 +1321,12 @@ def _finish(
     baseline: str,
     index: str,
     aliases: HostAliases | None = None,
+    renames: Mapping[str, str] | None = None,
 ) -> ObservationRun:
     aliases = aliases or _host_aliases_for_grids(grids)
     folded_grids = {name: fold_host_rows(rows, aliases) for name, rows in grids.items()}
     view = _baseline_view(folded_grids)
-    aliased = _with_host_aliases(found, index, aliases)
+    aliased = _with_host_aliases(found, index, aliases, renames)
     chosen = [_select(_with_baselines(obs, view), baseline) for obs in aliased]
     chosen.sort(key=_sort_key)
     return ObservationRun(
@@ -1342,7 +1359,12 @@ def _attach_cost(
 
 
 def observe(
-    search: Search, index: str, start: float, end: float, baseline: str = "current"
+    search: Search,
+    index: str,
+    start: float,
+    end: float,
+    baseline: str = "current",
+    renames: Mapping[str, str] | None = None,
 ) -> ObservationRun:
     """Exact entity-hour scores over full grids. A short or censored grid is incomplete."""
     _check_baseline(baseline)
@@ -1360,7 +1382,7 @@ def observe(
     found.extend(values)
     request_kinds = executor.delta(before)
     _attach_cost(coverage, request_kinds)
-    return _finish(found, grids, coverage, request_kinds, baseline, index, aliases)
+    return _finish(found, grids, coverage, request_kinds, baseline, index, aliases, renames)
 
 
 def rescore(
@@ -1369,13 +1391,14 @@ def rescore(
     index: str,
     baseline: str = "current",
     request_kinds: dict[str, dict[str, Any]] | None = None,
+    renames: Mapping[str, str] | None = None,
 ) -> ObservationRun:
     """Score saved grids. The baseline flag selects which side-by-side number is primary."""
     _check_baseline(baseline)
     aliases = _host_aliases_for_grids(grids)
     folded_grids = {name: fold_host_rows(rows, aliases) for name, rows in grids.items()}
     found = _score_present(folded_grids, index, coverage)
-    return _finish(found, grids, coverage, request_kinds or {}, baseline, index, aliases)
+    return _finish(found, grids, coverage, request_kinds or {}, baseline, index, aliases, renames)
 
 
 def _observation_from_dict(row: Mapping[str, Any]) -> Observation:
