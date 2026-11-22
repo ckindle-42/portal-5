@@ -15,9 +15,26 @@ SCHEDULE_USAGE = "Usage: /jarvis do at <UTC ISO-8601 time> <text>"
 _SCHEDULED = re.compile(r"^at\s+(\S+)\s+(.+)$", re.IGNORECASE)
 
 
+_REPO_ENV = Path(__file__).resolve().parents[3] / ".env"
+
+
+def _env_file_value(name: str) -> str:
+    """The first ``name=`` line of the repo ``.env``. Read-only, never executed."""
+    if not _REPO_ENV.is_file():
+        return ""
+    for raw in _REPO_ENV.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line.startswith(f"{name}="):
+            return line.partition("=")[2].strip().strip("\"'")
+    return ""
+
+
 def allowlisted_user_ids() -> set[int]:
     """The Telegram control allowlist. An empty list admits nobody."""
-    raw = os.environ.get("TELEGRAM_USER_IDS", "")
+    # An explicitly empty env value stays fail-closed; only an absent key reads .env.
+    raw = os.environ.get("TELEGRAM_USER_IDS")
+    if raw is None:
+        raw = _env_file_value("TELEGRAM_USER_IDS")
     return {int(uid.strip()) for uid in raw.split(",") if uid.strip().isdigit()}
 
 
