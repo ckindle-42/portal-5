@@ -27,7 +27,7 @@ from prometheus_client import values as _prom_values
 
 from portal.platform.inference.cluster_backends import BackendRegistry
 from portal.platform.inference.config import ollama_url
-from portal.platform.inference.router import no_answer, placement
+from portal.platform.inference.router import no_answer, placement, safety_guard
 from portal.platform.inference.router.anthropic_compat import (
     anthropic_to_openai_body,
     openai_response_to_anthropic,
@@ -726,6 +726,28 @@ def _reject_disabled_workspace(workspace_id: str) -> None:
         )
 
 
+async def _parse_and_guard_body(request: Request) -> dict[str, Any]:
+    """Parse the chat body: 400 on an empty prompt, SafetyRefusalError on a hard-line hit."""
+    try:
+        body: dict[str, Any] = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body") from None
+    _empty_prompt = empty_prompt_error(body)
+    if _empty_prompt is not None:
+        raise HTTPException(status_code=400, detail=_empty_prompt)
+    # Deterministic hard-line guard: refuse before routing, context injection or any
+    # model call — an abliterated seat cannot be trusted to honour a prompt red line.
+    hit = safety_guard.check_body(body)
+    if hit is not None:
+        raise safety_guard.SafetyRefusalError(
+            hit,
+            model=str(body.get("model") or "auto"),
+            stream=bool(body.get("stream", False)),
+            usage_wanted=stream_usage_requested(body),
+        )
+    return body
+
+
 async def _resolve_request_route(
     request: Request,
     slot: RequestSlot,
@@ -747,13 +769,7 @@ async def _resolve_request_route(
     if registry is None:
         raise HTTPException(status_code=503, detail="Backend registry not initialised")
 
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body") from None
-    _empty_prompt = empty_prompt_error(body)
-    if _empty_prompt is not None:
-        raise HTTPException(status_code=400, detail=_empty_prompt)
+    body = await _parse_and_guard_body(request)
     workspace_id = body.get("model") or "auto"
     _original_model_id = workspace_id
     # Phase 2: Resolve persona slug → workspace_model (e.g. "dailydriver" → "auto-daily")
@@ -1281,6 +1297,9 @@ async def chat_completions(
         )
         _record_persona(persona, target_model)
         return _streaming_response
+    except safety_guard.SafetyRefusalError as refusal:
+        safety_guard.record_refusal(refusal)
+        return safety_guard.refusal_response(refusal)
     except HTTPException as exc:
         trace_note(outcome=f"http_{exc.status_code}")
         raise
