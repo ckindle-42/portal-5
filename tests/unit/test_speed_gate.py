@@ -794,7 +794,7 @@ def test_cold_cell_evicts_the_resolved_model_then_records_the_first_request(tmp_
     http = (
         FakeHttp()
         .on("/api/ps", OLLAMA_PS_EMPTY)
-        .on("/v1/models/status", OMLX_STATUS_EMPTY)
+        .on("/v1/models/status", OMLX_STATUS_TARGET, OMLX_STATUS_EMPTY)
         .on("/admin/api/models/", {})
     )
     calls: list[str] = []
@@ -835,6 +835,69 @@ def test_cold_cell_is_invalid_when_eviction_leaves_the_model_resident(tmp_path):
     assert cell["status"] == "invalid_setup"
     assert cell["instrument"]["trials"] == []
     assert "still resident" in cell["problems"][0]["detail"]
+
+
+def test_evict_returns_already_cold_without_unloading_a_non_resident_model(tmp_path):
+    http = (
+        FakeHttp()
+        .on("/api/ps", OLLAMA_PS_EMPTY)
+        .on("/v1/models/status", OMLX_STATUS_EMPTY)
+        .on("/admin/api/models/", {})
+    )
+    ctx = _ctx(tmp_path, http)
+
+    record = speed_gate._evict(ctx, "omlx", "model-a")
+
+    assert record["ok"] is True
+    assert record["already_cold"] is True
+    assert record["residents"] == []
+    assert not any("/unload" in url for url in http.urls())
+
+
+def test_evict_unloads_a_resident_model_and_polls_until_it_is_gone(tmp_path):
+    http = (
+        FakeHttp()
+        .on("/api/ps", OLLAMA_PS_EMPTY)
+        .on("/v1/models/status", OMLX_STATUS_TARGET, OMLX_STATUS_EMPTY)
+        .on("/admin/api/models/", {})
+    )
+    ctx = _ctx(tmp_path, http)
+
+    record = speed_gate._evict(ctx, "omlx", "model-a")
+
+    assert record["ok"] is True
+    assert "already_cold" not in record
+    assert record["residents"] == []
+    assert any("/admin/api/models/model-a/unload" in url for url in http.urls())
+
+
+def test_evict_treats_a_case_variant_of_the_model_as_resident(tmp_path):
+    status = {
+        "models": [{"id": "MODEL-A", "loaded": True, "estimated_size": 20552089600}],
+        "final_ceiling": 63227387904,
+        "current_model_memory": 20552089600,
+    }
+    http = (
+        FakeHttp().on("/v1/models/status", status, OMLX_STATUS_EMPTY).on("/admin/api/models/", {})
+    )
+    ctx = _ctx(tmp_path, http)
+
+    record = speed_gate._evict(ctx, "omlx", "model-a")
+
+    assert record["ok"] is True
+    assert "already_cold" not in record
+    assert any("/admin/api/models/model-a/unload" in url for url in http.urls())
+
+
+def test_evict_reports_a_failed_resident_read_without_unloading(tmp_path):
+    http = FakeHttp().on("/v1/models/status", OSError("status endpoint down"))
+    ctx = _ctx(tmp_path, http)
+
+    record = speed_gate._evict(ctx, "omlx", "model-a")
+
+    assert record["ok"] is False
+    assert "resident read failed" in record["error"]
+    assert not any("/unload" in url for url in http.urls())
 
 
 def _cold_cell(seat: str, ttft: float, status: str = "ok") -> dict:

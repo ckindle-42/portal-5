@@ -641,6 +641,16 @@ def _evict(ctx: Ctx, engine: str, model: str) -> dict[str, Any]:
     """Unload ``model`` and poll until its engine no longer lists it."""
     record: dict[str, Any] = {"engine": engine, "model": model, "ok": False}
     try:
+        residents = _resident_names(ctx, engine)
+    except _READ_ERRORS as exc:
+        record["error"] = f"resident read failed: {_failure(exc)}"
+        return record
+    if not any(name.lower() == model.lower() for name in residents):
+        record["ok"] = True
+        record["residents"] = residents
+        record["already_cold"] = True
+        return record
+    try:
         if engine == "ollama":
             ctx.http.json(
                 f"{ctx.ollama_url}/api/generate",
@@ -651,9 +661,6 @@ def _evict(ctx: Ctx, engine: str, model: str) -> dict[str, Any]:
         elif engine == "omlx":
             url = f"{ctx.omlx_url}/admin/api/models/{quote(model, safe='')}/unload"
             ctx.http.json(url, method="POST", headers=_bearer(ctx.omlx_key), timeout=30.0)
-        else:
-            record["error"] = f"unknown engine {engine!r}"
-            return record
     except _READ_ERRORS as exc:
         record["error"] = _failure(exc)
         return record
