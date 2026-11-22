@@ -99,7 +99,7 @@ def _walk(root: Path):
         if not path.is_file() or path.stat().st_size == 0:
             continue
         rel = path.relative_to(root).as_posix()
-        yield rel, rel.split("/", 1)[0], (lambda p=path: open(p, "rb"))
+        yield rel, rel.split("/", 1)[0], (lambda p=path: open(p, "rb"))  # noqa: SIM115
 
 
 def _walk_archive(root: Path):
