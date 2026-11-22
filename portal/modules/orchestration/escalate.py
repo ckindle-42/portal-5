@@ -1,8 +1,10 @@
 """Cloud-lane escalation for a blocked Jarvis Local job.
 
 The queue calls this only when ``queue.escalation.enabled`` is true. Attempts 1 and 2
-use ``dispatch.py run --tier auto``; attempt 3 uses ``--tier escalate``. Nothing here
-starts the live stack or pushes git.
+use ``dispatch.py run --tier auto``; attempt 3 uses ``--tier escalate``. With
+``queue.escalation.target`` set to ``portal`` or ``portal_then_cloud`` the routed attempts
+go to local Portal seats instead (``portal_escalate.py``). Nothing here starts the live
+stack or pushes git.
 """
 
 from __future__ import annotations
@@ -98,6 +100,7 @@ class LaneDispatcher(Protocol):
         repo: Path,
         new: bool = True,
         cancel_check: Callable[[], bool] | None = None,
+        attempt: int = 1,
     ) -> LaneResult: ...
 
 
@@ -283,8 +286,26 @@ def build_escalator(
             timeout_seconds=float(config.get("timeout_seconds") or 1800),
             security_tier=str(config.get("security_tier") or "daybreak"),
         )
+    # Lazy import: portal_escalate imports this module at load time.
+    from portal.modules.orchestration.portal_escalate import (
+        PortalSeatDispatcher,
+        cloud_fallback_allowed,
+        escalation_target,
+        portal_seats_map,
+    )
+
+    target = escalation_target(policy)
+    portal = PortalSeatDispatcher(portal_seats_map(policy)) if target != "cloud" else None
     return _EscalationHook(
-        Escalator(tasks_dir, repo_root=repo_root, notices=notices, oracle=oracle)
+        Escalator(
+            tasks_dir,
+            repo_root=repo_root,
+            notices=notices,
+            oracle=oracle,
+            portal_dispatcher=portal,
+            escalation_target=target,
+            cloud_fallback=cloud_fallback_allowed(policy),
+        )
     )
 
 
@@ -479,6 +500,7 @@ class ProcessDispatcher:
         repo: Path,
         new: bool = True,
         cancel_check: Callable[[], bool] | None = None,
+        attempt: int = 1,
     ) -> LaneResult:
         if not self.binary.is_file():
             return _empty_lane(role, tier, 127, f"dispatch binary missing: {self.binary}")
@@ -773,11 +795,17 @@ class Escalator:
         verdict_runner: Callable[[Sequence[str]], int] | None = None,
         main_root: Path | None = None,
         environment_check: Callable[[Path, Path], str | None] | None = None,
+        portal_dispatcher: LaneDispatcher | None = None,
+        escalation_target: str = "cloud",
+        cloud_fallback: bool = False,
     ) -> None:
         self.tasks_dir = tasks_dir
         self.repo_root = repo_root
         self.notices = notices
         self.dispatcher = dispatcher or ProcessDispatcher()
+        self.portal_dispatcher = portal_dispatcher
+        self.escalation_target = escalation_target
+        self.cloud_fallback = cloud_fallback
         self.gate_runner = gate_runner or _subprocess_gate
         self.canary_runner = canary_runner or _subprocess_canary
         self.oracle = oracle
@@ -929,7 +957,7 @@ class Escalator:
         tier_override: str | None = None,
         new: bool = True,
     ) -> tuple[str, str, str]:
-        tier = tier_override or ("auto" if attempt <= ROUTED_ATTEMPTS else "escalate")
+        dispatcher, tier = self._lane_for(attempt, tier_override)
         role = lane_role(job_id, attempt, self._rounds_done(job_id) + 1)
         contract_kind = _brief_contract_kind(raw, kind)
         addendum_text, addendum_sha = _contract_addendum(self.repo_root, contract_kind)
@@ -964,8 +992,14 @@ class Escalator:
             },
         )
         try:
-            lane = self.dispatcher.run(
-                role=role, tier=tier, kind=kind, brief=brief, repo=self.main, new=new
+            lane = dispatcher.run(
+                role=role,
+                tier=tier,
+                kind=kind,
+                brief=brief,
+                repo=self.main,
+                new=new,
+                attempt=attempt,
             )
         except Exception as exc:  # noqa: BLE001 — a lane fault is a failed attempt
             self._record(job_id, attempt, role, "result", result.receipt_path, {"error": str(exc)})
@@ -986,33 +1020,11 @@ class Escalator:
                 "summary": _one_line(notes or lane.result_text),
             },
         )
-        if lane.status == "quota":
-            resume = _resume_command(self.dispatcher, self.main, role, tier, kind, brief)
-            self._record_verdict(
-                job_id,
-                attempt,
-                role,
-                result.receipt_path,
-                "infra",
-                "dispatcher status quota",
-                False,
-            )
-            self._record(
-                job_id,
-                attempt,
-                role,
-                "quota",
-                result.receipt_path,
-                {
-                    "tier": tier,
-                    "kind": kind,
-                    "retry_until": lane.retry_until,
-                    "resume_command": resume,
-                    "prior": prior,
-                    "trigger": trigger,
-                },
-            )
-            return "quota", prior, role
+        early = self._seat_or_quota(
+            job_id, attempt, role, result, lane, tier, kind, brief, trigger, prior, notes
+        )
+        if early is not None:
+            return early
         if lane.worktree is None:
             self._record_verdict(
                 job_id, attempt, role, result.receipt_path, "infra", lane.result_text, False
@@ -1073,6 +1085,107 @@ class Escalator:
             return "retry", notes, role
         self._close(job_id, attempt, role, "merged", result.receipt_path, lane, merged.detail)
         return "merged", notes, role
+
+    def _seat_or_quota(
+        self,
+        job_id: str,
+        attempt: int,
+        role: str,
+        result: QueueRun,
+        lane: LaneResult,
+        tier: str,
+        kind: str,
+        brief: Path,
+        trigger: str,
+        prior: str,
+        notes: str,
+    ) -> tuple[str, str, str] | None:
+        """Portal seats and cloud quota leave the attempt loop before any merge decision."""
+        if tier == "portal":
+            return self._portal_outcome(job_id, attempt, role, result, lane, notes)
+        if lane.status != "quota":
+            return None
+        resume = _resume_command(self.dispatcher, self.main, role, tier, kind, brief)
+        self._record_verdict(
+            job_id,
+            attempt,
+            role,
+            result.receipt_path,
+            "infra",
+            "dispatcher status quota",
+            False,
+        )
+        self._record(
+            job_id,
+            attempt,
+            role,
+            "quota",
+            result.receipt_path,
+            {
+                "tier": tier,
+                "kind": kind,
+                "retry_until": lane.retry_until,
+                "resume_command": resume,
+                "prior": prior,
+                "trigger": trigger,
+            },
+        )
+        return "quota", prior, role
+
+    def _lane_for(self, attempt: int, tier_override: str | None) -> tuple[LaneDispatcher, str]:
+        """Portal seats take the routed attempts; cloud only as the configured fallback."""
+        if self.portal_dispatcher is not None:
+            if self.escalation_target == "portal":
+                return self.portal_dispatcher, "portal"
+            if tier_override is None and (attempt <= ROUTED_ATTEMPTS or not self.cloud_fallback):
+                return self.portal_dispatcher, "portal"
+        if tier_override is not None:
+            return self.dispatcher, tier_override
+        return self.dispatcher, "auto" if attempt <= ROUTED_ATTEMPTS else "escalate"
+
+    def _portal_outcome(
+        self,
+        job_id: str,
+        attempt: int,
+        role: str,
+        result: QueueRun,
+        lane: LaneResult,
+        notes: str,
+    ) -> tuple[str, str, str]:
+        """A portal answer is held for the operator; a seat fault retries. Never dispatch.py."""
+        seat = lane.model or "unknown"
+        answer = self.tasks_dir / _safe(job_id) / f"portal-{attempt}.md"
+        answer.parent.mkdir(parents=True, exist_ok=True)
+        answer.write_text(lane.result_text, encoding="utf-8")
+        self._record(
+            job_id,
+            attempt,
+            role,
+            "portal_seat",
+            result.receipt_path,
+            {"seat": seat, "exit_code": lane.exit_code, "answer": str(answer)},
+        )
+        if lane.exit_code == 0:
+            self._close(
+                job_id,
+                attempt,
+                role,
+                "held",
+                result.receipt_path,
+                lane,
+                f"portal seat {seat} answered; operator review: {answer}",
+            )
+            return "held", notes, role
+        self._record(
+            job_id,
+            attempt,
+            role,
+            "verdict",
+            result.receipt_path,
+            {"tag": "infra", "verdict": "reject", "detail": _one_line(lane.result_text)},
+            notify=False,
+        )
+        return "retry", notes, role
 
     def _merge_lane(
         self,
