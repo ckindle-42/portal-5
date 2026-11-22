@@ -208,6 +208,14 @@ _capacity_fallback_total = Counter(
     registry=_REGISTRY,
 )
 
+_safety_refusals_total = Counter(
+    "portal_safety_refusals_total",
+    "Turns refused by the deterministic safety guard before any model call",
+    # kind: cbrn | injection
+    ["kind", "model"],
+    registry=_REGISTRY,
+)
+
 _context_fit_total = Counter(
     "portal5_context_fit_total",
     "Prompts that did not fit the seat's context window, by workspace, engine and outcome "
@@ -523,3 +531,11 @@ def _record_no_answer(workspace: str, reason: str, client: str, path: str) -> No
         _no_answer_total.labels(workspace=workspace, reason=reason, client=client, path=path).inc()
     except Exception as e:
         logger.debug("Failed to record no-answer metric: %s", e)
+
+
+def _record_safety_refusal(kind: str, model: str) -> None:
+    """Record one turn the deterministic safety guard refused (router/safety_guard.py)."""
+    try:
+        _safety_refusals_total.labels(kind=kind, model=model).inc()
+    except Exception as e:
+        logger.debug("Failed to record safety-refusal metric: %s", e)
