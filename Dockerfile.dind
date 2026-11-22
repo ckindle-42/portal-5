@@ -1,8 +1,10 @@
 # DinD execution boundary with episode-scoped packet capture support.
-FROM docker:27-dind
+FROM docker:28-dind
 
 # Build stamp read by `portal trace` (launch.sh passes git HEAD as a build arg).
 ARG PORTAL_BUILD_SHA=unknown
 LABEL org.opencontainers.image.revision=${PORTAL_BUILD_SHA}
 
-RUN apk add --no-cache tcpdump
+# apk upgrade clears the Alpine 3.21 CRITICAL CVEs the 2026-11-22 sweep flagged in
+# the docker:27-dind base (openssl/curl/zlib/brotli); tcpdump is the capture tool.
+RUN apk upgrade --no-cache && apk add --no-cache tcpdump

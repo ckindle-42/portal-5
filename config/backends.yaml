@@ -742,11 +742,12 @@ backends:
   - id: Qwen3.8-27B-oQ4e-mtp
     supports_tools: true
   # 2026-11-20 auto-daily cold-start screen candidates (oQ4e, MTP kept).
-  # supports_tools stays false until the orchestrator's direct tool probe.
+  # 2026-11-22 live typed tool-call probes on oMLX 0.8.1 passed 2/2 — both ids
+  # finished tool_calls and emitted a native get_weather({"location": ...}) call.
   - id: Qwen3.5-9B-oQ4e-mtp
-    supports_tools: false
+    supports_tools: true
   - id: gemma-4-12B-it-oQ4e-mtp
-    supports_tools: false
+    supports_tools: true
   # oMLX 0.8.1 intake candidates (2026-11-20) — registered here, not in their
   # own group, because every bench-* workspace routes to `general` and a hint
   # outside its routed groups is rejected by

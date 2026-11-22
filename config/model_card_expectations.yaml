@@ -231,6 +231,17 @@ models:
     max_context: 131072
     tools: true
     prompt_contract: "No thinking/reasoning mode (the auditor's reasoning_uncontrolled flag does not apply to 4.1). generation_config sets no sampling, i.e. transformers greedy decoding; tools passed via the chat template, calls emitted as JSON inside <tool_call> tags."
+  inkling-2-mini:
+    status: verified-card
+    verified: true
+    source: "https://huggingface.co/thinkingmachines/Inkling-2-Mini (generation_config.json + chat_template.jinja) read 2026-11-21; recorded in coding_task/FINDING_OMLX081_INTAKE.md §1.5"
+    # generation_config.json: temperature 1.0, do_sample true; the card publishes no
+    # top_p. The 0.95 below is oMLX's global default (NOT a vendor value), pinned in
+    # ~/.omlx/model_settings.json and served by bench-inkling-2-mini.
+    recommended_sampling: {temperature: 1.0, top_p: 0.95}
+    # Served window: ~/.omlx/model_settings.json max_context_window 262144 (the card's 1M window is not what this deployment serves).
+    max_context: 262144
+    prompt_contract: "Reasoning effort is the template's reasoning_effort kwarg (default 0.9 = high; minimum effort does not disable reasoning; no enable_thinking switch). Tool-call arguments must be JSON objects, not strings; oMLX 0.8.1 parses the channel protocol natively (inkling2_loop). Covers the mlx-community oQ3e/oQ4e/4-bit builds."
   phi4:
     status: verified-card
     verified: true
