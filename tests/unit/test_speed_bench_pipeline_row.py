@@ -611,3 +611,25 @@ def test_row_without_a_served_model_is_reported_as_such(tmp_path: Path, monkeypa
     assert data["results"][0]["seat_status"] == "no_served_model"
     assert any("NO SERVED MODEL" in failure for failure in data["failures"])
     assert not any("WRONG ENGINE" in failure for failure in data["failures"])
+
+
+def test_run_bench_creates_missing_output_dirs(tmp_path: Path, monkeypatch):
+    out = tmp_path / "new_subdir" / "off_rep1.json"
+    assert not out.parent.exists()
+    monkeypatch.setattr(
+        speed_bench,
+        "_measure",
+        lambda *_a, **_kw: {
+            "prompt_tokens": 2000,
+            "prefill_tps": 1500.0,
+            "decode_tps": 40.0,
+            "load_seconds": 0.5,
+            "ttft_s": 1.0,
+            "timing_source": "engine",
+        },
+    )
+    rc = run_bench("omlx", "http://localhost:8085", "Qwen3.8-27B-4bit", [2000], out=str(out))
+    assert rc == 0
+    payload = json.loads(out.read_text(encoding="utf-8"))
+    assert payload["failures"] == []
+    assert payload["results"][0]["size_tokens"] == 2000

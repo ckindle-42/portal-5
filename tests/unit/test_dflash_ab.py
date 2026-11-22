@@ -259,7 +259,6 @@ def _stack(tmp_path: Path, **kwargs) -> tuple[FakeStack, ab.DflashCtx, Path]:
     log.write_text("2026-11-20 14:00:00,000 - omlx.server - INFO - [-] - started\n", "utf-8")
     http = FakeStack(settings, log)
     ctx = _ctx(tmp_path, http=http, log=log, settings=settings, **kwargs)
-    ctx.out_dir.mkdir(parents=True, exist_ok=True)
     return http, ctx, settings
 
 
@@ -654,7 +653,6 @@ def test_dflash_already_on_aborts_before_measuring(tmp_path):
     log.write_text("", "utf-8")
     http = FakeStack(settings, log)
     ctx = _ctx(tmp_path, http=http, log=log, settings=settings)
-    ctx.out_dir.mkdir(parents=True, exist_ok=True)
     run = ab.run_experiment(ctx, _plan(tmp_path))
 
     assert "already enabled" in run["abort"]
@@ -694,3 +692,24 @@ def test_keep_on_still_restores_when_the_pass_bar_is_missed(tmp_path):
     assert run["kept_on"] is False
     assert run["restore"]["ok"] is True
     assert ab.dflash_state(ab.read_settings(settings), MODEL)["enabled"] is False
+
+
+def test_run_experiment_creates_out_dir_before_the_arms_write(tmp_path):
+    http, ctx, _settings = _stack(tmp_path)
+    assert not ctx.out_dir.exists()
+    seen: list[bool] = []
+    base = _speed_runner()
+
+    def run(ctx_, model, path):
+        seen.append(path.parent.is_dir())
+        return base(ctx_, model, path)
+
+    ctx.speed = run
+    run_ = ab.run_experiment(ctx, _plan(tmp_path))
+
+    assert run_["abort"] is None
+    assert run_["comparison"]["status"] == "PASS"
+    assert seen == [True] * (2 * ctx.reps)
+    assert (ctx.out_dir / "off_rep1.json").is_file()
+    assert (ctx.out_dir / "off_pipeline.json").is_file()
+    assert (ctx.out_dir / "on_pipeline.json").is_file()

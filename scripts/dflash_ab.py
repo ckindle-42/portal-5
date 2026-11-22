@@ -1025,6 +1025,7 @@ def run_experiment(ctx: DflashCtx, plan: Plan) -> dict[str, Any]:
     }
     switched = False
     try:
+        ctx.out_dir.mkdir(parents=True, exist_ok=True)
         if not Path(plan.draft).is_dir() or not (Path(plan.draft) / "config.json").is_file():
             raise AbortedError(f"DFlash draft checkpoint is missing a config.json: {plan.draft}")
         try:
