@@ -368,6 +368,8 @@ def _execute_one(
         return _run_infra(scenario, state)
     if scenario.kind == "pipeline":
         return _run_pipeline_chat(settings, scenario)
+    if scenario.kind == "tts":
+        return _run_tts(settings, scenario, state)
     if scenario.browser:
         return _run_browser(settings, scenario, state)
     return _run_chat(settings, scenario, state, opts)
@@ -688,14 +690,77 @@ def _run_chat(
         )
 
 
+def _inline_vision(scenario: QATScenario) -> bool:
+    return scenario.model_slug == "auto-vision" or scenario.attachment == scn.INLINE_VISION_PNG
+
+
 def _chat_turn_extras(
     client: OWUIClient, token: str, scenario: QATScenario, index: int, deadline: float
 ) -> tuple[list[dict[str, str]] | None, bytes | None]:
+    # Every turn, not only the first: a later text-only turn is rerouted off the VL seat.
+    if _inline_vision(scenario):
+        return None, red_square_png()
     if index != 1 or not scenario.attachment:
         return None, None
-    if scenario.attachment == scn.INLINE_VISION_PNG:
-        return None, red_square_png()
     return [client.upload_attachment(token, scenario.attachment, deadline)], None
+
+
+def _tts_direct_url(state: RunState) -> str:
+    port = next((entry.port for entry in state.discovery.mcp_fleet if entry.id == "tts"), 0)
+    return f"http://localhost:{port or 8916}/v1/audio/speech"
+
+
+def _post_tts(client: httpx.Client, url: str, headers: dict[str, str]) -> tuple[bool, str, bool]:
+    try:
+        response = client.post(url, json=scn.TTS_SPEECH_BODY, headers=headers)
+    except Exception as exc:
+        return False, f"{url}: {type(exc).__name__}: {exc}", False
+    error = artifacts.validate_tts_audio(response.content)
+    if response.status_code == 200 and error is None:
+        return True, f"HTTP 200 audio from {url} ({len(response.content)} bytes)", True
+    return False, f"{url}: HTTP {response.status_code} {error or 'rejected'}", True
+
+
+def _run_tts(settings: Settings, scenario: QATScenario, state: RunState) -> QATResult:
+    """POST Open WebUI speech, then mcp-tts directly if that body is not audio."""
+    try:
+        token = settings.owui_api_key or OWUIClient(settings).signin()
+    except Exception as exc:
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            f"{type(exc).__name__}: {exc}",
+            defect_class=classify_defect(infra_hop_failed=True),
+        )
+    attempts = (
+        (
+            f"{settings.owui_url}/api/v1/audio/speech",
+            {"Authorization": f"Bearer {token}"},
+        ),
+        (_tts_direct_url(state), {}),
+    )
+    errors: list[str] = []
+    saw_response = False
+    with httpx.Client(timeout=scenario.timeout_s) as client:
+        for url, headers in attempts:
+            ok, detail, responded = _post_tts(client, url, headers)
+            saw_response = saw_response or responded
+            if ok:
+                return QATResult(
+                    scenario.scenario_id,
+                    Status.PASS,
+                    detail,
+                    evidence={"url": url},
+                )
+            errors.append(detail)
+    return QATResult(
+        scenario.scenario_id,
+        Status.FAIL,
+        "; ".join(errors) or "tts speech failed",
+        defect_class=classify_defect(
+            infra_hop_failed=not saw_response, tool_misbehaved=saw_response
+        ),
+    )
 
 
 def _run_chat_turns(

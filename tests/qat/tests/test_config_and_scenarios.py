@@ -469,7 +469,7 @@ class TestScenarioShape:
         for s in registry:
             assert isinstance(s, QATScenario)
             assert s.stage in {2, 3, 4}
-            assert s.kind in {"chat", "browser", "infra", "adversarial", "pipeline"}
+            assert s.kind in {"chat", "browser", "infra", "adversarial", "pipeline", "tts"}
             if s.kind in {"chat", "adversarial", "pipeline"}:
                 assert s.prompts, s.scenario_id
 

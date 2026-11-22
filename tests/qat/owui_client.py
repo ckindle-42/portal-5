@@ -546,10 +546,29 @@ def served_model(message: dict) -> str:
     return str(message.get("model") or (message.get("info") or {}).get("model") or "")
 
 
+# Trailing markdown around a link: bold/italic/code ticks plus closers.
+# ')' is handled separately so a balanced parenthesis inside a filename stays.
+_ARTIFACT_URL_JUNK = set(",].>\"'*_`")
+
+
+def _clean_artifact_url(raw: str) -> str:
+    end = len(raw)
+    while end > 0:
+        char = raw[end - 1]
+        if char in _ARTIFACT_URL_JUNK:
+            end -= 1
+            continue
+        if char == ")" and raw[:end].count(")") > raw[:end].count("("):
+            end -= 1
+            continue
+        break
+    return raw[:end]
+
+
 def artifact_urls(message: dict) -> tuple[str, ...]:
     found: list[str] = []
     for match in ARTIFACT_URL_RE.findall(visible_text(message)):
-        found.append(match.rstrip("),].>\"'"))
+        found.append(_clean_artifact_url(match))
     for entry in message.get("files") or []:
         url = entry.get("url") if isinstance(entry, dict) else None
         if url:

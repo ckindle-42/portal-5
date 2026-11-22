@@ -45,7 +45,7 @@ class QATScenario:
 
     tier orders the cascade (lower runs first); model_slug is the OWUI model
     id the turn addresses (workspace preset id); kind selects the executor
-    (chat, browser, artifact, infra, adversarial, note).
+    (chat, browser, artifact, infra, adversarial, note, tts).
     """
 
     scenario_id: str
