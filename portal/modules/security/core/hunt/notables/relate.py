@@ -649,12 +649,12 @@ def _union(parent: dict[str, str], left: str, right: str) -> None:
         parent[max(a, b)] = min(a, b)
 
 
-def relatable_index(index: str) -> None:
+def relatable_index(index: str, *, allow_proof: bool = False) -> None:
     """Relate runs on any index except the held-out proof indexes."""
     cleaned = index.strip()
     if not cleaned:
         raise ValueError(f"{SOURCES_FILE} needs an index")
-    if cleaned.casefold() in PROOF_INDEXES:
+    if not allow_proof and cleaned.casefold() in PROOF_INDEXES:
         raise ValueError(f"{cleaned} is a proof index and is not hunted")
 
 
@@ -1507,12 +1507,14 @@ def _write_notables(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
     path.write_text("".join(json.dumps(dict(row), sort_keys=True) + "\n" for row in rows))
 
 
-def relate_stage(*, out: Path, search: Search, judged_only: bool = False) -> dict[str, Any]:
+def relate_stage(
+    *, out: Path, search: Search, judged_only: bool = False, allow_proof: bool = False
+) -> dict[str, Any]:
     """Read identity neighbours over episode windows, score links by within-source share."""
     configure_ledger(search, out, "relate")
     sources = read_json(out / SOURCES_FILE)
     index = str(sources.get("index") or "")
-    relatable_index(index)
+    relatable_index(index, allow_proof=allow_proof)
     start, end = _number(sources.get("start")), _number(sources.get("end"))
     if start is None or end is None or end <= start:
         raise ValueError(f"{out / SOURCES_FILE} needs a valid start/end range")

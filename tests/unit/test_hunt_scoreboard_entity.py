@@ -223,6 +223,17 @@ def test_proof_index_keys_are_rejected(tmp_path: Path) -> None:
         score(run, [str(run / "keys.jsonl")])
 
 
+def test_allow_proof_scores_proof_keys_only_when_asked(tmp_path: Path) -> None:
+    keys = [_key("phish", "spearphish", "invoice.zip")]
+    for row in keys:
+        row["dataset"] = "botsv1"
+    run = _run(tmp_path, notables=[_notable("alerts", "x")], keys=keys, index="botsv1")
+    with pytest.raises(ScoreboardError, match="proof"):
+        score(run, [str(run / "keys.jsonl")])
+    report = score(run, [str(run / "keys.jsonl")], allow_proof=True)
+    assert report["families"][0]["index"] == "botsv1"
+
+
 def test_keys_from_another_index_are_rejected(tmp_path: Path) -> None:
     keys = [_key("fruitfly", "c2_beacon", "eidk.duckdns.org")]
     run = _run(tmp_path, notables=[_notable("alerts", "x")], keys=keys, index="botsv3")

@@ -478,8 +478,10 @@ def _card_contract(directory: Path) -> dict[str, Any]:
     }
 
 
-def _check_family(index: str, keys: Sequence[KeyLine], run_sources: set[str]) -> None:
-    if index in PROOF_INDEXES:
+def _check_family(
+    index: str, keys: Sequence[KeyLine], run_sources: set[str], *, allow_proof: bool = False
+) -> None:
+    if not allow_proof and index in PROOF_INDEXES:
         raise ScoreboardError(f"{index!r} is a proof index; it is never scored here")
     named = {line.source for line in keys}
     if run_sources and not (named & run_sources):
@@ -1064,6 +1066,8 @@ def _family(
     keys_path: Path,
     logs: Path | None,
     year: int | None,
+    *,
+    allow_proof: bool = False,
 ) -> dict[str, Any]:
     rows = _read_notables(directory)
     progress = read_json(directory / PROGRESS_FILE)
@@ -1071,7 +1075,7 @@ def _family(
         raise ScoreboardError(f"{directory / PROGRESS_FILE} is missing; this run is not scored")
     keys = _read_keys(keys_path)
     index, run_sources = _run_index(directory)
-    _check_family(index, keys, run_sources)
+    _check_family(index, keys, run_sources, allow_proof=allow_proof)
     resolved = logs if logs is not None else _default_logs(keys_path)
     picked = year if year is not None else _year(progress, rows)
     labelled_sources = {line.source for line in keys}
@@ -1328,12 +1332,14 @@ def _relation_report(
     }
 
 
-def _check_entity_family(index: str, keys: Sequence[EntityKey]) -> None:
-    if index in PROOF_INDEXES:
+def _check_entity_family(
+    index: str, keys: Sequence[EntityKey], *, allow_proof: bool = False
+) -> None:
+    if not allow_proof and index in PROOF_INDEXES:
         raise ScoreboardError(f"{index!r} is a proof index; it is never scored here")
     datasets = {key.dataset for key in keys}
     for dataset in sorted(datasets):
-        if dataset in PROOF_INDEXES:
+        if not allow_proof and dataset in PROOF_INDEXES:
             raise ScoreboardError(f"keys cite proof index {dataset!r}; it is never scored here")
     if len(datasets) != 1 or (index and datasets != {index}):
         raise ScoreboardError(
@@ -2365,6 +2371,8 @@ def _entity_family(
     keys_path: Path,
     events_path: Path | None = None,
     causes: Mapping[str, str] | None = None,
+    *,
+    allow_proof: bool = False,
 ) -> dict[str, Any]:
     rows = _read_notables(directory)
     progress = read_json(directory / PROGRESS_FILE)
@@ -2372,7 +2380,7 @@ def _entity_family(
         raise ScoreboardError(f"{directory / PROGRESS_FILE} is missing; this run is not scored")
     keys = _apply_causes(_read_entity_keys(keys_path), causes)
     index, _run_sources = _run_index(directory)
-    _check_entity_family(index, keys)
+    _check_entity_family(index, keys, allow_proof=allow_proof)
     artefacts, assets, rejected = _entity_split(keys)
     owners = _entity_ownership(artefacts)
     hays = [_haystack(row) for row in rows]
@@ -3107,10 +3115,14 @@ def _scored(
     declared: dict[str, str] | None,
     logs: Path | None,
     year: int | None,
+    *,
+    allow_proof: bool = False,
 ) -> dict[str, Any]:
     if _keys_are_entity(key_path):
-        return _entity_family(family, directory, key_path, events, declared)
-    return _family(family, directory, key_path, logs, year)
+        return _entity_family(
+            family, directory, key_path, events, declared, allow_proof=allow_proof
+        )
+    return _family(family, directory, key_path, logs, year, allow_proof=allow_proof)
 
 
 def _weight_evidence(report: Mapping[str, Any]) -> dict[str, Any]:
@@ -3176,6 +3188,7 @@ def score(
     weights: bool = False,
     baseline: Path | None = None,
     weights_out: Path | None = None,
+    allow_proof: bool = False,
 ) -> dict[str, Any]:
     targets = _targets(out)
     families = [family for family, _directory in targets]
@@ -3185,10 +3198,28 @@ def score(
     reports = []
     for family, directory in targets:
         declared = _read_causes(cause_paths[family]) if family in cause_paths else None
-        report = _scored(family, directory, keys[family], events.get(family), declared, logs, year)
+        report = _scored(
+            family,
+            directory,
+            keys[family],
+            events.get(family),
+            declared,
+            logs,
+            year,
+            allow_proof=allow_proof,
+        )
         if baseline is not None:
             path = _baseline_dir(baseline, family, len(targets) == 1)
-            other = _scored(family, path, keys[family], events.get(family), declared, logs, year)
+            other = _scored(
+                family,
+                path,
+                keys[family],
+                events.get(family),
+                declared,
+                logs,
+                year,
+                allow_proof=allow_proof,
+            )
             report["baseline"] = {
                 **_baseline_block(path, other),
                 "diff": _step_diff(report, other),
@@ -3256,6 +3287,11 @@ def _parser() -> argparse.ArgumentParser:
         help="another run's dir (its family dirs when --out holds several) to diff the step sets against",
     )
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument(
+        "--allow-proof",
+        action="store_true",
+        help="permit a held-out proof index (the one-shot proof run only; never training)",
+    )
     return parser
 
 
@@ -3294,6 +3330,7 @@ def main(argv: list[str] | None = None) -> int:
             weights=args.weights,
             baseline=args.baseline,
             weights_out=args.weights_out,
+            allow_proof=args.allow_proof,
         )
     except ScoreboardError as error:
         print(f"scoreboard: {error}", file=sys.stderr)
