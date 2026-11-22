@@ -19,7 +19,7 @@ shared `Dockerfile.mcp` that the other tool servers build from.
 | build123d `0.11.1` | pip (`cadquery-ocp-novtk`, `manylinux_2_28_aarch64` wheel) | BREP kernel (OCCT) |
 | build123d-mcp `0.3.90` `[http]` | pip | closed-loop CAD engine (execute / measure / validate / hole recognition / FDM printability / VTK render / STEP+STL export / per-handle sessions) |
 | trimesh, pyrender, matplotlib, numpy-stl, jsonschema | pip | mesh validation + the CPU render fallback |
-| OpenSCAD | `openscad-nightly` from the openSUSE OBS repo `home:t-paul/Debian_13` (arm64 build) | Manifold backend; Debian's own `openscad` is 2021.01, CGAL-only |
+| OpenSCAD | official `openscad/openscad:dev` base image (native `linux/arm64`, Debian 13; binary `/usr/local/bin/openscad`) | Manifold built in (2026.11.16 at adoption); Debian's own `openscad` is 2021.01, CGAL-only |
 
 **Pins.** `build123d-mcp 0.3.90` requires `build123d>=0.10,<0.12`, so build123d is pinned
 `0.11.1` (not 0.13). The same pins live in `pyproject.toml` (`cad` extra, with a
@@ -33,15 +33,24 @@ now ships `manylinux_2_28_aarch64` and `macosx_11_0_arm64` wheels. The full depe
 closure resolves with arm64 wheels on both targets (on linux/aarch64 build123d swaps
 `lib3mf` for `py-lib3mf` by marker; the macOS `lib3mf` wheel is universal2).
 
-**OpenSCAD branch taken: nightly + Manifold.** The OBS repo publishes an arm64
-`openscad-nightly`; the image sets `OPENSCAD_BIN=openscad-nightly` and
-`CAD_OPENSCAD_BACKEND=manifold`, and `_compile_scad` adds `--backend=manifold`. Measured
-in-container (same binary, 64-sphere boolean on a 60x60x20 cube): CGAL 68.1 s vs
-Manifold 0.53 s. If a future image build finds no arm64 nightly, the fallback is Debian
-`openscad` on CGAL with `P5-CAD-OPENSCAD-MANIFOLD-001` recorded — never an x86_64
+**OpenSCAD branch taken: official dev image + Manifold.** The OBS apt repo
+(`home:t-paul/Debian_13`, `openscad-nightly`) was dropped on 2026-11-22: its
+mirror sync errors (`slc-mirror.opensuse.org ... File has unexpected size`)
+repeatedly failed Docker builds. The official `openscad/openscad:dev` image
+publishes a native `linux/arm64` manifest (Debian 13 trixie, OpenSCAD
+2026.11.16, Manifold built in) and is now the image's `FROM`. It sets
+`OPENSCAD_BIN=openscad` and `CAD_OPENSCAD_BACKEND=manifold`, and `_compile_scad`
+adds `--backend=manifold` (the official binary accepts the lowercase value).
+Measured on the superseded nightly binary (64-sphere boolean on a 60x60x20
+cube): CGAL 68.1 s vs Manifold 0.53 s. The fallback remains Debian `openscad`
+on CGAL with `P5-CAD-OPENSCAD-MANIFOLD-001` recorded — never an x86_64
 AppImage or emulation.
 
 ### Verified in the container (2026-10-06)
+
+Evidence below is from the superseded OBS-nightly image (official
+`openscad/openscad:dev` base adopted 2026-11-22, Python 3.13; re-verify on the
+next rebuild).
 
 ```
 image Architecture = arm64 · container uname -m = aarch64

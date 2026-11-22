@@ -84,6 +84,16 @@ def test_standalone_installers_require_safe_starlette():
     assert combined.count("starlette>=1.3.1") == 2
 
 
+def test_cad_image_takes_openscad_from_official_base():
+    """Dockerfile.cad takes OpenSCAD from the official openscad/openscad:dev
+    arm64 base image, not the openSUSE OBS openscad-nightly apt repo whose
+    mirror sync errors repeatedly failed Docker builds."""
+    text = (_ROOT / "Dockerfile.cad").read_text(encoding="utf-8")
+    assert "FROM openscad/openscad:dev" in text
+    assert "download.opensuse.org" not in text
+    assert "ENV OPENSCAD_BIN=openscad CAD_OPENSCAD_BACKEND=manifold" in text
+
+
 def test_lock_pillow_fork_retired_and_floor_holds():
     """The py<3.11 resolution fork is retired: pillow 12.3.0 resolved only for it and
     the fix (13.0.0, 2026-11-19 CRITICAL batch) needs 3.11+, so no fork could ever
