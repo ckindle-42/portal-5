@@ -11,6 +11,7 @@ import json
 import os
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -71,16 +72,60 @@ def _iter_json_objects(text: str) -> Iterator[Any]:
         idx = end
 
 
+_SPLUNK_DEFAULTS = {
+    "LAB_SPLUNK_URL": "https://portal5-lab-splunk:8089",
+    "LAB_SPLUNK_USER": "admin",
+    "LAB_SPLUNK_PASSWORD": "",
+    "LAB_SPLUNK_INDEX": "portal5_lab",
+}
+
+
+def _repo_env_file() -> Path | None:
+    """Walk up from this file to the repo .env — launchd services never source it."""
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / ".env"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _dotenv_splunk_values() -> dict[str, str]:
+    """Read only the LAB_SPLUNK_* keys from .env; never executed, never exported."""
+    env_file = _repo_env_file()
+    if env_file is None:
+        return {}
+    try:
+        text = env_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return {}
+    values: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        for key in _SPLUNK_DEFAULTS:
+            if key not in values and line.startswith(f"{key}="):
+                values[key] = line.partition("=")[2].strip().strip("\"'")
+    return values
+
+
+def _splunk_setting(key: str, dotenv: dict[str, str]) -> str:
+    """os.environ wins over .env wins over the default; a blank env value counts as absent."""
+    value = os.environ.get(key)
+    if value is None or not value.strip():
+        value = dotenv.get(key) or _SPLUNK_DEFAULTS[key]
+    return value
+
+
 class SplunkBackend:
     """Splunk telemetry backend — real SPL via the REST export endpoint."""
 
     name = "splunk"
 
     def __init__(self) -> None:
-        self.url = os.environ.get("LAB_SPLUNK_URL", "https://portal5-lab-splunk:8089")
-        self.user = os.environ.get("LAB_SPLUNK_USER", "admin")
-        self.pw = os.environ.get("LAB_SPLUNK_PASSWORD", "")
-        self.index = os.environ.get("LAB_SPLUNK_INDEX", "portal5_lab")
+        dotenv = _dotenv_splunk_values()
+        self.url = _splunk_setting("LAB_SPLUNK_URL", dotenv)
+        self.user = _splunk_setting("LAB_SPLUNK_USER", dotenv)
+        self.pw = _splunk_setting("LAB_SPLUNK_PASSWORD", dotenv)
+        self.index = _splunk_setting("LAB_SPLUNK_INDEX", dotenv)
 
     def _run_search(self, search: str, earliest: str, latest: str) -> list[dict[str, Any]]:
         """POST one SPL search to the export endpoint and parse hits into rows.
