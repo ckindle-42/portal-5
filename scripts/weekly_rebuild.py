@@ -2,7 +2,7 @@
 """Weekly full rebuild: fresh base images, every Portal image rebuilt, stack down/up.
 
 The daily image job only re-pulls Open WebUI / SearXNG when an advisory names
-them, and ``./launch.sh rebuild`` reuses cached layers (and skips ``dind``), so
+them, and ``./launch.sh rebuild`` reuses cached layers, so
 OS-package fixes in the python/debian base images never land on their own. This
 closes that gap once a week, after the Sunday security-update job has committed
 any pinned-image/dependency bumps:
