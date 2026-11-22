@@ -20,11 +20,86 @@ import httpx
 from . import artifacts, gate, hardening, preflight
 from . import scenarios as scn
 from .browser_ui import BrowserUI, PlaywrightUnavailable
-from .config import Discovery, Settings, discover
+from .config import Discovery, Settings, discover, primary_model_for
 from .models import GateReport, QATResult, QATScenario, StageSummary, Status, classify_defect
 from .owui_client import OWUIClient, TurnOutcome
 
 DEFAULT_OUTPUT_REL = "results/qat"
+
+
+def _failed_fallback_spans(trace: dict[str, object]) -> list[dict[str, object]]:
+    spans = trace.get("spans") or trace.get("tool_spans") or []
+    if not isinstance(spans, list):
+        return []
+    failures = []
+    for span in spans:
+        if not isinstance(span, dict):
+            continue
+        name = str(span.get("name") or "").casefold()
+        outcome = str(span.get("outcome") or span.get("status") or "").casefold()
+        if (
+            name in {"backend.fallback", "backend.failed", "route.fallback"}
+            or "fallback" in name
+            or "retry" in name
+            or (outcome in {"fail", "failed", "error"} and name.startswith(("backend.", "route.")))
+        ):
+            failures.append(span)
+    return failures
+
+
+def _served_engine_model(trace: dict[str, object], fallback: str) -> str:
+    return str(trace.get("model") or fallback)
+
+
+def _primary_model_failure(
+    scenario: QATScenario, trace: dict[str, object], served_model: str, chat_id: str = ""
+) -> QATResult | None:
+    target_workspace = str(trace.get("workspace") or scenario.model_slug)
+    expected = primary_model_for(target_workspace)
+    if not expected:
+        return None
+    actual = str(trace.get("model") or "")
+    from portal.platform.inference.model_addressing import alias_targets_for_model
+
+    accepted = {expected, *alias_targets_for_model(expected)}
+    spans = _failed_fallback_spans(trace)
+    fallback = trace.get("fallback") is True or bool(spans)
+    if actual in accepted and not fallback:
+        return None
+    backend = str(trace.get("backend") or "unknown")
+    reasons = [
+        str(
+            span.get("reason")
+            or span.get("error")
+            or span.get("detail")
+            or span.get("message")
+            or span.get("name")
+        )
+        for span in spans
+    ]
+    if trace.get("fallback") is True:
+        reasons.insert(0, "trace fallback=true")
+    if actual not in accepted:
+        reasons.append("served model differs from primary")
+    reason = "; ".join(reasons) or "primary model was not served"
+    mismatch = {
+        "workspace": target_workspace,
+        "expected": expected,
+        "actual": actual,
+        "fallback": fallback,
+        "failed_fallback_spans": spans,
+    }
+    return QATResult(
+        scenario.scenario_id,
+        Status.FAIL,
+        f"primary model missed: expected {expected}, served {actual or 'unknown'} "
+        f"on {backend} ({reason})",
+        defect_class=classify_defect(infra_hop_failed=True),
+        chat_id=chat_id,
+        served_model=served_model,
+        backend=backend,
+        evidence={"primary_mismatch": mismatch},
+    )
 
 
 @dataclass
@@ -364,6 +439,7 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
         "messages": [{"role": "user", "content": scenario.prompts[0]}],
         "stream": False,
     }
+    started_at = time.time()
     try:
         with httpx.Client(timeout=scenario.timeout_s) as client:
             r = client.post(
@@ -389,6 +465,12 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             content = message.get("content")
             answer = content if isinstance(content, str) else ""
             tool_calls = message.get("tool_calls") or []
+            trace = OWUIClient(settings).lookup_trace(
+                correlation_id=r.headers.get("X-Correlation-ID"),
+                model_slug=scenario.model_slug,
+                turn_started_at=started_at,
+                deadline=time.monotonic() + scenario.timeout_s,
+            )
     except Exception as exc:
         return QATResult(
             scenario.scenario_id,
@@ -396,12 +478,18 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             f"{type(exc).__name__}: {exc}",
             defect_class=classify_defect(infra_hop_failed=True),
         )
+    served_model = _served_engine_model(trace, "")
+    primary_failure = _primary_model_failure(scenario, trace, served_model)
+    if primary_failure:
+        return primary_failure
     leak = artifacts.raw_tool_error_leak(answer)
     if leak:
         return QATResult(
             scenario.scenario_id,
             Status.FAIL,
             f"raw tool error leaked: {leak}",
+            served_model=served_model,
+            backend=str(trace.get("backend") or ""),
             defect_class=classify_defect(tool_misbehaved=True),
         )
     if not answer.strip():
@@ -409,6 +497,8 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             scenario.scenario_id,
             Status.FAIL,
             "empty assistant response",
+            served_model=served_model,
+            backend=str(trace.get("backend") or ""),
             defect_class=classify_defect(model_output_miss=True),
         )
     tool_error = _tool_validation_error(scenario, tool_calls, {})
@@ -417,13 +507,17 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             scenario.scenario_id,
             Status.FAIL,
             tool_error,
+            served_model=served_model,
+            backend=str(trace.get("backend") or ""),
             defect_class=classify_defect(model_output_miss=True),
         )
     return QATResult(
         scenario.scenario_id,
         Status.PASS,
         "pipeline turn completed",
-        evidence={"text_chars": len(answer)},
+        served_model=served_model,
+        backend=str(trace.get("backend") or ""),
+        evidence={"text_chars": len(answer), "trace": trace},
     )
 
 
@@ -604,6 +698,12 @@ def _run_chat_turns(
             turn_started_at=started_at,
             deadline=deadline,
         )
+        outcome.served_model = _served_engine_model(outcome.trace, outcome.served_model)
+        primary_failure = _primary_model_failure(
+            scenario, outcome.trace, outcome.served_model, chat_id
+        )
+        if primary_failure:
+            return None, primary_failure
         if outcome.leak_marker:
             return None, QATResult(
                 scenario.scenario_id,

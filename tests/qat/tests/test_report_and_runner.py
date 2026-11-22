@@ -240,10 +240,16 @@ class FakeOWUI:
 
     def poll_turn(self, token: str, chat_id: str, **kwargs: object) -> FakeOutcome:
         mode = type(self).mode
+        workspace = str(kwargs.get("model_slug") or "")
         return FakeOutcome(
             text="leak JSONDecodeError happened" if mode == "leak" else "the answer",
             leak_marker="JSONDecodeError" if mode == "leak" else None,
             artifact_urls=() if mode == "missing" else ("/files/a.wav",),
+            trace={
+                "workspace": workspace,
+                "model": rn.primary_model_for(workspace),
+                "backend": "omlx-general",
+            },
         )
 
     def download_artifact(self, token: str, url: str) -> bytes:
@@ -531,6 +537,15 @@ class TestPipelineChat:
             model="auto-security::blueteam",
             kind="pipeline",
         )
+        monkeypatch.setattr(
+            rn.OWUIClient,
+            "lookup_trace",
+            lambda self, **kwargs: {
+                "workspace": scenario.model_slug,
+                "model": rn.primary_model_for(scenario.model_slug),
+                "backend": "ollama-security",
+            },
+        )
         result = rn._run_pipeline_chat(settings, scenario)
         assert result.status is Status.PASS
         assert captured["body"]["model"] == "auto-security::blueteam"
@@ -570,6 +585,15 @@ class TestPipelineChat:
             phase="security_canonical",
             model="auto-security::blueteam",
             kind="pipeline",
+        )
+        monkeypatch.setattr(
+            rn.OWUIClient,
+            "lookup_trace",
+            lambda self, **kwargs: {
+                "workspace": scenario.model_slug,
+                "model": rn.primary_model_for(scenario.model_slug),
+                "backend": "ollama-security",
+            },
         )
         result = rn._run_pipeline_chat(settings, scenario)
         assert result.status is Status.FAIL

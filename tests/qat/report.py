@@ -70,8 +70,9 @@ def write_markdown(
         if row is None:
             continue
         detail = row.detail.replace("|", "\\|")[:160]
+        model = row.served_model or scenario.model_slug
         lines.append(
-            f"| {capability(scenario)} | {scenario.scenario_id} | {scenario.model_slug} "
+            f"| {capability(scenario)} | {scenario.scenario_id} | {model} "
             f"| {row.status.value} | {detail} |"
         )
     lines += ["", "## Exposure gaps (designed vs seeded)", ""]

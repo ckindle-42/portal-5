@@ -12,6 +12,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import yaml
@@ -202,6 +203,21 @@ def _workspace_def(ws_id: str, cfg: dict) -> WorkspaceDef:
 def load_workspaces(portal: dict | None = None) -> dict[str, WorkspaceDef]:
     portal = portal if portal is not None else _load_yaml(PORTAL_YAML)
     return {wid: _workspace_def(wid, cfg) for wid, cfg in (portal.get("workspaces") or {}).items()}
+
+
+def primary_model_for(workspace_slug: str, portal_data: dict[str, Any] | None = None) -> str:
+    """Return the primary hint for a workspace or inherited variant."""
+    if workspace_slug == "auto":
+        return ""
+    portal = portal_data if portal_data is not None else _load_yaml(PORTAL_YAML)
+    workspaces = portal.get("workspaces") or {}
+    try:
+        from portal.platform.inference.config import effective_workspace
+
+        workspace = effective_workspace(workspaces, workspace_slug)
+    except (KeyError, TypeError):
+        return ""
+    return str(workspace.get("model_hint") or "")
 
 
 def load_bench_workspaces() -> dict[str, WorkspaceDef]:
