@@ -688,6 +688,45 @@ def test_a_sources_span_is_never_compared_to_the_index_union():
     assert (1000.0, 9000.000001) not in bounds
 
 
+class _UntunedExecutor:
+    """No model holds a summary: every localisation falls to the index aggregate."""
+
+    def __init__(self) -> None:
+        self.scans: list[str] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del start, end, kind, row_cap
+        if "summariesonly=true count min(_time)" in query:
+            return Read([], False, None)
+        self.scans.append(query)
+        rows = [{"_time": step * 300.0, "host": "h1", "count": "21"} for step in range(24)]
+        return Read(rows, False, None)
+
+
+def test_ten_untuned_sources_share_one_indexed_localise_query():
+    """Same width: one index aggregate is fetched and sliced per source, one entry each."""
+    from portal.modules.security.core.hunt.notables.behaviours import _localise_sources
+
+    scheduled = [
+        (
+            f"ix:st{number}",
+            [_card()],
+            SourceFacts("ix", f"st{number}", 55_000_000, 0.0, 7200.0, ("h1",), 1, ("s1",), 1),
+            0.0,
+        )
+        for number in range(10)
+    ]
+    executor = _UntunedExecutor()
+    anchors, block = _localise_sources(executor, scheduled, 100)
+
+    assert len(executor.scans) == 1  # one indexed scan for the estate, not one per source
+    assert len(block["indexes"]) == 10  # E3's invariant: one receipt row per wide source
+    assert {entry["mechanism"] for entry in block["indexes"]} == {"indexed"}
+    assert anchors == {}  # uniform buckets peak nowhere, as before
+
+
 def test_collect_behaviours_keeps_s2_value_spans_when_localisation_finds_nothing(tmp_path):
     from portal.modules.security.core.hunt.executor import Read
     from portal.modules.security.core.hunt.notables.behaviours import collect_behaviours
@@ -814,9 +853,9 @@ def test_the_read_plan_never_exceeds_the_remaining_request_budget():
 
     read, _executor = _planned_read(40)
     assert 0 < issued[40] < issued[200]
-    # the plan is priced probe-plus-read: 40 requests pay for 20 windows, the top five files
+    # 40 requests pay for a19's four probed windows (8) plus 36 evidence-only ones: a19..a11
     assert {item.path for item in read.files if not item.reason} == {
-        item.path for item in _budget_facts().files[:5]
+        item.path for item in _budget_facts().files[:9]
     }
 
 
@@ -829,7 +868,7 @@ def test_a_window_dropped_by_the_planner_is_declared():
     read = read_behaviour_source(executor, facts, per_window=100)
 
     dropped = [item for item in read.files if item.reason]
-    assert {item.path for item in dropped} == {item.path for item in facts.files[5:]}
+    assert {item.path for item in dropped} == {item.path for item in facts.files[9:]}
     assert {item.reason for item in dropped} == {"request_budget_exhausted"}
     assert len(executor.skipped) == len(dropped)
     assert all(reason == "request_budget_exhausted" for _query, reason in executor.skipped)

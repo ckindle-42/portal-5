@@ -17,6 +17,7 @@ from portal.modules.security.core.hunt.notables.behaviours import _file_rows
 from portal.modules.security.core.hunt.notables.cards import _facts as card_facts
 from portal.modules.security.core.hunt.notables.run import _fact_dict, card_from_dict
 from portal.modules.security.core.hunt.notables.sample import (
+    DENSITY_PROBE_MAX,
     IndexFile,
     Localisation,
     LocalWindow,
@@ -779,6 +780,70 @@ def test_density_probes_batch_concurrently_instead_of_queueing_serially() -> Non
 
     assert executor.probe_peak >= 2  # three probed windows overlapped: batched, not serial
     assert read.files
+
+
+def test_a_small_file_issues_no_density_probe() -> None:
+    """A file within one window's ceiling is read whole: its density is already known."""
+    rows = _rows_of("/small", "h1", [float(n) for n in range(50)]) + _rows_of(
+        "/big", "h1", [float(n) for n in range(500)]
+    )
+    facts = SourceFacts(
+        "ix",
+        "st",
+        550,
+        0.0,
+        1_000.0,
+        ("h1",),
+        1,
+        ("/small", "/big"),
+        2,
+        files=(
+            IndexFile("/small", 50, ("h1",), 0.0, 1_000.0),
+            IndexFile("/big", 500, ("h1",), 0.0, 1_000.0),
+        ),
+    )
+    executor = _DensityExecutor(rows)
+    executor.budget = _ceiling()
+
+    read = read_files(executor, facts, window_bounds(0.0, 1_000.0, 2), per_window=100, kind="x")
+
+    probes = [call for call in executor.calls if call[0].startswith("| tstats")]
+    assert probes  # the large file's windows are still probed
+    assert all('source="/big"' in query for query, _s, _e, _c in probes)
+    assert not any('source="/small"' in query for query, _s, _e, _c in probes)
+    assert any('source="/small"' in query for query, _s, _e, _c in executor.row_reads())
+    assert {item.path for item in read.files} == {"/small", "/big"}
+
+
+def test_a_wide_estate_caps_its_density_probes() -> None:
+    """Only the largest files' windows probe; every window still reads at its planned cap."""
+    files = tuple(
+        IndexFile(f"/f{number}", 500 + number, ("h1",), 0.0, 1_000.0) for number in range(8)
+    )
+    facts = SourceFacts(
+        "ix",
+        "st",
+        sum(item.events for item in files),
+        0.0,
+        1_000.0,
+        ("h1",),
+        1,
+        tuple(item.path for item in files),
+        len(files),
+        files=files,
+    )
+    executor = _DensityExecutor(
+        sum((_rows_of(item.path, "h1", [float(n) for n in range(1_000)]) for item in files), [])
+    )
+    executor.budget = _ceiling()
+
+    read = read_files(executor, facts, window_bounds(0.0, 1_000.0, 3), per_window=100, kind="x")
+
+    probes = [call for call in executor.calls if call[0].startswith("| tstats")]
+    assert len(probes) == DENSITY_PROBE_MAX  # capped, not one per window of 24
+    assert all('source="/f7"' in query or 'source="/f6"' in query for query, _s, _e, _c in probes)
+    assert len(read.files) == 8 * 3  # every planned window still read, heads at planned caps
+    assert not any(item.reason for item in read.files)
 
 
 class _EstateExecutor:
