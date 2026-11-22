@@ -62,6 +62,12 @@ def _parser() -> argparse.ArgumentParser:
         "(default: the 720s hunt job budget); the request budget is derived "
         "from the measured per-call rate and this deadline",
     )
+    parser.add_argument(
+        "--allow-proof",
+        action="store_true",
+        help="permit a held-out proof index for this run (the one-shot proof only; "
+        "never for training or knowledge stores)",
+    )
     return parser
 
 
@@ -302,9 +308,9 @@ def _print_cards(receipt: dict[str, Any]) -> None:
     )
 
 
-def _run_relate(out: Path, search: Search) -> int:
+def _run_relate(out: Path, search: Search, *, allow_proof: bool = False) -> int:
     try:
-        receipt = relate_stage(out=out, search=search)
+        receipt = relate_stage(out=out, search=search, allow_proof=allow_proof)
     except (FileNotFoundError, ValueError) as error:
         print(f"relate: {error}", file=sys.stderr)
         return 2
@@ -390,7 +396,7 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
                 embedder.close()
         _print_notables(receipt)
     if "relate" in stages:
-        code = _run_relate(out, search)
+        code = _run_relate(out, search, allow_proof=args.allow_proof)
         if code:
             return code
     if "judge" in stages:

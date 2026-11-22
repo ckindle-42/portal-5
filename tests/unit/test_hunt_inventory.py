@@ -778,6 +778,22 @@ def test_relatable_index_allows_botsv2_and_refuses_a_proof_index() -> None:
         raise AssertionError("proof index was accepted")
 
 
+def test_relatable_index_allow_proof_permits_only_when_asked() -> None:
+    try:
+        relatable_index("hb_cloudobs_aws")
+    except ValueError as error:
+        assert "proof index" in str(error)
+    else:
+        raise AssertionError("default still refused a proof index")
+    relatable_index("hb_cloudobs_aws", allow_proof=True)
+    try:
+        relatable_index("", allow_proof=True)
+    except ValueError as error:
+        assert "needs an index" in str(error)
+    else:
+        raise AssertionError("allow_proof waived the index requirement")
+
+
 def test_promote_lifts_a_weak_member_to_just_after_the_anchor() -> None:
     rows = [{"notable_id": f"n{index}", "generator": "deviation"} for index in range(60)]
     cases = [{"case_id": "c1", "seed_notables": ["n0", "n55"], "related_notables": ["relate-1"]}]

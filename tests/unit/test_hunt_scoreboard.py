@@ -631,6 +631,27 @@ def test_proof_indexes_are_refused(tmp_path: Path, capsys: pytest.CaptureFixture
     assert "proof index" in capsys.readouterr().err
 
 
+def test_allow_proof_opts_a_proof_index_into_scoring(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = "/apache2/access.log.4"
+    run = _run(
+        tmp_path,
+        notables=[_notable("alerts", source, ["10.0.0.5"], content_key="one")],
+        keys=_keys(source, "web", {1: ["dirb"]}),
+        files={("web", source): [_line("10.0.0.5", "/x")]},
+    )
+    (run / "sources.json").write_text(
+        json.dumps({"index": "botsv1", "cards": []}), encoding="utf-8"
+    )
+    code = main(["--out", str(run), "--keys", str(run / "keys.jsonl")])
+    assert code == 2
+    assert "proof index" in capsys.readouterr().err
+    code = main(["--out", str(run), "--keys", str(run / "keys.jsonl"), "--allow-proof"])
+    assert code == 0
+    assert "proof index" not in capsys.readouterr().err
+
+
 def test_missing_receipts_fail_loudly(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     run = tmp_path / "fam"
     run.mkdir()
