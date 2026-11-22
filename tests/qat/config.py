@@ -12,6 +12,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
@@ -31,6 +32,7 @@ _ENV_KEYS: dict[str, str] = {
     "PIPELINE_API_KEY": "portal-pipeline",
     "OPENWEBUI_ADMIN_EMAIL": "admin@portal.local",
     "OPENWEBUI_ADMIN_PASSWORD": "",
+    "OWUI_API_KEY": "",
     "OLLAMA_URL": "http://localhost:11434",
     "OMLX_URL": "http://localhost:8085",
     "OMLX_API_KEY": "",
@@ -50,6 +52,7 @@ class Settings:
     pipeline_api_key: str
     owui_user: str
     owui_pass: str
+    owui_api_key: str
     ollama_url: str
     omlx_url: str
     omlx_api_key: str
@@ -68,13 +71,14 @@ class Settings:
         }
         return cls(
             repo_root=REPO_ROOT,
-            owui_url=merged["OPENWEBUI_URL"].rstrip("/"),
-            pipeline_url=merged["PIPELINE_URL"].rstrip("/"),
+            owui_url=_host_url(merged["OPENWEBUI_URL"]).rstrip("/"),
+            pipeline_url=_host_url(merged["PIPELINE_URL"]).rstrip("/"),
             pipeline_api_key=merged["PIPELINE_API_KEY"],
             owui_user=merged["OPENWEBUI_ADMIN_EMAIL"],
             owui_pass=merged["OPENWEBUI_ADMIN_PASSWORD"],
-            ollama_url=merged["OLLAMA_URL"].rstrip("/"),
-            omlx_url=merged["OMLX_URL"].rstrip("/"),
+            owui_api_key=merged["OWUI_API_KEY"],
+            ollama_url=_host_url(merged["OLLAMA_URL"]).rstrip("/"),
+            omlx_url=_host_url(merged["OMLX_URL"]).rstrip("/"),
             omlx_api_key=merged["OMLX_API_KEY"],
             workspace_dir=Path(merged["AI_OUTPUT_DIR"]),
             arm_approval_ttl_s=_to_int(merged["PORTAL_ARM_APPROVAL_TTL_SECONDS"]),
@@ -226,6 +230,30 @@ def load_presets(presets: list[dict] | None = None) -> dict[str, OwuiPreset]:
             system=str(params.get("system", "")),
         )
     return out
+
+
+def _host_url(raw: str) -> str:
+    """Rewrite Docker-only hostnames so host-side QAT can reach loopback services."""
+    parts = urlsplit(raw)
+    host = (parts.hostname or "").lower()
+    if not (
+        host
+        in {
+            "portal-pipeline",
+            "portal_pipeline",
+            "host.docker.internal",
+            "open-webui",
+            "browser-mcp",
+        }
+        or host.startswith("portal5-")
+    ):
+        return raw
+    userinfo, separator, host_port = parts.netloc.rpartition("@")
+    if not separator:
+        host_port = parts.netloc
+    host_port = f"127.0.0.1{host_port[len(host) :]}"
+    netloc = f"{userinfo}@{host_port}" if separator else host_port
+    return urlunsplit(parts._replace(netloc=netloc))
 
 
 def load_personas(persona_dir: Path = PERSONA_DIR) -> tuple[PersonaDef, ...]:

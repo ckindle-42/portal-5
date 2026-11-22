@@ -44,6 +44,8 @@ class OWUIClient:
         return httpx.Client(transport=self._transport, timeout=30.0)
 
     def signin(self) -> str:
+        if self.settings.owui_api_key:
+            return self.settings.owui_api_key
         with self._client() as client:
             r = client.post(
                 f"{self.settings.owui_url}/api/v1/auths/signin",

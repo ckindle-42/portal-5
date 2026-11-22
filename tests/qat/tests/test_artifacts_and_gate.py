@@ -13,6 +13,7 @@ import pytest
 from tests.qat import artifacts as art
 from tests.qat import gate
 from tests.qat.models import Status
+from tests.qat.owui_client import OWUIClient
 
 from .test_config_and_scenarios import make_settings
 
@@ -150,29 +151,104 @@ class TestResidency:
         assert names == ["q:9b"]
         assert result.status is Status.WARN  # resident models are a pressure note
 
-    def test_omlx_residency_prefers_loaded_endpoint(self) -> None:
+    def test_omlx_residency_reads_loaded_flags_from_status_endpoint(self) -> None:
         calls: list[str] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
             calls.append(request.url.path)
-            if request.url.path == "/v1/models/loaded":
-                return httpx.Response(200, json={"models": [{"name": "mlx-4bit"}]})
+            if request.url.path == "/v1/models/status":
+                return httpx.Response(
+                    200,
+                    json={
+                        "loaded_count": 1,
+                        "models": [
+                            {"id": "cold-model", "loaded": False},
+                            {"id": "resident-model", "loaded": True},
+                            {"name": "resident-named", "loaded": True},
+                        ],
+                    },
+                )
             return httpx.Response(500)
 
         with httpx.Client(transport=httpx.MockTransport(handler)) as client:
             result, names = gate.omlx_residency(client, SETTINGS)
-        assert names == ["mlx-4bit"]
-        assert calls == ["/v1/models/loaded"]
+        assert result.status is Status.WARN
+        assert names == ["resident-model", "resident-named"]
+        assert calls == ["/v1/models/status"]
 
-    def test_omlx_residency_falls_back_to_models(self) -> None:
+    def test_omlx_cold_status_passes_with_no_resident_models(self) -> None:
+        calls: list[str] = []
+
         def handler(request: httpx.Request) -> httpx.Response:
-            if request.url.path == "/v1/models/loaded":
-                return httpx.Response(404)
-            return httpx.Response(200, json={"data": [{"id": "mlx-4bit"}]})
+            calls.append(request.url.path)
+            if request.url.path == "/v1/models/status":
+                return httpx.Response(
+                    200,
+                    json={"loaded_count": 0, "models": [{"id": "cold-model", "loaded": False}]},
+                )
+            return httpx.Response(200, json={"data": [{"id": "installed-cold-model"}]})
 
         with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-            _, names = gate.omlx_residency(client, SETTINGS)
-        assert names == ["mlx-4bit"]
+            result, names = gate.omlx_residency(client, SETTINGS)
+        assert result.status is Status.PASS
+        assert names == []
+        assert calls == ["/v1/models/status"]
+
+    def test_omlx_residency_falls_back_to_loaded_endpoint_only(self) -> None:
+        calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request.url.path)
+            if request.url.path == "/v1/models/status":
+                return httpx.Response(404)
+            if request.url.path == "/v1/models/loaded":
+                return httpx.Response(200, json={"models": [{"id": "resident-model"}]})
+            return httpx.Response(200, json={"data": [{"id": "installed-cold-model"}]})
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            result, names = gate.omlx_residency(client, SETTINGS)
+        assert result.status is Status.WARN
+        assert names == ["resident-model"]
+        assert calls == ["/v1/models/status", "/v1/models/loaded"]
+
+    def test_omlx_residency_fails_without_residency_endpoint(self) -> None:
+        calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request.url.path)
+            return httpx.Response(404)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            result, names = gate.omlx_residency(client, SETTINGS)
+        assert result.status is Status.FAIL
+        assert names == []
+        assert calls == ["/v1/models/status", "/v1/models/loaded"]
+
+
+class TestOWUIAuthentication:
+    def test_signin_returns_configured_api_key_without_request(self) -> None:
+        calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            calls.append(request.url.path)
+            return httpx.Response(500)
+
+        settings = make_settings(Path("/tmp"), OWUI_API_KEY="provided-token")
+        client = OWUIClient(settings, httpx.MockTransport(handler))
+        assert client.signin() == "provided-token"
+        assert calls == []
+
+    def test_signin_uses_password_endpoint_without_api_key(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/api/v1/auths/signin"
+            assert json.loads(request.read()) == {
+                "email": "admin@portal.local",
+                "password": "pw",
+            }
+            return httpx.Response(200, json={"token": "signin-token"})
+
+        client = OWUIClient(SETTINGS, httpx.MockTransport(handler))
+        assert client.signin() == "signin-token"
 
     def test_evict_omlx_only_resident_and_tolerates_400(self) -> None:
         unload_calls: list = []

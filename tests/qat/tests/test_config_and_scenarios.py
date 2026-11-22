@@ -183,6 +183,7 @@ def make_settings(tmp_path: Path, **overrides: str) -> Settings:
         "PIPELINE_API_KEY": "test-key",
         "OPENWEBUI_ADMIN_EMAIL": "admin@portal.local",
         "OPENWEBUI_ADMIN_PASSWORD": "pw",
+        "OWUI_API_KEY": "",
         "OLLAMA_URL": "http://localhost:11434",
         "OMLX_URL": "http://localhost:8085",
         "OMLX_API_KEY": "",
@@ -228,6 +229,29 @@ class TestEnvParsing:
         assert make_settings(tmp_path, OMLX_API_KEY="k").omlx_headers() == {
             "Authorization": "Bearer k"
         }
+
+    def test_host_urls_rewrite_docker_names_and_keep_localhost(self, tmp_path: Path) -> None:
+        settings = Settings.load(
+            env_file=tmp_path / "missing.env",
+            environ={
+                "OPENWEBUI_URL": "http://open-webui:8080/path",
+                "PIPELINE_URL": "http://portal-pipeline:9099/health",
+                "OLLAMA_URL": "http://host.docker.internal:11434/api",
+                "OMLX_URL": "http://localhost:8085/v1",
+            },
+        )
+        assert settings.owui_url == "http://127.0.0.1:8080/path"
+        assert settings.pipeline_url == "http://127.0.0.1:9099/health"
+        assert settings.ollama_url == "http://127.0.0.1:11434/api"
+        assert settings.omlx_url == "http://localhost:8085/v1"
+        assert cq._host_url("https://browser-mcp:3000/tool?q=1") == (
+            "https://127.0.0.1:3000/tool?q=1"
+        )
+        assert cq._host_url("http://portal5-worker:123/path") == "http://127.0.0.1:123/path"
+
+    def test_settings_reads_owui_api_key(self, tmp_path: Path) -> None:
+        settings = make_settings(tmp_path, OWUI_API_KEY="provided-token")
+        assert settings.owui_api_key == "provided-token"
 
 
 class TestDiscovery:

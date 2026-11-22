@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
 import pytest
 
+from tests.qat import preflight as pf
 from tests.qat import report as rp
 from tests.qat import runner as rn
 from tests.qat.models import (
@@ -148,6 +150,34 @@ class TestPlanAndOrder:
         assert rn._want(media_browser, opts)
         assert not rn._want(media_api, opts)
         assert not rn._want(other_stage, opts)
+
+
+class TestPreflightInterpreter:
+    def test_preflight_subprocesses_use_current_interpreter(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        commands: list[list[str]] = []
+
+        def fake_run_cmd(cmd: list[str], cwd: Path, timeout_s: int = 900) -> tuple[int, str]:
+            commands.append(cmd)
+            if cmd[1:] == [pf.PREFLIGHT_SCRIPT, "--json"]:
+                return 0, '{"production_workspaces": [], "personas": []}'
+            return 0, "ok"
+
+        monkeypatch.setattr(pf, "run_cmd", fake_run_cmd)
+        settings = make_settings(Path("/tmp"))
+        pf.run_preflight_script(settings)
+        pf.run_routing_regression(settings)
+        pf.run_trace_sections(settings)
+        pf.run_lab_ready(settings)
+
+        assert [cmd[0] for cmd in commands] == [sys.executable] * 4
+        assert commands[2][:4] == [
+            sys.executable,
+            "-m",
+            "portal.platform.inference.cli",
+            "trace",
+        ]
 
 
 @dataclass

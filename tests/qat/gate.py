@@ -2,8 +2,8 @@
 eviction, host memory guard, MLX media pressure report.
 
 Eviction is residency-checked: oMLX 0.8.1 returns HTTP 400 for an unload of
-an already-cold model, so residency is read first (GET /v1/models/loaded,
-falling back to /v1/models) and only resident models are unloaded. The
+an already-cold model, so residency is read from /v1/models/status (falling
+back to /v1/models/loaded) and only resident models are unloaded. The
 retained MLX media services (mlx-speech :8918, mflux :8933, video-mlx :8935)
 are memory-pressure reporters only — never killed.
 """
@@ -74,16 +74,18 @@ def ollama_residency(client: httpx.Client, settings: Settings) -> tuple[QATResul
 
 
 def omlx_residency(client: httpx.Client, settings: Settings) -> tuple[QATResult, list[str]]:
-    """oMLX residency via /v1/models/loaded, falling back to /v1/models."""
+    """Read oMLX residency from /v1/models/status, then /v1/models/loaded."""
     headers = settings.omlx_headers()
-    for path in ("/v1/models/loaded", "/v1/models"):
+    for path in ("/v1/models/status", "/v1/models/loaded"):
         try:
             r = _get(client, f"{settings.omlx_url}{path}", headers)
             if r.status_code != 200:
                 continue
             body = r.json()
             models = body.get("models", body.get("data", []))
-            names = [str(m.get("name") or m.get("id") or "") for m in models]
+            if path == "/v1/models/status":
+                models = [m for m in models if m.get("loaded") is True]
+            names = [str(m.get("id") or m.get("name") or "") for m in models]
             names = [n for n in names if n]
             status = Status.PASS if not names else Status.WARN
             detail = "reachable, cold" if not names else f"resident: {', '.join(names)}"
