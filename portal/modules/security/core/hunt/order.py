@@ -391,6 +391,7 @@ def rank_from_observations(
     evidence_mode: str,
     event_chars: int,
     stop: Callable[[], bool] | None = None,
+    renames: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Read and judge the budgeted prefix, then arrange every host-hour."""
     cells = with_budget_ranks(accumulated_host_hours(observations), budget_order)
@@ -403,6 +404,7 @@ def rank_from_observations(
         end,
         event_chars=event_chars,
         evidence_mode=evidence_mode,
+        renames=renames,
     )
     reads_by = {(item.cell.host, item.cell.hour): item for item in reads}
     judged, cost, served, stopped = judge_selected(client, model, selected, reads_by, stop)
