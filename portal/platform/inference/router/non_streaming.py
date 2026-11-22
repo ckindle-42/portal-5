@@ -23,6 +23,7 @@ from portal.platform.inference.router.backend_introspect import (
     _approx_prompt_tokens,
     _backend_type_for_url,
 )
+from portal.platform.inference.router.client_tools import merge_client_tools
 from portal.platform.inference.router.context_budget import ContextOverflowError
 from portal.platform.inference.router.context_budget import fit_prompt as fit_context
 from portal.platform.inference.router.correlation import get_correlation_id
@@ -1225,12 +1226,12 @@ async def _try_non_streaming(
         _client_tools = [] if _required_tool else req_body.get("tools", [])
         if _tools_arr:
             if _client_tools:
-                _seen_names = {t.get("function", {}).get("name") for t in _tools_arr}
-                for _ct in _client_tools:
-                    _ct_name = _ct.get("function", {}).get("name", "")
-                    if _ct_name and _ct_name not in _seen_names:
-                        _tools_arr.append(_ct)
-                        _seen_names.add(_ct_name)
+                merge_client_tools(
+                    _tools_arr,
+                    _client_tools,
+                    tool_registry.list_tool_names(),
+                    drop_portal_mirrors=_bite_allowlist is None,
+                )
             req_body["tools"] = _tools_arr
             req_body["tool_choice"] = (
                 req_body.get("tool_choice")

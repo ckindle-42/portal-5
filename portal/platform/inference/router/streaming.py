@@ -48,6 +48,7 @@ from portal.platform.inference.router.backend_introspect import (
     free_ollama_for_omlx,
     make_room_for_omlx,
 )
+from portal.platform.inference.router.client_tools import merge_client_tools
 from portal.platform.inference.router.context_budget import REFUSAL_PREFIX, ContextOverflowError
 from portal.platform.inference.router.context_budget import fit_prompt as fit_context
 from portal.platform.inference.router.correlation import (
@@ -2988,12 +2989,12 @@ async def _build_streaming_request(
             tools_array = list(client_tools)
         if tools_array:
             if client_tools:
-                seen_names = {t.get("function", {}).get("name") for t in tools_array}
-                for ct in client_tools:
-                    ct_name = ct.get("function", {}).get("name", "")
-                    if ct_name and ct_name not in seen_names:
-                        tools_array.append(ct)
-                        seen_names.add(ct_name)
+                merge_client_tools(
+                    tools_array,
+                    client_tools,
+                    tool_registry.list_tool_names(),
+                    drop_portal_mirrors=_bite_allowlist is None,
+                )
             backend_body["tools"] = tools_array
             backend_body["tool_choice"] = (
                 backend_body.get("tool_choice")
