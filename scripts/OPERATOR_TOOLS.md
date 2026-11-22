@@ -21,6 +21,12 @@ python3 scripts/fetch_mlx_asr_models.py [--check]  # fetch/verify MLX ASR weight
 ```bash
 python3 scripts/hunt_bed/ingest_native.py --root <dir> --index hb_<env> --default-year <y> --out <dir>
                                     # native, label-free ingest of one environment (keys stay out of band)
+python3 scripts/hunt_bed/ingest_canonical.py --root <dir|.tar|.zip> --index hb_<env> --dry-run
+                                    # census: kept/dropped by reason, canonical TA sourcetypes, zero-label check (SPLUNK_REALISM 5.1)
+python3 scripts/hunt_bed/ingest_canonical.py --root <dir|.tar|.zip> --index hb_<env> --ship --manifest-out <dir> --default-year <y>
+                                    # canonical-sourcetype ship: drops noise/dups/labels, flattens CloudTrail Records, HEC + digest manifest
+python3 scripts/hunt_bed/keys_flaws.py --manifest <dir>   # flaws.cloud scorer key joined to the canonical manifest (scorer plane only)
+python3 scripts/hunt_bed/keys_flaws.py --splunk hb_flaws_aws [--extra cited.json]  # flaws.cloud locator SPL / cited extras
 python3 scripts/hunt_bed/keys_kyoushi.py --labels <labels/> --ingest <out>     # AIT/Kyoushi per-line key
 python3 scripts/hunt_bed/keys_cloudobs.py --ingest <out>                       # cloud_obs y/n-run key
 python3 scripts/hunt_bed/keys_bots.py --source <cited.json> --out <key.jsonl>  # BOTS cited key, live-audited
