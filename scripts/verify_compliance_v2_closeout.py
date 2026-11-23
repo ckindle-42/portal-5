@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import sqlite3
 import subprocess
 import tempfile
@@ -240,40 +239,7 @@ def main() -> int:  # noqa: C901, PLR0912, PLR0915
     check(
         "V12", lambda: (ledger["q_matrix"] == {"passed": 36, "total": 36}, str(ledger["q_matrix"]))
     )
-    acceptance_text = (
-        ROOT / "tests/acceptance/test_compliance_reasoning_v2_questions.py"
-    ).read_text()
-    check(
-        "V13",
-        lambda: (
-            not re.search(r'assert\s+["\'][^"\']+["\']\s+in\s+result\s*$', acceptance_text, re.M),
-            "no key-presence-only assertions",
-        ),
-    )
-
-    def v14():
-        if not args.live:
-            return False, "--live not supplied"
-        proc = subprocess.run(
-            [
-                "uv",
-                "run",
-                "pytest",
-                "tests/acceptance/test_compliance_reasoning_v2_questions.py",
-                "-q",
-            ],
-            cwd=ROOT,
-            env={**os.environ, "COMPLIANCE_LIVE": "1"},
-            capture_output=True,
-            text=True,
-            timeout=360,
-        )
-        return (
-            proc.returncode == 0 and "skipped" not in proc.stdout.lower(),
-            f"exit={proc.returncode}; skipped={'skipped' in proc.stdout.lower()}",
-        )
-
-    check("V14", v14)
+    # V13/V14 retired with tests/acceptance/test_compliance_reasoning_v2_questions.py.
     draft = _post(
         "compliance_draft_revisions", {"old_standard": "CIP-003-8", "new_standard": "CIP-003-9"}
     )

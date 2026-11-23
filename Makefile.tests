@@ -1,7 +1,0 @@
-.PHONY: regen-section-table check-section-table
-
-regen-section-table:
-	@python3 tests/scripts/regen_section_table.py
-
-check-section-table:
-	@python3 tests/scripts/regen_section_table.py --check

@@ -1,7 +1,7 @@
 """Portal 5 — unified Release 1.0 Quality Acceptance Testing package.
 
-Self-contained under tests/qat/: zero imports from legacy tests/uat/,
-tests/uat_catalog/ or tests/acceptance/. Discovery is live from
+Self-contained under tests/qat/; the legacy tests/uat/, tests/uat_catalog/
+and tests/acceptance/ suites are retired. Discovery is live from
 config/portal.yaml, imports/openwebui/workspaces/ and config/personas/.
 """
 

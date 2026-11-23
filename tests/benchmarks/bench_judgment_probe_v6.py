@@ -872,7 +872,7 @@ def _write_results(
 
 def _notify(event_type: str, message: str, metadata: dict | None = None) -> None:
     """Best-effort push to the enabled channels (Slack/Telegram/Pushover/…),
-    gated on NOTIFICATIONS_ENABLED — same pattern as tests/uat/notify.py."""
+    gated on NOTIFICATIONS_ENABLED."""
     import os
 
     with contextlib.suppress(Exception):

@@ -1,7 +1,7 @@
 ---
 id: unit-tests-frontends-namespace
 kind: mixed
-title: "Tests frontends \u2014 OWUI-only UAT helper namespace"
+title: "Tests frontends \u2014 OWUI-only test helper namespace"
 sources:
 - type: code
   path: tests/frontends/__init__.py
@@ -17,22 +17,21 @@ tags:
 - frontends
 ---
 
-The frontends test package is a namespace marker for frontend-specific UAT
-driver helpers. It exists to record the platform decision that Open WebUI is
-the sole supported GUI frontend — the UAT helpers themselves live in the
-`tests/uat` package (`owui_api.py`, `browser.py`, `dispatch.py`), with
-`tests/portal5_uat_driver.py` as the entry-point shim.
+The frontends test package is a namespace marker for frontend-specific test
+helpers. It exists to record the platform decision that Open WebUI is the
+sole supported GUI frontend. The legacy UAT driver helpers (`tests/uat`)
+were retired; OWUI-driven test coverage now lives in the self-contained
+`tests/qat` suite.
 
 ## Why
 
 Declaring the frontend boundary explicitly in a package docstring prevents a
 future task from adding a second GUI frontend's driver helpers here while
 Open WebUI remains the only supported one — the helpers would have no home
-convention and would fragment the UAT tooling. The namespace records that any
-frontend-specific helper belongs in `tests/uat`, not in a new package that
-would split the driver tooling by GUI.
+convention and would fragment the test tooling. The namespace records that any
+frontend-specific helper belongs with the OWUI-driven suite, not in a new
+package that would split the tooling by GUI.
 
 ## Interfaces
 
-No callable surface — the `__init__.py` is a documentation marker. The UAT
-helpers it points to live in the `tests/uat` package.
+No callable surface — the `__init__.py` is a documentation marker.

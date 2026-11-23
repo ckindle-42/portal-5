@@ -1,23 +1,23 @@
 ---
 id: unit-code-tests
 kind: what
-title: tests subsystem (739 files)
+title: tests subsystem (656 files)
 sources:
 - type: code
   path: tests/__init__.py
-  commit: 8015e9381c8a
+  commit: 2d5a330838e1
 - type: code
   path: tests/_netguard/netguard.py
-  commit: 8015e9381c8a
+  commit: 2d5a330838e1
 - type: code
   path: tests/_netguard/sitecustomize.py
-  commit: 8015e9381c8a
+  commit: 2d5a330838e1
 - type: code
-  path: tests/acceptance/_common.py
-  commit: 8015e9381c8a
+  path: tests/benchmarks/bench/__init__.py
+  commit: 2d5a330838e1
 - type: code
-  path: tests/acceptance/cli.py
-  commit: 8015e9381c8a
+  path: tests/benchmarks/bench/adhoc_probe.py
+  commit: 2d5a330838e1
 claims:
 - probe: repo.path.exists
   path: tests/__init__.py
@@ -30,26 +30,26 @@ tags:
 
 # tests subsystem
 
-**Files:** 739
+**Files:** 656
 
 - `tests/__init__.py`
 - `tests/_netguard/netguard.py`
 - `tests/_netguard/sitecustomize.py`
-- `tests/acceptance/_common.py`
-- `tests/acceptance/cli.py`
-- `tests/acceptance/results.py`
-- `tests/acceptance/runner.py`
-- `tests/acceptance/s00_startup.py`
-- `tests/acceptance/s01_static_config.py`
-- `tests/acceptance/s02_services.py`
-- `tests/acceptance/s03_routing.py`
-- `tests/acceptance/s04_documents.py`
-- `tests/acceptance/s05_health.py`
-- `tests/acceptance/s06_security_workspaces.py`
-- `tests/acceptance/s07_music.py`
-- `tests/acceptance/s08_tts.py`
-- `tests/acceptance/s09_stt.py`
-- `tests/acceptance/s10_personas_ollama.py`
-- `tests/acceptance/s10c_compliance_personas.py`
-- `tests/acceptance/s12_web_search.py`
-- ... and 719 more
+- `tests/benchmarks/bench/__init__.py`
+- `tests/benchmarks/bench/adhoc_probe.py`
+- `tests/benchmarks/bench/cli.py`
+- `tests/benchmarks/bench/config.py`
+- `tests/benchmarks/bench/discovery.py`
+- `tests/benchmarks/bench/lifecycle.py`
+- `tests/benchmarks/bench/measure.py`
+- `tests/benchmarks/bench/notify.py`
+- `tests/benchmarks/bench/prompts.py`
+- `tests/benchmarks/bench/report.py`
+- `tests/benchmarks/bench/results_io.py`
+- `tests/benchmarks/bench/runners.py`
+- `tests/benchmarks/bench_cad_gauntlet_v2.py`
+- `tests/benchmarks/bench_cad_probe.py`
+- `tests/benchmarks/bench_candidates_v10.py`
+- `tests/benchmarks/bench_capability.py`
+- `tests/benchmarks/bench_compliance_probe.py`
+- ... and 636 more

@@ -2,9 +2,9 @@
 
 A self-contained, reusable Quality Acceptance Testing package for today's
 architecture: Ollama + oMLX 0.8.1, MLX-native media, ARM64 CAD, Obscura
-`browser-mcp`, native Open WebUI tool flow. It replaces the legacy
-`tests/uat/` + `tests/acceptance/` suites (zero imports from them) once
-proven live.
+`browser-mcp`, native Open WebUI tool flow. It replaced the legacy
+`tests/uat/` + `tests/acceptance/` suites, which are retired (zero imports
+from them).
 
 ## Run it
 

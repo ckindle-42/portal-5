@@ -12,8 +12,8 @@ This script's ``_resolve()`` just unpacks the ``::`` form.
 Corpus sources (per DESIGN_ROUTER_CANONICALIZATION_V1.md §6):
 - config/routing_examples.json (the router's own few-shot examples)
 - tests/benchmarks/bench/prompts.py (per-discipline TPS prompts)
-- Representative security/content-aware prompts drawn from
-  tests/acceptance/s06_security_workspaces.py + s21_llm_router.py
+- Representative security/content-aware prompts (originally drawn from the
+  retired acceptance suite's s06/s21 sections, now frozen in the corpus)
 - Explicit variant/role-discriminating prompts (hand-authored) so the
   regression exercises the variant distinction, not just discipline.
 

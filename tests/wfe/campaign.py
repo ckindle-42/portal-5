@@ -180,8 +180,8 @@ def _log(campaign_dir: Path, msg: str) -> None:
 
 def _notify(event_type: str, message: str, metadata: dict | None = None) -> None:
     """Fire through the Portal notification dispatcher, gated on
-    NOTIFICATIONS_ENABLED — same pattern as tests/uat/notify.py and the
-    compliance seat sweep. Never raises into the campaign."""
+    NOTIFICATIONS_ENABLED — same pattern as the compliance seat sweep.
+    Never raises into the campaign."""
     if os.environ.get("NOTIFICATIONS_ENABLED", "false").lower() not in ("true", "1", "yes"):
         return
     try:

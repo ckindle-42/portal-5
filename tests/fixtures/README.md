@@ -1,6 +1,7 @@
 # tests/fixtures
 
-Test fixtures for the UAT driver (tests/uat package — entry: tests/portal5_uat_driver.py) and the acceptance suite.
+Test fixtures for the QAT suite (tests/qat/) and the bench harnesses. The legacy
+UAT driver and acceptance suite that originally consumed them are retired.
 
 ## Audio
 
@@ -15,7 +16,7 @@ rm /tmp/sample.aiff
 
 Format: 16-bit signed-LE PCM @ 16 kHz mono (Whisper's preferred input — no resample needed).
 Content must include at least one of: `portal`, `five`, `acceptance`, `quick`, `brown`, `fox`
-(see the M-01 assertion list in tests/uat_catalog).
+(the legacy M-01 assertion vocabulary, retained for fixture compatibility).
 
 ## Other fixtures
 
