@@ -120,21 +120,46 @@ class BrowserUI:
         return closed
 
     def workspace_roster(self) -> set[str]:
-        """Workspace names visible in the model selector."""
+        """Workspace names visible in the model selector (handles virtualized scroll)."""
         page = self._require_page()
         self.dismiss_overlays()
         page.locator("button[id^='model-selector-']").first.click(timeout=15_000)
         page.wait_for_timeout(800)
         names: set[str] = set()
         listbox = page.locator("[role='listbox']")
-        for el in listbox.locator("[role='option'], button").all():
-            label = (el.inner_text() or "").strip().splitlines()
-            if label and label[0]:
-                names.add(label[0])
-            for attribute in ("data-value", "id", "aria-label"):
-                value = el.get_attribute(attribute)
-                if value:
-                    names.add(value)
+
+        def _collect() -> None:
+            for el in listbox.locator("[role='option'], button").all():
+                label = (el.inner_text() or "").strip().splitlines()
+                if label and label[0]:
+                    names.add(label[0])
+                for attribute in ("data-value", "id", "aria-label"):
+                    value = el.get_attribute(attribute)
+                    if value:
+                        names.add(value)
+
+        _collect()
+        if listbox.count():
+            for _ in range(15):
+                moved = listbox.first.evaluate(
+                    """(el) => {
+                        const scroller = el.scrollHeight > el.clientHeight
+                            ? el
+                            : Array.from(el.querySelectorAll('*')).find(
+                                (c) => c.scrollHeight > c.clientHeight
+                            ) || el;
+                        const before = scroller.scrollTop;
+                        scroller.scrollTop = Math.min(
+                            scroller.scrollHeight,
+                            before + Math.max(240, scroller.clientHeight * 0.8)
+                        );
+                        return scroller.scrollTop > before;
+                    }"""
+                )
+                if not moved:
+                    break
+                page.wait_for_timeout(200)
+                _collect()
         if not names and listbox.count():
             names.update(
                 line.strip() for line in listbox.last.inner_text().splitlines() if line.strip()
