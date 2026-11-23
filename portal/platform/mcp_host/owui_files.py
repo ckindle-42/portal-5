@@ -13,6 +13,8 @@ no per-service ports or ingress rules exist.
 
 Config (``.env``): ``OWUI_API_KEY`` (an Open WebUI key, ``sk-...``, from
 Settings -> Account) and, when reached remotely, ``PORTAL_PUBLIC_URL``.
+Host-native (launchd) services never source ``.env``, so these keys fall back
+to a key-only read of the repo ``.env`` (os.environ wins; never exported).
 On any failure the helpers return ``{"error": "..."}`` — a tool should pass
 that straight back so the operator sees what to fix.
 """
@@ -29,18 +31,67 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-
-def _owui_url() -> str:
-    return os.getenv("OPENWEBUI_URL", "http://open-webui:8080").rstrip("/")
+_ENV_KEYS = ("OWUI_API_KEY", "OPENWEBUI_URL", "PORTAL_PUBLIC_URL")
 
 
-def _public_base() -> str:
-    return (os.getenv("PORTAL_PUBLIC_URL") or _owui_url()).rstrip("/")
+def _repo_env_file() -> Path | None:
+    """Walk up from this file to the repo .env — launchd services never source it."""
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / ".env"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _dotenv_values() -> dict[str, str]:
+    """Read only the publish keys from .env; never executed, never exported."""
+    env_file = _repo_env_file()
+    if env_file is None:
+        return {}
+    try:
+        text = env_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return {}
+    values: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            continue
+        for key in _ENV_KEYS:
+            if key not in values and line.startswith(f"{key}="):
+                values[key] = line.partition("=")[2].strip().strip("\"'")
+    return values
+
+
+def _setting(key: str, dotenv: dict[str, str]) -> str:
+    """os.environ wins over .env; a blank env value counts as absent."""
+    value = os.environ.get(key)
+    if value is None or not value.strip():
+        return dotenv.get(key, "")
+    return value
+
+
+def _owui_url(dotenv: dict[str, str] | None = None) -> str:
+    dotenv = _dotenv_values() if dotenv is None else dotenv
+    # Host-native services have no OPENWEBUI_URL; PORTAL_PUBLIC_URL is the OWUI
+    # address reachable from this machine. The container default stays last.
+    url = (
+        _setting("OPENWEBUI_URL", dotenv)
+        or _setting("PORTAL_PUBLIC_URL", dotenv)
+        or "http://open-webui:8080"
+    )
+    return url.rstrip("/")
+
+
+def _public_base(dotenv: dict[str, str] | None = None) -> str:
+    dotenv = _dotenv_values() if dotenv is None else dotenv
+    return (_setting("PORTAL_PUBLIC_URL", dotenv) or _owui_url(dotenv)).rstrip("/")
 
 
 def _upload(path: Path) -> dict[str, str]:
     """Upload one file to Open WebUI. Returns {"id","filename","url"} or {"error"}."""
-    api_key = os.getenv("OWUI_API_KEY", "")
+    dotenv = _dotenv_values()
+    api_key = _setting("OWUI_API_KEY", dotenv)
     if not api_key:
         return {"error": "OWUI_API_KEY is not set — cannot publish the generated file."}
     if not path.is_file():
@@ -49,7 +100,7 @@ def _upload(path: Path) -> dict[str, str]:
     try:
         with httpx.Client(timeout=60) as client:
             r = client.post(
-                f"{_owui_url()}/api/v1/files/",
+                f"{_owui_url(dotenv)}/api/v1/files/",
                 headers={"Authorization": f"Bearer {api_key}"},
                 # process=false: this upload only mints a download link. With
                 # OWUI's default (process=true) every generated audio file was
@@ -67,7 +118,7 @@ def _upload(path: Path) -> dict[str, str]:
     return {
         "id": fid,
         "filename": path.name,
-        "url": f"{_public_base()}/api/v1/files/{fid}/content/{path.name}",
+        "url": f"{_public_base(dotenv)}/api/v1/files/{fid}/content/{path.name}",
     }
 
 
