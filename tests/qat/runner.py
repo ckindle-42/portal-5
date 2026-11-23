@@ -608,10 +608,15 @@ def _tool_validation_error(
     if not successful:
         return "trace has no successful tool.completed span"
     required = [tool.casefold() for tool in scenario.expected_tools]
-    if required and not any(
-        all(tool in json.dumps(span).casefold() for tool in required) for span in successful
-    ):
-        return f"trace has no successful span for required tools: {', '.join(required)}"
+    if required:
+        # A round-trip (remember then recall, kb_list then kb_search) spans
+        # several calls: each required tool must appear in SOME successful
+        # span, not all of them in one. Match the span's tool name exactly so
+        # "recall" is never satisfied by "graph_recall".
+        successful_tools = {str(span.get("tool") or "").casefold() for span in successful}
+        missing = [tool for tool in required if tool not in successful_tools]
+        if missing:
+            return f"trace has no successful span for required tools: {', '.join(missing)}"
     return None
 
 

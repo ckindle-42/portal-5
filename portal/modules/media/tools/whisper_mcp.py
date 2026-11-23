@@ -14,7 +14,7 @@ from typing import Any, cast
 import httpx
 
 from portal.platform.mcp_host.owui_files import publish_file
-from portal.platform.mcp_host.workspace import get_generated_dir
+from portal.platform.mcp_host.workspace import get_generated_dir, resolve_upload_path
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +23,16 @@ async def _attach_transcript_urls(res: dict[str, Any]) -> dict[str, Any]:
     """Publish the transcript files the host wrote so the user gets download links.
 
     The host returns absolute paths on its own filesystem; the same files are
-    visible here under the shared workspace mount, keyed by basename.
+    visible here under the shared workspace mount, keyed by basename. The
+    .docx is published too: the workspace prompt promises a docx_url download
+    link, and the host's own :8924 URL is not reachable from the user's browser.
     """
     tdir = get_generated_dir("transcripts")
-    for path_key, url_key in (("json_path", "json_url"), ("md_path", "md_url")):
+    for path_key, url_key in (
+        ("json_path", "json_url"),
+        ("md_path", "md_url"),
+        ("docx_path", "docx_url"),
+    ):
         p = res.get(path_key)
         if not p:
             continue
@@ -159,6 +165,16 @@ def get_model() -> Any:
     return _model
 
 
+def _resolve_local_audio(file_path: str) -> Path | None:
+    """Container-side fallback lookup: the path as given, else the same OWUI
+    upload reference forms the host accepts (bare name, ``<uuid>_<name>``, or
+    an id) through the shared uploads directory."""
+    path = Path(file_path)
+    if path.exists():
+        return path
+    return resolve_upload_path(file_path)
+
+
 @mcp.tool(meta={"portal5/timeout_s": WHISPER_PROXY_TIMEOUT})
 async def transcribe_audio(
     file_path: str | None = None, language: str | None = None
@@ -199,8 +215,8 @@ async def transcribe_audio(
         file_path = str(max(candidates, key=lambda p: p.stat().st_mtime))
         logger.info("transcribe_audio: auto-detected latest upload: %s", file_path)
 
-    path = Path(file_path)
-    if not path.exists():
+    path = _resolve_local_audio(file_path)
+    if path is None:
         return {"error": f"File not found: {file_path}"}
 
     model = get_model()
