@@ -247,7 +247,7 @@ def check_eval_workspace_config_hygiene() -> tuple[str, str, list[dict]]:
 
     cfg = yaml.safe_load((REPO_ROOT / "config" / "portal.yaml").read_text())
     workspaces = {**(cfg.get("workspaces", {}) or {}), **load_bench_workspaces_raw(REPO_ROOT)}
-    ctx_suffix_re = re.compile(r"-ctx\d+k?$", re.IGNORECASE)
+    ctx_suffix_re = re.compile(r"[-:]ctx\d+k?$", re.IGNORECASE)
 
     dropped_context_limit: list[str] = []
     unvalidated_ctx: list[str] = []
