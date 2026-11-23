@@ -741,9 +741,11 @@ workspaces:
       oMLX global default, not a vendor value). PROMOTE_POLICY=confirm.
     model_hint: inkling-2-mini:ctx256k
     # ctx: the window is baked into the tag (PARAMETER num_ctx 262144, matched to
-    # oMLX max_context_window). No workspace context_limit: Ollama's /v1 drops it
-    # (P5-OLLAMA-OPTIONS-001), and BW's -ctxNk regex does not parse the colon-form
-    # :ctx256k tag — same shape as the oMLX bench arm, which also declares none.
+    # oMLX max_context_window). /api/ps confirmed context_length: 262144 on
+    # 2026-11-22, so the declared limit matches the baked tag (check BW parses
+    # the colon-form :ctxNk suffix).
+    context_limit: 262144
+    ctx_validated: true
     predict_limit: 32768
     max_concurrent: 1
     keep_alive: 5m

@@ -79,8 +79,8 @@ LANE_SAMPLING = {
 
 
 def ctx_from_tag(tag: str) -> int | None:
-    """Parse the -ctxNk naming convention into a token count."""
-    m = re.search(r"-ctx(\d+)k$", tag)
+    """Parse the -ctxNk / :ctxNk naming conventions into a token count."""
+    m = re.search(r"[-:]ctx(\d+)k$", tag, re.IGNORECASE)
     return int(m.group(1)) * 1024 if m else None
 
 
