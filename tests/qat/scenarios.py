@@ -486,6 +486,11 @@ _STAGE4_TOOL_ACTIONS: dict[str, tuple[str, str]] = {
         "Use the lookup_cve tool to look up CVE-2021-44228 and summarise its severity "
         "and the affected product.",
     ),
+    "auto-general-uncensored": (
+        "web_search",
+        "Use the web_search tool to look up the current Python 3.13 release status, "
+        "then cite the tool result.",
+    ),
     "auto-vision": (
         "generate_image",
         "Use the generate_image tool to generate a PNG of a green version of the "
@@ -495,7 +500,7 @@ _STAGE4_TOOL_ACTIONS: dict[str, tuple[str, str]] = {
 
 
 def _stage4_tools_prompt(pid: str) -> str:
-    action = _STAGE4_TOOL_ACTIONS.get(pid)
+    action = _STAGE4_TOOL_ACTIONS.get(pid) or _STAGE4_TOOL_ACTIONS.get(pid.split("::", 1)[0])
     if action is not None and action[0] in workspace_tools_for(pid):
         return action[1]
     return "Use your attached tools to verify one fact, then cite the tool result."
