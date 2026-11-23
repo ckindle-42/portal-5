@@ -281,6 +281,7 @@ def next_tool_action(
     call_limit: int | None,
     client_owned: bool,
     owned_names: set[str],
+    client_tools_only: bool = False,
 ) -> ToolHopAction:
     """Choose dispatch, a client handoff, or one toolless synthesis for this hop."""
     if synthesis_hop:
@@ -289,8 +290,8 @@ def next_tool_action(
         return ToolHopAction("client", list(calls), dispatched)
     if hop >= hop_limit:
         return ToolHopAction("synthesize", [], dispatched, cited=call_limit is not None)
-    if call_limit is not None and client_owned:
-        # Capped workspaces never hand calls back; that restarts Open WebUI's tool loop.
+    if call_limit is not None and client_owned and not client_tools_only:
+        # The cap seals OWUI's outer loop; client-only callers run their own loop and are exempt.
         owned = [
             (call, flag)
             for call, flag in zip(calls, repeat_flags, strict=True)

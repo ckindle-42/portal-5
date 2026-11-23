@@ -751,6 +751,8 @@ async def _stream_with_tool_loop(
     persona: str,
     effective_tools: set[str],
     start_time: float | None = None,
+    *,
+    client_tools_only: bool = False,
 ) -> AsyncIterator[bytes]:
     """Streaming wrapper with the multi-hop tool loop; owns the RequestSlot lifecycle.
 
@@ -779,7 +781,14 @@ async def _stream_with_tool_loop(
     outcome = "interrupted"
     try:
         async for chunk in _stream_with_tool_loop_impl(
-            backend_url, body, workspace_id, model, persona, effective_tools, start_time
+            backend_url,
+            body,
+            workspace_id,
+            model,
+            persona,
+            effective_tools,
+            start_time,
+            client_tools_only=client_tools_only,
         ):
             yield chunk
         outcome = "complete"
@@ -1129,6 +1138,8 @@ async def _stream_with_tool_loop_impl(
     persona: str,
     effective_tools: set[str],
     start_time: float | None = None,
+    *,
+    client_tools_only: bool = False,
 ) -> AsyncIterator[bytes]:
     """The tool loop's frames, terminated by exactly one ``[DONE]``.
 
@@ -1141,7 +1152,14 @@ async def _stream_with_tool_loop_impl(
     # aclosing: a client disconnect closes the backend stream now, not at GC.
     async with contextlib.aclosing(
         _tool_loop_frames(
-            backend_url, body, workspace_id, model, persona, effective_tools, start_time
+            backend_url,
+            body,
+            workspace_id,
+            model,
+            persona,
+            effective_tools,
+            start_time,
+            client_tools_only=client_tools_only,
         )
     ) as frames:
         async for chunk in frames:
@@ -1158,11 +1176,20 @@ async def _tool_loop_frames(
     persona: str,
     effective_tools: set[str],
     start_time: float | None = None,
+    *,
+    client_tools_only: bool = False,
 ) -> AsyncGenerator[bytes, None]:
     """The tool loop's frames, closed with the usage frame the client asked for."""
     async for frame in _with_closing_usage(
         _tool_loop_frames_impl(
-            backend_url, body, workspace_id, model, persona, effective_tools, start_time
+            backend_url,
+            body,
+            workspace_id,
+            model,
+            persona,
+            effective_tools,
+            start_time,
+            client_tools_only=client_tools_only,
         ),
         body,
     ):
@@ -1177,6 +1204,8 @@ async def _tool_loop_frames_impl(
     persona: str,
     effective_tools: set[str],
     start_time: float | None = None,
+    *,
+    client_tools_only: bool = False,
 ) -> AsyncGenerator[bytes, None]:
     """Stream-and-tool-loop implementation (no semaphore ownership).
 
@@ -1814,6 +1843,7 @@ async def _tool_loop_frames_impl(
                 call_limit=_call_limit,
                 client_owned=client_owned,
                 owned_names=effective_tools,
+                client_tools_only=client_tools_only,
             )
             _calls_dispatched = action.dispatched
             if action.kind == "stop":
@@ -3032,6 +3062,8 @@ def _select_stream_fn(
     tertiary_model: str,
     portal_no_tools: bool,
     has_tools: bool,
+    *,
+    client_tools_only: bool = False,
 ) -> AsyncIterator[bytes]:
     """Pick the streaming generator for the resolved backend/body.
 
@@ -3068,6 +3100,7 @@ def _select_stream_fn(
             persona,
             set(effective_tools),
             start_time,
+            client_tools_only=client_tools_only,
         )
     elif secondary_model:
         return _stream_with_secondary_chain(
@@ -3126,6 +3159,8 @@ async def _stream_with_fallback(
     remaining: list[Any],
     slot: RequestSlot,
     backend_body: dict[str, Any],
+    *,
+    client_tools_only: bool = False,
 ) -> AsyncIterator[bytes]:
     """Streaming wrapper for the multi-candidate path; falls back to non-streaming.
 
@@ -3193,6 +3228,7 @@ async def _stream_with_fallback(
                 tertiary_model,
                 portal_no_tools,
                 has_tools,
+                client_tools_only=client_tools_only,
             )
             _cascade_token = _CASCADE_ERRORS.set(True)
             try:
