@@ -8,6 +8,7 @@ automation; this module is the optional UI layer only.
 
 from __future__ import annotations
 
+import contextlib
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -92,17 +93,36 @@ class BrowserUI:
     def dismiss_overlays(self) -> bool:
         """Dismiss release notes / whats-new overlays; True when one was closed."""
         page = self._require_page()
-        for text in RELEASE_OVERLAY_TEXTS:
-            button = page.get_by_role("button", name=text)
-            if button.count() > 0:
-                button.first.click()
-                page.wait_for_timeout(500)
-                return True
-        return False
+        dialog = page.locator("[role='dialog'][aria-modal='true']")
+        with contextlib.suppress(Exception):
+            dialog.first.wait_for(state="visible", timeout=3_000)
+        closed = False
+        for _ in range(3):
+            if dialog.count() == 0:
+                break
+            clicked = False
+            for text in RELEASE_OVERLAY_TEXTS:
+                button = page.get_by_role("button", name=text)
+                if button.count() > 0:
+                    button.first.click()
+                    clicked = True
+                    closed = True
+                    break
+            if not clicked:
+                close_btn = dialog.first.locator("button[aria-label*='Close' i], button").last
+                if close_btn.count() > 0:
+                    close_btn.click()
+                    closed = True
+                else:
+                    page.keyboard.press("Escape")
+                    closed = True
+            page.wait_for_timeout(400)
+        return closed
 
     def workspace_roster(self) -> set[str]:
         """Workspace names visible in the model selector."""
         page = self._require_page()
+        self.dismiss_overlays()
         page.locator("button[id^='model-selector-']").first.click(timeout=15_000)
         page.wait_for_timeout(800)
         names: set[str] = set()
