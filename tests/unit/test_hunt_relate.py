@@ -8,11 +8,13 @@ from portal.modules.security.core.hunt.notables.relate import (
     _case_groups,
     _entities,
     _entity_supported,
+    _flow_units,
     _identity_role,
     _novelty_units,
     _query,
     _route,
     _seed_records,
+    _step_role,
     promote_case_members,
 )
 
@@ -343,3 +345,75 @@ def test_relate_scopes_shared_sources_from_legacy_cards(tmp_path):
     (tmp_path / "sources.json").write_text(json.dumps({"cards": cards}))
     info = _identity_fields(tmp_path)["ix:mysql:database"]
     assert _route(info) == 'sourcetype="mysql:database" (source="gacrux")'
+
+
+def test_entities_drop_sentinel_actors_and_addresses_but_keep_real_identities() -> None:
+    entities = _entities(
+        {
+            "source_id": "idx:audit",
+            "entities": [
+                {"role": "actor", "value": "4294967295"},
+                {"role": "actor", "value": "unknown"},
+                {"role": "actor", "value": "-1"},
+                {"role": "actor", "value": "0.0.0.0"},
+                {"role": "actor", "value": "127.0.0.1"},
+                {"role": "actor", "value": "1002"},
+                {"role": "actor", "value": "root"},
+                {"role": "actor", "value": "10.1.2.3"},
+            ],
+        },
+        IDENTITY,
+        {},
+    )
+    assert {entity["value"] for entity in entities} == {"1002", "root", "10.1.2.3"}
+
+
+def test_a_flow_step_role_the_card_plan_never_names_still_links_its_episodes() -> None:
+    # the inventory selected src_ip as a structural field: the fw card's plan never names it
+    identity = {"ix:web": {"roles": {"actor": ["v1"]}}, "ix:fw": {"roles": {}}}
+    paths = {"10.1.1.1": {"address:10.1.1.1": {"ix:web", "ix:fw"}}}
+    steps = [
+        {
+            "source_id": "ix:web",
+            "field": "v1",
+            "role": "actor",
+            "first_seen": 100.0,
+            "last_seen": 200.0,
+        },
+        {
+            "source_id": "ix:fw",
+            "field": "src_ip",
+            "role": "from",
+            "first_seen": 300.0,
+            "last_seen": 400.0,
+        },
+    ]
+    assert _step_role(steps[1], identity) == "from"
+    units, skipped = _flow_units([{"value": "10.1.1.1", "steps": steps}], identity, paths)
+    assert skipped == 0
+    assert units[0].roles == ("actor", "from")
+    episodes = [
+        CaseUnit(
+            "web",
+            "episode",
+            "address:10.1.1.1",
+            "10.1.1.1",
+            "ix:web",
+            "h1",
+            100.0,
+            200.0,
+            event_ids=("e1",),
+        ),
+        CaseUnit("fw", "episode", "address:10.1.1.1", "10.1.1.1", "ix:fw", "h1", 300.0, 400.0),
+    ]
+    groups, counters = _case_groups([*episodes, *units])
+    assert len(groups) == 1
+    assert counters["links"] >= 2
+    case = _case_from_members(
+        groups[0], {"e1": {"line": "hit", "host": "h1", "source": "s"}}, set()
+    )
+    assert case is not None
+    assert "1 flow links" in case["why"]
+    # without the recorded role the card plan cannot name src_ip: the old 0-flow-links bug
+    legacy = [{**steps[0], "role": ""}, {**steps[1], "role": ""}]
+    assert _flow_units([{"value": "10.1.1.1", "steps": legacy}], identity, paths) == ([], 1)

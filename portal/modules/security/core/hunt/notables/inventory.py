@@ -16,6 +16,7 @@ from .behaviours import Behaviour, reproduction_query
 from .cards import ROLE_CONSUMERS, SourceCard, card_consumers
 from .parse import FieldStat
 from .sample import ACCEL_MODELS, SourceFacts
+from .spine import is_sentinel_value
 
 INVENTORY_FILE = "inventory.json"
 INVENTORY_MAX_VALUES = 5_000  # effort budget (LIST_MAX): a longer list is capped, never exhaustive
@@ -1066,6 +1067,7 @@ def _flow_steps(
                     "sourcetype": str(record.get("sourcetype") or ""),
                     "part": part if isinstance(part, Mapping) else None,
                     "field": str(record.get("field") or ""),
+                    "role": str(record.get("role") or ""),
                     "mechanism": str(record.get("mechanism") or ""),
                     "name_used": str(record.get("name_used") or ""),
                     "value": raw,
@@ -1183,7 +1185,7 @@ def _flows(
         steps = grouped[key]
         value = labels[key]
         sources = {str(step["source_id"]) for step in steps}
-        if not _entity_token(value):
+        if not _entity_token(value) or is_sentinel_value(value):
             skips["not_entity"] += 1
             continue
         if len(sources) < 2:

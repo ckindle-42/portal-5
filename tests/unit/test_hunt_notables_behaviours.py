@@ -278,10 +278,73 @@ def test_window_bounds_slices_a_range_deterministically():
     assert window_bounds(5.0, 5.0, 2) == [(5.0, 3605.0)]
 
 
-def test_per_window_events_never_exceeds_the_slice_budget():
-    assert per_window_events(1) > 0
-    assert per_window_events(1) <= 2500
-    assert per_window_events(10_000) >= 1
+def test_per_window_events_allocates_each_source_its_share_of_the_stage_budget() -> None:
+    from portal.modules.security.core.hunt.notables.behaviours import (
+        BEHAVIOUR_TOTAL_EVENTS,
+        BEHAVIOUR_WINDOWS,
+    )
+
+    # a lone source may spend its whole share: the old 2500 slice ceiling starved it
+    assert per_window_events(1) == BEHAVIOUR_TOTAL_EVENTS // BEHAVIOUR_WINDOWS
+    assert per_window_events(1) > 2500
+    for sources in (1, 2, 8, 16, 10_000):
+        assert per_window_events(sources) >= 1
+        assert sources * BEHAVIOUR_WINDOWS * per_window_events(sources) <= BEHAVIOUR_TOTAL_EVENTS
+
+
+def test_a_hundred_thousand_event_lone_source_is_read_whole_not_sampled() -> None:
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    class _Exec:
+        def __init__(self) -> None:
+            self.caps: list[int | None] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del query, kind
+            self.caps.append(row_cap)
+            count = min(row_cap or 0, 95_871)
+            rows = [
+                {"_time": start + float(n), "host": "h1", "_raw": f"event-{n}"}
+                for n in range(count)
+            ]
+            return Read(rows, False, None)
+
+    facts = SourceFacts("ix", "st", 95_871, 0.0, 95_871.0, ("h1",), 1, ("s1",), 1)
+    executor = _Exec()
+    read = read_behaviour_source(executor, facts, per_window_events(1))
+
+    assert read.read_mode == "whole"
+    assert len(read.rows) == 95_871  # every event, so a 23-row rare burst cannot be sampled away
+    assert read.selection == "full source range within allocated row budget"
+
+
+def test_sampled_slices_keep_the_per_read_ceiling_when_the_share_is_larger() -> None:
+    from portal.modules.security.core.hunt.notables.behaviours import (
+        BEHAVIOUR_EVENTS_PER_WINDOW,
+        read_behaviour_source,
+    )
+
+    class _Exec:
+        def __init__(self) -> None:
+            self.caps: list[int | None] = []
+
+        def read(
+            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+        ) -> Read:
+            del query, start, end, kind
+            self.caps.append(row_cap)
+            return Read([], False, None)
+
+    # too big for its share, so it stays sampled; no slice may read above the old ceiling
+    facts = SourceFacts("ix", "st", 5_000_000, 0.0, 2_000_000.0, ("h1",), 1, ("s1",), 1)
+    executor = _Exec()
+    read = read_behaviour_source(executor, facts, per_window_events(1))
+
+    assert read.read_mode == "sampled"
+    assert executor.caps
+    assert all((cap or 0) <= BEHAVIOUR_EVENTS_PER_WINDOW for cap in executor.caps)
 
 
 def test_source_window_reports_distinct_objects_for_one_actor_and_action():

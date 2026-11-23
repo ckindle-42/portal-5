@@ -601,7 +601,7 @@ def keyed_rows(
 def per_window_events(sources: int) -> int:
     """Each source's share of the total event budget, expressed per time slice."""
     share = max(1, BEHAVIOUR_TOTAL_EVENTS // max(1, sources))
-    return max(1, min(BEHAVIOUR_EVENTS_PER_WINDOW, share // BEHAVIOUR_WINDOWS))
+    return max(1, share // BEHAVIOUR_WINDOWS)
 
 
 def create_events(con: duckdb.DuckDBPyConnection) -> None:
@@ -1003,6 +1003,8 @@ def read_behaviour_source(
         if len(read.rows) != facts.events:
             read.notes.append(f"source_count_mismatch:{len(read.rows)}/{facts.events}")
         return read
+    # sampled slices keep the per-read ceiling; only the whole read spends the full share
+    per_window = min(per_window, BEHAVIOUR_EVENTS_PER_WINDOW)
     if anchors:
         return _read_anchored_source(executor, facts, per_window, anchors, accel_window, coverage)
     if value_spans:

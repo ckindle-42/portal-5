@@ -848,3 +848,56 @@ def test_misfit_keeps_the_rarest_shape_when_the_source_share_exceeds_the_cap() -
     assert receipt["skipped"]["poorly_understood_source"] == 1
     assert len(notables) == 1
     assert _CRYPT_RAW in notables[0].evidence[0]["line"]
+
+
+def test_flow_steps_carry_the_list_records_own_role() -> None:
+    from portal.modules.security.core.hunt.notables.inventory import _flow_steps
+
+    records = [
+        {
+            "status": "complete",
+            "source_id": "ix:st",
+            "card_id": "ix:st",
+            "sourcetype": "st",
+            "field": "src_ip",
+            "role": "object",
+            "values": [{"value": "10.1.1.1", "events": 3, "first_seen": 1.0, "last_seen": 2.0}],
+        }
+    ]
+    grouped, _labels = _flow_steps(records)
+    assert grouped["10.1.1.1"][0]["role"] == "object"
+    assert grouped["10.1.1.1"][0]["field"] == "src_ip"
+
+
+def test_sentinel_values_never_become_cross_source_flows() -> None:
+    from portal.modules.security.core.hunt.notables.inventory import _flows
+
+    def record(st: str, field: str, role: str, value: str, first: float) -> dict[str, object]:
+        return {
+            "status": "complete",
+            "source_id": f"ix:{st}",
+            "card_id": f"ix:{st}",
+            "sourcetype": st,
+            "field": field,
+            "role": role,
+            "values": [
+                {"value": value, "events": 2, "first_seen": first, "last_seen": first + 100.0}
+            ],
+        }
+
+    for sentinel in ("127.0.0.1", "0.0.0.0", "unknown", "4294967295"):
+        records = [
+            record("web", "v1", "actor", sentinel, 100.0),
+            record("fw", "src", "from", sentinel, 300.0),
+        ]
+        flows, skips = _flows(records, {"ix:web": "h1", "ix:fw": "h1"}, None, "ix")
+        assert flows == []
+        assert skips.get("not_entity") == 1
+    # a real address on the same shape is still a flow
+    records = [
+        record("web", "v1", "actor", "10.1.1.1", 100.0),
+        record("fw", "src", "from", "10.1.1.1", 300.0),
+    ]
+    flows, _skips = _flows(records, {"ix:web": "h1", "ix:fw": "h1"}, None, "ix")
+    assert len(flows) == 1
+    assert flows[0]["steps"][1]["role"] == "from"

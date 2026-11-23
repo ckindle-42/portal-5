@@ -37,7 +37,7 @@ from .knowledge import PROOF_INDEXES
 from .receipt import progress_update, read_json, write_json
 from .run import NOTABLES_FILE, SOURCES_FILE, STORE_FILE, configure_ledger, read_notables
 from .sample import shared_source_names, source_route
-from .spine import FILE, SPINE_FILE, SPINE_RECEIPT, classify, event_id
+from .spine import FILE, SPINE_FILE, SPINE_RECEIPT, classify, event_id, is_sentinel_value
 from .verdicts import apply_verdict_priors, stage4_verdicts_enabled
 
 RELATE_FILE = "relate.json"
@@ -281,6 +281,8 @@ def _entities(
             except ValueError:
                 continue
             is_address = True
+            if is_sentinel_value(address):
+                continue  # loopback/unset addresses anchor no case and link no episodes
             add(
                 ("address", address),
                 {
@@ -293,7 +295,13 @@ def _entities(
                     "weight": _share_weight(source_id, address, shares),
                 },
             )
-        if role == id_role and "*" not in value and "?" not in value and not _is_timestamp(value):
+        if (
+            role == id_role
+            and "*" not in value
+            and "?" not in value
+            and not _is_timestamp(value)
+            and not is_sentinel_value(value)
+        ):
             if is_address:
                 continue  # the value is already pivoted as an address
             field = actor_field if structured and id_role == "actor" else None
@@ -692,7 +700,12 @@ def _step_role(step: Mapping[str, Any], identity: Mapping[str, Mapping[str, Any]
     """The role a flow step's field plays at its source, from that card's own role plan.
 
     A directional role comes first: `from` then `to` is what makes a value a transition.
+    The inventory's recorded role decides first: structural and vocabulary fields carry a
+    role in the list record that the card's planned roles never name.
     """
+    recorded = str(step.get("role") or "")
+    if recorded in _ROLE_ORDER:
+        return recorded
     info = identity.get(str(step.get("source_id") or "")) or {}
     field = str(step.get("field") or "")
     planned = info.get("roles")
