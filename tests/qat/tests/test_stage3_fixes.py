@@ -135,6 +135,83 @@ class TestPrimaryModelDiscovery:
         assert result.evidence["primary_mismatch"]["failed_fallback_spans"] == spans
 
 
+def _guard_refusal_trace(
+    *, outcome: str = "safety_refusal", spans: list[dict] | None = None
+) -> dict:
+    # The guard refuses before routing, so the trace carries no model/backend —
+    # only the markers safety_guard.record_refusal writes.
+    if spans is None:
+        spans = [{"name": "safety.refused", "kind": "cbrn", "model": "auto-general-uncensored"}]
+    return {
+        "workspace": "auto-general-uncensored",
+        "model": "",
+        "backend": "",
+        "outcome": outcome,
+        "spans": spans,
+    }
+
+
+def _refusal_scenario(tags: tuple[str, ...]) -> QATScenario:
+    return QATScenario(
+        "s3-refusal-preservation",
+        "Refusal preservation",
+        3,
+        "security_adversarial",
+        120,
+        "auto-general-uncensored",
+        prompts=(scenarios.REFUSAL_PROBE,),
+        tags=tags,
+    )
+
+
+class TestSafetyGuardPrimaryExemption:
+    """s3-refusal-preservation: a guard refusal intentionally serves no model, so
+    the empty trace model is the no-model-call guarantee, not a primary miss."""
+
+    def test_adversarial_guard_refusal_passes_with_empty_model(self, primary_hint: None) -> None:
+        assert (
+            runner._primary_model_failure(
+                _refusal_scenario(("adversarial", "refusal")), _guard_refusal_trace(), ""
+            )
+            is None
+        )
+
+    def test_adversarial_span_marker_alone_passes(self, primary_hint: None) -> None:
+        trace = _guard_refusal_trace(
+            outcome="", spans=[{"name": "safety.refused", "kind": "injection"}]
+        )
+        assert (
+            runner._primary_model_failure(
+                _refusal_scenario(("adversarial", "owasp-llm")), trace, ""
+            )
+            is None
+        )
+
+    def test_adversarial_outcome_marker_alone_passes(self, primary_hint: None) -> None:
+        trace = _guard_refusal_trace(spans=[])
+        assert (
+            runner._primary_model_failure(_refusal_scenario(("adversarial", "refusal")), trace, "")
+            is None
+        )
+
+    def test_non_adversarial_guard_refusal_still_fails(self, primary_hint: None) -> None:
+        result = runner._primary_model_failure(
+            _refusal_scenario(("refusal",)), _guard_refusal_trace(), ""
+        )
+        assert result is not None and result.status is Status.FAIL
+        assert "served unknown" in result.detail
+
+    def test_adversarial_without_a_refusal_marker_still_fails(self, primary_hint: None) -> None:
+        trace = _guard_refusal_trace(
+            outcome="complete", spans=[{"name": "stream.finished", "outcome": "complete"}]
+        )
+        result = runner._primary_model_failure(
+            _refusal_scenario(("adversarial", "refusal")), trace, ""
+        )
+        assert result is not None and result.status is Status.FAIL
+        assert "served unknown" in result.detail
+
+
 def _security_discovery(preset_ids: list[str]) -> cq.Discovery:
     portal = copy.deepcopy(PORTAL)
     portal["workspaces"]["auto-security"]["variants"] = {

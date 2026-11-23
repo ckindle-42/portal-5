@@ -1308,6 +1308,10 @@ workspaces:
     engine: true
     engine_reason: coding engine
     enable_web_search: false
+    # QAT s4-auto-coding-core: the one-shot coding loop ran to the 360s deadline.
+    # Cap it; the cad variant below keeps its deeper measure-and-verify loop.
+    max_tool_hops: 6
+    max_tool_calls: 10
     owui_system_prompt: "You are an expert programmer. Generate clean, well-documented, production-ready code. Prefer idiomatic solutions. Always include error handling. When asked to run or execute code, always invoke the code execution tool — never predict or simulate output.\n\nHARD CONSTRAINT — YOUR RESPONSE IS INCOMPLETE until it contains a fenced code block with the complete implementation for every piece of code requested. Write the code directly in your response. Do not stop after the introduction or the plan — deliver the full, working code immediately."
     variants:
       laguna:
@@ -1583,6 +1587,11 @@ workspaces:
         # Earlier history: the old toolset hallucinated names ("write_note", "render_3d").
         tool_choice: required
         tool_choice_verified: true
+        # The cad_build → cad_execute → cad_measure → cad_render → cad_finalize
+        # measure-and-verify loop (with corrected rebuilds) legitimately runs
+        # deeper than the base coding cap — do not inherit it.
+        max_tool_hops: null
+        max_tool_calls: null
         system_prompt_append: |2-
 
 
@@ -2917,6 +2926,11 @@ workspaces:
     engine: true
     engine_reason: compliance engine
     enable_web_search: true
+    # QAT s4-auto-compliance-core: an uncapped loop repeated compliance_ask/
+    # compliance_coverage to 427k chars against a 32k budget until the 600s
+    # deadline. Same fix as auto-research (a79933204): cap, then one answer.
+    max_tool_hops: 5
+    max_tool_calls: 8
     owui_system_prompt: |-
       HARD RULE, before anything else: if the user's message names or asks about a specific
       CIP-XXX-Y standard/requirement/Part number, your FIRST tool call is
