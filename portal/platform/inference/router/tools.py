@@ -225,7 +225,7 @@ def _select_followup_artifact(
 
 
 _MUSIC_NOUN_RE = re.compile(
-    r"\b(?:music|songs?|tracks?|jingles?|beats?|instrumentals?|audio\s+clips?)\b"
+    r"\b(?:music|songs?|tracks?|jingles?|beats?|instrumentals?|loops?|audio\s+clips?)\b"
 )
 # "audio clip"/"instrumental clip" are music; a bare "clip" is video.
 _VIDEO_NOUN_RE = re.compile(

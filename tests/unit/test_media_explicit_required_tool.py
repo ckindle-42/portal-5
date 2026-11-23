@@ -31,6 +31,7 @@ def _select(prompt: str, tools: set[str] | None = None) -> str | None:
     ("prompt", "expected"),
     [
         ("Generate a 10-second ambient synthwave music track", "generate_music"),
+        ("Compose a 10-second lo-fi loop.", "generate_music"),
         ("compose a song about the sea", "generate_music"),
         ("make a beat", "generate_music"),
         ("generate an audio clip of rain", "generate_music"),
@@ -81,3 +82,17 @@ def test_media_tool_must_be_in_the_whitelist() -> None:
     assert _select("Generate a short video of ocean waves", {"generate_music"}) is None
     assert _select("Clone the uploaded reference voice", {"generate_music"}) is None
     assert _select("Generate a music track", {"create_excel", "execute_python"}) is None
+
+
+def test_actual_qat_stage2_media_prompts_pin_their_tool() -> None:
+    # Verbatim prompts from tests/qat/scenarios.py (s2-p6 media_heavy + voice-clone).
+    assert _select("Compose a 10-second lo-fi loop.") == "generate_music"
+    assert _select("Generate a 4-second MP4 of ocean waves.") == "generate_video"
+    assert (
+        _select(
+            "Clone a voice from the attached audio clip with clone_voice and have it say: "
+            "Portal five voice clone parity verified. Surface the download link for the "
+            "generated audio."
+        )
+        == "clone_voice"
+    )
