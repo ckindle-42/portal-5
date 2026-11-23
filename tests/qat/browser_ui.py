@@ -178,13 +178,15 @@ class BrowserUI:
         page.keyboard.press("Enter")
         deadline = time.monotonic() + max_wait_s
         stop = page.locator(STOP_CIRCLE_SELECTOR)
-        grace_deadline = min(deadline, time.monotonic() + 3.0)
+        grace_deadline = min(deadline, time.monotonic() + 15.0)
         appeared = False
         while time.monotonic() < grace_deadline:
             if stop.count():
                 appeared = True
                 break
-            page.wait_for_timeout(100)
+            if self.last_assistant_text():
+                break
+            page.wait_for_timeout(200)
         while appeared and time.monotonic() < deadline and stop.count():
             page.wait_for_timeout(500)
         if appeared and stop.count():
@@ -195,10 +197,17 @@ class BrowserUI:
     def last_assistant_text(self) -> str:
         page = self._require_page()
         nodes = page.query_selector_all(
+            "#response-content-container, "
+            ".chat-assistant .markdown-prose, "
+            ".chat-assistant, "
             "[data-message-author-role='assistant'] .markdown-prose, "
             "[data-message-author-role='assistant']"
         )
-        return nodes[-1].inner_text().strip() if nodes else ""
+        for node in reversed(nodes):
+            text = (node.inner_text() or "").strip()
+            if text:
+                return text
+        return ""
 
     def toggle_details(self) -> bool:
         """Collapse/expand a <details> reasoning block; True when toggle worked."""
