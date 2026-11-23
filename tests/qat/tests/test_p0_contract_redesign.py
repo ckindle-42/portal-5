@@ -206,17 +206,20 @@ def test_omlx_status_ignores_virtual_entries() -> None:
 
 def test_omlx_unload_uses_admin_route_and_escaped_model_name() -> None:
     settings = make_settings(Path("/tmp"), OMLX_API_KEY="omlx-token")
-    paths: list[bytes] = []
+    posts: list[bytes] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        paths.append(request.url.raw_path)
         assert request.headers["authorization"] == "Bearer omlx-token"
-        return httpx.Response(200)
+        if request.method == "POST":
+            posts.append(request.url.raw_path)
+            return httpx.Response(200, json={})
+        # residency reads answer cold, confirming the eviction at once
+        return httpx.Response(200, json={"models": []})
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         result = gate.evict_omlx(client, settings, ["family/model"])
     assert result.status is Status.PASS
-    assert paths == [b"/admin/api/models/family%2Fmodel/unload"]
+    assert posts == [b"/admin/api/models/family%2Fmodel/unload"]
 
 
 def test_ollama_eviction_requires_success_and_empty_residency() -> None:

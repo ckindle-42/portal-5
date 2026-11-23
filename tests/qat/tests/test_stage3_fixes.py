@@ -380,7 +380,46 @@ class TestAdversarialExcerpt:
         assert result.status is Status.PASS
 
 
-def test_evict_omlx_accepts_http_202(tmp_path: Path) -> None:
+def test_evict_omlx_accepts_http_202_and_waits_for_residency_to_clear(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """oMLX 0.8.1 answers 202 while Metal memory is still being reclaimed: PASS only
+    once /v1/models/status confirms the model is no longer resident."""
+    import time
+
+    import httpx
+
+    from tests.qat import gate
+
+    reads = {"status": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/unload"):
+            return httpx.Response(202, json={"status": "unloading"})
+        if request.url.path == "/v1/models/status":
+            reads["status"] += 1
+            loaded = reads["status"] <= 2  # the async release lands after two reads
+            return httpx.Response(
+                200, json={"models": [{"id": "Qwen3.8-27B-oQ4e-mtp", "loaded": loaded}]}
+            )
+        return httpx.Response(404)
+
+    settings = make_settings(tmp_path)
+    monkeypatch.setattr(gate, "OMLX_EVICT_SETTLE_S", 30.0)
+    monkeypatch.setattr(gate, "OMLX_EVICT_SETTLE_STEP_S", 0.0)
+    monkeypatch.setattr(
+        gate, "time", SimpleNamespace(monotonic=time.monotonic, sleep=lambda _s: None)
+    )
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        res = gate.evict_omlx(client, settings, ["Qwen3.8-27B-oQ4e-mtp"])
+    assert res.status is Status.PASS
+    assert "evicted 1" in res.detail
+    assert reads["status"] == 3  # polled past the two flat reads, not returned at the 202
+
+
+def test_evict_omlx_fails_when_a_202_unload_never_clears_residency(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import httpx
 
     from tests.qat import gate
@@ -388,10 +427,13 @@ def test_evict_omlx_accepts_http_202(tmp_path: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/unload"):
             return httpx.Response(202, json={"status": "unloading"})
+        if request.url.path == "/v1/models/status":
+            return httpx.Response(200, json={"models": [{"id": "stuck-seat", "loaded": True}]})
         return httpx.Response(404)
 
     settings = make_settings(tmp_path)
+    monkeypatch.setattr(gate, "OMLX_EVICT_SETTLE_S", 0.0)
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-        res = gate.evict_omlx(client, settings, ["Qwen3.8-27B-oQ4e-mtp"])
-    assert res.status is Status.PASS
-    assert "evicted 1" in res.detail
+        res = gate.evict_omlx(client, settings, ["stuck-seat"])
+    assert res.status is Status.FAIL
+    assert "still resident" in res.detail

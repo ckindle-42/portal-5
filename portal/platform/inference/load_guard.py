@@ -23,12 +23,15 @@ reports it here. The guard keeps four things true:
    in-flight work to drain, re-checking on every request completion and at least
    every 5 s, and frees idle oMLX models on each pass. A free it issues stays
    pending until /api/ps drops the model and oMLX's ceiling covers its bytes. It is
-   refused with HTTP 507 only when the caller's wait runs out. The wait is the
-   request's ``X-Portal-Load-Wait`` header (seconds; batch callers send a large
-   value) or ``LOAD_GUARD_WAIT_S``. The 507 says "would exceed", which the router
-   already cascades as a capacity rejection. Keeper-protected residents yield
-   after ordinary idle memory; active failover sources are never evicted until
-   their window expires. Busy, active-elsewhere and pinned models are never evicted.
+   refused with HTTP 507 only when the caller's wait runs out. A quiet refusal
+   (nothing in flight, no pending frees) first waits out oMLX's async-unload settle
+   window: a 202 unload reclaims Metal memory for seconds while the counter reads
+   flat. The wait is the request's ``X-Portal-Load-Wait`` header (seconds; batch
+   callers send a large value) or ``LOAD_GUARD_WAIT_S``. The 507 says "would exceed",
+   which the router already cascades as a capacity rejection. Keeper-protected
+   residents yield after ordinary idle memory; active failover sources are never
+   evicted until their window expires. Busy, active-elsewhere and pinned models
+   are never evicted.
 4. **Fit can be asked in advance.** ``plan()`` (route ``POST /admin/load-plan``)
    says whether a set of models fits together right now, so batch work can run
    in fit-sized waves instead of discovering the answer as refusals.
@@ -114,6 +117,12 @@ _PROCESS_LOCK_DIR = Path("/tmp/portal-5-load-guard")
 #: Expected settle of a guard-issued Ollama free, for a warning only: measured admin
 #: unloads p50 0.78 s, p95 1.93 s, max 2.29 s (n=114, oMLX 0.7.2, 2026-10-22), doubled.
 _FREE_SETTLE_EXPECTED_S = 4.6
+#: oMLX 0.8.1's unload is async (HTTP 202): Metal memory is reclaimed over the next
+#: seconds while ``current_model_memory`` still reads flat (release_1_0_final QAT,
+#: 2026-11-22: two spurious 507s within ~1 GiB right after an oMLX turn). A quiet
+#: refusal polls the counter for this window before it refuses.
+_OMLX_SETTLE_S = float(os.environ.get("LOAD_GUARD_OMLX_SETTLE_S", "8"))
+_OMLX_SETTLE_STEP_S = float(os.environ.get("LOAD_GUARD_OMLX_SETTLE_STEP_S", "0.5"))
 _CTX_TAG = re.compile(r"(?:^|[-_])ctx(\d+)([km]?)", re.IGNORECASE)
 
 
@@ -1465,11 +1474,7 @@ class LoadGuard:
         quiet = not (activity_seen or pending_change)
         remaining = deadline - time.monotonic()
         if quiet and remaining > 0:
-            try:
-                now = await asyncio.wait_for(self._omlx_used(client), timeout=remaining)
-            except TimeoutError:
-                now = None
-            quiet = now is None or now >= used
+            quiet = not await self._omlx_settle_drops_used(client, used, deadline)
             remaining = deadline - time.monotonic()
         if remaining <= 0 or quiet:
             if pending_free_names:
@@ -1772,6 +1777,45 @@ class LoadGuard:
             del remaining[name]
             _record_settle(OMLX, time.monotonic() - free.started)
         return remaining, len(remaining) < len(models), used
+
+    async def _omlx_used_within(self, client: httpx.AsyncClient, settle_at: float) -> float | None:
+        """One counter read bounded by the settle window; None on timeout."""
+        try:
+            return await asyncio.wait_for(
+                self._omlx_used(client), timeout=max(0.01, settle_at - time.monotonic())
+            )
+        except TimeoutError:
+            return None
+
+    async def _omlx_settle_drops_used(
+        self, client: httpx.AsyncClient, used: float, deadline: float
+    ) -> bool:
+        """Whether oMLX's memory counter starts dropping within the settle window.
+
+        oMLX 0.8.1's unload is async (HTTP 202): an unload issued by anyone (a prior
+        admission, the gate, the engine's own LRU) keeps the counter flat while Metal
+        memory is reclaimed, so a load that does not fit the stale headroom waits out
+        the window and re-measures instead of refusing at the first flat read. The
+        window is bounded by ``_OMLX_SETTLE_S`` and the caller's own wait; a counter
+        that never drops still refuses cleanly."""
+        if used <= 0:
+            return False
+        settle_at = time.monotonic() + min(_OMLX_SETTLE_S, max(0.0, deadline - time.monotonic()))
+        started = time.monotonic()
+        while True:
+            now = await self._omlx_used_within(client, settle_at)
+            if now is not None and now < used:
+                _admit_waited.set(True)
+                logger.info(
+                    "load_guard: oMLX memory settling (%.1f -> %.1f GiB); re-measuring",
+                    used / _GIB,
+                    now / _GIB,
+                )
+                _record_wait(OLLAMA, "omlx_settle", time.monotonic() - started)
+                return True
+            if time.monotonic() + _OMLX_SETTLE_STEP_S > settle_at:
+                return False
+            await asyncio.sleep(_OMLX_SETTLE_STEP_S)
 
     # ── the cold-load lock ───────────────────────────────────────────────
 
