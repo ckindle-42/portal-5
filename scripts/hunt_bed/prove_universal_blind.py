@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 import time
 from collections.abc import Mapping, Sequence
@@ -42,6 +44,8 @@ PROOF_INDEXES = tuple(KEY_PATHS)
 HUNT_STAGES = ("cards", "behaviours", "notables", "relate")
 TOP_K = (10, 25, 50, 100)
 WINDOW_SLACK_SECONDS = 60.0
+EVIDENCE_EXCERPT_CHARS = 400  # the hunt's retained evidence prefix; full raws come from the store
+_SOURCE_IN_QUERY = re.compile(r'source="([^"]+)"')
 
 
 @dataclass(frozen=True)
@@ -264,11 +268,50 @@ def _load_flaws_key(path: Path) -> KeyData:
     return result
 
 
+def _load_zeek_manifest_key(path: Path, payload: Mapping[str, Any]) -> KeyData | None:
+    """Exact line keys from the ingest manifest: digest -> tactic, Benign lines excluded."""
+    manifest = path.parent / "uwf_zeek24_manifest" / "digests.jsonl"
+    if not manifest.is_file():
+        return None
+    tactics = {
+        str(name).replace("\\", "/").split("/")[0] for name in payload.get("label_files") or ()
+    }
+    result = KeyData(
+        unit_kind="keyed_lines",
+        scoring_method=(
+            "exact ingest-manifest line digest (uwf_zeek24_manifest/digests.jsonl); "
+            "full raws resolved from the run store; tactic from the label directory"
+        ),
+    )
+    for raw in manifest.read_text(encoding="utf-8").splitlines():
+        if not raw.strip():
+            continue
+        row = json.loads(raw)
+        if not isinstance(row, list) or len(row) < 5:
+            continue
+        host, _source, _line, digest, label_path = row
+        tactic = Path(str(label_path)).parent.name
+        if tactic not in tactics:
+            continue
+        step = tactic.replace("_", " ")
+        unit = f"{digest}|{step}"
+        result.units[unit] = step
+        result.unit_hosts[unit] = str(host)
+        result.digest_units.setdefault(str(digest), set()).add(unit)
+    return result if result.units else None
+
+
 def load_key(index: str, path: Path) -> KeyData:
     """Load FLAWS JSONL or AIT/next-wave JSON truth without exposing it to hunt code."""
-    return (
-        _load_flaws_key(path) if canonical_index(index) == "hb_flaws_aws" else _load_json_key(path)
-    )
+    canonical = canonical_index(index)
+    if canonical == "hb_flaws_aws":
+        return _load_flaws_key(path)
+    if canonical == "hb_uwf_zeek24":
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        keyed = _load_zeek_manifest_key(path, payload)
+        if keyed is not None:
+            return keyed
+    return _load_json_key(path)
 
 
 def _record_signature(row: Mapping[str, Any]) -> tuple[str, str, str, str]:
@@ -306,6 +349,28 @@ def evidence_records(payload: Any) -> list[Mapping[str, Any]]:
     return found
 
 
+def _line_records(payload: Any) -> list[Mapping[str, Any]]:
+    """Every mapping carrying an event line or digest, even without host/source metadata."""
+    found: list[Mapping[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    pending = [payload]
+    while pending:
+        current = pending.pop()
+        if isinstance(current, Mapping):
+            if any(current.get(key) is not None for key in ("line", "raw", "_raw", "raw_sha256")):
+                signature = (
+                    str(current.get("raw_sha256") or ""),
+                    str(current.get("line") or current.get("raw") or current.get("_raw") or ""),
+                )
+                if signature not in seen:
+                    seen.add(signature)
+                    found.append(current)
+            pending.extend(current.values())
+        elif isinstance(current, list):
+            pending.extend(current)
+    return found
+
+
 def _record_interval(row: Mapping[str, Any]) -> tuple[float, float] | None:
     start = next(
         (
@@ -329,9 +394,25 @@ def _record_interval(row: Mapping[str, Any]) -> tuple[float, float] | None:
     return min(start, last), max(start, last)
 
 
-def _row_hits(row: Mapping[str, Any], key: KeyData) -> set[str]:
+def _row_hits(
+    row: Mapping[str, Any],
+    key: KeyData,
+    line_units: Mapping[str, set[str]] | None = None,
+) -> set[str]:
+    if key.unit_kind == "keyed_lines" and line_units is not None:
+        hits: set[str] = set()
+        for event in _line_records(row):
+            sha = str(event.get("raw_sha256") or "")
+            units = line_units.get(sha) if sha else None
+            if not units:
+                raw = event.get("raw") or event.get("_raw") or event.get("line")
+                if raw is not None:
+                    units = line_units.get(str(raw)[:EVIDENCE_EXCERPT_CHARS])
+            if units:
+                hits.update(units)
+        return hits
     events = evidence_records(row)
-    hits: set[str] = set()
+    hits = set()
     if key.unit_kind == "keyed_events":
         for event in events:
             raw = event.get("raw") or event.get("_raw") or event.get("line")
@@ -360,9 +441,13 @@ def _ratio(hits: int, total: int) -> float | None:
     return round(hits / total, 6) if total else None
 
 
-def score_rows(rows: Sequence[Mapping[str, Any]], key: KeyData) -> dict[str, Any]:
+def score_rows(
+    rows: Sequence[Mapping[str, Any]],
+    key: KeyData,
+    line_units: Mapping[str, set[str]] | None = None,
+) -> dict[str, Any]:
     """Score ranked hunt rows with the existing digest and time-window hit primitives."""
-    row_hits = [_row_hits(row, key) for row in rows]
+    row_hits = [_row_hits(row, key, line_units) for row in rows]
     total_units = len(key.units)
     total_steps = len(set(key.units.values()))
     total_entities = len({host for host in key.unit_hosts.values() if host})
@@ -375,6 +460,7 @@ def score_rows(rows: Sequence[Mapping[str, Any]], key: KeyData) -> dict[str, Any
             "keyed_unit_recall": _ratio(len(units), total_units),
             "attack_step_recall": _ratio(len(steps), total_steps),
             "entity_recall": _ratio(len(entities), total_entities),
+            "row_precision": _ratio(sum(1 for hits in row_hits[:limit] if hits), limit),
         }
 
     all_units = set().union(*row_hits) if row_hits else set()
@@ -383,6 +469,7 @@ def score_rows(rows: Sequence[Mapping[str, Any]], key: KeyData) -> dict[str, Any
     return {
         "rows_scored": len(rows),
         "evidence_events": sum(len(evidence_records(row)) for row in rows),
+        "row_precision": _ratio(sum(1 for hits in row_hits if hits), len(rows)),
         "keyed_units": {
             "kind": key.unit_kind,
             "detected": len(all_units),
@@ -415,9 +502,33 @@ def _event_count(run_dir: Path) -> int:
     return int(row[0] if row else 0)
 
 
+def _store_line_units(run_dir: Path, key: KeyData) -> dict[str, set[str]]:
+    """Attack units keyed by full-raw sha256 and evidence prefix, joined via manifest digests."""
+    store = run_dir / "behaviours.duckdb"
+    if not store.is_file():
+        return {}
+    connection = duckdb.connect(str(store), read_only=True)
+    try:
+        rows = connection.execute("SELECT host, raw, query FROM events").fetchall()
+    finally:
+        connection.close()
+    found: dict[str, set[str]] = {}
+    for host, raw, query in rows:
+        text = str(raw or "")
+        named = _SOURCE_IN_QUERY.search(str(query or ""))
+        source = named.group(1) if named else ""
+        units = key.digest_units.get(_digest(str(host or ""), source, text))
+        if not units:
+            continue
+        found.setdefault(hashlib.sha256(text.encode()).hexdigest(), set()).update(units)
+        found.setdefault(text[:EVIDENCE_EXCERPT_CHARS], set()).update(units)
+    return found
+
+
 def score_corpus(index: str, key_path: Path, run_dir: Path, elapsed: float) -> dict[str, Any]:
     """Score one completed hunt directory and return its receipt row."""
     key = load_key(index, key_path)
+    line_units = _store_line_units(run_dir, key) if key.unit_kind == "keyed_lines" else None
     notables = _read_jsonl(run_dir / "notables.jsonl")
     cases_payload = json.loads((run_dir / "cases.json").read_text(encoding="utf-8"))
     cases = cases_payload.get("cases") or []
@@ -430,8 +541,8 @@ def score_corpus(index: str, key_path: Path, run_dir: Path, elapsed: float) -> d
         "notables": len(notables),
         "cases": len(cases),
         "scoring_method": key.scoring_method,
-        "notables_score": score_rows(notables, key),
-        "cases_score": score_rows(cases, key),
+        "notables_score": score_rows(notables, key, line_units),
+        "cases_score": score_rows(cases, key, line_units),
         "zero_knowledge": True,
         "zero_labels_in_splunk": True,
         "zero_labels_in_splunk_basis": (
@@ -472,6 +583,11 @@ def _step_recall(row: Mapping[str, Any], side: str, cut: str | None) -> Any:
     return bucket.get("attack_step_recall") if isinstance(bucket, Mapping) else None
 
 
+def _row_precision(row: Mapping[str, Any], side: str) -> Any:
+    score = row.get(side) if isinstance(row.get(side), Mapping) else {}
+    return score.get("row_precision") if isinstance(score, Mapping) else None
+
+
 def render_markdown(receipt: Mapping[str, Any]) -> str:
     """Render the short operator-facing proof receipt."""
     lines = [
@@ -485,14 +601,14 @@ def render_markdown(receipt: Mapping[str, Any]) -> str:
         f"- Stage 4 verdicts enabled: `{receipt.get('stage4_verdicts_enabled')}`",
         f"- Zero labels in Splunk: `{receipt.get('zero_labels_in_splunk')}`",
         f"- Label basis: {receipt.get('zero_labels_in_splunk_basis')}",
-        "- Scoring: FLAWS hashes retained excerpts; JSON keys use start_epoch..end_epoch ±60s, host when known, and log_path suffix when present.",
+        "- Scoring: FLAWS hashes retained excerpts; JSON keys use start_epoch..end_epoch ±60s, host when known, and log_path suffix when present; hb_uwf_zeek24 uses exact ingest-manifest line digests when the manifest is present.",
         "",
-        "| Corpus | Events read | Notables | Cases | Notable top-10 step | Notable top-25 step | Notable all-step | Case top-10 step | Case top-25 step | Case all-step | Seconds |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Corpus | Events read | Notables | Cases | Notable top-10 step | Notable top-25 step | Notable all-step | Case top-10 step | Case top-25 step | Case all-step | Notable precision | Case precision | Seconds |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in receipt.get("corpora", []):
         lines.append(
-            "| {index} | {events} | {notables} | {cases} | {n10} | {n25} | {nall} | {c10} | {c25} | {call} | {elapsed} |".format(
+            "| {index} | {events} | {notables} | {cases} | {n10} | {n25} | {nall} | {c10} | {c25} | {call} | {nprec} | {cprec} | {elapsed} |".format(
                 index=row.get("index"),
                 events=row.get("events"),
                 notables=row.get("notables"),
@@ -503,6 +619,8 @@ def render_markdown(receipt: Mapping[str, Any]) -> str:
                 c10=_step_recall(row, "cases_score", "10"),
                 c25=_step_recall(row, "cases_score", "25"),
                 call=_step_recall(row, "cases_score", None),
+                nprec=_row_precision(row, "notables_score"),
+                cprec=_row_precision(row, "cases_score"),
                 elapsed=row.get("elapsed_seconds"),
             )
         )

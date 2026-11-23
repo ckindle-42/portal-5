@@ -321,3 +321,106 @@ def test_each_index_gets_a_fresh_search(tmp_path: Path, monkeypatch: pytest.Monk
     )
     assert len(searches) == 2
     assert searches[0] is not searches[1]
+
+
+def test_zeek_manifest_scores_exact_lines_not_broad_month_windows(tmp_path: Path) -> None:
+    import hashlib
+
+    host, source = "uwf-zeek24", "/zeek/conn.log"
+    attack_raw = '{"pad":"' + "x" * 450 + '","uid":"Cattack123","ts":1710897921.7}'
+    benign_raw = '{"uid":"Cbenign456","ts":1710897922.7}'
+    key_path = tmp_path / "UWF-ZeekData24_key.json"
+    key_path.write_text(
+        json.dumps(
+            {
+                "label_files": ["Exfiltration/part-x.csv"],
+                "attack_steps": [
+                    {
+                        "step": "Exfiltration",
+                        "sources": [
+                            {
+                                "host": "unknown",
+                                "log_path": "/Exfiltration/part-x.csv",
+                                "time_window": {
+                                    "start_epoch": 1709092837,
+                                    "end_epoch": 1711583911,
+                                },
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifest = tmp_path / "uwf_zeek24_manifest"
+    manifest.mkdir()
+    (manifest / "digests.jsonl").write_text(
+        json.dumps(
+            [host, source, 1, _digest(host, source, attack_raw), "/c/Exfiltration/part-x.csv"]
+        )
+        + "\n"
+        + json.dumps([host, source, 2, _digest(host, source, benign_raw), "/c/Benign/part-y.csv"])
+        + "\n",
+        encoding="utf-8",
+    )
+    key = load_key("hb_uwf_zeek24", key_path)
+    assert key.unit_kind == "keyed_lines"
+    assert set(key.units.values()) == {"Exfiltration"}
+
+    run_dir = tmp_path / "zeek_run"
+    run_dir.mkdir()
+    connection = duckdb.connect(str(run_dir / "behaviours.duckdb"))
+    try:
+        connection.execute("CREATE TABLE events (host VARCHAR, raw VARCHAR, query VARCHAR)")
+        query = f'search index="hb_uwf_zeek24" (source="{source}") | head 5'
+        connection.execute("INSERT INTO events VALUES (?, ?, ?)", [host, attack_raw, query])
+        connection.execute("INSERT INTO events VALUES (?, ?, ?)", [host, benign_raw, query])
+    finally:
+        connection.close()
+    attack_case = {
+        "evidence": [
+            {
+                "host": host,
+                "source": source,
+                "line": attack_raw[:400],
+                "raw_sha256": hashlib.sha256(attack_raw.encode()).hexdigest(),
+                "earliest": 1710897921.7,
+                "latest": 1710897921.7,
+            }
+        ]
+    }
+    benign_case = {
+        "evidence": [
+            {
+                "host": host,
+                "source": source,
+                "line": benign_raw,
+                "earliest": 1710897922.7,
+                "latest": 1710897922.7,
+            }
+        ]
+    }
+    (run_dir / "notables.jsonl").write_text(json.dumps({"evidence": [{"line": attack_raw}]}) + "\n")
+    (run_dir / "cases.json").write_text(json.dumps({"cases": [attack_case, benign_case]}))
+
+    scored = score_corpus("hb_uwf_zeek24", key_path, run_dir, 1.0)
+    assert scored["scoring_method"].startswith("exact ingest-manifest")
+    assert scored["cases_score"]["attack_steps"]["recall"] == 1.0
+    assert scored["cases_score"]["keyed_units"]["recall"] == 1.0
+    assert scored["cases_score"]["row_precision"] == 0.5
+    # the generator-style notable carries only a line: the store prefix still resolves it
+    assert scored["notables_score"]["attack_steps"]["recall"] == 1.0
+
+    # a benign row inside the broad month window is no longer counted as a hit
+    (run_dir / "cases.json").write_text(json.dumps({"cases": [benign_case]}))
+    benign_only = score_corpus("hb_uwf_zeek24", key_path, run_dir, 1.0)
+    assert benign_only["cases_score"]["attack_steps"]["recall"] == 0.0
+    assert benign_only["cases_score"]["row_precision"] == 0.0
+
+
+def test_zeek_key_falls_back_to_windows_when_no_manifest_is_present(tmp_path: Path) -> None:
+    key_path = tmp_path / "UWF-ZeekData24_key.json"
+    _window_key(key_path, host="unknown", log_path="/Reconnaissance/part-00000.csv")
+    key = load_key("hb_uwf_zeek24", key_path)
+    assert key.unit_kind == "attack_windows"

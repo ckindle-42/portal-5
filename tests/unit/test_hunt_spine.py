@@ -13,9 +13,13 @@ from portal.modules.security.core.hunt.notables.behaviours import (
 )
 from portal.modules.security.core.hunt.notables.cards import SourceCard
 from portal.modules.security.core.hunt.notables.spine import (
+    USER,
     SpineEvent,
     build_spine,
+    classify,
+    entities_for,
     event_id,
+    is_sentinel_value,
     segments,
 )
 
@@ -148,3 +152,70 @@ def test_the_same_stored_events_rebuild_the_same_episode_boundaries(tmp_path: Pa
     build_spine(events, second)
     assert _episode_rows(first) == _episode_rows(second)
     assert len(_episode_rows(first)) == 3  # both sources split beyond four hours
+
+
+def test_unset_and_loopback_sentinels_never_anchor_the_spine(tmp_path: Path) -> None:
+    sentinels = [
+        "4294967295",
+        "-1",
+        "0.0.0.0",
+        "::",
+        "127.0.0.1",
+        "::1",
+        "-",
+        "(empty)",
+        "(none)",
+        "(null)",
+        "none",
+        "null",
+        "n/a",
+        "unknown",
+        "UNKNOWN",
+        "N/A",
+    ]
+    events = [
+        _event("ix:st", 1_000.0 + index, f"user={value}", fields={"user": value})
+        for index, value in enumerate(sentinels)
+    ]
+    events += [
+        _event("ix:st", 2_000.0, "root login", fields={"user": "root"}),
+        _event("ix:st", 2_060.0, "SYSTEM login", fields={"user": "SYSTEM"}),
+        _event("ix:st", 2_120.0, "gmorgan login", fields={"user": "gmorgan"}),
+        _event("ix:audit", 2_180.0, "auid=1002", fields={"auid": "1002"}),
+        _event("ix:web", 2_300.0, "src=10.1.2.3", fields={"src_ip": "10.1.2.3"}),
+    ]
+    build_spine(events, tmp_path / "entities.duckdb")
+    con = duckdb.connect(str(tmp_path / "entities.duckdb"), read_only=True)
+    try:
+        entities = set(con.execute("SELECT entity_kind, value FROM entities").fetchall())
+        episodes = set(con.execute("SELECT entity_kind, value FROM episodes").fetchall())
+    finally:
+        con.close()
+    values = {value for _kind, value in entities}
+    assert not values & {value.casefold() for value in sentinels}
+    assert not any(value == "4294967295" for _kind, value in episodes)
+    assert {("user", "root"), ("user", "SYSTEM"), ("user", "gmorgan"), ("user", "1002")} <= entities
+    assert ("address", "10.1.2.3") in entities
+
+
+def test_sentinel_predicate_keeps_real_privileged_and_network_identities() -> None:
+    for value in ("4294967295", "-1", "0.0.0.0", "::", "127.0.0.1", "::1", "(empty)", "unknown"):
+        assert is_sentinel_value(value)
+    for value in ("root", "SYSTEM", "gmorgan", "1002", "0", "10.1.2.3", "2001:db8::1", "127.0.0.2"):
+        assert not is_sentinel_value(value)
+    assert classify("auid", "4294967295") is None
+    assert classify("user", "unknown") is None
+    assert classify("src_ip", "0.0.0.0") is None
+    assert classify("user", "root") is not None
+    assert classify("src_ip", "10.1.2.3") is not None
+
+
+def test_a_typed_field_override_still_drops_sentinel_values() -> None:
+    event = _event(
+        "ix:st",
+        1_000.0,
+        "sess=4294967295 actor=gmorgan",
+        fields={"sess": "4294967295", "actor": "gmorgan"},
+    )
+    hits = entities_for(event, {("ix:st", "sess"): USER, ("ix:st", "actor"): USER})
+    assert {(hit.kind, hit.value) for hit in hits} == {("user", "gmorgan")}

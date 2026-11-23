@@ -115,6 +115,26 @@ _KEY_VALUE = re.compile(r"""([A-Za-z_][\w.:-]*)=("[^"]*"|'[^']*'|[^\s,;]+)""")
 _TOKEN = re.compile(r"""[^\s,;()\[\]{}"']+""")
 _USER_SHAPE = re.compile(r"^[A-Za-z0-9_.@-]+$")
 _DRIVE = re.compile(r"^[A-Za-z]:[\\/]")
+# unset/loopback/placeholder tokens: never an actor or endpoint, never a case anchor
+_SENTINEL_VALUES = frozenset(
+    {
+        "4294967295",
+        "-1",
+        "0.0.0.0",
+        "::",
+        "127.0.0.1",
+        "::1",
+        "-",
+        "(empty)",
+        "(none)",
+        "(null)",
+        "none",
+        "null",
+        "n/a",
+        "unknown",
+    }
+)
+_IDENTITY_KINDS = frozenset({USER, ADDRESS, HOSTNAME, DOMAIN})
 
 
 @dataclass(frozen=True)
@@ -259,6 +279,15 @@ def _strip_port(token: str) -> str:
     return head if _is_address(head) or _hostname_shape(head) else token
 
 
+def is_sentinel_value(value: str) -> bool:
+    """True for unset/loopback/placeholder tokens that name no real actor or endpoint."""
+    return value.casefold() in _SENTINEL_VALUES
+
+
+def _sentinel_hit(kind: str, token: str) -> bool:
+    return kind in _IDENTITY_KINDS and is_sentinel_value(token)
+
+
 def classify(name: str, value: str) -> EntityHit | None:
     """The entity a field value carries, by shape first and by the field's structural kind."""
     token = _strip_port(_clean(value))
@@ -276,7 +305,7 @@ def classify(name: str, value: str) -> EntityHit | None:
         kind = DOMAIN
     if kind is None and field_kind in (DOMAIN, HOSTNAME):
         kind = field_kind
-    if kind is None:
+    if kind is None or _sentinel_hit(kind, token):
         return None
     return EntityHit(kind, token, class_token(kind, token))
 
@@ -306,7 +335,12 @@ def entities_for(
     overrides = field_kinds or {}
     for name, value in event.fields.items():
         kind = overrides.get((event.source_id, name))
-        hit = EntityHit(kind, _clean(value), class_token(kind, _clean(value))) if kind else None
+        token = _clean(value)
+        hit = (
+            None
+            if kind is None or _sentinel_hit(kind, token)
+            else EntityHit(kind, token, class_token(kind, token))
+        )
         if hit is None:
             hit = classify(name, value)
             for _nested_name, nested in _pairs(value):

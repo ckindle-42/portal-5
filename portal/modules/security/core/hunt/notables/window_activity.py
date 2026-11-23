@@ -9,7 +9,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from ..executor import HuntExecutor
-from .behaviours import _extract, per_window_events
+from .behaviours import BEHAVIOUR_EVENTS_PER_WINDOW, _extract, per_window_events
 from .cards import SourceCard, card_consumers
 from .generators import Notable, _make
 from .sample import BEHAVIOUR_SOURCES, SourceFacts, read_windows
@@ -151,7 +151,7 @@ def resolve_source_windows(
     for card in cards:
         if "behaviours" in card_consumers(card):
             sources[card.source_id].append(card)
-    cap = per_window_events(len(sources))
+    cap = min(per_window_events(len(sources)), BEHAVIOUR_EVENTS_PER_WINDOW)
     reads = []
     for position, seed in enumerate(ranked[:REVIEW_HEAD]):
         if seed.basis not in {"source_first_seen", "source_burst"} or seed.source_id not in sources:
