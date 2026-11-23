@@ -145,10 +145,12 @@ def _phase5_timeout(model: str) -> float:
 
 
 def _media_expected(pid: str, kind: str) -> str:
+    if pid == "auto-audio-stt":
+        return (
+            "transcribe_with_speakers ran; transcript with speaker labels and a real .docx sidecar"
+        )
     if pid == "auto-audio-tts":
         return "HTTP 200 and audio magic from /api/v1/audio/speech or mcp-tts :8916"
-    if pid == "auto-audio-stt":
-        return "transcript returned"
     return f"artifact bytes validate as {kind}"
 
 
@@ -290,6 +292,90 @@ def _phase_coding_cad_docs_data_infra(s: Settings, d: Discovery) -> list[QATScen
             prefix="s2-p3",
         )
     )
+    out.extend(_p3_uat_parity_scenarios(d, tier=_TIERS["coding_cad_docs_data_infra"]))
+    return out
+
+
+def _p3_uat_parity_scenarios(d: Discovery, tier: int) -> list[QATScenario]:
+    """UAT-parity scenarios the release audit found missing: document PDF
+    read-back, a live Obscura browser drive-through, and the RAG list+search
+    round-trip — each through the OWUI workspace that owns the tools, gated on
+    the workspace actually granting them."""
+    out: list[QATScenario] = []
+    docs_tools = set(workspace_tools_for("auto-documents"))
+    if "auto-documents" in d.presets and {"read_pdf", "create_word_document"} <= docs_tools:
+        out.append(
+            _scn(
+                2,
+                "coding_cad_docs_data_infra",
+                "s2-p3-auto-documents-pdf-read",
+                "Documents: PDF read-back + export",
+                "auto-documents",
+                prompts=(
+                    "Read the attached invoice PDF with read_pdf and summarise the vendor "
+                    "and the amount in two sentences. Then create a one-page DOCX summary "
+                    "titled 'Invoice Summary' with create_word_document, passing "
+                    "also_pdf=true so it also exports a PDF, and surface the download link.",
+                ),
+                timeout_s=360.0,
+                tier=tier,
+                tools=d.preset_tools("auto-documents"),
+                function_calling=d.presets["auto-documents"].function_calling,
+                artifact_kind="docx",
+                expected="invoice content read back from the real PDF; DOCX artifact validates",
+                expected_tools=("read_pdf", "create_word_document"),
+                rubric=_rubric(("readback", "summary grounded in the read_pdf tool output")),
+                tags=("documents", "pdf"),
+                attachment="tests/fixtures/realuse_v1/ru-v1-001/final_invoice.pdf",
+            )
+        )
+    coding_tools = set(workspace_tools_for("auto-coding"))
+    if "auto-coding" in d.presets and {"browser_navigate", "browser_snapshot"} <= coding_tools:
+        out.append(
+            _scn(
+                2,
+                "coding_cad_docs_data_infra",
+                "s2-p3-obscura-browser",
+                "Obscura: live browser navigate + snapshot",
+                "auto-coding",
+                prompts=(
+                    "Use browser_navigate to open http://host.docker.internal:8080 and then "
+                    "browser_snapshot to report the page's main heading. Cite the heading "
+                    "text exactly as the snapshot returned it.",
+                ),
+                timeout_s=360.0,
+                tier=tier,
+                tools=d.preset_tools("auto-coding"),
+                function_calling=d.presets["auto-coding"].function_calling,
+                expected="Obscura navigated a real page; snapshot heading cited",
+                expected_tools=("browser_navigate", "browser_snapshot"),
+                rubric=_rubric(("snapshot", "answer cites real snapshot text")),
+                tags=("browser", "obscura"),
+            )
+        )
+    research_tools = set(workspace_tools_for("auto-research"))
+    if "auto-research" in d.presets and {"kb_list", "kb_search"} <= research_tools:
+        out.append(
+            _scn(
+                2,
+                "coding_cad_docs_data_infra",
+                "s2-p3-rag-roundtrip",
+                "RAG: kb_list + kb_search round-trip",
+                "auto-research",
+                prompts=(
+                    "Use kb_list to enumerate the available knowledge bases, then kb_search "
+                    "one of them for 'portal' and summarise the top result with its kb_id.",
+                ),
+                timeout_s=360.0,
+                tier=tier,
+                tools=d.preset_tools("auto-research"),
+                function_calling=d.presets["auto-research"].function_calling,
+                expected="knowledge bases listed and one searched; result cited with kb_id",
+                expected_tools=("kb_list", "kb_search"),
+                rubric=_rubric(("grounded", "answer cites a real kb_search result")),
+                tags=("rag",),
+            )
+        )
     return out
 
 
@@ -465,6 +551,30 @@ def _phase_daily_omlx(s: Settings, d: Discovery) -> list[QATScenario]:
                 tags=("omlx",),
             )
         )
+    if "auto-daily" in d.presets and {"remember", "recall"} <= set(
+        workspace_tools_for("auto-daily")
+    ):
+        out.append(
+            _scn(
+                2,
+                "daily_omlx",
+                "s2-p4-memory-roundtrip",
+                "Memory: remember + recall round-trip",
+                "auto-daily",
+                tier=_TIERS["daily_omlx"],
+                prompts=(
+                    "Use the remember tool to store that my QAT badge number is 4711.",
+                    "Use the recall tool to tell me my QAT badge number.",
+                ),
+                timeout_s=300.0,
+                tools=d.preset_tools("auto-daily"),
+                function_calling=d.presets["auto-daily"].function_calling,
+                expected="4711 recalled from the memory store on turn two",
+                expected_tools=("remember", "recall"),
+                rubric=_rubric(("recall", "turn two returns 4711 from recall")),
+                tags=("memory",),
+            )
+        )
     return out
 
 
@@ -515,8 +625,10 @@ def _phase_personas(_s: Settings, d: Discovery) -> list[QATScenario]:
 def _phase_media_heavy(_s: Settings, d: Discovery) -> list[QATScenario]:
     spec: dict[str, tuple[str, str, int, str]] = {
         "auto-audio-stt": (
-            "Transcribe the attached two-speaker audio sample.",
-            "",
+            "Transcribe the attached two-speaker audio sample with "
+            "transcribe_with_speakers, then surface the markdown and Word "
+            "transcript download links it returned.",
+            "docx",
             180,
             "tests/fixtures/sample_two_speakers.wav",
         ),
@@ -535,7 +647,7 @@ def _phase_media_heavy(_s: Settings, d: Discovery) -> list[QATScenario]:
         "auto-audio::video": ("Generate a 4-second MP4 of ocean waves.", "mp4", 1800, ""),
         "auto-audio::music": ("Compose a 10-second lo-fi loop.", "audio", 900, ""),
     }
-    return [
+    out = [
         _scn(
             2,
             "media_heavy",
@@ -553,7 +665,10 @@ def _phase_media_heavy(_s: Settings, d: Discovery) -> list[QATScenario]:
             ].function_calling,
             artifact_kind=kind,
             expected=_media_expected(pid, kind),
-            rubric=_rubric(("transcript", "audio was transcribed"))
+            expected_tools=("transcribe_with_speakers",) if pid == "auto-audio-stt" else (),
+            rubric=_rubric(
+                ("transcript", "speaker-labelled transcript returned; .docx link surfaced")
+            )
             if pid == "auto-audio-stt"
             else _rubric(("artifact", f"artifact validates as {kind}")),
             tags=("media", "audio", "stt") if pid == "auto-audio-stt" else ("media", kind),
@@ -562,6 +677,33 @@ def _phase_media_heavy(_s: Settings, d: Discovery) -> list[QATScenario]:
         for pid, (text, kind, timeout_s, attachment) in spec.items()
         if ("auto-audio" if pid in {"auto-audio-stt", "auto-audio-tts"} else pid) in d.presets
     ]
+    if "auto-audio::music" in d.presets and "clone_voice" in workspace_tools_for(
+        "auto-audio::music"
+    ):
+        out.append(
+            _scn(
+                2,
+                "media_heavy",
+                "s2-p6-voice-clone",
+                "Media: voice clone",
+                "auto-audio::music",
+                prompts=(
+                    "Clone a voice from the attached audio clip with clone_voice and have "
+                    "it say: Portal five voice clone parity verified. Surface the download "
+                    "link for the generated audio.",
+                ),
+                timeout_s=900.0,
+                tools=d.preset_tools("auto-audio::music"),
+                function_calling=d.presets["auto-audio::music"].function_calling,
+                artifact_kind="wav",
+                expected="one-off voice clone speaks the line; .wav artifact validates",
+                expected_tools=("clone_voice",),
+                rubric=_rubric(("artifact", "artifact validates as wav")),
+                tags=("media", "voice-clone"),
+                attachment="tests/fixtures/sample_two_speakers.wav",
+            )
+        )
+    return out
 
 
 def _phase_jarvis(s: Settings, d: Discovery) -> list[QATScenario]:

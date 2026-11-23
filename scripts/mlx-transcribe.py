@@ -736,13 +736,30 @@ def _resolve_scoped_audio(scope: dict, file: str | None) -> tuple[Path | None, s
     return p, p.name
 
 
+_CONTAINER_WORKSPACE_PREFIX = "/workspace/"
+
+
+def _absolute_path_candidates(file: str) -> list[Path]:
+    """Paths an absolute reference could mean on the host: as given, plus the
+    container workspace mount (/workspace/...) rebased on the host workspace
+    root — the model quotes the container path it was shown, this server runs
+    on the host."""
+    candidates = [Path(file).expanduser().resolve()]
+    if file.startswith(_CONTAINER_WORKSPACE_PREFIX):
+        candidates.append(
+            (get_workspace_root() / file[len(_CONTAINER_WORKSPACE_PREFIX) :]).resolve()
+        )
+    return candidates
+
+
 def _resolve_audio_input(file: str | None) -> tuple[Path | None, str]:
     """Resolve a tool input to an absolute path.
 
     Accepts:
       - OWUI file ID (e.g., 'abc-123' or 'abc-123_meeting.mp3')
       - Filename in the uploads directory
-      - Absolute path on the host filesystem
+      - Absolute path on the host filesystem, or the same file's container
+        path (/workspace/uploads/<uuid>_<name>)
       - None (argument omitted) or a template placeholder → auto-detects most recent upload
       - An empty or unknown reference is an error, never the most recent upload
 
@@ -762,11 +779,17 @@ def _resolve_audio_input(file: str | None) -> tuple[Path | None, str]:
     if not file.strip():
         return None, f"file not found: {file!r}"
 
-    # Looks like an absolute path
+    # Looks like an absolute path. Try it as given, then (for the container
+    # mount form) rebased on the host workspace root, then its basename as an
+    # upload reference — the same OWUI-container-path pattern the documents
+    # MCP's _resolve_input_path uses. Only then is it an error.
     if file.startswith("/") or file.startswith("~"):
-        p = Path(file).expanduser().resolve()
-        if p.is_file():
-            return p, p.name
+        for p in _absolute_path_candidates(file):
+            if p.is_file():
+                return p, p.name
+        by_name = resolve_upload_path(os.path.basename(file))
+        if by_name is not None:
+            return by_name, by_name.name
         return None, f"file not found at path: {file}"
 
     # Try resolving as an upload reference (id or filename)

@@ -362,7 +362,7 @@ class TestRegistry:
     def test_media_artifact_kinds(self) -> None:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
         kinds = {s.scenario_id: s.artifact_kind for s in registry if s.phase == "media_heavy"}
-        assert kinds["s2-p6-auto-audio-stt"] == ""
+        assert kinds["s2-p6-auto-audio-stt"] == "docx"
         assert kinds["s2-p6-auto-audio-tts"] == "wav"
         assert kinds["s2-p6-auto-audio::image"] == "png"
         assert kinds["s2-p6-auto-audio::video"] == "mp4"
