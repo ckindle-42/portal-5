@@ -1276,7 +1276,8 @@ async def _try_non_streaming(
     # stream's non-streaming fallback) behaves the same in either mode.
     _ns_tools = apply_eval_scope(req_body, _ns_tools)
     _ns_tools, _bite_allowlist = apply_bite_tool_scope(req_body, _ns_tools)
-    if req_body.pop("portal_client_tools_only", False) or req_body.get("tool_choice") == "none":
+    _ns_client_tools_only = bool(req_body.pop("portal_client_tools_only", False))
+    if _ns_client_tools_only or req_body.get("tool_choice") == "none":
         _ns_tools = []  # client-only tools, or an explicit no-tool turn
     _supports_tools = _model_supports_tools(target_model)
     if req_body.pop("portal_no_tools", False) or not _supports_tools:
@@ -1645,7 +1646,8 @@ async def _try_non_streaming(
                 thinking_allowed=_ns_thinking_allowed,
                 target_model=target_model,
                 model_started=_model_started,
-                seal_client_calls=_ns_call_limit is not None,
+                # Client-only callers run their own loop; the cap seals workspace turns only.
+                seal_client_calls=_ns_call_limit is not None and not _ns_client_tools_only,
             )
 
             if _ns_guard.grounding_retried and not _ns_guard.grounded:

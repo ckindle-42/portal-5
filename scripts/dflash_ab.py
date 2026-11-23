@@ -3,9 +3,10 @@
 
 Preconditions (Ollama unloaded, 64 GiB reclaimed, host quiet) → OFF arm → the plan's
 two-key settings delta applied through oMLX's admin API and proven from the server log →
-ON arm → receipt. Decode tok/s per size is the pass metric; a fixed coding prompt and a
-tool-call probe guard correctness. DFlash is restored to its prior state on every exit
-path (failure, Ctrl-C) unless the pass bar was met and ``--keep-on`` was given.
+ON arm → receipt. Decode tok/s per size is the pass metric, measured at greedy sampling
+with a fixed seed, full-length decode and a per-rep cache-busting nonce; coding, tool-call,
+reasoning and instruction probes guard correctness. DFlash is restored to its prior state
+on every exit path (failure, Ctrl-C) unless the pass bar was met and ``--keep-on`` was given.
 
 Usage:
     uv run python scripts/dflash_ab.py
@@ -53,6 +54,9 @@ PROOF_TIMEOUT_S = 240.0
 PROOF_POLL_S = 2.0
 WARMUP_TOKENS = 8
 PROBE_TOKENS = 512
+#: Greedy sampling pins every probe and speed row to one reproducible continuation.
+AB_TEMPERATURE = 0.0
+AB_SEED = 42
 
 #: The only per-model settings keys this A/B changes (DFLASH2_080_PLAN.md).
 DFLASH_KEYS = ("dflash_enabled", "dflash_draft_model")
@@ -104,6 +108,24 @@ PROBE_TOOLS = [
 TOOL_PROMPT = (
     "For the city of Lisbon, call fetch_weather for a 3-day forecast that includes "
     "humidity. Emit the tool call; do not answer in prose."
+)
+#: Multi-step arithmetic with one exact answer: reasoning parity without execution.
+REASONING_PROMPT = (
+    "What is 17 * 23 + 19? Work it out step by step, then give the final number "
+    "on the last line by itself."
+)
+REASONING_EXPECTED = "410"
+#: A format-constrained reply: instruction-following parity, checked verbatim.
+INSTRUCTION_PROMPT = (
+    "Reply with exactly one line: the word READY, one space, then the number of "
+    "letters in the word 'speculative'. No other text."
+)
+INSTRUCTION_EXPECTED = "READY 11"
+#: oMLX's per-sequence draft/verify counters, logged when a speculative sequence ends.
+MTP_STATS_RE = re.compile(
+    r"MTP\[(?P<uid>\d+)\] finish=(?P<finish>\S+) tokens=(?P<tokens>\d+) "
+    r"cycles=(?P<cycles>\d+) tok/cycle=(?P<tok_per_cycle>[\d.]+) "
+    r"accept=(?P<accepted>\d+)/(?P<drafted>\d+) \((?P<rate>[\d.]+%|n/a)\)"
 )
 READ_ERRORS = (OSError, ValueError, TimeoutError, urllib.error.URLError)
 
@@ -584,6 +606,17 @@ def wait_for_proof(ctx: DflashCtx, model: str, offset: int) -> dict[str, Any]:
         ctx.sleep(PROOF_POLL_S)
 
 
+def speculative_stats(text: str) -> list[dict[str, Any]]:
+    """The draft/verify counters oMLX logs for each finished speculative sequence."""
+    stats: list[dict[str, Any]] = []
+    for match in MTP_STATS_RE.finditer(text):
+        row: dict[str, Any] = match.groupdict()
+        for key in ("uid", "tokens", "cycles", "accepted", "drafted"):
+            row[key] = int(row[key])
+        stats.append(row)
+    return stats
+
+
 # ---------------------------------------------------------------------------- measurement
 
 
@@ -598,6 +631,10 @@ def _default_speed(ctx: DflashCtx, model: str, path: Path) -> int:
         out=str(path),
         api_key=ctx.omlx_key,
         timeout=REQUEST_TIMEOUT_S,
+        temperature=AB_TEMPERATURE,
+        seed=AB_SEED,
+        ignore_eos=True,
+        cache_bust=f"{ctx.out_dir.name}-{path.stem}",
     )
 
 
@@ -612,6 +649,10 @@ def _default_pipeline(ctx: DflashCtx, seat: str, path: Path) -> int:
         out=str(path),
         api_key=ctx.pipeline_key,
         timeout=REQUEST_TIMEOUT_S,
+        temperature=AB_TEMPERATURE,
+        seed=AB_SEED,
+        ignore_eos=True,
+        cache_bust=f"{ctx.out_dir.name}-{path.stem}",
     )
 
 
@@ -684,6 +725,8 @@ def summarise_reps(reps: list[dict[str, Any]], sizes: tuple[int, ...]) -> dict[s
             "ttft_median": _median(ttft),
             "timing_sources": sorted({str(row.get("timing_source")) for row in rows}),
             "prompt_tokens": [row.get("prompt_tokens") for row in rows],
+            "completion_tokens": [row.get("completion_tokens") for row in rows],
+            "cached_tokens": [row.get("cached_tokens") for row in rows],
         }
     return summary
 
@@ -739,16 +782,31 @@ def _message_of(body: Mapping[str, Any]) -> dict[str, Any]:
     return message if isinstance(message, dict) else {}
 
 
-def evaluate_coding(response: Mapping[str, Any]) -> dict[str, Any]:
+def _evaluate_answer(response: Mapping[str, Any], expected: str) -> dict[str, Any]:
     message = _message_of(response.get("body") or {})
     answer = message.get("content") or ""
     return {
         "answer": answer,
-        "expected": CODING_EXPECTED,
-        "matched": _answer_matches(answer, CODING_EXPECTED),
+        "expected": expected,
+        "matched": _answer_matches(answer, expected),
         "backend": response.get("backend"),
         "served_model": response.get("served_model"),
     }
+
+
+def evaluate_coding(response: Mapping[str, Any]) -> dict[str, Any]:
+    return _evaluate_answer(response, CODING_EXPECTED)
+
+
+def evaluate_reasoning(response: Mapping[str, Any]) -> dict[str, Any]:
+    return _evaluate_answer(response, REASONING_EXPECTED)
+
+
+def evaluate_instruction(response: Mapping[str, Any]) -> dict[str, Any]:
+    """Instruction-following is a verbatim format check, not a substring match."""
+    row = _evaluate_answer(response, INSTRUCTION_EXPECTED)
+    row["matched"] = " ".join(row["answer"].split()) == INSTRUCTION_EXPECTED
+    return row
 
 
 def evaluate_tool(response: Mapping[str, Any]) -> dict[str, Any]:
@@ -789,15 +847,28 @@ def evaluate_tool(response: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def probe_seat(ctx: DflashCtx, seat: str) -> dict[str, Any]:
-    """Fixed coding prompt (no tools) and a tool-call prompt with client-only tools."""
-    coding = chat_request(ctx, seat, CODING_PROMPT, {"portal_no_tools": True})
+    """Four fixed prompts at greedy sampling: coding, tool call, reasoning, instruction."""
+    sampling = {"temperature": AB_TEMPERATURE, "seed": AB_SEED}
+    coding = chat_request(ctx, seat, CODING_PROMPT, {"portal_no_tools": True, **sampling})
     tool = chat_request(
         ctx,
         seat,
         TOOL_PROMPT,
-        {"portal_client_tools_only": True, "tools": PROBE_TOOLS, "tool_choice": "auto"},
+        {
+            "portal_client_tools_only": True,
+            "tools": PROBE_TOOLS,
+            "tool_choice": "auto",
+            **sampling,
+        },
     )
-    return {"coding": evaluate_coding(coding), "tool": evaluate_tool(tool)}
+    reasoning = chat_request(ctx, seat, REASONING_PROMPT, {"portal_no_tools": True, **sampling})
+    instruction = chat_request(ctx, seat, INSTRUCTION_PROMPT, {"portal_no_tools": True, **sampling})
+    return {
+        "coding": evaluate_coding(coding),
+        "tool": evaluate_tool(tool),
+        "reasoning": evaluate_reasoning(reasoning),
+        "instruction": evaluate_instruction(instruction),
+    }
 
 
 # --------------------------------------------------------------------------------- verdict
@@ -823,31 +894,54 @@ def _tool_problems(off_tool: Mapping[str, Any], on_tool: Mapping[str, Any]) -> t
             f"tool argument types changed OFF {off_tool.get('argument_types')} → "
             f"ON {on_tool.get('argument_types')}"
         )
-    if off_tool.get("selected") != PROBE_TOOL:
-        notes.append(f"OFF tool probe selected {off_tool.get('selected')!r}")
     return problems, notes
 
 
-def _coding_problems(off: Mapping[str, Any], on: Mapping[str, Any]) -> tuple[list, list]:
+#: Answer probes graded by an exact expected value, in receipt order.
+ANSWER_PROBES = (
+    ("coding", CODING_EXPECTED),
+    ("reasoning", REASONING_EXPECTED),
+    ("instruction", INSTRUCTION_EXPECTED),
+)
+
+
+def _answer_problems(name: str, off: Mapping[str, Any], on: Mapping[str, Any]) -> tuple[list, list]:
     problems: list[str] = []
     notes: list[str] = []
     off_matched, on_matched = bool(off.get("matched")), bool(on.get("matched"))
     if off_matched and not on_matched:
-        problems.append(f"coding probe answer changed: OFF ok, ON gave {on.get('answer')!r}")
+        problems.append(f"{name} probe answer changed: OFF ok, ON gave {on.get('answer')!r}")
     if not off_matched and not on_matched:
-        notes.append("coding probe did not match its expected value in either arm")
+        notes.append(f"{name} probe did not match its expected value in either arm")
     if on.get("answer") and on.get("answer") != off.get("answer"):
-        notes.append("coding answers differ between arms (seat samples at temperature 0.7)")
+        notes.append(f"{name} answers differ between arms at greedy sampling")
     return problems, notes
+
+
+def baseline_problems(off: Mapping[str, Any]) -> list[str]:
+    """An OFF probe that fails means the instrument is broken, not a DFlash regression."""
+    reasons: list[str] = []
+    for name, expected in ANSWER_PROBES:
+        row = off.get(name) or {}
+        if row and not row.get("matched"):
+            reasons.append(f"OFF {name} probe did not match {expected!r}")
+    tool = off.get("tool") or {}
+    if tool and not (tool.get("valid") and tool.get("selected") == PROBE_TOOL):
+        reasons.append(f"OFF tool probe returned no valid {PROBE_TOOL} call")
+    return reasons
 
 
 def correctness_problems(off: Mapping[str, Any], on: Mapping[str, Any]) -> tuple[list, list]:
     """Regressions from OFF to ON, plus observations that are not regressions."""
-    tool_problems, tool_notes = _tool_problems(off.get("tool") or {}, on.get("tool") or {})
-    coding_problems, coding_notes = _coding_problems(
-        off.get("coding") or {}, on.get("coding") or {}
-    )
-    return tool_problems + coding_problems, tool_notes + coding_notes
+    problems, notes = _tool_problems(off.get("tool") or {}, on.get("tool") or {})
+    for name, _expected in ANSWER_PROBES:
+        off_row, on_row = off.get(name) or {}, on.get(name) or {}
+        if not off_row or not on_row:
+            continue  # a probe absent from either arm carries no parity signal
+        answer_problems, answer_notes = _answer_problems(name, off_row, on_row)
+        problems.extend(answer_problems)
+        notes.extend(answer_notes)
+    return problems, notes
 
 
 def invalid_reasons(off: Mapping[str, Any], on: Mapping[str, Any]) -> list[str]:
@@ -866,9 +960,17 @@ def invalid_reasons(off: Mapping[str, Any], on: Mapping[str, Any]) -> list[str]:
     return reasons
 
 
-def classify(rows: list[dict[str, Any]], problems: list[str], invalid: list[str]) -> str:
+def classify(
+    rows: list[dict[str, Any]],
+    problems: list[str],
+    invalid: list[str],
+    *,
+    baseline: list[str] | None = None,
+) -> str:
     if invalid:
         return "INVALID"
+    if baseline:
+        return "INVALID_BASELINE"
     if problems:
         return "CORRECTNESS_REGRESSION"
     if not rows or any(not row.get("complete") for row in rows):
@@ -884,8 +986,10 @@ def probe_invalid(arm: Mapping[str, Any], backend: str | None, model: str | None
     """Probe rows must be served by the seat's intended backend and model, or nothing compares."""
     reasons: list[str] = []
     probe = arm.get("probe") or {}
-    for name in ("coding", "tool"):
+    for name in ("coding", "tool", "reasoning", "instruction"):
         row = probe.get(name) or {}
+        if not row:
+            continue
         if (backend and row.get("backend") != backend) or (
             model and row.get("served_model") != model
         ):
@@ -932,12 +1036,22 @@ def compare_arms(
     problems, notes = correctness_problems(off.get("probe") or {}, on.get("probe") or {})
     invalid = invalid_reasons(off, on)
     invalid += probe_invalid(off, backend, model) + probe_invalid(on, backend, model)
-    status = classify(rows, problems, invalid)
+    baseline = baseline_problems(off.get("probe") or {})
+    for arm in (off, on):
+        for key, summary in ((arm.get("speed") or {}).get("sizes") or {}).items():
+            lengths = {c for c in summary.get("completion_tokens") or [] if c is not None}
+            if len(lengths) > 1:
+                notes.append(
+                    f"{arm.get('label')} size {key}: completion lengths vary {sorted(lengths)}; "
+                    "decode samples are not like-for-like"
+                )
+    status = classify(rows, problems, invalid, baseline=baseline)
     return {
         "rows": rows,
         "problems": problems,
         "notes": notes,
         "invalid": invalid,
+        "baseline_invalid": baseline,
         "status": status,
         "passed": status == "PASS",
     }
@@ -976,6 +1090,7 @@ def run_arm(
     record["speed"] = summarise_reps(record["reps"], plan.sizes)
     record["pipeline"] = _pipeline_pass(ctx, plan, label)
     record["probe"] = probe_seat(ctx, plan.seat)
+    record["speculative_stats"] = speculative_stats(read_since(ctx.server_log, log_offset))
     record["residents_after"] = residents(ctx)
     record["finished_at"] = _now()
     return record
@@ -1081,6 +1196,8 @@ def _identity_lines(run: Mapping[str, Any]) -> list[str]:
         f"`speed_bench --engine omlx --model {run.get('model')} --sizes "
         f"{','.join(str(size) for size in run.get('sizes') or [])}` × {run.get('reps') or '?'} "
         f"and one `speed_bench --engine pipeline --workspace {run.get('seat')}`",
+        f"- sampling: temperature={AB_TEMPERATURE}, seed={AB_SEED}, ignore_eos=True "
+        "(full fixed-length decode every rep); unique cache-busting nonce per run/arm/rep/size",
         f"- DFlash draft: `{run.get('draft')}`",
         f"- settings: `{run.get('settings_file')}`"
         + (f" (backup `{run['backup']}`)" if run.get("backup") else ""),
@@ -1254,24 +1371,82 @@ def _tool_line(label: str, probe: Mapping[str, Any]) -> str:
     )
 
 
+def _answer_probe_line(
+    name: str, expected: str, off: Mapping[str, Any], on: Mapping[str, Any]
+) -> str:
+    off_row, on_row = off.get(name) or {}, on.get(name) or {}
+    return (
+        f"- {name} prompt (expected `{expected}`): "
+        f"OFF matched={bool(off_row.get('matched'))} `{(off_row.get('answer') or '')[:120]}` · "
+        f"ON matched={bool(on_row.get('matched'))} `{(on_row.get('answer') or '')[:120]}` "
+        f"· served {on_row.get('backend')}/{on_row.get('served_model')}"
+    )
+
+
 def _probe_lines(run: Mapping[str, Any]) -> list[str]:
     off = (run.get("off") or {}).get("probe") or {}
     on = (run.get("on") or {}).get("probe") or {}
-    lines = ["## Correctness probe (same prompts, sampling and tool schemas in both arms)", ""]
+    lines = [
+        "## Correctness probe (four prompts, greedy sampling, same tool schemas in both arms)",
+        "",
+    ]
     if not off or not on:
         return [*lines, "Not measured (run aborted before both arms completed).", ""]
-    off_coding = (off.get("coding") or {}).get("answer") or ""
-    on_coding = (on.get("coding") or {}).get("answer") or ""
-    lines += [
-        f"- coding prompt (expected `{CODING_EXPECTED}`): "
-        f"OFF matched={bool((off.get('coding') or {}).get('matched'))} "
-        f"`{off_coding[:120]}` · "
-        f"ON matched={bool((on.get('coding') or {}).get('matched'))} `{on_coding[:120]}` "
-        f"· served {(on.get('coding') or {}).get('backend')}/"
-        f"{(on.get('coding') or {}).get('served_model')}"
-    ]
+    for name, expected in ANSWER_PROBES:
+        lines.append(_answer_probe_line(name, expected, off, on))
     lines.append(_tool_line("OFF", off.get("tool") or {}))
     lines.append(_tool_line("ON", on.get("tool") or {}))
+    lines.append("")
+    return lines
+
+
+def _rep_sample_lines(run: Mapping[str, Any]) -> list[str]:
+    header = [
+        "## Per-rep decode samples (fixed-length decode; cached = prefix-cache prompt tokens)",
+        "",
+    ]
+    lines = [
+        *header,
+        "| arm | rep | size | completion tokens | decode tok/s | cached |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for label in ("off", "on"):
+        for index, rep in enumerate((run.get(label) or {}).get("reps") or [], start=1):
+            for row in (rep.get("payload") or {}).get("results") or []:
+                rows += 1
+                lines.append(
+                    f"| {label} | {index} | {row.get('size_tokens')} "
+                    f"| {row.get('completion_tokens')} | {_fmt(row.get('decode_tps'))} "
+                    f"| {row.get('cached_tokens')} |"
+                )
+    if not rows:
+        return [*header, "Not measured (run aborted before both arms completed).", ""]
+    lines.append("")
+    return lines
+
+
+def _speculative_lines(run: Mapping[str, Any]) -> list[str]:
+    header = [
+        "## DFlash draft/verify counters (oMLX engine log; the OFF arm must be empty)",
+        "",
+    ]
+    lines = [
+        *header,
+        "| arm | uid | finish | tokens | cycles | accept | rate |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for label in ("off", "on"):
+        for stat in (run.get(label) or {}).get("speculative_stats") or []:
+            rows += 1
+            lines.append(
+                f"| {label} | {stat.get('uid')} | {stat.get('finish')} | {stat.get('tokens')} "
+                f"| {stat.get('cycles')} | {stat.get('accepted')}/{stat.get('drafted')} "
+                f"| {stat.get('rate')} |"
+            )
+    if not rows:
+        return [*header, "No speculative sequence counters in the engine log.", ""]
     lines.append("")
     return lines
 
@@ -1282,9 +1457,9 @@ def _verdict_lines(run: Mapping[str, Any]) -> list[str]:
     lines.append(f"**{comparison.get('status') or 'NOT MEASURED'}**")
     lines.append("")
     lines.append(
-        "Bar: a positive decode tok/s gain larger than the run-to-run spread at every "
-        "size, and no correctness regression, with every row served by the intended "
-        "engine/model."
+        "Bar: a valid OFF baseline probe, a positive decode tok/s gain larger than the "
+        "run-to-run spread at every size, and no correctness regression, with every row "
+        "served by the intended engine/model."
     )
     lines.append("")
     if run.get("abort"):
@@ -1301,6 +1476,8 @@ def _verdict_lines(run: Mapping[str, Any]) -> list[str]:
         lines.append(f"- correctness regression: {problem}")
     for problem in comparison.get("invalid") or []:
         lines.append(f"- invalid row: {problem}")
+    for reason in comparison.get("baseline_invalid") or []:
+        lines.append(f"- invalid baseline: {reason}")
     for note in comparison.get("notes") or []:
         lines.append(f"- note: {note}")
     restore = run.get("restore")
@@ -1321,8 +1498,10 @@ def render_receipt(run: Mapping[str, Any]) -> str:
     lines += _precondition_lines(run)
     lines += _speed_lines(run)
     lines += _ttft_lines(run)
+    lines += _rep_sample_lines(run)
     lines += _served_lines(run)
     lines += _proof_lines(run)
+    lines += _speculative_lines(run)
     lines += _probe_lines(run)
     lines += _verdict_lines(run)
     return "\n".join(lines).rstrip() + "\n"

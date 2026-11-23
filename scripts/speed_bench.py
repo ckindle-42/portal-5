@@ -81,6 +81,25 @@ def build_filler_prompt(n_tokens: int) -> str:
     return (word * (base // len(word) + 1))[:base]
 
 
+def _sampling_fields(
+    temperature: float | None, seed: int | None, ignore_eos: bool
+) -> dict[str, Any]:
+    """Only the explicitly-set controls; absent keys keep the engine's own defaults."""
+    fields: dict[str, Any] = {}
+    if temperature is not None:
+        fields["temperature"] = temperature
+    if seed is not None:
+        fields["seed"] = seed
+    if ignore_eos:
+        fields["ignore_eos"] = True
+    return fields
+
+
+def _nonce_prompt(prompt: str, nonce: str | None) -> str:
+    """A unique leading nonce busts the engine's prefix cache for this request."""
+    return f"[bench-nonce {nonce}]\n{prompt}" if nonce else prompt
+
+
 def _number(value: object) -> float | None:
     """Return ``value`` as a float, or None when it is absent or unparseable."""
     try:
@@ -144,6 +163,12 @@ def speed_metrics(data: dict) -> dict:
     )
 
 
+def _cached_tokens(usage: dict) -> int | None:
+    """Prefix-cache hits oMLX reports in ``usage.prompt_tokens_details``."""
+    details = usage.get("prompt_tokens_details")
+    return _count(details.get("cached_tokens")) if isinstance(details, dict) else None
+
+
 def omlx_metrics(body: dict) -> dict:
     """Read oMLX's OpenAI-shaped ``usage`` timing fields into a result row."""
     usage = body.get("usage") or {}
@@ -154,7 +179,7 @@ def omlx_metrics(body: dict) -> dict:
     decode_tps = _number(usage.get("generation_tokens_per_second"))
     if decode_tps is None and completion and decode_s:
         decode_tps = completion / decode_s
-    return _row(
+    row = _row(
         prompt_tokens=prompt_tokens,
         prefill_tps=prompt_tokens / prefill_s if prompt_tokens and prefill_s else None,
         decode_tps=decode_tps,
@@ -163,6 +188,9 @@ def omlx_metrics(body: dict) -> dict:
         total_s=_number(usage.get("total_time")),
         timing_source="engine",
     )
+    row["completion_tokens"] = completion
+    row["cached_tokens"] = _cached_tokens(usage)
+    return row
 
 
 def pipeline_metrics(
@@ -554,14 +582,24 @@ def request_chat(host: str, model: str, prompt: str, timeout: float = 600.0) -> 
 
 
 def request_omlx(
-    host: str, model: str, prompt: str, api_key: str = "", timeout: float = 600.0
+    host: str,
+    model: str,
+    prompt: str,
+    api_key: str = "",
+    timeout: float = 600.0,
+    *,
+    temperature: float | None = None,
+    seed: int | None = None,
+    ignore_eos: bool = False,
+    nonce: str | None = None,
 ) -> dict:
     """Send one non-streaming completion to oMLX and return the JSON body."""
     payload = {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": _nonce_prompt(prompt, nonce)}],
         "stream": False,
         "max_tokens": NUM_PREDICT,
+        **_sampling_fields(temperature, seed, ignore_eos),
     }
     with _post(
         host.rstrip("/") + "/v1/chat/completions", payload, timeout, _bearer(api_key)
@@ -570,15 +608,25 @@ def request_omlx(
 
 
 def request_omlx_streamed(
-    host: str, model: str, prompt: str, api_key: str = "", timeout: float = 600.0
+    host: str,
+    model: str,
+    prompt: str,
+    api_key: str = "",
+    timeout: float = 600.0,
+    *,
+    temperature: float | None = None,
+    seed: int | None = None,
+    ignore_eos: bool = False,
+    nonce: str | None = None,
 ) -> dict:
     """Stream one completion and time TTFT/decode client-side (no engine split)."""
     payload = {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": _nonce_prompt(prompt, nonce)}],
         "stream": True,
         "stream_options": {"include_usage": True},
         "max_tokens": NUM_PREDICT,
+        **_sampling_fields(temperature, seed, ignore_eos),
     }
     with _post(
         host.rstrip("/") + "/v1/chat/completions", payload, timeout, _bearer(api_key)
@@ -595,6 +643,10 @@ def request_pipeline(
     *,
     no_tools: bool = False,
     backend_pin: str | None = None,
+    temperature: float | None = None,
+    seed: int | None = None,
+    ignore_eos: bool = False,
+    nonce: str | None = None,
 ) -> tuple[dict, dict, str | None, str, str]:
     """Stream one workspace reply through the Pipeline.
 
@@ -604,10 +656,11 @@ def request_pipeline(
     """
     payload: dict[str, Any] = {
         "model": workspace,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": _nonce_prompt(prompt, nonce)}],
         "stream": True,
         "stream_options": {"include_usage": True},
         "max_tokens": NUM_PREDICT,
+        **_sampling_fields(temperature, seed, ignore_eos),
     }
     if no_tools:
         payload["portal_no_tools"] = True
@@ -621,16 +674,35 @@ def request_pipeline(
 
 
 def _measured_omlx(
-    host: str, model: str, prompt: str, api_key: str, timeout: float
+    host: str,
+    model: str,
+    prompt: str,
+    api_key: str,
+    timeout: float,
+    *,
+    temperature: float | None = None,
+    seed: int | None = None,
+    ignore_eos: bool = False,
+    nonce: str | None = None,
 ) -> dict[str, Any]:
     """Build a client-side-measured row when oMLX reported no durations."""
-    wall = request_omlx_streamed(host, model, prompt, api_key, timeout)
+    wall = request_omlx_streamed(
+        host,
+        model,
+        prompt,
+        api_key,
+        timeout,
+        temperature=temperature,
+        seed=seed,
+        ignore_eos=ignore_eos,
+        nonce=nonce,
+    )
     ttft_s = wall["ttft_s"]
     decode_s = None if ttft_s is None else max(0.0, wall["total_s"] - ttft_s)
     usage = wall["usage"]
     completion = _count(usage.get("completion_tokens"))
     prompt_tokens = _count(usage.get("prompt_tokens"))
-    return _row(
+    row = _row(
         prompt_tokens=prompt_tokens,
         prefill_tps=prompt_tokens / ttft_s if prompt_tokens and ttft_s else None,
         decode_tps=completion / decode_s if completion and decode_s else None,
@@ -639,6 +711,9 @@ def _measured_omlx(
         total_s=wall["total_s"],
         timing_source="measured",
     )
+    row["completion_tokens"] = completion
+    row["cached_tokens"] = _cached_tokens(usage)
+    return row
 
 
 def _measure(
@@ -651,18 +726,35 @@ def _measure(
     *,
     no_tools: bool = False,
     backend_pin: str | None = None,
+    temperature: float | None = None,
+    seed: int | None = None,
+    ignore_eos: bool = False,
+    nonce: str | None = None,
 ) -> dict[str, Any]:
-    """Measure one prompt on ``engine`` and return a result row."""
+    """Measure one prompt on ``engine``; sampling controls apply to omlx/pipeline."""
+    controls = {
+        "temperature": temperature,
+        "seed": seed,
+        "ignore_eos": ignore_eos,
+        "nonce": nonce,
+    }
     if engine == "ollama":
         return speed_metrics(request_chat(host, target, prompt, timeout))
     if engine == "omlx":
-        row = omlx_metrics(request_omlx(host, target, prompt, api_key, timeout))
+        row = omlx_metrics(request_omlx(host, target, prompt, api_key, timeout, **controls))
         if row["prefill_tps"] is None and row["decode_tps"] is None:
-            return _measured_omlx(host, target, prompt, api_key, timeout)
+            return _measured_omlx(host, target, prompt, api_key, timeout, **controls)
         return row
     if engine == "pipeline":
         timings, usage, served_model, route, content = request_pipeline(
-            host, target, prompt, api_key, timeout, no_tools=no_tools, backend_pin=backend_pin
+            host,
+            target,
+            prompt,
+            api_key,
+            timeout,
+            no_tools=no_tools,
+            backend_pin=backend_pin,
+            **controls,
         )
         if not timings:
             raise ValueError("stream carried no portal_timings frame")
@@ -714,6 +806,38 @@ def _pipeline_seat_context(
     return intended, backend_types
 
 
+def _measure_controls(
+    temperature: float | None,
+    seed: int | None,
+    ignore_eos: bool,
+    cache_bust: str | None,
+    size: int,
+) -> dict[str, Any]:
+    """Sampling pins plus a per-size cache-busting nonce for one measured request."""
+    return {
+        "temperature": temperature,
+        "seed": seed,
+        "ignore_eos": ignore_eos,
+        "nonce": f"{cache_bust}-{size}" if cache_bust else None,
+    }
+
+
+def _controls_fields(
+    temperature: float | None, seed: int | None, ignore_eos: bool, cache_bust: str | None
+) -> dict[str, Any]:
+    """Report fragment naming the applied controls; empty when engine defaults ran."""
+    if temperature is None and seed is None and not ignore_eos and not cache_bust:
+        return {}
+    return {
+        "controls": {
+            "temperature": temperature,
+            "seed": seed,
+            "ignore_eos": ignore_eos,
+            "cache_bust": cache_bust,
+        }
+    }
+
+
 def run_bench(
     engine: str,
     host: str,
@@ -728,6 +852,10 @@ def run_bench(
     registry: Any = None,
     portal_config: Any = None,
     personas: Mapping[str, Any] | None = None,
+    temperature: float | None = None,
+    seed: int | None = None,
+    ignore_eos: bool = False,
+    cache_bust: str | None = None,
 ) -> int:
     """Benchmark every size; print the table; return 0 on success, 1 on any failure."""
     rows: list[dict] = []
@@ -762,6 +890,7 @@ def run_bench(
                 timeout,
                 no_tools=no_tools,
                 backend_pin=intended[0] if intended and pin_backend else None,
+                **_measure_controls(temperature, seed, ignore_eos, cache_bust, size),
             )
         except (OSError, ValueError) as exc:
             failures.append(f"FAILED size {size} tokens: {exc}")
@@ -803,6 +932,7 @@ def run_bench(
             "results": rows,
             "failures": failures,
             "notes": notes,
+            **_controls_fields(temperature, seed, ignore_eos, cache_bust),
         }
         Path(out).parent.mkdir(parents=True, exist_ok=True)
         with open(out, "w", encoding="utf-8") as f:

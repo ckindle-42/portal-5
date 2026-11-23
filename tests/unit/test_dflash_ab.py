@@ -91,6 +91,8 @@ class FakeStack:
         self.stuck_after_enable = False
         self.tool_arguments = json.dumps({"city": "Lisbon", "days": 3, "include_humidity": True})
         self.coding_answer = "126"
+        self.reasoning_answer = ab.REASONING_EXPECTED
+        self.instruction_answer = ab.INSTRUCTION_EXPECTED
 
     # -- seams -------------------------------------------------------------------
     def json(self, url, *, method="GET", payload=None, headers=None, timeout=10.0):
@@ -155,9 +157,15 @@ class FakeStack:
                 "model": MODEL,
                 "choices": [{"message": {"role": "assistant", "tool_calls": [call]}}],
             }
+        if prompt.startswith("What is 17 * 23"):
+            answer = self.reasoning_answer
+        elif prompt.startswith("Reply with exactly one line"):
+            answer = self.instruction_answer
+        else:
+            answer = self.coding_answer
         return {
             "model": MODEL,
-            "choices": [{"message": {"role": "assistant", "content": self.coding_answer}}],
+            "choices": [{"message": {"role": "assistant", "content": answer}}],
         }
 
     def settings_put_payloads(self) -> list[dict]:
@@ -181,6 +189,8 @@ def _speed_payload(settings_file: Path, sizes: tuple[int, ...], rep: int) -> dic
             "ttft_s": 1.0 + rep * 0.1,
             "timing_source": "engine",
             "engine_ok": True,
+            "completion_tokens": 128,
+            "cached_tokens": 0,
         }
         for size in sizes
     ]
@@ -485,6 +495,18 @@ def _arm(decode: dict[int, float], spread: float = 0.0, *, engine_ok: bool = Tru
                 "selected": ab.PROBE_TOOL,
                 "valid": True,
                 "argument_types": {"city": "string"},
+                "backend": "omlx-coding",
+                "served_model": MODEL,
+            },
+            "reasoning": {
+                "matched": True,
+                "answer": ab.REASONING_EXPECTED,
+                "backend": "omlx-coding",
+                "served_model": MODEL,
+            },
+            "instruction": {
+                "matched": True,
+                "answer": ab.INSTRUCTION_EXPECTED,
                 "backend": "omlx-coding",
                 "served_model": MODEL,
             },
