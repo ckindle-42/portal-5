@@ -375,25 +375,20 @@ def apply_answer(text: str, names: Iterable[str]) -> Answer:
                 rejected.append(name)
         if found:
             roles[role] = tuple(found)
-    ambiguous = _ambiguous_core_role(roles)
-    if ambiguous is not None:
-        return Answer(kind, {}, tuple(sorted(rejected)), "", f"ambiguous_roles:{ambiguous}")
     basis = str(answer.get("basis") or "")[:MAX_BASIS_CHARS]
-    return Answer(kind, roles, tuple(sorted(rejected)), basis, None)
+    return Answer(kind, _dedupe_roles(roles), tuple(sorted(rejected)), basis, None)
 
 
-CORE_ROLES = ("actor", "action", "object")
-
-
-def _ambiguous_core_role(roles: Mapping[str, tuple[str, ...]]) -> str | None:
-    """The first field the answer gives two incompatible core roles, if any."""
-    seen: dict[str, str] = {}
-    for role in CORE_ROLES:
-        for name in roles.get(role, ()):
-            if name in seen:
-                return name
-            seen[name] = role
-    return None
+def _dedupe_roles(roles: Mapping[str, tuple[str, ...]]) -> dict[str, tuple[str, ...]]:
+    """A field in several roles keeps only its highest-priority one; ROLES order is priority."""
+    seen: set[str] = set()
+    found: dict[str, tuple[str, ...]] = {}
+    for role in ROLES:
+        kept = tuple(name for name in roles.get(role, ()) if name not in seen)
+        seen.update(kept)
+        if kept:
+            found[role] = kept
+    return found
 
 
 def _structure(parsed: Sequence[Parsed]) -> tuple[str, int]:

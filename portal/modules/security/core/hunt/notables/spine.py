@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import re
 import statistics
@@ -132,8 +133,11 @@ _SENTINEL_VALUES = frozenset(
         "null",
         "n/a",
         "unknown",
+        "not_translated",
+        "<null>",
     }
 )
+_LIMITED_BROADCAST = ipaddress.ip_address("255.255.255.255")
 _IDENTITY_KINDS = frozenset({USER, ADDRESS, HOSTNAME, DOMAIN})
 
 
@@ -280,8 +284,26 @@ def _strip_port(token: str) -> str:
 
 
 def is_sentinel_value(value: str) -> bool:
-    """True for unset/loopback/placeholder tokens that name no real actor or endpoint."""
-    return value.casefold() in _SENTINEL_VALUES
+    """True for unset/placeholder tokens and RFC non-actor addresses: never a case anchor."""
+    token = value.casefold()
+    return token in _SENTINEL_VALUES or _is_non_actor_address(token)
+
+
+def _is_non_actor_address(token: str) -> bool:
+    """Multicast, unspecified, loopback, link-local and limited broadcast name no endpoint."""
+    if not (_is_ipv4(token) or _is_ipv6(token)):
+        return False
+    try:
+        address = ipaddress.ip_address(token)
+    except ValueError:
+        return False
+    return (
+        address.is_multicast
+        or address.is_unspecified
+        or address.is_loopback
+        or address.is_link_local
+        or address == _LIMITED_BROADCAST
+    )
 
 
 def _sentinel_hit(kind: str, token: str) -> bool:
