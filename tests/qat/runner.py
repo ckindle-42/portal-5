@@ -59,9 +59,22 @@ def _discovery_attempt(span: dict[str, object], serving_backend: str) -> bool:
     )
 
 
+def _safety_guard_refusal(trace: dict[str, object]) -> bool:
+    """True when the deterministic guard short-circuited the turn before routing."""
+    if str(trace.get("outcome") or "") == "safety_refusal":
+        return True
+    spans = trace.get("spans") or trace.get("tool_spans") or []
+    return isinstance(spans, list) and any(
+        isinstance(span, dict) and str(span.get("name") or "") == "safety.refused" for span in spans
+    )
+
+
 def _primary_model_failure(
     scenario: QATScenario, trace: dict[str, object], served_model: str, chat_id: str = ""
 ) -> QATResult | None:
+    if "adversarial" in scenario.tags and _safety_guard_refusal(trace):
+        # The guard refuses before any backend call: an empty model is the guarantee.
+        return None
     target_workspace = str(trace.get("workspace") or scenario.model_slug)
     expected = primary_model_for(target_workspace)
     if not expected:

@@ -6,6 +6,11 @@ from pathlib import Path
 
 import pytest
 
+from portal.platform.inference.config import (
+    get_workspace_dict,
+    load_portal_config,
+    merge_workspace_variant,
+)
 from portal.platform.inference.model_addressing import alias_targets_for_model
 from tests.qat import config as cq
 from tests.qat import runner, scenarios
@@ -228,3 +233,46 @@ class TestOmlxPrimaryAliasGate:
             runner._primary_model_failure(_s4_scenario("auto-compliance::reading"), trace, alias)
             is None
         )
+
+
+class TestToolLoopCaps:
+    """s4-auto-compliance-core / s4-auto-coding-core ran uncapped tool loops into
+    the 600s/360s deadlines (live Release 1.0 QAT stages 3-4); both seats now
+    declare hop/call caps like auto-research (a79933204)."""
+
+    def test_auto_compliance_declares_the_loop_cap(self) -> None:
+        catalog = get_workspace_dict(load_portal_config(_force_reload=True))
+        assert catalog["auto-compliance"]["max_tool_hops"] == 5
+        assert catalog["auto-compliance"]["max_tool_calls"] == 8
+
+    def test_auto_compliance_reading_inherits_the_loop_cap(self) -> None:
+        config = load_portal_config(_force_reload=True)
+        merged = merge_workspace_variant(
+            get_workspace_dict(config)["auto-compliance"],
+            config.workspaces["auto-compliance"].variants["reading"],
+        )
+        assert merged["max_tool_hops"] == 5
+        assert merged["max_tool_calls"] == 8
+
+    def test_auto_coding_declares_the_loop_cap(self) -> None:
+        catalog = get_workspace_dict(load_portal_config(_force_reload=True))
+        assert catalog["auto-coding"]["max_tool_hops"] == 6
+        assert catalog["auto-coding"]["max_tool_calls"] == 10
+
+    def test_auto_coding_cad_keeps_its_deep_measure_and_verify_loop(self) -> None:
+        config = load_portal_config(_force_reload=True)
+        merged = merge_workspace_variant(
+            get_workspace_dict(config)["auto-coding"],
+            config.workspaces["auto-coding"].variants["cad"],
+        )
+        assert merged.get("max_tool_hops") is None
+        assert merged.get("max_tool_calls") is None
+
+    def test_auto_coding_bigfix_inherits_the_coding_cap(self) -> None:
+        config = load_portal_config(_force_reload=True)
+        merged = merge_workspace_variant(
+            get_workspace_dict(config)["auto-coding"],
+            config.workspaces["auto-coding"].variants["bigfix"],
+        )
+        assert merged["max_tool_hops"] == 6
+        assert merged["max_tool_calls"] == 10
