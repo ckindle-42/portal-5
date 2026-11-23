@@ -56,7 +56,7 @@ class BrowserUI:
 
     def start(self) -> None:
         sync_playwright = load_playwright()
-        self._pw = sync_playwright()
+        self._pw = sync_playwright().start()
         self._browser = self._pw.chromium.launch(headless=True)
         self._page = self._browser.new_page()
         page = self._page
