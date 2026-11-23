@@ -70,6 +70,16 @@ backends:
   # arguments — same weights/template as the incumbent seat).
   - id: granite4.1:30b-ctx96k
     supports_tools: true
+  # Inkling 2 Mini official Ollama library build (nvfp4, Ollama 0.40.17 native
+  # inkling2 renderer/parser), matched-context derived tag: PARAMETER num_ctx
+  # 262144 baked, 0 extra bytes over the base inkling-2-mini pull. The GGUF
+  # fallback for the omlx-general Inkling-2-Mini-oQ4e-mtp seat (same family).
+  # Deliberately NOT aliased in omlx-general (granite4.1:30b-ctx96k pattern):
+  # an alias would shadow bench-inkling-2-mini-ollama onto oMLX and break the
+  # head-to-head. supports_tools:true live-probed via /api/chat (410 math/thinking
+  # + structured fetch_weather tool call).
+  - id: inkling-2-mini:ctx256k
+    supports_tools: true
   # Same 3 MoE-vs-dense IDE-lane candidates as the `coding` group (added
   # 2026-08-26), also needed here for auto-uncensored-throwaway (general
   # group) repointing them at open-topic conversation. ctx256k tags are the
@@ -778,7 +788,7 @@ backends:
   # so tool calls surface as structured tool_calls; not probed live yet.
   - id: Inkling-2-Mini-oQ4e-mtp
     supports_tools: true
-    keep_reason: "no Ollama build of Inkling 2 Mini exists on this host yet (Ollama support is in its next release; unsloth GGUF published 2026-11-20)"
+    keep_reason: "Ollama fallback inkling-2-mini:ctx256k is registered in ollama-general (same family) but deliberately NOT aliased here, so bench-inkling-2-mini-ollama stays Ollama-pinned for the head-to-head; HY's seat check is alias-based, so this exemption stays."
   # P5-FANOUT-001 lane-alignment audit (2026-09-25): granite4.1:30b-ctx96k is
   # deliberately NOT aliased here — the granite-4.1-30b-4bit conversion
   # returned EMPTY output on an 85k-token needle probe (400 correctly at 132k,
@@ -1141,4 +1151,6 @@ workspace_routing:
   bench-qwen38-pi-adapter:
   - general
   bench-inkling-2-mini:
+  - general
+  bench-inkling-2-mini-ollama:
   - general

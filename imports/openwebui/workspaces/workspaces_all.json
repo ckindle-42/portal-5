@@ -271,6 +271,31 @@
     }
   },
   {
+    "id": "auto-daily::inkling",
+    "name": "✨ General · Inkling 2 Mini",
+    "meta": {
+      "description": "✨ General · Inkling 2 Mini",
+      "profile_image_url": "",
+      "toolIds": [
+        "server:mcp:portal_code",
+        "server:mcp:portal_documents",
+        "server:mcp:portal_memory",
+        "server:mcp:portal_rag",
+        "server:mcp:portal_research",
+        "server:mcp:portal_whisper"
+      ],
+      "capabilities": {
+        "builtin_tools": false
+      }
+    },
+    "params": {
+      "model": "auto-daily::inkling",
+      "system": "You are Portal's general assistant on Thinking Machines Lab Inkling 2 Mini — a different model perspective from the daily driver. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, or document generation.",
+      "enable_web_search": true,
+      "function_calling": "native"
+    }
+  },
+  {
     "id": "auto-daily::nemotron",
     "name": "⚡ Nemotron Lightning",
     "meta": {

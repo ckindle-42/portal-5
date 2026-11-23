@@ -725,3 +725,31 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
+  bench-inkling-2-mini-ollama:
+    module: eval
+    name: 🔬 Bench · Inkling 2 Mini (Ollama nvfp4 ctx256k)
+    description: |-
+      Benchmark: the official Ollama library inkling-2-mini (nvfp4, Ollama 0.40.17
+      native inkling2 renderer/parser; Thinking Machines Lab Inkling 2 Mini, 26.4B
+      total / 5.4B active looped MoE, text+image in, 1M trained context) on the
+      matched-context derived tag inkling-2-mini:ctx256k (PARAMETER num_ctx 262144,
+      0 extra bytes). Ollama-pinned head-to-head against bench-inkling-2-mini (the
+      oMLX oQ4e-mtp seat): the tag is deliberately NOT aliased in omlx-general
+      (granite4.1:30b-ctx96k pattern) so this lane stays on Ollama. Live-probed via
+      /api/chat: 410 math/thinking + structured fetch_weather tool call. Sampling
+      mirrors the oMLX bench (generation_config temperature 1.0; top_p 0.95 is the
+      oMLX global default, not a vendor value). PROMOTE_POLICY=confirm.
+    model_hint: inkling-2-mini:ctx256k
+    # ctx: the window is baked into the tag (PARAMETER num_ctx 262144, matched to
+    # oMLX max_context_window). No workspace context_limit: Ollama's /v1 drops it
+    # (P5-OLLAMA-OPTIONS-001), and BW's -ctxNk regex does not parse the colon-form
+    # :ctx256k tag — same shape as the oMLX bench arm, which also declares none.
+    predict_limit: 32768
+    max_concurrent: 1
+    keep_alive: 5m
+    temperature: 1.0
+    top_p: 0.95
+    emits_reasoning: true
+    tools: []
+    expose_to_owui: false
+    enable_web_search: false
