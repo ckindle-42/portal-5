@@ -1224,6 +1224,8 @@ async def chat_completions(
             _has_tools,
             _portal_no_tools,
         ) = await _build_streaming_request(body, backend, target_model, workspace_id, persona)
+        # The builder strips the flag from the engine body; the tool loop still needs the intent.
+        _client_tools_only = bool(body.get("portal_client_tools_only", False))
 
         logger.info(
             "Routing workspace=%s → backend=%s model=%s stream=%s (1/%d candidates)",
@@ -1253,6 +1255,7 @@ async def chat_completions(
                 _tertiary_model,
                 _portal_no_tools,
                 _has_tools,
+                client_tools_only=_client_tools_only,
             )
             _streaming_response = StreamingResponse(
                 _with_portal_timings(
@@ -1289,6 +1292,7 @@ async def chat_completions(
                     remaining,
                     slot,
                     backend_body,
+                    client_tools_only=_client_tools_only,
                 ),
                 usage_wanted=stream_usage_requested(body),
             ),
