@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 import pytest
@@ -43,6 +44,23 @@ def test_artifact_urls_strip_markdown_wrappers() -> None:
     assert artifact_urls({"content": f'**([doc]({kyoto}))***"'}) == (kyoto,)
     balanced = "/api/v1/files/a7a504af-2dde-49b7-8be4-ad6c754a2975/content/report_(final).docx"
     assert artifact_urls({"content": f"**([doc]({balanced}))**"}) == (balanced,)
+
+
+def test_artifact_urls_label_is_url_markdown_link() -> None:
+    # s2-p3-auto-coding::cad: the link label IS the URL; matching must stop at ']'.
+    path = "/api/v1/files/57e58ee5-2dde-49b7-8be4-ad6c754a2975/content/part_0d6b5f.stl"
+    content = f"[{path}](https://chat.intoodeep.systems{path})"
+    urls = artifact_urls({"content": content})
+    assert urls == (path,)
+    assert Path(urlsplit(urls[0]).path).suffix.lower() == ".stl"
+    three = "\n".join(
+        f"[/api/v1/files/57e58ee5-2dde-49b7-8be4-ad6c754a2975/content/part_{i}.stl]"
+        f"(https://chat.intoodeep.systems/api/v1/files/57e58ee5-2dde-49b7-8be4-ad6c754a2975/content/part_{i}.stl)"
+        for i in range(3)
+    )
+    assert artifact_urls({"content": three}) == tuple(
+        f"/api/v1/files/57e58ee5-2dde-49b7-8be4-ad6c754a2975/content/part_{i}.stl" for i in range(3)
+    )
 
 
 def test_phase5_slow_personas_timeout_and_vision_prompts() -> None:
