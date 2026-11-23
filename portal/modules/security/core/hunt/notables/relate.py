@@ -728,6 +728,33 @@ def _pick_key(options: Mapping[str, set[str]]) -> str:
     return min(options, key=lambda key: (-len(options[key]), key))
 
 
+def _flow_key(
+    value: str, steps: Sequence[Mapping[str, Any]], paths: Mapping[str, Mapping[str, set[str]]]
+) -> str:
+    """A flow's entity key, classified from its own fields when the sampled spine never saw it."""
+    key = _pick_key(paths.get(value.casefold()) or {})
+    if key:
+        return key
+    for step in steps:
+        hit = classify(str(step.get("field") or ""), value)
+        if hit is None:
+            continue
+        token = hit.value.casefold()
+        return _pick_key(paths.get(token) or {}) or f"{hit.kind}:{token}"
+    return ""
+
+
+def _flow_admitted(steps: Sequence[Mapping[str, Any]], roles: Sequence[str]) -> bool:
+    """A cross-source handoff links even at equal roles; a same-source step needs a direction."""
+    if len(roles) < 2 or not roles[0] or not roles[1]:
+        return False
+    first = str(steps[0].get("source_id") or "")
+    last = str(steps[-1].get("source_id") or "")
+    if first and last and first != last:
+        return True
+    return _role_transition(roles[0], roles[1]) and bool(_DECIDING_ROLES.intersection(roles))
+
+
 def _spine_units(
     out: Path,
 ) -> tuple[list[CaseUnit], dict[str, dict[str, set[str]]], dict[tuple[str, str], float]]:
@@ -1019,18 +1046,12 @@ def _flow_units(
     for flow in flows:
         steps = [step for step in flow.get("steps") or () if isinstance(step, Mapping)]
         roles = (_step_role(steps[0], identity), _step_role(steps[-1], identity)) if steps else ()
-        key = _pick_key(paths.get(str(flow.get("value") or "").casefold()) or {})
+        key = _flow_key(str(flow.get("value") or ""), steps, paths)
         times = [_number(step.get("first_seen")) for step in steps] + [
             _number(step.get("last_seen")) for step in steps
         ]
         present = [float(item) for item in times if item is not None]
-        if (
-            len(steps) < 2
-            or not key
-            or not _role_transition(*roles)
-            or not _DECIDING_ROLES.intersection(roles)
-            or not present
-        ):
+        if len(steps) < 2 or not key or not present or not _flow_admitted(steps, roles):
             skipped += 1
             continue
         endpoints = tuple(str(step.get("source_id") or "") for step in steps)

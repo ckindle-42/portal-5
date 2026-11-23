@@ -292,32 +292,51 @@ def test_per_window_events_allocates_each_source_its_share_of_the_stage_budget()
         assert sources * BEHAVIOUR_WINDOWS * per_window_events(sources) <= BEHAVIOUR_TOTAL_EVENTS
 
 
+class _SplunkCapExec:
+    """Models Splunk: one query returns only its time window's events, capped at maxresultrows."""
+
+    def __init__(self, events: int) -> None:
+        self.events = events
+        self.calls: list[tuple[float, float, int | None]] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del query, kind
+        self.calls.append((start, end, row_cap))
+        in_window = [t for t in range(self.events) if start <= t < end]
+        count = min(len(in_window), row_cap or 0, 10_000)
+        rows = [{"_time": float(t), "host": "h1", "_raw": f"event-{t}"} for t in in_window[:count]]
+        return Read(rows, False, None)
+
+
 def test_a_hundred_thousand_event_lone_source_is_read_whole_not_sampled() -> None:
     from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
 
-    class _Exec:
-        def __init__(self) -> None:
-            self.caps: list[int | None] = []
-
-        def read(
-            self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
-        ) -> Read:
-            del query, kind
-            self.caps.append(row_cap)
-            count = min(row_cap or 0, 95_871)
-            rows = [
-                {"_time": start + float(n), "host": "h1", "_raw": f"event-{n}"}
-                for n in range(count)
-            ]
-            return Read(rows, False, None)
-
     facts = SourceFacts("ix", "st", 95_871, 0.0, 95_871.0, ("h1",), 1, ("s1",), 1)
-    executor = _Exec()
+    executor = _SplunkCapExec(95_871)
     read = read_behaviour_source(executor, facts, per_window_events(1))
 
     assert read.read_mode == "whole"
     assert len(read.rows) == 95_871  # every event, so a 23-row rare burst cannot be sampled away
     assert read.selection == "full source range within allocated row budget"
+    # one capped query would stop at 10000; time-bounded sub-windows read the whole source
+    assert len(executor.calls) > 1
+    assert all(
+        len([t for t in range(95_871) if s <= t < e]) <= 10_000 for s, e, _ in executor.calls
+    )
+
+
+def test_a_whole_source_under_the_splunk_ceiling_stays_one_window() -> None:
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    facts = SourceFacts("ix", "st", 9_000, 0.0, 9_000.0, ("h1",), 1, ("s1",), 1)
+    executor = _SplunkCapExec(9_000)
+    read = read_behaviour_source(executor, facts, per_window_events(1))
+
+    assert read.read_mode == "whole"
+    assert len(read.rows) == 9_000
+    assert len(executor.calls) == 1  # no needless splitting below the ceiling
 
 
 def test_sampled_slices_keep_the_per_read_ceiling_when_the_share_is_larger() -> None:

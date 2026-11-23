@@ -37,6 +37,10 @@ PROOF_INDEXES = frozenset(
         "hb_ics_pcap",
         "hb_lmd_2023",
         "hb_uwf_zeek24",
+        "hb_otrf_apt3",
+        "hb_botsv3",
+        "hb_cyber4ot",
+        "hb_icssim",
     }
 )
 TRAINING_INDEXES = frozenset(

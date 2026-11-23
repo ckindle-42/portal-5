@@ -417,3 +417,116 @@ def test_a_flow_step_role_the_card_plan_never_names_still_links_its_episodes() -
     # without the recorded role the card plan cannot name src_ip: the old 0-flow-links bug
     legacy = [{**steps[0], "role": ""}, {**steps[1], "role": ""}]
     assert _flow_units([{"value": "10.1.1.1", "steps": legacy}], identity, paths) == ([], 1)
+
+
+def _step(source: str, field: str, role: str, first: float, last: float) -> dict[str, Any]:
+    return {
+        "source_id": source,
+        "field": field,
+        "role": role,
+        "first_seen": first,
+        "last_seen": last,
+    }
+
+
+def _flow_case(units: list[CaseUnit], episodes: list[CaseUnit]) -> dict[str, Any] | None:
+    groups, _counters = _case_groups([*episodes, *units])
+    assert len(groups) == 1
+    events = {
+        eid: {"line": f"line {eid}", "host": "h1", "source": "s"}
+        for episode in episodes
+        for eid in episode.event_ids
+    }
+    return _case_from_members(groups[0], events, set())
+
+
+def test_cross_source_object_handoff_links_episodes_into_a_case() -> None:
+    # hb_ics_pcap shape: bro:conn uid (object) -> bro:http uid (object), equal roles across sources
+    paths = {"c00gnf3dhvghk8sm1h": {"user:c00gnf3dhvghk8sm1h": {"ix:conn", "ix:http"}}}
+    steps = [
+        _step("ix:conn", "uid", "object", START, START + 60),
+        _step("ix:http", "uid", "object", START + 120, START + 180),
+    ]
+    units, skipped = _flow_units([{"value": "C00GNF3DHvgHK8SM1h", "steps": steps}], {}, paths)
+    assert skipped == 0
+    assert len(units) == 1
+    assert units[0].roles == ("object", "object")
+    episodes = [
+        _unit(
+            "episode", "user:c00gnf3dhvghk8sm1h", "ix:conn", START, START + 60, event_ids=("e1",)
+        ),
+        _unit(
+            "episode",
+            "user:c00gnf3dhvghk8sm1h",
+            "ix:http",
+            START + 120,
+            START + 180,
+            event_ids=("e2",),
+        ),
+    ]
+    case = _flow_case(units, episodes)
+    assert case is not None
+    assert "1 flow links" in case["why"]
+
+
+def test_cross_source_actor_to_object_handoff_links_episodes() -> None:
+    # hb_ait_wilson shape: suricata src_ip (actor) -> suricata:fast dest (object)
+    paths = {"147.154.152.209": {"address:147.154.152.209": {"ix:suricata", "ix:fast"}}}
+    steps = [
+        _step("ix:suricata", "src_ip", "actor", START, START + 60),
+        _step("ix:fast", "dest", "object", START + 120, START + 180),
+    ]
+    units, skipped = _flow_units([{"value": "147.154.152.209", "steps": steps}], {}, paths)
+    assert skipped == 0
+    assert len(units) == 1
+    episodes = [
+        _unit(
+            "episode",
+            "address:147.154.152.209",
+            "ix:suricata",
+            START,
+            START + 60,
+            event_ids=("e1",),
+        ),
+        _unit(
+            "episode",
+            "address:147.154.152.209",
+            "ix:fast",
+            START + 120,
+            START + 180,
+            event_ids=("e2",),
+        ),
+    ]
+    case = _flow_case(units, episodes)
+    assert case is not None
+    assert "1 flow links" in case["why"]
+
+
+def test_a_flow_value_absent_from_the_sampled_spine_is_classified_not_censored() -> None:
+    # hb_ait_wilson: tstats discovered the IP across sources but the sampled store never held it
+    steps = [
+        _step("ix:suricata", "dest_ip", "object", START, START + 60),
+        _step("ix:fast", "dest", "object", START + 120, START + 180),
+    ]
+    units, skipped = _flow_units([{"value": "104.244.43.131", "steps": steps}], {}, {})
+    assert skipped == 0
+    assert len(units) == 1
+    assert units[0].key == "address:104.244.43.131"
+
+
+def test_a_same_source_object_pair_is_not_a_flow() -> None:
+    # ambient same-source junk: equal roles at one source carry no handoff
+    paths = {"104.244.43.131": {"address:104.244.43.131": {"ix:suricata"}}}
+    steps = [
+        _step("ix:suricata", "dest_ip", "object", START, START + 60),
+        _step("ix:suricata", "dest", "object", START + 120, START + 180),
+    ]
+    assert _flow_units([{"value": "104.244.43.131", "steps": steps}], {}, paths) == ([], 1)
+
+
+def test_a_flow_value_that_is_no_entity_is_still_censored() -> None:
+    steps = [
+        _step("ix:a", "f", "object", START, START + 60),
+        _step("ix:b", "g", "object", START + 120, START + 180),
+    ]
+    assert _flow_units([{"value": "not an entity", "steps": steps}], {}, {}) == ([], 1)
