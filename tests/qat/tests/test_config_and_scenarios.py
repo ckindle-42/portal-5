@@ -453,7 +453,7 @@ class TestRegistry:
         assert "windows:sysmon" in joined
         assert "fgt_" in joined
         assert "earliest=-7d@d" in joined
-        assert all(s.expected_tools == ("splunk",) for s in hunt)
+        assert all(s.expected_tools == ("query_splunk",) for s in hunt)
 
     def test_injection_and_lab_gate_probes_present(self) -> None:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())

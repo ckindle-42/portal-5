@@ -290,7 +290,7 @@ class SafetyRefusalError(Exception):
 def record_refusal(refusal: SafetyRefusalError) -> None:
     """One log line, trace span and counter per refused turn — never the prompt text."""
     logger.warning("safety guard refused turn: kind=%s model=%s", refusal.kind, refusal.model)
-    trace_note(outcome="safety_refusal", guard=refusal.kind)
+    trace_note(workspace=refusal.model, outcome="safety_refusal", guard=refusal.kind)
     trace_span("safety.refused", kind=refusal.kind, model=refusal.model)
     _record_safety_refusal(refusal.kind, refusal.model)
 
