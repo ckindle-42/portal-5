@@ -827,7 +827,7 @@ def _phase_security_hunt(_s: Settings, d: Discovery) -> list[QATScenario]:
             prompts=(prompt,),
             tools=d.preset_tools("auto-spl"),
             expected="valid SPL + finding referencing the renamed sourcetype",
-            expected_tools=("splunk",),
+            expected_tools=("query_splunk",),
             rubric=_rubric(("spl", "SPL syntactically valid, sourcetype targeted")),
             tags=("hunt", lane),
         )
