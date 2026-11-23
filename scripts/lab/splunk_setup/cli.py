@@ -342,7 +342,9 @@ def _macro_rows(svc: rest.SplunkREST) -> list[dict[str, object]]:
 def _macro_check(svc: rest.SplunkREST, macro: str) -> tuple[bool, str]:
     """The property is the parser's expansion, not the conf row: `()` means the scope lost."""
     expansion = svc.macro_expansion(macro)
-    missing = [spec.target_index for spec in plan.TUNED if spec.target_index not in expansion]
+    if plan.CONTROL_INDEX in expansion:
+        return False, f"expansion names the control index {plan.CONTROL_INDEX}: {expansion}"
+    missing = [name for name in plan.cim_allowlist_indexes() if name not in expansion]
     if missing:
         return False, f"expansion does not name {missing}: {expansion}"
     return True, expansion
@@ -401,6 +403,39 @@ def _model_check(svc: rest.SplunkREST, model: str) -> tuple[bool, str]:
     window = str(plan.ACCEL_WINDOW)
     covered = enabled and earliest == window
     return covered, f"reports enabled={enabled} {earliest}; want enabled {window}"
+
+
+def cmd_cim(args: argparse.Namespace) -> int:
+    """Write the CIM index macros and rebuild DMA. Does not create, delete, or reship indexes."""
+    svc = rest.SplunkREST(transport=_transport(args))
+    definition = plan.cim_macro_definition()
+    actions: list[dict[str, object]] = []
+    changed = False
+    for macro in plan.cim_macros(args.with_change):
+        action = svc.ensure_macro(plan.CIM_APP, macro, definition, dry_run=args.dry_run)
+        changed = changed or action.changed
+        actions.append(asdict(action))
+    models = plan.accelerated_models(args.with_change)
+    if changed:
+        actions.extend(
+            asdict(
+                svc.rebuild_datamodel_acceleration(
+                    plan.CIM_APP, model, plan.accel_settings(), dry_run=args.dry_run
+                )
+            )
+            for model in models
+        )
+    else:
+        actions.extend(_accelerate(svc, with_change=args.with_change, dry_run=args.dry_run))
+    _print(
+        {
+            "dry_run": args.dry_run,
+            "definition": definition,
+            "indexes_written": [],
+            "actions": actions,
+        }
+    )
+    return 0
 
 
 def cmd_rollback(args: argparse.Namespace) -> int:
@@ -491,6 +526,15 @@ def build_parser() -> argparse.ArgumentParser:
     apply_.add_argument("--container", default=host.DEFAULT_CONTAINER)
     apply_.add_argument("--offline", action="store_true")
     apply_.set_defaults(func=cmd_apply)
+
+    cim = sub.add_parser(
+        "cim",
+        help="write Splunk_SA_CIM index macros and rebuild DMA over -10y; does not touch indexes",
+    )
+    cim.add_argument("--with-change", action="store_true")
+    cim.add_argument("--dry-run", action="store_true")
+    cim.add_argument("--offline", action="store_true")
+    cim.set_defaults(func=cmd_cim)
     _stage_parsers(sub)
     return parser
 

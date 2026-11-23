@@ -198,6 +198,19 @@ EVENTTYPES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 CIM_APP = "Splunk_SA_CIM"
 CIM_DEFAULT_DEFINITION = "()"
 
+#: Hunt-bed indexes ingested outside stage 2. On the CIM allowlist, never created or reshipped here.
+CIM_EXTRA_INDEXES = (
+    "hb_ait_fox",
+    "hb_ait_harrison",
+    "hb_ait_shaw",
+    "hb_ait_wardbeck",
+    "hb_ait_wilson",
+    "hb_flaws_aws",
+    "hb_uwf_zeek24",
+    "hb_lmd_2023",
+    "hb_ics_pcap",
+)
+
 #: Files an earlier release shipped and this one does not; a tar install overwrites but never
 #: deletes, so the installer removes them by name.
 LEGACY_CONF_FILES = ("datamodels.conf",)
@@ -237,9 +250,17 @@ def cim_macros(with_change: bool = False) -> tuple[str, ...]:
     return tuple(f"cim_{model}_indexes" for model in accelerated_models(with_change))
 
 
+def cim_allowlist_indexes() -> tuple[str, ...]:
+    """Tuned `_v2` indexes plus the extended hunt-bed indexes. Never the control index."""
+    names = tuple(spec.target_index for spec in TUNED) + CIM_EXTRA_INDEXES
+    if CONTROL_INDEX in names or len(names) != len(set(names)):
+        raise ValueError(f"CIM allowlist must be unique and exclude {CONTROL_INDEX}")
+    return names
+
+
 def cim_macro_definition() -> str:
-    """The definition that scopes a model to the tuned indexes and keeps botsv2 out."""
-    return "(" + " OR ".join(f"index={spec.target_index}" for spec in TUNED) + ")"
+    """Scope every accelerated model to the allowlist and keep botsv2 out of it."""
+    return "(" + " OR ".join(f"index={name}" for name in cim_allowlist_indexes()) + ")"
 
 
 @dataclass(frozen=True)
