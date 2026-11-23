@@ -54,6 +54,7 @@ BEHAVIOUR_BURST_SUB_WINDOWS = (
 BEHAVIOUR_BURST_SPAN_SECONDS = 4 * 3600  # four-hour burst bucket width matching deviation
 BEHAVIOUR_BURST_SERIES_ROWS = 40_000  # effort budget: per-period tstats rows for burst planning
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
+SPLUNK_MAX_RESULT_ROWS = 10_000  # Splunk maxresultrows: one search silently caps here
 BEHAVIOUR_TOTAL_EVENTS = 400_000  # effort budget: parsed events across the whole stage
 BEHAVIOUR_ANCHOR_MERGE_SECONDS = 300  # value spans closer than this are one anchor window
 STRUCTURED_FORMATS = frozenset({"json", "xml", "kv", "delimited"})
@@ -754,6 +755,11 @@ def _is_complete_source(facts: SourceFacts, per_window: int) -> bool:
     )
 
 
+def _whole_window_count(events: int) -> int:
+    """Time slices sized so no single whole-read query hits Splunk's maxresultrows ceiling."""
+    return max(1, math.ceil(events / SPLUNK_MAX_RESULT_ROWS))
+
+
 def anchor_windows(
     inventory: Mapping[str, Any], source_id: str, limit: int = BEHAVIOUR_WINDOWS
 ) -> list[tuple[float, float]]:
@@ -991,7 +997,7 @@ def read_behaviour_source(
         read = read_files(
             executor,
             facts,
-            source_windows(facts, 1),
+            source_windows(facts, _whole_window_count(facts.events)),
             per_window=facts.events,
             kind="behavior_events",
         )

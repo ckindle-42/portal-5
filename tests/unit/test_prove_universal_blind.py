@@ -8,6 +8,7 @@ import duckdb
 import pytest
 
 from scripts.hunt_bed.prove_universal_blind import (
+    KEY_PATHS,
     PROOF_INDEXES,
     canonical_index,
     load_key,
@@ -23,7 +24,7 @@ from scripts.hunt_bed.score_cases import _digest
 
 
 def test_rejects_non_proof_index() -> None:
-    with pytest.raises(ValueError, match="six Universal Hunt proof indexes"):
+    with pytest.raises(ValueError, match="Universal Hunt proof index"):
         canonical_index("hb_ait_fox")
 
 
@@ -44,7 +45,7 @@ def test_refuses_stage4_verdict_feedback_in_blind_mode() -> None:
 
 
 def test_resolves_key_paths_for_all_six_proof_corpora(tmp_path: Path) -> None:
-    for index in PROOF_INDEXES:
+    for index in KEY_PATHS:
         relative = {
             "hb_flaws_aws": "flaws_manifest/keys.jsonl",
             "hb_ait_wardbeck": "ait_wardbeck_key.json",
@@ -424,3 +425,43 @@ def test_zeek_key_falls_back_to_windows_when_no_manifest_is_present(tmp_path: Pa
     _window_key(key_path, host="unknown", log_path="/Reconnaissance/part-00000.csv")
     key = load_key("hb_uwf_zeek24", key_path)
     assert key.unit_kind == "attack_windows"
+
+
+def test_wave3_proof_indexes_are_registered_and_accepted() -> None:
+    from portal.modules.security.core.hunt.notables.knowledge import PROOF_INDEXES as KNOWLEDGE
+
+    for index in ("hb_otrf_apt3", "hb_botsv3", "hb_cyber4ot", "hb_icssim"):
+        assert index in KNOWLEDGE
+        assert index in PROOF_INDEXES
+        assert canonical_index(index) == index
+
+
+def test_an_index_without_a_key_file_scores_recall_none(tmp_path: Path) -> None:
+    assert resolve_key_path("hb_otrf_apt3", tmp_path) is None
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "notables.jsonl").write_text(json.dumps({"evidence": []}) + "\n")
+    (run_dir / "cases.json").write_text(json.dumps({"cases": []}))
+    _add_event_store(run_dir)
+    row = score_corpus("hb_otrf_apt3", None, run_dir, 1.0)
+    assert row["index"] == "hb_otrf_apt3"
+    assert row["events"] == 2
+    assert row["notables_score"]["attack_steps"]["recall"] is None
+    assert row["cases_score"]["keyed_units"]["recall"] is None
+    assert row["zero_knowledge"] is True
+
+
+def test_dry_run_accepts_a_wave3_index_without_a_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("PORTAL_HUNT_KNOWLEDGE_STORE", raising=False)
+    monkeypatch.delenv("PORTAL_HUNT_KNOWLEDGE_FAMILIES", raising=False)
+    monkeypatch.setenv("PORTAL_HUNT_STAGE4_VERDICTS", "0")
+    import scripts.hunt_bed.prove_universal_blind as proof_runner
+
+    monkeypatch.setattr(proof_runner, "default_search", lambda: pytest.fail("dry run made search"))
+    assert main(["--index", "hb_otrf_apt3", "--keys-dir", str(tmp_path), "--dry-run"]) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["status"] == "dry_run_ok"
+    assert output["splunk_contacted"] is False
+    assert output["keys"]["hb_otrf_apt3"] is None

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run and score the six held-out Universal Hunt proof corpora."""
+"""Run and score the held-out Universal Hunt proof corpora."""
 
 from __future__ import annotations
 
@@ -22,6 +22,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from score_cases import _digest  # noqa: E402
 
 from portal.modules.security.core.hunt.notables import __main__ as hunt_cli  # noqa: E402
+from portal.modules.security.core.hunt.notables.knowledge import (  # noqa: E402
+    PROOF_INDEXES as KNOWLEDGE_PROOF_INDEXES,
+)
 from portal.modules.security.core.hunt.notables.run import (  # noqa: E402
     DEFAULT_GENERATORS,
     default_search,
@@ -40,7 +43,7 @@ KEY_PATHS = {
     "hb_lmd_2023": ("LMD-2023_key.json",),
     "hb_ics_pcap": ("ICS-pcap_key.json",),
 }
-PROOF_INDEXES = tuple(KEY_PATHS)
+PROOF_INDEXES = tuple(sorted(KNOWLEDGE_PROOF_INDEXES))
 HUNT_STAGES = ("cards", "behaviours", "notables", "relate")
 TOP_K = (10, 25, 50, 100)
 WINDOW_SLACK_SECONDS = 60.0
@@ -72,22 +75,21 @@ class KeyData:
 
 
 def canonical_index(index: str) -> str:
-    """Return one of the six proof-corpus names."""
+    """Return a canonical Universal Hunt proof-index name."""
     clean = index.strip().casefold()
-    if clean not in KEY_PATHS:
-        raise ValueError(f"{index!r} is not one of the six Universal Hunt proof indexes")
+    if clean not in KNOWLEDGE_PROOF_INDEXES:
+        raise ValueError(f"{index!r} is not a Universal Hunt proof index")
     return clean
 
 
-def resolve_key_path(index: str, keys_dir: Path) -> Path:
-    """Resolve an index's existing out-of-band key file."""
+def resolve_key_path(index: str, keys_dir: Path) -> Path | None:
+    """Resolve an index's out-of-band key file, or None when it has none yet."""
     canonical = canonical_index(index)
-    candidates = [keys_dir / name for name in KEY_PATHS[canonical]]
-    for candidate in candidates:
+    for name in KEY_PATHS.get(canonical, ()):
+        candidate = keys_dir / name
         if candidate.is_file():
             return candidate
-    tried = ", ".join(str(path) for path in candidates)
-    raise FileNotFoundError(f"no key file for {canonical}; checked: {tried}")
+    return None
 
 
 def _flag(value: str | None) -> bool:
@@ -525,9 +527,15 @@ def _store_line_units(run_dir: Path, key: KeyData) -> dict[str, set[str]]:
     return found
 
 
-def score_corpus(index: str, key_path: Path, run_dir: Path, elapsed: float) -> dict[str, Any]:
-    """Score one completed hunt directory and return its receipt row."""
-    key = load_key(index, key_path)
+def score_corpus(
+    index: str, key_path: Path | None, run_dir: Path, elapsed: float
+) -> dict[str, Any]:
+    """Score one completed hunt directory; an absent key leaves recall unmeasurable (None)."""
+    key = (
+        load_key(index, key_path)
+        if key_path is not None
+        else KeyData(unit_kind="unkeyed", scoring_method="no out-of-band key file; recall is None")
+    )
     line_units = _store_line_units(run_dir, key) if key.unit_kind == "keyed_lines" else None
     notables = _read_jsonl(run_dir / "notables.jsonl")
     cases_payload = json.loads((run_dir / "cases.json").read_text(encoding="utf-8"))
@@ -672,7 +680,10 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "status": "dry_run_ok",
                     "indexes": list(indexes),
-                    "keys": {name: str(path) for name, path in resolved.items()},
+                    "keys": {
+                        name: (str(path) if path is not None else None)
+                        for name, path in resolved.items()
+                    },
                     "knowledge_store": None,
                     "similar_to_known_enabled": False,
                     "stage4_verdicts_enabled": False,
