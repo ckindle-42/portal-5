@@ -1208,6 +1208,26 @@ workspaces:
         inject_memory: null
         memory_writeback: null
         top_k: null
+      inkling:
+        name: "✨ General · Inkling 2 Mini"
+        description: |-
+          Thinking Machines Lab Inkling 2 Mini (26.4B total / 5.4B active looped MoE, nvfp4, 1M trained context) on the official Ollama 0.40.17 library build, matched 256K window (inkling-2-mini:ctx256k, PARAMETER num_ctx 262144). Native inkling2 renderer/parser; reasoning is the template's reasoning_effort kwarg (no enable_thinking switch). A different lineage from the daily driver — live-probed 410 math/thinking + structured fetch_weather tool call. Benched head-to-head against the oMLX oQ4e-mtp seat (bench-inkling-2-mini-ollama vs bench-inkling-2-mini). Freshly staged — no production track record yet.
+        model_hint: inkling-2-mini:ctx256k
+        context_limit: 262144
+        predict_limit: 32768
+        max_concurrent: 1
+        keep_alive: 5m
+        # generation_config.json temperature 1.0; top_p 0.95 is the oMLX global
+        # default (not a vendor value), matched to the oMLX bench seat. top_k null
+        # so the base seat's Qwen top_k is not served on Inkling.
+        temperature: 1.0
+        top_p: 0.95
+        top_k: null
+        emits_reasoning: true
+        owui_system_prompt: |-
+          You are Portal's general assistant on Thinking Machines Lab Inkling 2 Mini — a different model perspective from the daily driver. Use for everyday chat, writing, summarization, and planning. Escalate to specialist workspaces for heavy coding, deep reasoning, or document generation.
+        expose_to_owui: true
+        enable_web_search: true
   auto-coding:
     module: coding
     name: 💻 Portal Code Expert

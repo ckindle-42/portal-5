@@ -2624,8 +2624,9 @@ template's `reasoning_effort` kwarg (`none/minimal/low/medium/high/xhigh/max` �
 `think: false` is inert on it. Card caveats: repetitive reasoning loops (it recommends output
 and turn limits), weaker instruction fidelity on project conventions, and minimum effort does
 not disable reasoning. Bench lane `bench-inkling-2-mini` (`temperature 1.0`, `top_p 0.95`,
-`emits_reasoning: true`). No Ollama build is installed anywhere on this host; `unsloth` and
-`ggml-org` GGUF re-quants appeared 2026-11-20 for the Ollama path in its next release.
+`emits_reasoning: true`). The Ollama path now exists: the official library `inkling-2-mini`
+(`nvfp4`) was pulled on Ollama 0.40.17 and the matched-context `inkling-2-mini:ctx256k` tag
+registered as this seat's GGUF fallback — see that section below.
 
 ## Why
 
@@ -2635,3 +2636,38 @@ multimodal model that fits beside the existing fleet. Registering them as bench 
 the intake reversible (delete the group + workspaces, or the profile) and keeps the card numbers
 from being mistaken for this host's evidence — every one of them was measured on B200s, and none
 has been re-measured here yet.
+
+---
+
+### `inkling-2-mini:ctx256k`
+
+`inkling-2-mini:ctx256k` is the matched-context derived tag of the **official Ollama library
+`inkling-2-mini`** (Thinking Machines Lab Inkling 2 Mini, `nvfp4`, 26.4B total / 5.4B active
+looped MoE, text **and image** in, 1M-token trained context), pulled on Ollama **0.40.17** with
+the native `inkling2` renderer and parser (capabilities: completion, vision, tools, thinking).
+The tag bakes `PARAMETER num_ctx 262144` — matching oMLX's `max_context_window: 262144` in
+`~/.omlx/model_settings.json` — from the existing blobs, 0 extra disk bytes. `config/backends.yaml`
+registers it in the `general` group (`ollama-general`) with `supports_tools: true`, live-probed
+via `/api/chat` (410 math/thinking + a structured `fetch_weather` tool call). It is the GGUF
+fallback for the `omlx-general` `Inkling-2-Mini-oQ4e-mtp` seat (same family) but is **deliberately
+NOT aliased** in `omlx-general` (the `granite4.1:30b-ctx96k` pattern): an alias would shadow the
+Ollama bench lane onto oMLX and break the head-to-head, so the oMLX seat keeps a `keep_reason`
+(HY's seat check is alias-based).
+
+`config/bench_workspaces.yaml` binds it as the `model_hint` of `bench-inkling-2-mini-ollama`
+(`context_limit: 262144`, `ctx_validated: true`, `temperature 1.0`, `top_p 0.95`,
+`emits_reasoning: true`) — the Ollama arm of the head-to-head against `bench-inkling-2-mini`
+(the oMLX oQ4e-mtp seat). `config/portal.yaml` exposes it as the user-facing production variant
+`auto-daily::inkling` ("✨ General · Inkling 2 Mini", `context_limit: 262144`,
+`predict_limit: 32768`, `temperature 1.0`, `top_p 0.95`, `emits_reasoning: true`,
+`expose_to_owui: true`). Because the tag is not aliased, that variant serves on Ollama; the oMLX
+conversion remains reachable through `bench-inkling-2-mini`.
+
+## Why
+
+The official library build gives the fleet a first-party Ollama path for Inkling 2 Mini (native
+`inkling2` parsing, no community re-quant), and the matched 256K tag lets the Ollama and oMLX
+seats be benched at the same window the deployment serves. Keeping the tag un-aliased is what
+makes `bench-inkling-2-mini-ollama` a true Ollama arm rather than a second oMLX seat; the
+production variant inherits that Ollama-only resolution. Citing both config files keeps the
+parity gate grounded in the two places that decide where the seat lives.
