@@ -878,7 +878,10 @@ def _run_chat_turns(
         if (
             index == 2
             and "continuity" in scenario.tags
-            and "orchid-9" not in outcome.text.casefold()
+            and "orchid-9"
+            not in outcome.text.translate(
+                str.maketrans("\u2010\u2011\u2012\u2013\u2014\u2015\u2212", "-------")
+            ).casefold()
         ):
             return (
                 None,
