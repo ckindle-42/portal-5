@@ -224,6 +224,35 @@ def _select_followup_artifact(
     return matched[0] if len(matched) == 1 else None
 
 
+_MUSIC_NOUN_RE = re.compile(
+    r"\b(?:music|songs?|tracks?|jingles?|beats?|instrumentals?|loops?|audio\s+clips?)\b"
+)
+# "audio clip"/"instrumental clip" are music; a bare "clip" is video.
+_VIDEO_NOUN_RE = re.compile(
+    r"\b(?:videos?|mp4|animations?)\b|(?<!audio )(?<!instrumental )\bclips?\b"
+)
+
+
+def _media_side_effect_candidates(text: str) -> list[tuple[str, bool]]:
+    """Explicit media generation requests; a voice-clone request is not also a music request."""
+    clone = "clone_voice" in text or (re.search(r"\bclone\b", text) is not None and "voice" in text)
+    create = _CREATE_ACTION_RE.search(text) is not None
+    return [
+        ("clone_voice", clone),
+        (
+            "generate_music",
+            not clone
+            and (create or re.search(r"\bcompose\b", text) is not None)
+            and _MUSIC_NOUN_RE.search(text) is not None,
+        ),
+        (
+            "generate_video",
+            (create or re.search(r"\brender\b", text) is not None)
+            and _VIDEO_NOUN_RE.search(text) is not None,
+        ),
+    ]
+
+
 def _select_explicit_required_tool(
     messages: list[dict[str, Any]], effective_tools: set[str]
 ) -> str | None:
@@ -277,6 +306,7 @@ def _select_explicit_required_tool(
             ),
         ),
     ]
+    candidates.extend(_media_side_effect_candidates(text))
     if _READ_ACTION_RE.search(text):
         return None
     matched = [name for name, hit in candidates if hit and name in effective_tools]

@@ -21,7 +21,9 @@ from .artifacts import raw_tool_error_leak
 from .config import Settings
 
 POLL_INTERVAL_S = 2.0
-ARTIFACT_URL_RE = re.compile(r"/api/v1/files/[0-9a-fA-F-]{8,}/content/\S+")
+ARTIFACT_URL_RE = re.compile(
+    r"/api/v1/files/[0-9a-fA-F-]{8,}/content/(?:[^\s\]\"'<>()]|\([^\s\]\"'<>()]*\))+"
+)
 TERMINAL_STATES = {"completed", "complete", "done", "success"}
 _RED = (255, 0, 0)
 
