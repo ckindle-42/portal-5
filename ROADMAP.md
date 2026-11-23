@@ -229,8 +229,9 @@ both under `module: eval` and gated for promotion (`PROMOTE_POLICY=confirm` in
 bench-voxtral-realtime, bench-voxtral-tts, bench-granite-speech — are not
 registered in `config/portal.yaml` and survive only as CHANGELOG records. The
 promotion gates the roadmap lists have code anchors: the CC-01 Asteroids coding
-challenge shootout lives in `tests/uat_catalog/g_benchmark.py` and the
-coding-shootout-v2 analyzer in `tests/benchmarks/coding_shootout_analyze.py`.
+challenge shootout ran through the retired UAT catalog (its recorded rows survive
+in `tests/UAT_RESULTS.md`, read by `tests/scripts/cc_challenge_matrix.py`), and the
+coding-shootout-v2 analyzer lives in `tests/benchmarks/coding_shootout_analyze.py`.
 
 ## Why
 

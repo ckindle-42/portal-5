@@ -30,8 +30,8 @@ If the upstream publishes a corrected revision, run from repo root:
 ./scripts/patch-qwen-templates.py --refetch
 # 3. Re-run the patcher on all configured models:
 ./launch.sh patch-qwen-templates
-# 4. Run UAT on each affected workspace:
-python3 tests/portal5_uat_driver.py --workspace auto --runs 1
+# 4. Run QAT on each affected workspace:
+uv run python -m tests.qat --scenario s2-p3-<workspace>
 ```
 
 ## How models opt in

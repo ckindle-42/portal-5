@@ -94,56 +94,6 @@ def _known_workspace_ids() -> set[str]:
     return set(cfg.workspaces) | variants | set(cfg.aliases or {})
 
 
-@register("uat_catalog_no_stale", "K. UAT catalog refs", order=10)
-def check_uat_catalog_no_stale_refs() -> tuple[str, str, list[dict]]:
-    """K. UAT catalog has no stale workspace references.
-
-    Hard-fail (BUILD_PROGRAM_ALIAS_RETIRE_V1.md Phase 3 / TASK_UAT_CATALOG_
-    RECONCILE_V1): every test's ``model_slug`` must resolve to a live
-    workspace or a live persona. Promoted from the original soft-WARN once
-    the catalog was reconciled to canonical addressing (base workspace id +
-    ``route_params``) — a stale ``model_slug`` means the test would 404/500
-    against the live pipeline.
-
-    Scans ``model_slug`` values specifically (not every quoted ``auto-*``/
-    ``bench-*`` string in the file body) — the original file-body regex
-    caught false positives in ``section`` labels and comments that describe
-    routing without being a routable value (e.g. a section label like
-    "auto-security (redteam-deep)" mentions a retired alias's old name for
-    legibility without being a live route). Live-but-uncovered is operator
-    triage, not a hard error here.
-    """
-    try:
-        import re
-
-        import tests.uat_catalog as cat
-        from portal.platform.inference.config import load_persona_map
-    except ImportError as e:
-        return "SKIP", f"import: {e}", []
-
-    live_ws = _known_workspace_ids()
-    live_personas = set(load_persona_map(include_bench=True).keys())
-    live = live_ws | live_personas
-
-    slug_re = re.compile(r'"model_slug"\s*:\s*"([^"]+)"')
-    bad: list[tuple[str, str]] = []
-    for attr in dir(cat):
-        if not attr.startswith("g_"):
-            continue
-        mod = getattr(cat, attr)
-        if hasattr(mod, "__file__"):
-            with open(mod.__file__) as _f:
-                src = _f.read()
-            for m in slug_re.finditer(src):
-                slug = m.group(1)
-                if slug and slug not in live:
-                    bad.append((attr, slug))
-    if bad:
-        stale = sorted({slug for _, slug in bad})
-        return "FAIL", f"{len(stale)} stale model_slug ref(s) in UAT catalog: {stale[:10]}", []
-    return "PASS", "UAT catalog model_slug refs all resolve to live workspaces/personas", []
-
-
 @register("persona_workspace", "L. persona workspace refs", order=11)
 def check_persona_workspace_resolution() -> tuple[str, str, list[dict]]:
     """L. Every persona's workspace_model resolves to a live workspace."""

@@ -1,4 +1,4 @@
-"""Shared constants used by acceptance_v6, portal5_uat_driver, and bench_tps."""
+"""Shared refusal vocabulary (legacy UAT/acceptance consumers retired)."""
 
 from __future__ import annotations
 

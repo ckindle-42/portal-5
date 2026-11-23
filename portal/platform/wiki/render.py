@@ -151,7 +151,6 @@ TIER1_DOCS = (
     "docs/DESIGN_WIKI_GENERATION_LOOP_V1.md",
     "docs/security/corpus_injection.md",
     "config/MODEL_CATALOG.md",
-    "tests/PORTAL5_ACCEPTANCE_EXECUTE_V9.md",
     "tests/PORTAL5_BENCH_EXECUTE_V4.md",
     "tests/PORTAL5_BENCH_SEC_EXECUTE_V3.md",
 )

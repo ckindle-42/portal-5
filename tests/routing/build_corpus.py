@@ -5,8 +5,9 @@ Sources (per the build program):
 1. config/routing_examples.json — all 44 entries, present on both sides of
    the collapse (byte-identical at 60bf0a7 and HEAD — verified).
 2. tests/benchmarks/bench/prompts.py — per-discipline TPS prompts.
-3. The corpus already assembled by scripts/routing_regression.py (s06/s21
-   representative prompts + the 12 hand-authored variant/role discriminators).
+3. The corpus already assembled by scripts/routing_regression.py (legacy
+   s06/s21 representative prompts + the 12 hand-authored variant/role
+   discriminators).
 4. Fold-coverage additions — one unambiguous prompt per pre-collapse
    discipline that mapped to a workspace later folded or deleted, authored
    from the pre-collapse routing_descriptions.json (60bf0a7) so each prompt

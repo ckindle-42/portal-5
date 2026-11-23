@@ -24,10 +24,9 @@ connection. If the retry also stalls, whatever partial text was received is retu
 with ``StreamStatus.STALLED`` — callers map that to WARN, never a hard FAIL, because a
 silent stream is not a wrong answer.
 
-This is the HTTP/SSE counterpart of the browser-rendered tiered poll in
-``tests/uat/browser.py`` (which watches the stop-button + DOM growth as its chunk
-events). The two implementations are intentionally parallel; keep them in sync if the
-philosophy changes.
+This is the HTTP/SSE counterpart of the browser-rendered tiered poll the legacy
+UAT browser runner used (stop-button + DOM growth as chunk events); that runner
+was retired with tests/uat/, and the QAT browser layer carries the GUI side now.
 """
 
 from __future__ import annotations

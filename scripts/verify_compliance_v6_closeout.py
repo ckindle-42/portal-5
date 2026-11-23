@@ -222,13 +222,13 @@ _LIVE_ROUTES = _RUN / "live_routes.json"
 def _live_routes() -> tuple[str, str, str]:
     """Y12/Y13/Y16: the live Q05/Q09/Q12 [C]/[X]/[U] variants against the real
     3-seat council. Reads a recorded result (7-min live run — not re-run here);
-    regenerate with `COMPLIANCE_V6_LIVE=1 pytest
-    tests/acceptance/test_compliance_v6_questions.py`."""
+    it was captured via the legacy acceptance compliance-v6 questions suite,
+    retired with tests/acceptance/."""
     if not _LIVE_ROUTES.exists():
         return (
             "PENDING",
             "live Q05/Q09/Q12 routes",
-            "COMPLIANCE_V6_LIVE=1 pytest tests/acceptance/test_compliance_v6_questions.py",
+            "recorded capture missing; legacy acceptance regeneration path retired",
         )
     d = json.loads(_LIVE_ROUTES.read_text())
     return (

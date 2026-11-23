@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Portal 5 system validation — fast smoke check before launching the full
-acceptance / UAT / bench passes.
+QAT / bench passes.
 
 Run from repo root:
     python3 scripts/validate_system.py
@@ -31,7 +31,7 @@ Designed to run in under 60 seconds on the M4 Pro Mac Mini. Use this as
 the gate before kicking off the full long-running suites:
 
     python3 scripts/validate_system.py && \
-    python3 tests/portal5_acceptance_v6.py
+    uv run python -m tests.qat
 """
 
 from __future__ import annotations
@@ -133,7 +133,6 @@ from scripts.validation.security_bench import (  # noqa: E402, F401
     check_stage2_propose_integrity,
     check_telemetry_contracts,
     check_triage_layer2_integrity,
-    check_uat_catalog_no_stale_refs,
     check_valid_workspaces_resolve,
 )
 from scripts.validation.telemetry import check_complexity_census  # noqa: E402, F401
@@ -243,7 +242,7 @@ class Validator:
             if fails:
                 print(
                     "  ⚠  System validation FAILED — fix the above before running"
-                    " acceptance / UAT / bench suites.",
+                    " QAT / bench suites.",
                     file=sys.stderr,
                 )
             else:
@@ -262,7 +261,7 @@ class Validator:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Portal 5 system validation — pre-flight check before "
-        "running the full acceptance / UAT / bench suites.",
+        "running the full QAT / bench suites.",
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Print sub-check details")
     parser.add_argument(

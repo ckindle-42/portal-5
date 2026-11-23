@@ -37,9 +37,9 @@ truth via `expected_model_keys`, `model_matches_expected`, and `resolve_expected
 `tests/lib` supplies `AssertionResult`/`ScenarioOutcome`, `expand_scenarios`,
 `run_assertions`, the result model, and the `stream_wait` idle-gap waiter.
 `quality_score`, `score_function_recall`, `classify_lines`, `compute_regressions`,
-`added_removed_cells`, and `build_dashboard` cover scoring and reporting. The shims
-`portal5_acceptance_v6.py`, `portal5_uat_driver.py`,
-and `portal5_persona_matrix.py` forward to their packages.
+`added_removed_cells`, and `build_dashboard` cover scoring and reporting. The
+`portal5_persona_matrix.py` shim forwards to its package; the legacy acceptance
+and UAT driver shims were retired with their suites.
 
 ## Gotchas
 

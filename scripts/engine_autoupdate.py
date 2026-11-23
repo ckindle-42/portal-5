@@ -96,9 +96,7 @@ BUSY_PATTERNS = (
     "tests.wfe.runner",
     "wfe_campaign.sh",
     "wfe_supervise",
-    "tests/uat",
     "bench_tps",
-    "tests.uat",
 )
 
 
