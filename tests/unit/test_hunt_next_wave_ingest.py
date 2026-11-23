@@ -409,6 +409,125 @@ def test_keys_lmd_and_ics(tmp_path: Path) -> None:
     assert ics_key["affected_hosts"] == ["10.4.4.4", "10.4.4.5"]
 
 
+_UWF_HEADER = (
+    "community_id,conn_state,duration,history,src_ip_zeek,src_port_zeek,dest_ip_zeek,"
+    "dest_port_zeek,local_orig,local_resp,missed_bytes,orig_bytes,orig_ip_bytes,orig_pkts,"
+    "proto,resp_bytes,resp_ip_bytes,resp_pkts,service,ts,uid,datetime,label_tactic,"
+    "label_technique,label_binary,label_cve"
+)
+_UWF_ROW = (
+    "1:XGpF2K/TwKDquIcMkGNJGpKkZ9A=,OTH,,A,143.88.10.12,36851,143.88.11.4,80,false,false,0,,"
+    "40,1,tcp,,0,0,,1.710745381395426E9,Cj1yP82BHbSA6KfjHa,2024-03-18T07:03:01.395Z,"
+    "Reconnaissance,T1595,True,none"
+)
+
+
+def test_uwf_part_csv_ships_label_free_zeek_json(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "UWF-ZeekData24"
+    part = root / "Reconnaissance"
+    part.mkdir(parents=True)
+    (part / "part-00000-49ed1cc6.csv").write_text(
+        _UWF_HEADER + "\n" + _UWF_ROW + "\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("LAB_SPLUNK_HEC_URL", "http://127.0.0.1:1")
+    monkeypatch.setenv("LAB_SPLUNK_HEC_TOKEN", "tok")
+    batches: list[bytes] = []
+    monkeypatch.setattr(ingest_canonical, "_post", lambda _url, _tok, body: batches.append(body))
+    out = tmp_path / "manifest"
+    assert (
+        main(
+            [
+                "--root",
+                str(root),
+                "--index",
+                "hb_uwf_zeek24",
+                "--ship",
+                "--manifest-out",
+                str(out),
+                "--default-year",
+                "2024",
+            ]
+        )
+        == 0
+    )
+    events = _events(batches)
+    assert len(events) == 1
+    event = events[0]
+    assert event["host"] == "uwf-zeek24"
+    assert event["source"] == "/zeek/conn.log"
+    assert event["sourcetype"] == "bro:conn:json"
+    assert "Reconnaissance" not in event["host"]
+    assert "Reconnaissance" not in event["source"]
+    assert float(event["time"]) == pytest.approx(float("1.710745381395426E9"))
+    payload = json.loads(event["event"])
+    assert payload["id.orig_h"] == "143.88.10.12"
+    assert payload["id.orig_p"] == 36851
+    assert payload["id.resp_h"] == "143.88.11.4"
+    assert payload["id.resp_p"] == 80
+    assert payload["ts"] == pytest.approx(float("1.710745381395426E9"))
+    assert payload["uid"] == "Cj1yP82BHbSA6KfjHa"
+    assert payload["local_orig"] is False
+    assert "duration" not in payload
+    folded = {str(key).casefold() for key in payload}
+    assert folded.isdisjoint(_GT)
+    assert not any(key.startswith("label_") or key.startswith("mitre_") for key in folded)
+    blob = json.dumps(payload)
+    assert "Reconnaissance" not in blob
+    assert "T1595" not in blob
+    assert "label_cve" not in blob
+
+
+def test_zeek_fields_tsv_ships_json_objects(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "ics"
+    root.mkdir()
+    (root / "modbus.log").write_text(
+        "#separator \\x09\n"
+        "#set_separator\t,\n"
+        "#empty_field\t(empty)\n"
+        "#unset_field\t-\n"
+        "#path\tmodbus\n"
+        "#fields\tts\tuid\tid.orig_h\tid.orig_p\tid.resp_h\tid.resp_p\tfunc\texception\tlabel_tactic\n"
+        "1445499126.906705\tCNa1Wu25j65DCE2oba\t192.168.2.44\t58606\t192.168.88.61\t502\t"
+        "unknown-171\t-\tImpair Process Control\n"
+        "#close\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LAB_SPLUNK_HEC_URL", "http://127.0.0.1:1")
+    monkeypatch.setenv("LAB_SPLUNK_HEC_TOKEN", "tok")
+    batches: list[bytes] = []
+    monkeypatch.setattr(ingest_canonical, "_post", lambda _url, _tok, body: batches.append(body))
+    assert (
+        main(
+            [
+                "--root",
+                str(root),
+                "--index",
+                "hb_ics_pcap",
+                "--ship",
+                "--manifest-out",
+                str(tmp_path / "out"),
+                "--default-year",
+                "2015",
+            ]
+        )
+        == 0
+    )
+    events = _events(batches)
+    assert len(events) == 1
+    event = events[0]
+    assert event["sourcetype"] == "bro:modbus:json"
+    assert not event["event"].startswith("#")
+    assert float(event["time"]) == pytest.approx(1445499126.906705)
+    payload = json.loads(event["event"])
+    assert payload["id.orig_h"] == "192.168.2.44"
+    assert payload["id.resp_h"] == "192.168.88.61"
+    assert payload["id.resp_p"] == 502
+    assert payload["func"] == "unknown-171"
+    assert "exception" not in payload
+    assert "label_tactic" not in payload
+    assert "Impair Process Control" not in event["event"]
+
+
 def test_named_ground_truth_fields_are_the_strip_set() -> None:
     assert set(_GT) == set(GROUND_TRUTH_FIELDS)
 

@@ -10,10 +10,12 @@ import pytest
 from scripts.hunt_bed.prove_universal_blind import (
     PROOF_INDEXES,
     canonical_index,
+    load_key,
     main,
     resolve_key_path,
     run_hunt,
     score_corpus,
+    score_rows,
     validate_blind_mode,
     write_receipt,
 )
@@ -202,3 +204,120 @@ def test_scores_synthetic_flaws_ait_and_next_wave_and_writes_receipts(
     assert "Universal Hunt zero-knowledge proof receipt" in markdown
     assert "hb_ait_wardbeck" in markdown
     assert "hb_lmd_2023" in markdown
+    assert "Notable top-10 step" in markdown
+    assert "Notable top-25 step" in markdown
+    assert "Case all-step" in markdown
+
+
+def _window_key(path: Path, **source: object) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "attack_steps": [
+                    {
+                        "step": "Reconnaissance",
+                        "time_window": {
+                            "start": "2024-03-18T07:00:00Z",
+                            "end": "2024-03-18T08:00:00Z",
+                        },
+                        "sources": [source],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _evidence(host: str, source: str, when: float) -> dict[str, object]:
+    return {"evidence": [{"host": host, "source": source, "line": "row", "time": when}]}
+
+
+def test_scores_epoch_window_host_and_log_path_suffix(tmp_path: Path) -> None:
+    key_path = tmp_path / "ait_wardbeck_key.json"
+    _window_key(
+        key_path,
+        host="inet-firewall",
+        log_path="/var/log/auth.log",
+        time_window={"start_epoch": 100, "end_epoch": 200},
+    )
+    key = load_key("hb_ait_wardbeck", key_path)
+    inside = score_rows([_evidence("inet-firewall", "/opt/zeek/auth.log", 110)], key)
+    assert inside["attack_steps"]["recall"] == 1.0
+    assert inside["top_k_recall"]["10"]["attack_step_recall"] == 1.0
+    edge = score_rows([_evidence("inet-firewall", "/opt/zeek/auth.log", 260)], key)
+    assert edge["attack_steps"]["recall"] == 1.0
+    late = score_rows([_evidence("inet-firewall", "/opt/zeek/auth.log", 261)], key)
+    assert late["attack_steps"]["recall"] == 0.0
+    wrong_host = score_rows([_evidence("other-host", "/opt/zeek/auth.log", 110)], key)
+    assert wrong_host["attack_steps"]["recall"] == 0.0
+    wrong_path = score_rows([_evidence("inet-firewall", "/opt/zeek/dns.log", 110)], key)
+    assert wrong_path["attack_steps"]["recall"] == 0.0
+    hyphen = score_rows([_evidence("inet_firewall", "/opt/zeek/auth.log", 110)], key)
+    assert hyphen["attack_steps"]["recall"] == 1.0
+
+
+def test_unknown_host_scores_on_time_and_path_only(tmp_path: Path) -> None:
+    key_path = tmp_path / "UWF-ZeekData24_key.json"
+    _window_key(key_path, host="unknown", log_path="/Reconnaissance/part-00000-abc.csv")
+    key = load_key("hb_uwf_zeek24", key_path)
+    start = key.intervals[0].start
+    hit = score_rows(
+        [_evidence("uwf-zeek24", "/Reconnaissance/part-00000-abc.csv", start + 10)], key
+    )
+    assert hit["attack_steps"]["recall"] == 1.0
+    assert hit["top_k_recall"]["25"]["attack_step_recall"] == 1.0
+    sanitized = score_rows([_evidence("uwf-zeek24", "/zeek/conn.log", start + 10)], key)
+    assert sanitized["attack_steps"]["recall"] == 0.0
+
+
+def test_each_index_gets_a_fresh_search(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PORTAL_HUNT_KNOWLEDGE_STORE", raising=False)
+    monkeypatch.delenv("PORTAL_HUNT_KNOWLEDGE_FAMILIES", raising=False)
+    monkeypatch.setenv("PORTAL_HUNT_STAGE4_VERDICTS", "0")
+    for name in ("ait_wardbeck_key.json", "ait_wilson_key.json"):
+        (tmp_path / name).write_text('{"attack_steps": []}\n', encoding="utf-8")
+    import scripts.hunt_bed.prove_universal_blind as proof
+
+    searches: list[object] = []
+
+    def factory() -> object:
+        search = object()
+        searches.append(search)
+        return search
+
+    def fake_run(index: str, out: Path, search: object, **_kwargs: object) -> None:
+        assert (out / "ledger.jsonl").is_file()
+        assert search is searches[-1]
+
+    def fake_score(index: str, _key: Path, _run: Path, _elapsed: float) -> dict[str, object]:
+        return {
+            "index": index,
+            "events": 4,
+            "notables": 0,
+            "cases": 0,
+            "elapsed_seconds": 0.1,
+            "notables_score": {"top_k_recall": {}, "attack_steps": {"recall": None}},
+            "cases_score": {"top_k_recall": {}, "attack_steps": {"recall": None}},
+        }
+
+    monkeypatch.setattr(proof, "default_search", factory)
+    monkeypatch.setattr(proof, "run_hunt", fake_run)
+    monkeypatch.setattr(proof, "score_corpus", fake_score)
+    assert (
+        main(
+            [
+                "--index",
+                "hb_ait_wardbeck",
+                "--index",
+                "hb_ait_wilson",
+                "--keys-dir",
+                str(tmp_path),
+                "--out-dir",
+                str(tmp_path / "out"),
+            ]
+        )
+        == 0
+    )
+    assert len(searches) == 2
+    assert searches[0] is not searches[1]

@@ -18,12 +18,12 @@ import duckdb
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from score_cases import _digest  # noqa: E402
-from score_leads import _hits  # noqa: E402
 
 from portal.modules.security.core.hunt.notables import __main__ as hunt_cli  # noqa: E402
 from portal.modules.security.core.hunt.notables.run import (  # noqa: E402
     DEFAULT_GENERATORS,
     default_search,
+    reset_ledger,
 )
 from portal.modules.security.core.hunt.notables.similar import SIMILAR_GENERATOR  # noqa: E402
 from portal.modules.security.core.hunt.notables.verdicts import (
@@ -41,6 +41,18 @@ KEY_PATHS = {
 PROOF_INDEXES = tuple(KEY_PATHS)
 HUNT_STAGES = ("cards", "behaviours", "notables", "relate")
 TOP_K = (10, 25, 50, 100)
+WINDOW_SLACK_SECONDS = 60.0
+
+
+@dataclass(frozen=True)
+class AttackWindow:
+    """One attack step's source interval. Host and path constrain only when known."""
+
+    unit: str
+    host: str
+    log_path: str
+    start: float
+    end: float
 
 
 @dataclass
@@ -51,7 +63,7 @@ class KeyData:
     scoring_method: str
     units: dict[str, str] = field(default_factory=dict)
     unit_hosts: dict[str, str] = field(default_factory=dict)
-    windows: dict[str, dict[str, list[float]]] = field(default_factory=dict)
+    intervals: list[AttackWindow] = field(default_factory=list)
     digest_units: dict[str, set[str]] = field(default_factory=dict)
 
 
@@ -174,11 +186,45 @@ def _step_window(step: Mapping[str, Any], source: Mapping[str, Any]) -> tuple[fl
     return min(start, end), max(start, end)
 
 
+def _host_known(host: str) -> bool:
+    text = host.strip()
+    return bool(text) and text.casefold() != "unknown"
+
+
+def _host_matches(evidence_host: str, key_host: str) -> bool:
+    if not _host_known(key_host):
+        return True
+    return evidence_host.replace("-", "_").casefold() == key_host.replace("-", "_").casefold()
+
+
+def _path_matches(evidence_source: str, log_path: str) -> bool:
+    """True when log_path is absent, or either path is a suffix of the other."""
+    key = log_path.replace("\\", "/").strip().casefold().rstrip("/")
+    if not key:
+        return True
+    evidence = evidence_source.replace("\\", "/").strip().casefold().rstrip("/")
+    if not evidence:
+        return False
+    if evidence.endswith(key) or key.endswith(evidence):
+        return True
+    tail = key.rsplit("/", 1)[-1]
+    return bool(tail) and (evidence.endswith("/" + tail) or evidence == tail)
+
+
+def _overlaps(row: tuple[float, float], window: AttackWindow) -> bool:
+    return row[0] <= window.end + WINDOW_SLACK_SECONDS and row[1] >= (
+        window.start - WINDOW_SLACK_SECONDS
+    )
+
+
 def _load_json_key(path: Path) -> KeyData:
     payload = json.loads(path.read_text(encoding="utf-8"))
     result = KeyData(
         unit_kind="attack_windows",
-        scoring_method="host/time midpoint via score_leads._hits; source paths are not compared",
+        scoring_method=(
+            "attack-step overlap of start_epoch..end_epoch ±60s; "
+            "host when known; log_path suffix when present"
+        ),
     )
     for step_no, step in enumerate(payload.get("attack_steps") or ()):
         if not isinstance(step, Mapping):
@@ -196,11 +242,8 @@ def _load_json_key(path: Path) -> KeyData:
             result.units[unit] = name
             result.unit_hosts[unit] = host
             bounds = _step_window(step, source)
-            if host and bounds is not None:
-                midpoint = (bounds[0] + bounds[1]) / 2.0
-                result.windows.setdefault(unit, {}).setdefault(host.replace("-", "_"), []).append(
-                    midpoint
-                )
+            if bounds is not None:
+                result.intervals.append(AttackWindow(unit, host, source_name, bounds[0], bounds[1]))
     return result
 
 
@@ -299,15 +342,17 @@ def _row_hits(row: Mapping[str, Any], key: KeyData) -> set[str]:
         return hits
     for event in events:
         bounds = _record_interval(event)
-        host = str(event.get("host") or "")
-        if bounds is None or not host:
+        if bounds is None:
             continue
-        hits.update(
-            _hits(
-                {"host": host, "hour": bounds[0], "span": bounds[1] - bounds[0]},
-                key.windows,
-            )
-        )
+        host = str(event.get("host") or "")
+        source = str(event.get("source") or "")
+        for window in key.intervals:
+            if (
+                _host_matches(host, window.host)
+                and _path_matches(source, window.log_path)
+                and _overlaps(bounds, window)
+            ):
+                hits.add(window.unit)
     return hits
 
 
@@ -417,6 +462,16 @@ def build_receipt(
     }
 
 
+def _step_recall(row: Mapping[str, Any], side: str, cut: str | None) -> Any:
+    score = row.get(side) if isinstance(row.get(side), Mapping) else {}
+    if cut is None:
+        steps = score.get("attack_steps") if isinstance(score, Mapping) else {}
+        return steps.get("recall") if isinstance(steps, Mapping) else None
+    top = score.get("top_k_recall") if isinstance(score, Mapping) else {}
+    bucket = top.get(cut) if isinstance(top, Mapping) else {}
+    return bucket.get("attack_step_recall") if isinstance(bucket, Mapping) else None
+
+
 def render_markdown(receipt: Mapping[str, Any]) -> str:
     """Render the short operator-facing proof receipt."""
     lines = [
@@ -430,22 +485,24 @@ def render_markdown(receipt: Mapping[str, Any]) -> str:
         f"- Stage 4 verdicts enabled: `{receipt.get('stage4_verdicts_enabled')}`",
         f"- Zero labels in Splunk: `{receipt.get('zero_labels_in_splunk')}`",
         f"- Label basis: {receipt.get('zero_labels_in_splunk_basis')}",
-        "- Scoring: FLAWS hashes retained excerpts; JSON keys use host/time window midpoints.",
+        "- Scoring: FLAWS hashes retained excerpts; JSON keys use start_epoch..end_epoch ±60s, host when known, and log_path suffix when present.",
         "",
-        "| Corpus | Events read | Notables | Cases | Notable top-10 unit recall | Case top-10 unit recall | Seconds |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| Corpus | Events read | Notables | Cases | Notable top-10 step | Notable top-25 step | Notable all-step | Case top-10 step | Case top-25 step | Case all-step | Seconds |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in receipt.get("corpora", []):
-        notable = row.get("notables_score", {}).get("top_k_recall", {}).get("10", {})
-        case = row.get("cases_score", {}).get("top_k_recall", {}).get("10", {})
         lines.append(
-            "| {index} | {events} | {notables} | {cases} | {nr} | {cr} | {elapsed} |".format(
+            "| {index} | {events} | {notables} | {cases} | {n10} | {n25} | {nall} | {c10} | {c25} | {call} | {elapsed} |".format(
                 index=row.get("index"),
                 events=row.get("events"),
                 notables=row.get("notables"),
                 cases=row.get("cases"),
-                nr=notable.get("keyed_unit_recall"),
-                cr=case.get("keyed_unit_recall"),
+                n10=_step_recall(row, "notables_score", "10"),
+                n25=_step_recall(row, "notables_score", "25"),
+                nall=_step_recall(row, "notables_score", None),
+                c10=_step_recall(row, "cases_score", "10"),
+                c25=_step_recall(row, "cases_score", "25"),
+                call=_step_recall(row, "cases_score", None),
                 elapsed=row.get("elapsed_seconds"),
             )
         )
@@ -512,10 +569,11 @@ def main(argv: list[str] | None = None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     receipt: dict[str, Any] = build_receipt([], status="running")
     write_receipt(out_dir, receipt)
-    search = default_search()
     corpora: list[dict[str, Any]] = []
     for index in indexes:
         run_dir = out_dir / index
+        reset_ledger(run_dir)
+        search = default_search()
         started = time.monotonic()
         try:
             run_hunt(index, run_dir, search)

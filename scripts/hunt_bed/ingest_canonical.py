@@ -239,7 +239,9 @@ def _read_records(opener, name: str) -> tuple[list[str], bool]:
 
 
 def _gt_key(name: str) -> bool:
-    return name.strip().casefold() in GROUND_TRUTH_FIELDS
+    """Ground truth is the named set plus any label_* or mitre_* column."""
+    key = name.strip().casefold()
+    return key in GROUND_TRUTH_FIELDS or key.startswith(("label_", "mitre_"))
 
 
 def strip_ground_truth_json(raw: str) -> tuple[str, int]:
@@ -369,6 +371,109 @@ def _strip_json_records(records: list[str]) -> tuple[list[str], int]:
     return out, removed
 
 
+_ZEEK_RENAME = {
+    "src_ip_zeek": "id.orig_h",
+    "src_port_zeek": "id.orig_p",
+    "dest_ip_zeek": "id.resp_h",
+    "dest_port_zeek": "id.resp_p",
+}
+_ZEEK_UNSET = frozenset({"-", "(empty)"})
+_UWF_HOST = "uwf-zeek24"
+_UWF_SOURCE = "/zeek/conn.log"
+
+
+def _is_zeek_tsv(records: list[str]) -> bool:
+    return any(line.startswith("#separator") or line.startswith("#fields") for line in records[:12])
+
+
+def _is_uwf_zeek_csv(name: str, records: list[str]) -> bool:
+    """UWF-ZeekData24 spark extracts are part-*.csv with src_ip_zeek / dest_ip_zeek."""
+    if _is_zeek_tsv(records) or not _strip_gz(name).endswith(".csv"):
+        return False
+    header_at = _header_index(records)
+    if header_at is None:
+        return False
+    cols = {col.strip().casefold() for col in _split_cols(records[header_at], ",")}
+    return "src_ip_zeek" in cols and "dest_ip_zeek" in cols
+
+
+def _canonical_name(col: str) -> str:
+    text = col.strip()
+    return _ZEEK_RENAME.get(text.casefold(), text)
+
+
+def _canonical_value(name: str, raw: str) -> object:
+    if name == "ts":
+        try:
+            return float(raw)
+        except ValueError:
+            return raw
+    if name in {"id.orig_p", "id.resp_p"}:
+        try:
+            return int(raw)
+        except ValueError:
+            return raw
+    if raw.casefold() in {"true", "false"}:
+        return raw.casefold() == "true"
+    return raw
+
+
+def _json_object(cols: list[str], values: list[str]) -> tuple[dict[str, object], int]:
+    obj: dict[str, object] = {}
+    removed = 0
+    for index, col in enumerate(cols):
+        if index >= len(values):
+            break
+        if _gt_key(col):
+            removed += 1
+            continue
+        raw = values[index]
+        if raw in _ZEEK_UNSET or raw == "":
+            continue
+        name = _canonical_name(col)
+        obj[name] = _canonical_value(name, raw)
+    return obj, removed
+
+
+def _emit_json_rows(cols: list[str], rows: list[list[str]]) -> tuple[list[str], int]:
+    out: list[str] = []
+    removed = 0
+    for values in rows:
+        obj, count = _json_object(cols, values)
+        removed += count
+        if obj:
+            out.append(json.dumps(obj, separators=(",", ":")))
+    return out, removed
+
+
+def _zeek_tsv_records(records: list[str]) -> tuple[list[str], int]:
+    """Zeek #fields TSV → one JSON object per data row. Header and unset cells stay out."""
+    header_at = next((i for i, line in enumerate(records) if line.startswith("#fields")), None)
+    if header_at is None:
+        return records, 0
+    _prefix, cols = _split_meta(records[header_at], "\t")
+    rows = [
+        line.split("\t")
+        for line in records[header_at + 1 :]
+        if line.strip() and not line.startswith("#")
+    ]
+    return _emit_json_rows(cols, rows)
+
+
+def _uwf_zeek_records(records: list[str]) -> tuple[list[str], int]:
+    """UWF Zeek CSV → bro conn JSON. Label columns and the tactic directory never ship."""
+    header_at = _header_index(records)
+    if header_at is None:
+        return [], 0
+    cols = _split_cols(records[header_at], ",")
+    rows = [
+        _split_cols(line, ",")
+        for line in records[header_at + 1 :]
+        if line.strip() and not line.startswith("#")
+    ]
+    return _emit_json_rows(cols, rows)
+
+
 def prepare_payloads(records: list[str], name: str) -> tuple[list[str], int]:
     """Return shipped records plus how many ground-truth fields were removed."""
     xml = _xml_events(records, name)
@@ -380,6 +485,10 @@ def prepare_payloads(records: list[str], name: str) -> tuple[list[str], int]:
             out.append(cleaned)
             removed += n
         return out, removed
+    if _is_zeek_tsv(records):
+        return _zeek_tsv_records(records)
+    if _is_uwf_zeek_csv(name, records):
+        return _uwf_zeek_records(records)
     if _is_delimited_table(name, records):
         return _strip_tabular(records, name)
     return _strip_json_records(records)
@@ -415,7 +524,12 @@ def classify(rel: str, opener) -> str | None:
     records, had = _read_records(opener, name)
     if had:
         return ST_CLOUDTRAIL
-    return _sniff_windows(records, name)
+    sniffed = _sniff_windows(records, name)
+    if sniffed is not None:
+        return sniffed
+    if _is_uwf_zeek_csv(name, records):
+        return "bro:conn:json"
+    return None
 
 
 def _stripped_count(opener, rel: str) -> int:
@@ -513,10 +627,13 @@ def _flush(args, batch: list[bytes], hec: str, token: str) -> None:
 
 
 def _ship_file(args, hec, token, manifest, rel: str, host: str, opener, st: str) -> dict:
-    source = _source_of(rel)
     name = rel.rsplit("/", 1)[-1]
     records, _had = _read_records(opener, name)
+    uwf = _is_uwf_zeek_csv(name, records)
     records, stripped = prepare_payloads(records, name)
+    source = _UWF_SOURCE if uwf else _source_of(rel)
+    if uwf:
+        host = _UWF_HOST
     stats = {
         "host": host,
         "source": source,
