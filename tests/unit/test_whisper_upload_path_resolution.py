@@ -140,3 +140,73 @@ def test_transcript_docx_sidecar_gets_an_owui_download_url(
     assert out["docx_url"].endswith("transcript_abc.docx")
     assert out["md_url"].endswith("transcript_abc.md")
     assert out["json_url"].endswith("transcript_abc.json")
+
+
+def _fake_docx(segments: list, meta: dict, source_name: str, path: Path) -> bool:
+    path.write_bytes(b"docx-bytes")
+    return True
+
+
+def test_host_transcribe_publishes_sidecars_as_owui_urls(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The pipeline dispatches transcribe_with_speakers to the host-native
+    :8924 MCP (fleet precedence over whisper), so the host itself must mint
+    the OWUI download links — its own :8924/files URLs are not browser-reachable
+    and never match the QAT artifact check."""
+    monkeypatch.setenv("AI_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.delenv("WORKSPACE_DIR", raising=False)
+    monkeypatch.setattr(transcribe, "_write_docx", _fake_docx)
+    published: list[str] = []
+
+    def fake_publish(path: Path) -> dict[str, str]:
+        published.append(Path(path).name)
+        return {"url": f"/api/v1/files/fake-id/content/{Path(path).name}"}
+
+    monkeypatch.setattr(transcribe, "publish_file_sync", fake_publish)
+    out = transcribe._persist_transcript([], {"duration": 1.0, "language": "en"}, "clip.wav")
+    assert out["docx_url"].startswith("/api/v1/files/")
+    assert out["docx_url"].endswith(".docx")
+    assert out["md_url"].startswith("/api/v1/files/")
+    assert out["json_url"].startswith("/api/v1/files/")
+    assert sorted(published) == sorted(
+        Path(out[k]).name for k in ("json_path", "md_path", "docx_path")
+    )
+
+
+def test_host_transcribe_publish_failure_keeps_host_url_and_warns(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("AI_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.delenv("WORKSPACE_DIR", raising=False)
+    monkeypatch.setattr(transcribe, "_write_docx", _fake_docx)
+    monkeypatch.setattr(
+        transcribe, "publish_file_sync", lambda path: {"error": "OWUI_API_KEY is not set"}
+    )
+    out = transcribe._persist_transcript([], {"duration": 1.0, "language": "en"}, "clip.wav")
+    assert ":8924/files/" in out["docx_url"]
+    assert "OWUI_API_KEY" in out["warning"]
+
+
+def test_host_transcribe_eval_scope_does_not_publish(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A WFE row writes only inside its own namespace — never into the live
+    OWUI file store."""
+    monkeypatch.setenv("AI_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.delenv("WORKSPACE_DIR", raising=False)
+    monkeypatch.setattr(transcribe, "_write_docx", _fake_docx)
+
+    def boom(path: Path) -> dict[str, str]:
+        raise AssertionError("eval scope must not publish to OWUI")
+
+    monkeypatch.setattr(transcribe, "publish_file_sync", boom)
+    scope = transcribe.eval_scope.parse(
+        {"campaign": "wfe_0123456789abcdef", "run": "wfe_fedcba9876543210", "allow": []}
+    )
+    token = transcribe.eval_scope.EVAL_SCOPE.set(scope)
+    try:
+        out = transcribe._persist_transcript([], {"duration": 1.0, "language": "en"}, "clip.wav")
+    finally:
+        transcribe.eval_scope.EVAL_SCOPE.reset(token)
+    assert ":8924/files/" in out["docx_url"]

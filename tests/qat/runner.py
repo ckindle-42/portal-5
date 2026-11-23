@@ -660,7 +660,9 @@ def _run_chat(
             prompt=scenario.prompts[0] if scenario.prompts else "",
         )
         deadline = time.monotonic() + scenario.timeout_s
-        outcome, error = _run_chat_turns(client, token, chat_id, scenario, deadline)
+        outcome, error, all_spans, all_calls = _run_chat_turns(
+            client, token, chat_id, scenario, deadline
+        )
         if error:
             error.chat_id = chat_id
             return error
@@ -674,7 +676,8 @@ def _run_chat(
                 chat_id=chat_id,
                 defect_class=classify_defect(model_output_miss=True),
             )
-        tool_error = _tool_validation_error(scenario, outcome.tool_calls, outcome.trace)
+        tool_trace: dict[str, object] = {"spans": all_spans} if all_spans else outcome.trace
+        tool_error = _tool_validation_error(scenario, all_calls or outcome.tool_calls, tool_trace)
         if tool_error:
             tool_class = classify_defect(
                 model_output_miss="trace" not in tool_error,
@@ -809,9 +812,11 @@ def _run_tts(settings: Settings, scenario: QATScenario, state: RunState) -> QATR
 
 def _run_chat_turns(
     client: OWUIClient, token: str, chat_id: str, scenario: QATScenario, deadline: float
-) -> tuple[TurnOutcome | None, QATResult | None]:
+) -> tuple[TurnOutcome | None, QATResult | None, list[dict[str, object]], list[object]]:
     branch: list[dict[str, str]] = []
     outcome: TurnOutcome | None = None
+    all_spans: list[dict[str, object]] = []
+    all_calls: list[object] = []
     for index, prompt in enumerate(scenario.prompts, start=1):
         files, image_png = _chat_turn_extras(client, token, scenario, index, deadline)
         started_at = time.time()
@@ -829,11 +834,18 @@ def _run_chat_turns(
         )
         if not response.is_success:
             infra = response.status_code >= 500
-            return None, QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                f"chat completion HTTP {response.status_code}",
-                defect_class=classify_defect(infra_hop_failed=infra, model_output_miss=not infra),
+            return (
+                None,
+                QATResult(
+                    scenario.scenario_id,
+                    Status.FAIL,
+                    f"chat completion HTTP {response.status_code}",
+                    defect_class=classify_defect(
+                        infra_hop_failed=infra, model_output_miss=not infra
+                    ),
+                ),
+                all_spans,
+                all_calls,
             )
         outcome = client.poll_turn(
             token,
@@ -849,27 +861,44 @@ def _run_chat_turns(
             scenario, outcome.trace, outcome.served_model, chat_id
         )
         if primary_failure:
-            return None, primary_failure
+            return None, primary_failure, all_spans, all_calls
         if outcome.leak_marker:
-            return None, QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                f"raw tool error leaked: {outcome.leak_marker}",
-                served_model=outcome.served_model,
-                defect_class=classify_defect(tool_misbehaved=True),
+            return (
+                None,
+                QATResult(
+                    scenario.scenario_id,
+                    Status.FAIL,
+                    f"raw tool error leaked: {outcome.leak_marker}",
+                    served_model=outcome.served_model,
+                    defect_class=classify_defect(tool_misbehaved=True),
+                ),
+                all_spans,
+                all_calls,
             )
         if index == 2 and "continuity" in scenario.tags and "ORCHID-9" not in outcome.text:
-            return None, QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                "continuity turn 2 did not return ORCHID-9",
-                served_model=outcome.served_model,
-                defect_class=classify_defect(model_output_miss=True),
+            return (
+                None,
+                QATResult(
+                    scenario.scenario_id,
+                    Status.FAIL,
+                    "continuity turn 2 did not return ORCHID-9",
+                    served_model=outcome.served_model,
+                    defect_class=classify_defect(model_output_miss=True),
+                ),
+                all_spans,
+                all_calls,
             )
+        # A round-trip spans several turns (remember on turn 1, recall on turn
+        # 2): grade expected_tools against every turn's spans, not just the last.
+        spans = outcome.trace.get("spans") or outcome.trace.get("tool_spans") or []
+        if isinstance(spans, list):
+            all_spans.extend(span for span in spans if isinstance(span, dict))
+        if isinstance(outcome.tool_calls, (list, tuple)):
+            all_calls.extend(outcome.tool_calls)
         branch.extend(
             ({"role": "user", "content": prompt}, {"role": "assistant", "content": outcome.text})
         )
-    return outcome, None
+    return outcome, None, all_spans, all_calls
 
 
 def _validate_artifacts(

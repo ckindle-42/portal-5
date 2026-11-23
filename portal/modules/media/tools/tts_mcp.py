@@ -64,6 +64,18 @@ async def _save_speech(content: bytes, voice: str) -> dict[str, Any]:
     return await publish_file(path)
 
 
+def _audio_sibling(hit: Path) -> Path | None:
+    """OWUI's STT pre-processing writes a <uuid>_<name>.json sidecar next to the
+    upload, newer than the audio — a uuid-prefix reference can resolve to it.
+    Prefer the audio file of the same stem."""
+    cands = [
+        p
+        for p in hit.parent.glob(f"{hit.stem}.*")
+        if p.is_file() and p.suffix.lower() in _AUDIO_EXTS
+    ]
+    return max(cands, key=lambda p: p.stat().st_mtime) if cands else None
+
+
 def _resolve_reference(reference_audio: str) -> Path | None:
     """Resolve a reference-audio argument to a container-visible file.
 
@@ -75,7 +87,9 @@ def _resolve_reference(reference_audio: str) -> Path | None:
     if reference_audio:
         hit = resolve_upload_path(reference_audio)
         if hit and hit.is_file():
-            return hit
+            if hit.suffix.lower() in _AUDIO_EXTS:
+                return hit
+            return _audio_sibling(hit)
         p = Path(reference_audio)
         if p.is_file():
             return p

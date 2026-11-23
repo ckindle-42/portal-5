@@ -131,6 +131,102 @@ def test_failed_span_does_not_satisfy_required_tool() -> None:
     assert error is not None
 
 
+def _turn_outcome(tool: str, text: str) -> object:
+    from types import SimpleNamespace
+
+    spans = [_span(tool)] if tool else []
+    return SimpleNamespace(
+        chat_id="chat-1",
+        text=text,
+        done=True,
+        served_model="daily-model",
+        artifact_urls=(),
+        leak_marker=None,
+        trace={"spans": spans, "model": "daily-model", "backend": "omlx"},
+        tool_calls=({"name": tool},) if tool else (),
+    )
+
+
+def _run_multiturn_chat(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, outcomes: list[object]
+) -> object:
+    """Drive _run_chat with one canned outcome per turn (remember on turn 1,
+    recall on turn 2 — the live s2-p4-memory-roundtrip shape)."""
+    from .test_config_and_scenarios import make_discovery, make_settings
+
+    class FakeResponse:
+        is_success = True
+        status_code = 200
+        headers: dict[str, str] = {}
+
+    remaining = list(outcomes)
+
+    class FakeClient:
+        def __init__(self, settings: object) -> None:
+            pass
+
+        def signin(self) -> str:
+            return "token"
+
+        def create_chat(self, *args: object, **kwargs: object) -> str:
+            return "chat-1"
+
+        def send_turn(self, *args: object, **kwargs: object) -> FakeResponse:
+            return FakeResponse()
+
+        def poll_turn(self, *args: object, **kwargs: object) -> object:
+            return remaining.pop(0)
+
+    monkeypatch.setattr(rn, "OWUIClient", FakeClient)
+    monkeypatch.setattr(rn, "primary_model_for", lambda workspace: "")
+    monkeypatch.setattr(rn, "_finalize_chat", lambda *args: (True, "archived"))
+    scenario = QATScenario(
+        "mem-rt",
+        "Memory round-trip",
+        2,
+        "daily_omlx",
+        4,
+        "auto-daily",
+        prompts=("Use remember to store 4711.", "Use recall to tell me the number."),
+        expected_tools=("remember", "recall"),
+    )
+    return rn._run_chat(
+        make_settings(tmp_path),
+        scenario,
+        rn.RunState(make_settings(tmp_path), tmp_path, make_discovery()),
+        rn.RunnerOptions({2}, set(), set()),
+    )
+
+
+def test_multiturn_expected_tools_accumulate_across_turns(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Turn 1 calls remember, turn 2 calls recall: the required-tool check must
+    see both turns' spans, not only the last turn's trace."""
+    from tests.qat.models import Status
+
+    result = _run_multiturn_chat(
+        monkeypatch,
+        tmp_path,
+        [_turn_outcome("remember", "Stored."), _turn_outcome("recall", "4711")],
+    )
+    assert result.status is Status.PASS
+
+
+def test_multiturn_missing_first_turn_tool_still_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from tests.qat.models import Status
+
+    result = _run_multiturn_chat(
+        monkeypatch,
+        tmp_path,
+        [_turn_outcome("", "I did not store it."), _turn_outcome("recall", "4711")],
+    )
+    assert result.status is Status.FAIL
+    assert "remember" in result.detail
+
+
 def test_parity_scenarios_gated_on_workspace_tool_grants(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

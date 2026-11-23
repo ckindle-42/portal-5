@@ -61,6 +61,7 @@ import mlx_cache  # noqa: E402
 if _inserted_script_dir:
     sys.path.remove(_script_dir)
 from portal.platform.mcp_host import eval_scope  # noqa: E402
+from portal.platform.mcp_host.owui_files import publish_file_sync  # noqa: E402
 from portal.platform.mcp_host.workspace import (  # noqa: E402
     get_generated_dir,
     get_uploads_dir,
@@ -572,6 +573,21 @@ def _write_docx(segments: list[dict], meta: dict, source_name: str, path: Path) 
     return True
 
 
+def _publish_sidecars(result: dict, json_path: Path, md_path: Path, docx_path: Path | None) -> None:
+    """Replace host-local sidecar URLs with OWUI download links — the host's
+    own :8924/files URL is not reachable from the user's browser."""
+    for url_key, path in (("json_url", json_path), ("md_url", md_path), ("docx_url", docx_path)):
+        if path is None:
+            continue
+        pub = publish_file_sync(path)
+        if pub.get("url"):
+            result[url_key] = pub["url"]
+        else:
+            result["warning"] = (
+                f"{result.get('warning', '')} ({path.name} not published: {pub.get('error')})".strip()
+            )
+
+
 def _persist_transcript(segments: list[dict], meta: dict, source_name: str) -> dict:
     """Write JSON + Markdown + Word sidecars into the shared workspace and return
     the paths, download URLs and rendered markdown. Both the plain and the
@@ -611,6 +627,8 @@ def _persist_transcript(segments: list[dict], meta: dict, source_name: str) -> d
         result["warning"] = (
             f"{meta.get('warning', '')} (.docx sidecar skipped: python-docx unavailable)".strip()
         )
+    if not scope:  # a WFE row never publishes into the live OWUI file store
+        _publish_sidecars(result, json_path, md_path, docx_path if docx_written else None)
     if scope:
         for written in (json_path, md_path, *([docx_path] if docx_written else [])):
             eval_scope.receipt(get_workspace_root(), scope, "transcribe", written)
@@ -1152,7 +1170,8 @@ async def transcribe_with_speakers(
           - segments: list of {start, end, speaker, text}
           - markdown: full speaker-labeled markdown content (ready to display)
           - json_path, md_path, docx_path: workspace file paths
-          - json_url, md_url, docx_url: download URLs (port :8924)
+          - json_url, md_url, docx_url: Open WebUI download links (host :8924
+            URLs only if publishing fails; see warning)
           - timing: {transcribe_s, diarize_s, total_s}
           - engine: "parakeet+sortformer"
           - warning: present only if diarization was skipped or failed

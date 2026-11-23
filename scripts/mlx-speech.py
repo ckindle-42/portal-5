@@ -46,6 +46,14 @@ import mlx_cache  # noqa: E402
 if _inserted_script_dir:
     sys.path.remove(_SCRIPT_DIR)
 
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+from portal.platform.mcp_host.workspace import (  # noqa: E402
+    get_workspace_root,
+    resolve_upload_path,
+)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
@@ -266,9 +274,24 @@ def list_voice_profiles() -> list[str]:
     )
 
 
+def _reject_json_audio(path: Path) -> None:
+    """OWUI file metadata / STT sidecars are JSON, not audio — fail clearly
+    instead of handing them to ffmpeg (live: voiceref_*.json, exit 183)."""
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(1)
+        if head not in (b"{", b"["):
+            return
+        json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError):
+        return
+    raise ValueError(f"{path.name} is JSON metadata, not audio — pass the uploaded clip itself")
+
+
 def _read_audio_any(path: Path):
     """Read an audio file to (mono float32, sr). Falls back to ffmpeg for
     containers libsndfile can't decode (m4a/aac from phone recordings)."""
+    _reject_json_audio(path)
     import numpy as np
     import soundfile as sf
 
@@ -364,12 +387,28 @@ def _voice_clone(text: str, ref_audio_path: str, ref_text: str, output_path: Pat
     return {"status": "success", "file_path": str(output_path), "backend": CLONE_MODEL}
 
 
+def _resolve_host_ref(ref: str) -> Path | None:
+    """Resolve a clone reference on the host: as given, the container mount
+    (/workspace/...) rebased on the host workspace root, then its basename as
+    an upload reference — the mlx-transcribe pattern."""
+    p = Path(ref).expanduser()
+    if p.is_file():
+        return p
+    if ref.startswith("/workspace/"):
+        rebased = get_workspace_root() / ref[len("/workspace/") :]
+        if rebased.is_file():
+            return rebased
+    return resolve_upload_path(os.path.basename(ref))
+
+
 def _clone_route(voice: str, text: str, output_path: Path) -> dict:
     """Resolve a "clone:<path>" or "trainer:<name>" voice to a voice-clone synthesis."""
     if voice.startswith("clone:"):
-        ref_audio_path = voice[len("clone:") :]
-        if not Path(ref_audio_path).exists():
-            return {"error": f"Reference audio not found: {ref_audio_path}"}
+        raw_ref = voice[len("clone:") :]
+        resolved = _resolve_host_ref(raw_ref)
+        if resolved is None:
+            return {"error": f"Reference audio not found: {raw_ref}"}
+        ref_audio_path = str(resolved)
         ref_text = ""
     else:  # trainer:<name>
         name = voice[len("trainer:") :]
