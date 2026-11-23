@@ -55,7 +55,7 @@
         },
         {
           "refId": "PACE",
-          "expr": "100 * orchestrate_quota_remaining / orchestrate_quota_limit - 100 * (orchestrate_quota_reset_timestamp - time()) / 3600 / ((orchestrate_quota_limit{window=~\"gemini-5h|3p-5h|5h\"} * 0 + 5) or (orchestrate_quota_limit{window=\"default\"} * 0 + 24) or (orchestrate_quota_limit{window=~\"gemini-week|argon-week|3p-week|week|1w|7d\"} * 0 + 168) or (orchestrate_quota_limit{window=\"month\"} * 0 + 720)) and on(plan, window) (orchestrate_quota_reset_timestamp > 0)",
+          "expr": "100 * orchestrate_quota_remaining / orchestrate_quota_limit - 100 * (orchestrate_quota_reset_timestamp - time()) / 3600 / ((orchestrate_quota_limit{window=~\"gemini-5h|3p-5h|5h\"} * 0 + 5) or (orchestrate_quota_limit{window=\"default\"} * 0 + 24) or (orchestrate_quota_limit{window=~\"gemini-week|3p-week|week|1w|7d\"} * 0 + 168) or (orchestrate_quota_limit{window=\"month\"} * 0 + 720)) and on(plan, window) (orchestrate_quota_reset_timestamp > 0)",
           "instant": true,
           "format": "table"
         },
@@ -4426,7 +4426,115 @@
           },
           "options": {
             "mode": "markdown",
-            "content": "**Quota is the vendor's own number.** Z.ai publishes both Coding Plan pools (5-hour and weekly credits); Alibaba TP publishes a monthly credit pool; Anthropic publishes Claude Pro's 5-hour and 7-day utilisation, the same source Claude Code's own `/usage` reads; OpenAI publishes ChatGPT Plus / Codex's 5-hour and 7-day utilisation; OpenCode Go publishes 5-hour, weekly and monthly percent of the subscription from `inference/go/v1/usage`; and DeepSeek and Moonshot publish dollar balances. Polled hourly by a background refresher and served from cache; a reading older than 3 hours is ignored for routing. Every quota-publishing plan \u2014 Gemini Pro's pools included \u2014 reads as one row in the unified **Plan headroom & burn pace** table at the top of the page.\n\n**Gemini Pro (Antigravity) is read through `agy -p /usage`.** It reports its buckets as remaining *fractions*, so those pools are percent, one row per NAMED window in the unified headroom table: `gemini-week` + `gemini-5h` (shared Gemini bucket), `3p-week` + `3p-5h` (the Claude and GPT bucket), and `argon-week` (Gemini 4 Argon's separate weekly bucket). The pace column is headroom minus the % of the window already elapsed \u2014 negative is a bucket that runs dry before it resets.\n\n**OrcaRouter has two meters, reconciled three ways.** The wallet is a dollar balance from the workspace spend quota served by `/metrics/workspace`, with an operator-recorded anchor: *spent since anchor* is that anchor less the current balance, and a paid dispatch is refused below the **$2.00 floor**. The Gmail receipts ledger holds lifetime deposits ($100.00) and the vendor's own lifetime spend reading ($91.56) closes the loop: paid \u2212 lifetime = balance \u2014 all three sit in the cockpit's wallet panel. The free package publishes caps, never a balance \u2014 one shared bucket plus a bucket for each free model that has its own (Hy4 does) \u2014 and the rung those caps sit on is set by the account's lifetime paid spend, which no endpoint exposes; it is an operator-recorded reading (`ORCA_LIFETIME_SPEND_USD`). There is deliberately no remaining gauge for the free lane: the vendor does not publish one, so drawing one would be a guess.\n\n**MiMo's balance is vendor-read, not derived.** The exporter reads the Xiaomi console balance live (`source=\"vendor\"`), so the old anchor-minus-booked derivation is retired; re-anchor with `usage_exporter.py anchor mimo <usd>` only if the live reading ever drifts.\n\n**SuperGrok's figure costs a request.** xAI publishes no quota endpoint; the plan's headroom arrives as `x-ratelimit-{limit,remaining}-{tokens,requests}` on a chat response \u2014 the same numbers the CLI's `/usage` screen shows. The exporter reads it with a one-token completion, so it refreshes hourly rather than every 15 minutes.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly.\n\n**Seats come from the dispatch registry, not Prometheus history.** A seat's runs, verdicts, last-used time and lifetime spend survive a Prometheus restart; only the rate-shaped panels in the collapsed rows need a full scrape window to be meaningful."
+            "content": "**Quota is the vendor's own number.** Z.ai publishes both Coding Plan pools (5-hour and weekly credits); Alibaba TP publishes a monthly credit pool; Anthropic publishes Claude Pro's 5-hour and 7-day utilisation, the same source Claude Code's own `/usage` reads; OpenAI publishes ChatGPT Plus / Codex's 5-hour and 7-day utilisation; OpenCode Go publishes 5-hour, weekly and monthly percent of the subscription from `inference/go/v1/usage`; and DeepSeek and Moonshot publish dollar balances. Polled hourly by a background refresher and served from cache; a reading older than 3 hours is ignored for routing. Every quota-publishing plan \u2014 Gemini Pro's pools included \u2014 reads as one row in the unified **Plan headroom & burn pace** table at the top of the page.\n\n**Gemini Pro (Antigravity) is read through `agy -p /usage`.** It reports its buckets as remaining *fractions*, so those pools are percent, one row per NAMED window in the unified headroom table: `gemini-week` + `gemini-5h` (the shared Gemini bucket \u2014 Gemini 4 Argon draws it too since the vendor retired its separate bucket, live 2026-11-23) and `3p-week` + `3p-5h` (the Claude and GPT bucket). Argon is escalation-only and fenced: the **Argon fence** row shows its allowance of `gemini-week` (used/remaining, from the vendor's own fractions) \u2014 an allowance of the Gemini bucket, not a vendor pool, and never a synthetic reset. The pace column is headroom minus the % of the window already elapsed \u2014 negative is a bucket that runs dry before it resets.\n\n**OrcaRouter has two meters, reconciled three ways.** The wallet is a dollar balance from the workspace spend quota served by `/metrics/workspace`, with an operator-recorded anchor: *spent since anchor* is that anchor less the current balance, and a paid dispatch is refused below the **$2.00 floor**. The Gmail receipts ledger holds lifetime deposits ($100.00) and the vendor's own lifetime spend reading ($91.56) closes the loop: paid \u2212 lifetime = balance \u2014 all three sit in the cockpit's wallet panel. The free package publishes caps, never a balance \u2014 one shared bucket plus a bucket for each free model that has its own (Hy4 does) \u2014 and the rung those caps sit on is set by the account's lifetime paid spend, which no endpoint exposes; it is an operator-recorded reading (`ORCA_LIFETIME_SPEND_USD`). There is deliberately no remaining gauge for the free lane: the vendor does not publish one, so drawing one would be a guess.\n\n**MiMo's balance is vendor-read, not derived.** The exporter reads the Xiaomi console balance live (`source=\"vendor\"`), so the old anchor-minus-booked derivation is retired; re-anchor with `usage_exporter.py anchor mimo <usd>` only if the live reading ever drifts.\n\n**SuperGrok's figure costs a request.** xAI publishes no quota endpoint; the plan's headroom arrives as `x-ratelimit-{limit,remaining}-{tokens,requests}` on a chat response \u2014 the same numbers the CLI's `/usage` screen shows. The exporter reads it with a one-token completion, so it refreshes hourly rather than every 15 minutes.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly.\n\n**Seats come from the dispatch registry, not Prometheus history.** A seat's runs, verdicts, last-used time and lifetime spend survive a Prometheus restart; only the rate-shaped panels in the collapsed rows need a full scrape window to be meaningful."
+          }
+        }
+      ]
+    },
+    {
+      "id": 135,
+      "type": "row",
+      "title": "Argon fence \u2014 allowance of the shared Gemini bucket",
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 1
+      },
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 136,
+          "type": "stat",
+          "title": "Argon allowance of gemini-week \u2014 used / left this cycle",
+          "description": "Argon is escalation-only and fenced inside the SHARED Gemini bucket (the vendor retired the separate argon-week pool, live 2026-11-23). These are pp of gemini-week, from the vendor's own fractions: the allowance Argon may spend per weekly cycle (DISPATCH_ARGON_ALLOWANCE_PP), what its runs have measured so far this cycle, what is left, and the reserve that must remain for Hydrogen/Neon (DISPATCH_ARGON_WORKER_FLOOR_PP). An allowance of the Gemini bucket \u2014 not a vendor pool, no synthetic reset. Absent when no fresh vendor reading exists.",
+          "gridPos": {
+            "x": 0,
+            "y": 42,
+            "w": 24,
+            "h": 6
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "orchestrate_argon_used_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
+              "legendFormat": "used this cycle",
+              "instant": true
+            },
+            {
+              "refId": "B",
+              "expr": "orchestrate_argon_remaining_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
+              "legendFormat": "allowance left",
+              "instant": true
+            },
+            {
+              "refId": "C",
+              "expr": "orchestrate_argon_allowance_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
+              "legendFormat": "allowance",
+              "instant": true
+            },
+            {
+              "refId": "D",
+              "expr": "orchestrate_argon_worker_floor_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
+              "legendFormat": "worker reserve",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#3987e5"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "used this cycle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#e8a03e"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "worker reserve"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#c98500"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
           }
         }
       ]
