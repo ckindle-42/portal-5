@@ -280,6 +280,37 @@ def test_reindex_refuses_to_ship_into_an_index_the_box_does_not_have(
     assert shipped == ["called"]
 
 
+_ORIGINAL_V2 = (
+    "hb_kyoushi_s1_v2",
+    "hb_ait_santos_v2",
+    "hb_ait_russellmitchell_v2",
+)
+_EXTENDED_HUNT = (
+    "hb_ait_fox",
+    "hb_ait_harrison",
+    "hb_ait_shaw",
+    "hb_ait_wardbeck",
+    "hb_ait_wilson",
+    "hb_flaws_aws",
+    "hb_uwf_zeek24",
+    "hb_lmd_2023",
+    "hb_ics_pcap",
+)
+
+
+def test_cim_macros_name_extended_indexes_and_exclude_botsv2() -> None:
+    """Every accelerated model's allowlist macro covers the _v2 indexes and the extended corpora."""
+    definition = plan.cim_macro_definition()
+    assert plan.cim_macros() == tuple(f"cim_{model}_indexes" for model in plan.ACCELERATED)
+    assert len(plan.cim_macros()) == 6
+    for name in _ORIGINAL_V2 + _EXTENDED_HUNT:
+        assert f"index={name}" in definition
+    assert plan.cim_allowlist_indexes() == _ORIGINAL_V2 + _EXTENDED_HUNT
+    assert plan.CONTROL_INDEX not in definition
+    assert "botsv2" not in definition
+    assert definition.count(" OR ") == len(_ORIGINAL_V2 + _EXTENDED_HUNT) - 1
+
+
 def test_acceleration_scope_window_and_control() -> None:
     """Only the doc's models are accelerated, over the whole corpus span, never the control."""
     settings = plan.accel_settings()
@@ -339,9 +370,10 @@ class _FakeSplunk:
         app = clean.split("/servicesNS/nobody/")[-1].split("/")[0]
         model = clean.rsplit("/", 1)[-1]
         if app == plan.CIM_APP and method == "POST":
+            current = self.models[model]
             self.models[model] = {
-                "enabled": data["acceleration"] == "true",
-                "earliest_time": data["acceleration.earliest_time"],
+                "enabled": str(data.get("acceleration", "")).lower() == "true",
+                "earliest_time": data.get("acceleration.earliest_time", current["earliest_time"]),
             }
         if app == plan.CIM_APP and method == "DELETE":
             self.models[model] = dict(self.defaults[model])
@@ -508,7 +540,7 @@ def test_verify_fails_a_zero_row_entity_tstats(
 def test_verify_judges_the_parser_expansion_not_the_conf_row(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The macro passes only when the parser expands it to every `_v2` index; `()` fails, and a
+    """The macro passes only when the parser expands it to the whole allowlist; `()` fails, and a
     check that raises is one FAIL row while every other check is still reported."""
     expansion = f"litsearch {plan.cim_macro_definition()}"
 
@@ -539,6 +571,82 @@ def test_verify_judges_the_parser_expansion_not_the_conf_row(
     assert "400" in str(rows["cim_macro:cim_Endpoint_indexes"]["detail"])
     assert rows["acceleration_window"]["ok"] is False
     assert "offline" in str(rows["acceleration_window"]["detail"])
+
+
+def test_verify_rejects_a_partial_allowlist_and_the_control_index() -> None:
+    """Three `_v2` indexes are not enough, and naming botsv2 fails the macro check."""
+    partial = "(" + " OR ".join(f"index={name}" for name in _ORIGINAL_V2) + ")"
+
+    class _Partial:
+        def macro_expansion(self, macro: str) -> str:
+            return f"litsearch {partial}"
+
+    class _Control:
+        def macro_expansion(self, macro: str) -> str:
+            return f"litsearch {plan.cim_macro_definition()} OR index=botsv2"
+
+    class _Full:
+        def macro_expansion(self, macro: str) -> str:
+            return f"litsearch {plan.cim_macro_definition()}"
+
+    for macro in plan.cim_macros():
+        partial_ok, partial_detail = cli._macro_check(_Partial(), macro)  # type: ignore[arg-type]
+        assert partial_ok is False
+        assert "hb_ait_fox" in partial_detail and "hb_ics_pcap" in partial_detail
+        control_ok, control_detail = cli._macro_check(_Control(), macro)  # type: ignore[arg-type]
+        assert control_ok is False and "botsv2" in control_detail
+        full_ok, full_detail = cli._macro_check(_Full(), macro)  # type: ignore[arg-type]
+        assert full_ok is True
+        for name in _ORIGINAL_V2 + _EXTENDED_HUNT:
+            assert name in full_detail
+
+
+def test_cim_command_rebuilds_acceleration_without_touching_indexes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`cim` writes the six macros and rebuilds DMA; a second run writes nothing and no index."""
+    fake = _FakeSplunk()
+    for model in fake.models:
+        fake.models[model] = {"enabled": True, "earliest_time": "-10y"}
+    real = rest.SplunkREST
+    monkeypatch.setattr(cli.rest, "SplunkREST", lambda transport=None: real(transport=fake))
+    args = cli.build_parser().parse_args(["cim", "--offline"])
+    assert cli.cmd_cim(args) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["indexes_written"] == []
+    assert report["definition"] == plan.cim_macro_definition()
+    macro_writes = [path for path, _body in fake.writes if "/configs/conf-macros/" in path]
+    assert len(macro_writes) == len(plan.cim_macros())
+    for macro in plan.cim_macros():
+        assert any(macro in path for path in macro_writes)
+        assert fake.macros[macro] == plan.cim_macro_definition()
+    model_posts = [
+        json.loads(body) for path, body in fake.writes if "/configs/conf-datamodels/" in path
+    ]
+    assert model_posts[0::2] == [{"acceleration": "false"}] * len(plan.ACCELERATED)
+    assert model_posts[1::2] == [plan.accel_settings()] * len(plan.ACCELERATED)
+    assert all("rebuilt over -10y" in str(row["detail"]) for row in report["actions"][6:])
+    assert not any(
+        "/services/data/indexes" in path or "/saved/searches/" in path
+        for path, _body in fake.writes
+    )
+    writes_after_first = list(fake.writes)
+    assert cli.cmd_cim(args) == 0
+    second = json.loads(capsys.readouterr().out)
+    assert fake.writes == writes_after_first
+    assert [row["changed"] for row in second["actions"]] == [False] * (
+        len(plan.cim_macros()) + len(plan.ACCELERATED)
+    )
+
+
+def test_cim_dry_run_writes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _FakeSplunk()
+    real = rest.SplunkREST
+    monkeypatch.setattr(cli.rest, "SplunkREST", lambda transport=None: real(transport=fake))
+    args = cli.build_parser().parse_args(["cim", "--offline", "--dry-run"])
+    assert cli.cmd_cim(args) == 0
+    assert fake.writes == []
+    assert set(fake.macros.values()) == {plan.CIM_DEFAULT_DEFINITION}
 
 
 def test_acceleration_is_written_where_the_model_reports_it() -> None:

@@ -159,8 +159,10 @@ at every stage; `app --check` proves it.
 | `savedsearches.conf` | one `collect` per tuned index (stage 4) |
 
 The `cim_*_indexes` macros are **not** in this app: `apply` POSTs them to
-`/servicesNS/nobody/Splunk_SA_CIM/configs/conf-macros/<macro>` with
-`definition = (index=hb_kyoushi_s1_v2 OR index=hb_ait_santos_v2 OR index=hb_ait_russellmitchell_v2)`.
+`/servicesNS/nobody/Splunk_SA_CIM/configs/conf-macros/<macro>` with one definition for all six:
+`(index=hb_kyoushi_s1_v2 OR index=hb_ait_santos_v2 OR index=hb_ait_russellmitchell_v2 OR index=hb_ait_fox OR index=hb_ait_harrison OR index=hb_ait_shaw OR index=hb_ait_wardbeck OR index=hb_ait_wilson OR index=hb_flaws_aws OR index=hb_uwf_zeek24 OR index=hb_lmd_2023 OR index=hb_ics_pcap)`.
+`botsv2` is not in that list. The nine names after the `_v2` indexes are corpora ingested outside
+stage 2; `cim` (stage 3) is what writes this definition and rebuilds acceleration without reshipping.
 A copy under `portal5_hunt_setup` was rendered until 2026-11-21; it loses to Splunk_SA_CIM's
 empty `()` default in every app context, so it was dropped. An app install left on the box by an
 earlier run may still hold it — it is inert (it loses too) and `rollback`'s app removal takes it
@@ -277,8 +279,10 @@ paragraph above. This is still a conf check; the property itself is stage 5's `e
 ```spl
 | rest /servicesNS/nobody/Splunk_SA_CIM/configs/conf-macros | search title=cim_Web_indexes | table title definition
 ```
-→ one row whose `definition` is `(index=hb_kyoushi_s1_v2 OR index=hb_ait_santos_v2 OR
-index=hb_ait_russellmitchell_v2)`.
+→ one row whose `definition` is the twelve-index allowlist in the stage 1 paragraph above
+(`hb_kyoushi_s1_v2`, `hb_ait_santos_v2`, `hb_ait_russellmitchell_v2`, then `hb_ait_fox`,
+`hb_ait_harrison`, `hb_ait_shaw`, `hb_ait_wardbeck`, `hb_ait_wilson`, `hb_flaws_aws`,
+`hb_uwf_zeek24`, `hb_lmd_2023`, `hb_ics_pcap`). `botsv2` must not appear.
 
 **The conf row is not the proof.** Splunk_SA_CIM's `()` default still exists behind that row and
 still wins if the local override is not the one being resolved. The property is the **parser
@@ -290,9 +294,10 @@ expansion**, and `verify` reads it from the parser endpoint
 uv run python -m scripts.lab.splunk_setup verify | tee coding_task/scratch/splunk_setup/verify.json
 ```
 → one row per check, `{"name", "ok", "detail"}`. The first six rows are
-`"name": "cim_macro:cim_<Model>_indexes"`, each `"ok": true` with a `"detail"` that names all
-three `_v2` indexes. **Fail if** an expansion is `litsearch ()`, or names a non-`_v2` index — that
-is the 2026-11-21 finding, and it means the override did not land in Splunk_SA_CIM's local config.
+`"name": "cim_macro:cim_<Model>_indexes"`, each `"ok": true` with a `"detail"` that names the
+three `_v2` indexes and the nine extended hunt-bed indexes. **Fail if** an expansion is
+`litsearch ()`, omits one of those indexes, or names `botsv2` — an empty `()` is the 2026-11-21
+finding (the override did not land in Splunk_SA_CIM's local config).
 A check that errors is one `"ok": false` row; the run still reports every other check and exits 1.
 `rollback` restores the seven defaults (`definition = ()`).
 
@@ -473,6 +478,20 @@ from `/services/admin/summarization`, not before.
 uv run python -m scripts.lab.splunk_setup apply --accelerate     # re-render + install + restart
 ```
 
+**Allowlist extension without a reship.** `Splunk_SA_CIM` sets `acceleration.manual_rebuilds`, so
+a macro edit does not backfill a summary that is already built. `cim` writes the six macros and,
+only when a definition changed, disables then re-enables each model over `-10y`. It does not
+create, delete, or reship an index. A second run writes nothing.
+
+```bash
+uv run python -m scripts.lab.splunk_setup cim --dry-run
+uv run python -m scripts.lab.splunk_setup cim
+```
+
+Worked: the first run's model actions say `rebuilt over -10y`, and the second run's actions are
+all `changed: false`. Did not work: `verify` reports `expansion does not name` for an extended
+index, or `control_model_scope` returns rows (the allowlist let `botsv2` in).
+
 `--accelerate` refuses to run until every `_v2` index holds events (it reads `eventcount` for
 each), so the "accelerate an empty index" mistake cannot happen silently. It also enables the
 `Change` model if `--with-change` is passed.
@@ -590,7 +609,7 @@ row; it never aborts the pass. What "worked" looks like, in one place:
 
 | check | expected | what a failure means |
 |---|---|---|
-| `cim_macro:cim_<Model>_indexes` ×6 | the expansion names all three `_v2` indexes | the override is not in Splunk_SA_CIM's local conf — re-run `apply` |
+| `cim_macro:cim_<Model>_indexes` ×6 | the expansion names the three `_v2` indexes and the nine extended hunt-bed indexes, and does not name `botsv2` | the override is not in Splunk_SA_CIM's local conf — re-run `cim` |
 | `acceleration:<Model>` ×6 (`--accelerate`) | the model endpoint reports `enabled` over `-10y` | the row is not in Splunk_SA_CIM's local conf — re-run `apply --accelerate`; a row in the hunt app reports `enabled: False` |
 | `acceleration_window` | all six models at `-10y` | `datamodels.conf` did not land — re-run `apply --accelerate` |
 | `summaries_complete` | six `DM_Splunk_SA_CIM_<Model>` ids, `summary.complete = 1` | the build has not finished (or never started) — `/services/admin/summarization`; a `summary.last_error` names the cause |

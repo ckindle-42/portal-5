@@ -204,6 +204,18 @@ class SplunkREST:
             self.request("POST", _datamodel_path("configs/conf-datamodels", app, model), settings)
         return Action(True, f"{app} {model} reports {before} -> enabled {window}")
 
+    def rebuild_datamodel_acceleration(
+        self, app: str, model: str, settings: dict[str, str], *, dry_run: bool = False
+    ) -> Action:
+        """Disable then re-enable. CIM manual_rebuilds leaves a macro edit unbackfilled."""
+        window = settings["acceleration.earliest_time"]
+        if dry_run:
+            return Action(True, f"{app} {model} would rebuild over {window}")
+        path = _datamodel_path("configs/conf-datamodels", app, model)
+        self.request("POST", path, {"acceleration": "false"})
+        self.request("POST", path, settings)
+        return Action(True, f"{app} {model} rebuilt over {window}")
+
     def revert_datamodel_acceleration(
         self, app: str, model: str, *, dry_run: bool = False
     ) -> Action:
