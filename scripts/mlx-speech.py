@@ -316,8 +316,6 @@ def _read_audio_any(path: Path):
 
 def register_voice_profile(name: str, ref_audio_path: str, ref_text: str) -> dict:
     """Persist a named trainer-voice profile from a reference clip + transcript."""
-    import soundfile as sf
-
     src = Path(ref_audio_path)
     if not src.exists():
         return {"error": f"Reference audio not found: {ref_audio_path}"}
@@ -334,6 +332,8 @@ def register_voice_profile(name: str, ref_audio_path: str, ref_text: str) -> dic
         return {
             "error": f"Reference clip is {duration:.1f}s; the clone engine needs >=5s (10-15s clean clones best)."
         }
+
+    import soundfile as sf
 
     pdir = _profile_dir(name)
     pdir.mkdir(parents=True, exist_ok=True)
