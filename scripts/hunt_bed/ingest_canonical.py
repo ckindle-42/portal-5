@@ -341,6 +341,43 @@ def _strip_tabular(records: list[str], name: str) -> tuple[list[str], int]:
     return out, removed
 
 
+_HEADER_CELL = re.compile(r"[A-Za-z][A-Za-z0-9_.\- ]{0,40}")
+_HEADER_BODY_SAMPLE = 200  # effort budget: data rows checked for a header cell recurring as data
+
+
+def _real_header(records: list[str], name: str) -> tuple[int, list[str]] | None:
+    """(index, columns) when the first data row names columns: name-shaped cells that never recur."""
+    header_at = _header_index(records)
+    if header_at is None or records[header_at].startswith("#"):
+        return None
+    delim = _table_delim(name, records)
+    cols = [cell.strip() for cell in _split_cols(records[header_at], delim)]
+    if len(cols) < 2 or not all(_HEADER_CELL.fullmatch(cell) for cell in cols):
+        return None
+    seen: set[str] = set()
+    for line in records[header_at + 1 : header_at + 1 + _HEADER_BODY_SAMPLE]:
+        if line.strip() and not line.startswith("#"):
+            seen.update(cell.strip() for cell in _split_cols(line, delim))
+    if any(cell in seen for cell in cols):
+        return None
+    return header_at, cols
+
+
+def _table_records(records: list[str], name: str) -> tuple[list[str], int]:
+    """A real header ships one JSON object per row; a headerless table keeps positional stripping."""
+    header = _real_header(records, name)
+    if header is None:
+        return _strip_tabular(records, name)
+    header_at, cols = header
+    delim = _table_delim(name, records)
+    rows = [
+        _split_cols(line, delim)
+        for line in records[header_at + 1 :]
+        if line.strip() and not line.startswith("#")
+    ]
+    return _emit_json_rows(cols, rows)
+
+
 def _xml_events(records: list[str], name: str) -> list[str] | None:
     low = _strip_gz(name)
     text = "\n".join(records)
@@ -490,7 +527,7 @@ def prepare_payloads(records: list[str], name: str) -> tuple[list[str], int]:
     if _is_uwf_zeek_csv(name, records):
         return _uwf_zeek_records(records)
     if _is_delimited_table(name, records):
-        return _strip_tabular(records, name)
+        return _table_records(records, name)
     return _strip_json_records(records)
 
 

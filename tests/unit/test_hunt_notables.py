@@ -467,13 +467,35 @@ def test_quoted_delimited_records_keep_their_real_columns():
     }
 
 
-def test_one_field_in_several_core_roles_is_rejected():
+def test_one_field_in_several_roles_keeps_its_highest_priority_role():
     answer = apply_answer(
         json.dumps({"kind": "activity", "actor": ["c1"], "action": ["c1"], "object": ["c1"]}),
         ["c1", "c2", "c3"],
     )
-    assert answer.error == "ambiguous_roles:c1"
-    assert answer.roles == {}
+    assert answer.error is None
+    assert answer.roles == {"actor": ("c1",)}
+
+
+def test_role_dedup_is_deterministic_and_keeps_every_other_field():
+    answer = apply_answer(
+        json.dumps(
+            {
+                "kind": "activity",
+                "action": ["message", "cmd"],
+                "object": ["message", "path"],
+                "outcome": ["message"],
+                "from": ["ip"],
+                "to": ["ip"],
+            }
+        ),
+        ["message", "cmd", "path", "ip"],
+    )
+    assert answer.error is None
+    assert answer.roles == {
+        "action": ("message", "cmd"),
+        "object": ("path",),
+        "from": ("ip",),
+    }
 
 
 def test_model_answer_is_rejected_when_it_names_a_field_the_sample_lacks():

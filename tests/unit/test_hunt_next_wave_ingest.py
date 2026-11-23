@@ -230,11 +230,15 @@ def _assert_shipped(events: list[dict]) -> None:
     assert preserved["id.orig_h"] == "10.1.1.5"
     assert preserved["id.resp_h"] == "10.1.1.9"
     assert preserved["ts"] == 1700000000.0
-    lmd_row = next(raw for raw in raws if "SECRET_RAW_CMD" in raw and not raw.startswith("<"))
-    header = next(raw for raw in raws if raw.startswith("EventID,"))
-    assert header.startswith("EventID,Image,CommandLine")
-    assert "win-lab" in lmd_row and "cmd.exe" in lmd_row
-    assert "label" not in header.casefold() and "technique" not in header.casefold()
+    assert not any(raw.startswith("EventID,") for raw in raws)  # the CSV header never ships
+    lmd_payload = next(
+        json.loads(raw) for raw in raws if "SECRET_RAW_CMD" in raw and raw.lstrip().startswith("{")
+    )
+    assert lmd_payload["Image"] == "C:\\Windows\\System32\\cmd.exe"
+    assert lmd_payload["Computer"] == "win-lab"
+    assert "cmd.exe" in lmd_payload["CommandLine"]
+    folded = {str(key).casefold() for key in lmd_payload}
+    assert "label" not in folded and "technique" not in folded
     attack = next(ev for ev in events if "SECRET_RAW_ZEEK" in ev["event"])
     assert attack["time"].startswith("1700000000")
     by_type = {ev["sourcetype"] for ev in events}
@@ -526,6 +530,48 @@ def test_zeek_fields_tsv_ships_json_objects(tmp_path: Path, monkeypatch) -> None
     assert "exception" not in payload
     assert "label_tactic" not in payload
     assert "Impair Process Control" not in event["event"]
+
+
+def test_headered_csv_ships_json_objects_with_column_names_and_no_labels() -> None:
+    records = [
+        "EventID,Image,CommandLine,Label,label_tactic,mitre_attack,Empty",
+        "1,C:\\cmd.exe,cmd /c whoami,EoRS,Execution,T1059,",
+        "2,C:\\explorer.exe,explorer.exe,Normal,,,",
+    ]
+    payloads, removed = ingest_canonical.prepare_payloads(records, "LMD-2023-labelled.csv")
+    assert (
+        removed == 6
+    )  # two rows x three ground-truth columns; the header is consumed, not counted
+    assert [json.loads(raw) for raw in payloads] == [
+        {"EventID": "1", "Image": "C:\\cmd.exe", "CommandLine": "cmd /c whoami"},
+        {"EventID": "2", "Image": "C:\\explorer.exe", "CommandLine": "explorer.exe"},
+    ]
+    for raw in payloads:
+        folded = {str(key).casefold() for key in json.loads(raw)}
+        assert folded.isdisjoint(_GT)
+        assert not any(key.startswith(("label_", "mitre_")) for key in folded)
+
+
+def test_headered_tsv_and_quoted_csv_ship_json_objects() -> None:
+    payloads, removed = ingest_canonical.prepare_payloads(
+        ["ts\tsrc\tlabel", "1700000000\t10.1.1.5\tMalicious"], "flows.tsv"
+    )
+    assert removed == 1
+    assert json.loads(payloads[0]) == {"ts": 1700000000.0, "src": "10.1.1.5"}
+    payloads, removed = ingest_canonical.prepare_payloads(
+        ["cmd,label", '"cmd /c echo a,b",EoRS'], "extract.csv"
+    )
+    assert removed == 1
+    assert json.loads(payloads[0]) == {"cmd": "cmd /c echo a,b"}
+
+
+def test_headerless_or_recurring_first_row_stays_positional() -> None:
+    headerless = ["10.1.1.5,10.1.1.9,502", "10.1.1.6,10.1.1.9,502"]
+    payloads, removed = ingest_canonical.prepare_payloads(headerless, "flows.csv")
+    assert payloads == headerless and removed == 0
+    recurring = ["alpha,beta,gamma", "alpha,1,2", "beta,3,4"]
+    payloads, removed = ingest_canonical.prepare_payloads(recurring, "names.csv")
+    assert payloads == recurring and removed == 0
 
 
 def test_named_ground_truth_fields_are_the_strip_set() -> None:

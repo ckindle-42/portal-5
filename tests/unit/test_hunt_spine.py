@@ -199,15 +199,75 @@ def test_unset_and_loopback_sentinels_never_anchor_the_spine(tmp_path: Path) -> 
 
 
 def test_sentinel_predicate_keeps_real_privileged_and_network_identities() -> None:
-    for value in ("4294967295", "-1", "0.0.0.0", "::", "127.0.0.1", "::1", "(empty)", "unknown"):
+    for value in (
+        "4294967295",
+        "-1",
+        "0.0.0.0",
+        "::",
+        "127.0.0.1",
+        "127.0.0.2",
+        "::1",
+        "(empty)",
+        "unknown",
+    ):
         assert is_sentinel_value(value)
-    for value in ("root", "SYSTEM", "gmorgan", "1002", "0", "10.1.2.3", "2001:db8::1", "127.0.0.2"):
+    for value in ("root", "SYSTEM", "gmorgan", "1002", "0", "10.1.2.3", "2001:db8::1"):
         assert not is_sentinel_value(value)
     assert classify("auid", "4294967295") is None
     assert classify("user", "unknown") is None
     assert classify("src_ip", "0.0.0.0") is None
     assert classify("user", "root") is not None
     assert classify("src_ip", "10.1.2.3") is not None
+
+
+def test_rfc_non_actor_addresses_are_sentinels_but_private_unicast_is_not() -> None:
+    for value in (
+        "224.0.0.251",
+        "224.0.1.1",
+        "ff02::fb",
+        "ff05::1:3",
+        "169.254.10.20",
+        "fe80::de28:c90f:5a20:95c",
+        "255.255.255.255",
+        "127.1.2.3",
+    ):
+        assert is_sentinel_value(value), value
+    for value in (
+        "10.1.2.3",
+        "172.16.5.9",
+        "192.168.127.21",
+        "8.8.8.8",
+        "2001:db8::1",
+        "fd00::1",
+    ):
+        assert not is_sentinel_value(value), value
+    assert classify("src_ip", "224.0.0.251") is None
+    assert classify("src_ip", "fe80::de28:c90f:5a20:95c") is None
+    assert classify("src_ip", "255.255.255.255") is None
+    assert classify("src_ip", "192.168.127.21") is not None
+
+
+def test_multicast_and_link_local_addresses_never_anchor_the_spine(tmp_path: Path) -> None:
+    non_actors = ("224.0.0.251", "fe80::de28:c90f:5a20:95c", "ff02::fb", "255.255.255.255")
+    events = [
+        _event("ix:ot", 1_000.0 + index, value, fields={"src_ip": value})
+        for index, value in enumerate(non_actors)
+    ]
+    events += [
+        _event("ix:ot", 2_000.0, "192.168.127.21 plc", fields={"src_ip": "192.168.127.21"}),
+        _event("ix:ot", 2_060.0, "192.168.127.126 scan", fields={"src_ip": "192.168.127.126"}),
+    ]
+    build_spine(events, tmp_path / "entities.duckdb")
+    con = duckdb.connect(str(tmp_path / "entities.duckdb"), read_only=True)
+    try:
+        entities = set(con.execute("SELECT entity_kind, value FROM entities").fetchall())
+        episodes = set(con.execute("SELECT entity_kind, value FROM episodes").fetchall())
+    finally:
+        con.close()
+    values = {value for _kind, value in entities}
+    assert not values & set(non_actors)
+    assert not {value for _kind, value in episodes} & set(non_actors)
+    assert {("address", "192.168.127.21"), ("address", "192.168.127.126")} <= entities
 
 
 def test_a_typed_field_override_still_drops_sentinel_values() -> None:
