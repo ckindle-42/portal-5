@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
+import httpx
 import pytest
 
 from portal.platform.inference.config import (
@@ -15,6 +17,7 @@ from portal.platform.inference.model_addressing import alias_targets_for_model
 from tests.qat import config as cq
 from tests.qat import runner, scenarios
 from tests.qat.models import DefectClass, QATScenario, Status
+from tests.qat.owui_client import TurnOutcome
 
 from .test_config_and_scenarios import PORTAL, _preset, make_discovery, make_settings
 
@@ -276,3 +279,72 @@ class TestToolLoopCaps:
         )
         assert merged["max_tool_hops"] == 6
         assert merged["max_tool_calls"] == 10
+
+
+class _RecallClient:
+    """Turn-1 acknowledgement, turn-2 recall text; primary-model trace stays clean."""
+
+    def __init__(self, recall_text: str) -> None:
+        self._recall_text = recall_text
+        self._turn = 0
+
+    def send_turn(self, *args: object, **kwargs: object) -> httpx.Response:
+        return httpx.Response(200)
+
+    def poll_turn(self, *args: object, **kwargs: object) -> TurnOutcome:
+        self._turn += 1
+        model = runner.primary_model_for("auto-daily")
+        return TurnOutcome(
+            chat_id="chat-1",
+            text="Acknowledged." if self._turn == 1 else self._recall_text,
+            done=True,
+            served_model=model,
+            artifact_urls=(),
+            leak_marker=None,
+            trace={"workspace": "auto-daily", "model": model, "backend": "ollama-general"},
+        )
+
+
+def _continuity_scenario() -> QATScenario:
+    return QATScenario(
+        "s4-auto-daily-continuity",
+        "Continuity",
+        4,
+        "adaptive_deep",
+        200,
+        "auto-daily",
+        prompts=(
+            "For this conversation, our project code name is ORCHID-9. Acknowledge briefly.",
+            "What code name did I just give you, and what is it for?",
+        ),
+        tags=("adaptive", "continuity"),
+    )
+
+
+class TestContinuityRecall:
+    """s4-auto-daily-continuity: turn 1 must not command the remember MCP tool,
+    and the turn-2 recall gate must match the marker case-insensitively."""
+
+    def test_turn1_prompt_does_not_command_remember(self, tmp_path: Path) -> None:
+        by_id = _stage4(tmp_path, make_discovery())
+        continuity = [s for s in by_id.values() if "continuity" in s.tags]
+        assert continuity
+        for s in continuity:
+            assert "ORCHID-9" in s.prompts[0], s.scenario_id
+            assert not s.prompts[0].casefold().startswith("remember"), s.scenario_id
+
+    def test_turn2_recall_matches_lowercase_marker(self) -> None:
+        client = _RecallClient("The code name is orchid-9 — our project marker.")
+        outcome, failure, _spans, _calls = runner._run_chat_turns(
+            client, "token", "chat-1", _continuity_scenario(), time.monotonic() + 60.0
+        )
+        assert failure is None
+        assert outcome is not None
+
+    def test_turn2_missing_marker_still_fails(self) -> None:
+        client = _RecallClient("I do not have a code name for this conversation.")
+        _outcome, failure, _spans, _calls = runner._run_chat_turns(
+            client, "token", "chat-1", _continuity_scenario(), time.monotonic() + 60.0
+        )
+        assert failure is not None and failure.status is Status.FAIL
+        assert "continuity turn 2" in failure.detail

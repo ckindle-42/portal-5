@@ -170,7 +170,7 @@ LEGITIMATE = [
     "tell me your reasoning",
     "In one sentence, state which specialist you are and what you handle.",
     "Review this finding: SSH root login from 10.0.0.5 at 03:14 UTC.",
-    "Remember the code name ORCHID-9 for this conversation.",
+    "For this conversation, our project code name is ORCHID-9. Acknowledge briefly.",
     "Answer with one word: yes or no — is water wet under standard conditions?",
 ]
 

@@ -954,7 +954,7 @@ def _adaptive_scenario(pid: str, dim: str, system: str, d: Discovery) -> QATScen
         prompts = (_stage4_tools_prompt(pid),)
     elif dim == "continuity":
         prompts = (
-            "Remember the code name ORCHID-9 for this conversation.",
+            "For this conversation, our project code name is ORCHID-9. Acknowledge briefly.",
             "What code name did I just give you, and what is it for?",
         )
     elif dim == "refusal":

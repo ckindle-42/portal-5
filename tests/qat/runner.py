@@ -875,7 +875,11 @@ def _run_chat_turns(
                 all_spans,
                 all_calls,
             )
-        if index == 2 and "continuity" in scenario.tags and "ORCHID-9" not in outcome.text:
+        if (
+            index == 2
+            and "continuity" in scenario.tags
+            and "orchid-9" not in outcome.text.casefold()
+        ):
             return (
                 None,
                 QATResult(
