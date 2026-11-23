@@ -3,9 +3,11 @@ eviction, host memory guard, MLX media pressure report.
 
 Eviction is residency-checked: oMLX 0.8.1 returns HTTP 400 for an unload of
 an already-cold model, so residency is read from /v1/models/status (falling
-back to /v1/models/loaded) and only resident models are unloaded. The
-retained MLX media services (mlx-speech :8918, mflux :8933, video-mlx :8935)
-are memory-pressure reporters only — never killed.
+back to /v1/models/loaded) and only resident models are unloaded. The unload
+itself is asynchronous (HTTP 202): the gate polls residency for
+OMLX_EVICT_SETTLE_S before reporting PASS, since Metal memory is reclaimed
+over the next seconds. The retained MLX media services (mlx-speech :8918,
+mflux :8933, video-mlx :8935) are memory-pressure reporters only — never killed.
 """
 
 from __future__ import annotations
@@ -28,6 +30,10 @@ MEDIA_SERVICES: tuple[tuple[str, str, int], ...] = (
 WAIT_BUDGET_S = 600.0
 POLL_S = 15.0
 EVICT_SETTLE_S = 2.0
+#: oMLX 0.8.1's unload is async (HTTP 202): residency is polled for this window
+#: (in OMLX_EVICT_SETTLE_STEP_S steps) before the eviction gate reports PASS.
+OMLX_EVICT_SETTLE_S = 10.0
+OMLX_EVICT_SETTLE_STEP_S = 0.5
 
 
 def _get(client: httpx.Client, url: str, headers: dict[str, str] | None = None) -> httpx.Response:
@@ -128,7 +134,9 @@ def evict_ollama(client: httpx.Client, settings: Settings, resident: list[str]) 
 
 
 def evict_omlx(client: httpx.Client, settings: Settings, resident: list[str]) -> QATResult:
-    """Unload residency-confirmed models through the oMLX admin API."""
+    """Unload residency-confirmed models through the oMLX admin API, then wait out
+    oMLX 0.8.1's async unload (200/202/204): PASS only once residency confirms the
+    models are no longer loaded, not at the moment the unload is accepted."""
     for name in resident:
         encoded = quote(name, safe="")
         try:
@@ -149,8 +157,26 @@ def evict_omlx(client: httpx.Client, settings: Settings, resident: list[str]) ->
                 )
         except Exception as exc:
             return QATResult("gate-evict-omlx", Status.FAIL, f"unload {name}: {exc}")
-    detail = f"evicted {len(resident)} oMLX model(s)" if resident else "oMLX already cold"
-    return QATResult("gate-evict-omlx", Status.PASS, detail)
+    if not resident:
+        return QATResult("gate-evict-omlx", Status.PASS, "oMLX already cold")
+    deadline = time.monotonic() + OMLX_EVICT_SETTLE_S
+    while True:
+        result, names = omlx_residency(client, settings)
+        stuck = [n for n in names if n in resident]
+        if not stuck and result.status is not Status.FAIL:
+            return QATResult(
+                "gate-evict-omlx", Status.PASS, f"evicted {len(resident)} oMLX model(s)"
+            )
+        if time.monotonic() >= deadline:
+            detail = (
+                f"unload accepted but still resident after {OMLX_EVICT_SETTLE_S:.0f}s: {stuck}"
+                if stuck
+                else f"eviction unconfirmed after {OMLX_EVICT_SETTLE_S:.0f}s (residency unreadable)"
+            )
+            return QATResult(
+                "gate-evict-omlx", Status.FAIL, detail, evidence={"resident": resident}
+            )
+        time.sleep(OMLX_EVICT_SETTLE_STEP_S)
 
 
 def vm_memory() -> QATResult:
