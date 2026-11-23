@@ -34,6 +34,9 @@ PROOF_INDEXES = frozenset(
         "hb_flaws_aws",
         "hb_ait_wardbeck",
         "hb_ait_wilson",
+        "hb_ics_pcap",
+        "hb_lmd_2023",
+        "hb_uwf_zeek24",
     }
 )
 TRAINING_INDEXES = frozenset(

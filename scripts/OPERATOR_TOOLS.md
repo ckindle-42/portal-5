@@ -26,6 +26,8 @@ python3 scripts/hunt_bed/ingest_canonical.py --root <dir|.tar|.zip> --index hb_<
 python3 scripts/hunt_bed/ingest_canonical.py --root <dir|.tar|.zip> --index hb_<env> --ship --manifest-out <dir> --default-year <y>
                                     # canonical-sourcetype ship: drops noise/dups/labels, flattens CloudTrail Records, HEC + digest manifest
 python3 scripts/hunt_bed/keys_flaws.py --manifest <dir>   # flaws.cloud scorer key joined to the canonical manifest (scorer plane only)
+python3 scripts/hunt_bed/keys_nextwave.py --root <dir|.zip|.tar> --dataset UWF-ZeekData24|LMD-2023|ICS-pcap --out /Volumes/data01/hunt_keys/<dataset>_key.json [--summary]
+                                    # next-wave out-of-band scorer key (UWF-ZeekData24, LMD-2023, ICS-pcap); never read by portal/
 python3 scripts/hunt_bed/keys_flaws.py --splunk hb_flaws_aws [--extra cited.json]  # flaws.cloud locator SPL / cited extras
 python3 scripts/hunt_bed/keys_kyoushi.py --labels <labels/> --ingest <out>     # AIT/Kyoushi per-line key
 python3 scripts/hunt_bed/keys_cloudobs.py --ingest <out>                       # cloud_obs y/n-run key
