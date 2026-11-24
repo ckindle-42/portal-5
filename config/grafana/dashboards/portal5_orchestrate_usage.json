@@ -20,7 +20,7 @@
     {
       "type": "row",
       "id": 100,
-      "title": "Cockpit \u2014 headroom, burn pace & spend",
+      "title": "Executive Summary",
       "gridPos": {
         "x": 0,
         "y": 0,
@@ -30,15 +30,290 @@
       "collapsed": false
     },
     {
-      "id": 17,
-      "type": "table",
-      "title": "Plan headroom & burn pace \u2014 switch before a plan blocks",
-      "description": "One row per plan window that publishes a quota \u2014 every plan, Gemini Pro's five pools included. Headroom left % is the vendor's own reading (red under 15, amber under 35). Pace vs even (pp) is headroom minus the share of the window already elapsed: negative is a pool burning ahead of even pace that empties before it resets, positive is spare. Projected waste % is what the burn model expects to reset unused (blank where untracked). Sorted tightest-first: the top row is the pool to move work off. Rolling windows with no fixed reset (Claude Pro 5h) publish no pace or reset time.",
+      "id": 7,
+      "type": "stat",
+      "title": "Cash Spent (7d)",
+      "description": "Real money across every metered tier in the dashboard window.",
       "gridPos": {
         "x": 0,
         "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orchestrate_window_cost_usd{window=\"7d\"})",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#d95926"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Prepaid Value Saved (7d)",
+      "description": "What the prepaid tiers' tokens would have cost at the cheapest metered equivalent's list price. This is the subscriptions earning their keep.",
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orchestrate_window_notional_usd{window=\"7d\"}) - sum(orchestrate_window_cost_usd{window=\"7d\"})",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#199e70"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Dispatches (7d)",
+      "description": "Worker dispatches recorded across all tiers.",
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(orchestrate_window_runs{window=\"7d\"})",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Accept Rate (7d)",
+      "description": "Share of reviewed dispatches accepted. Routing ranks on cost per ACCEPTED slice, so this is the denominator that matters \u2014 a cheap tier rejected half the time is the expensive one.",
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(orchestrate_window_accepted{window=\"7d\"}) / clamp_min(sum(orchestrate_window_judged{window=\"7d\"}), 1)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#c98500",
+                "value": 70
+              },
+              {
+                "color": "#199e70",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 129,
+      "type": "stat",
+      "title": "Pools Resetting to Waste",
+      "description": "orchestrate_burn_idle_capacity = 1 for a pool whose projected unused passes the gate with no ready backlog item able to draw it. Each fired once per window to Telegram/pushover (dedup in ~/.claude/orchestrate/idle_capacity.json) \u2014 this panel is the at-a-glance history via the state gauge.",
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(orchestrate_burn_idle_capacity == 1)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#199e70",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "title": "Rate-Limited Pools Now",
+      "type": "stat",
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(orchestrate_rate_limit_retry_timestamp > time())",
+          "legendFormat": "fenced pools"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "value": 0,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "red"
+              }
+            ]
+          }
+        }
+      },
+      "id": 122
+    },
+    {
+      "id": 17,
+      "type": "table",
+      "title": "Plan Headroom & Burn Pace",
+      "description": "One row per plan window that publishes a quota \u2014 every plan, Gemini Pro's five pools included. Headroom left % is the vendor's own reading (red under 15, amber under 35). Pace vs even (pp) is headroom minus the share of the window already elapsed: negative is a pool burning ahead of even pace that empties before it resets, positive is spare. Projected waste % is what the burn model expects to reset unused (blank where untracked). Sorted tightest-first: the top row is the pool to move work off. Rolling windows with no fixed reset (Claude Pro 5h) publish no pace or reset time.",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
         "w": 24,
-        "h": 14
+        "h": 11
       },
       "targets": [
         {
@@ -355,15 +630,94 @@
       }
     },
     {
-      "id": 133,
-      "type": "table",
-      "title": "Metered cash \u2014 live balances & vendor spend",
-      "description": "Authoritative cash per metered plan, one row per plan \u2014 `sum by (plan)` collapses the exporter's source/basis labels so nothing doubles. Cash left is the vendor's own balance; Orca's is the anchor-derived wallet ($53.10 anchor \u2212 $44.66 spent since anchor = $8.44). Spent is DeepSeek's month-to-date export, or spend since each plan's tracking anchor. Vendor lifetime is the vendor's own lifetime figure \u2014 OrcaRouter's $91.56, which closes the loop against $100.00 of receipts-ledger deposits. Blank means the vendor publishes no such number.",
+      "id": 4,
+      "type": "timeseries",
+      "title": "Quota Burn-Down & Resets",
+      "description": "Quota left in every pool that publishes one \u2014 the burn-down behind the headroom table above. The sawtooth is a window resetting; a line heading for zero before its reset is the cue to move work to another plan.",
       "gridPos": {
         "x": 0,
-        "y": 15,
-        "w": 12,
-        "h": 8
+        "y": 16,
+        "w": 14,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "orchestrate_quota_remaining",
+          "legendFormat": "{{plan}} \u00b7 {{window}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisLabel": "credits remaining"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*5h.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*1w.*"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 133,
+      "type": "table",
+      "title": "Metered Cash & Live Balances",
+      "description": "Authoritative cash per metered plan, one row per plan \u2014 `sum by (plan)` collapses the exporter's source/basis labels so nothing doubles. Cash left is the vendor's own balance; Orca's is the anchor-derived wallet ($53.10 anchor \u2212 $44.66 spent since anchor = $8.44). Spent is DeepSeek's month-to-date export, or spend since each plan's tracking anchor. Vendor lifetime is the vendor's own lifetime figure \u2014 OrcaRouter's $91.56, which closes the loop against $100.00 of receipts-ledger deposits. Blank means the vendor publishes no such number.",
+      "gridPos": {
+        "x": 14,
+        "y": 16,
+        "w": 10,
+        "h": 7
       },
       "targets": [
         {
@@ -540,556 +894,12 @@
       }
     },
     {
-      "id": 134,
-      "type": "table",
-      "title": "Lifetime paid & vendor usage \u2014 all providers",
-      "description": "Lifetime money per provider from two independent ledgers: Paid (receipts) is the Gmail receipts ledger with refunds netted out; Vendor usage is the vendor's own lifetime reading where it publishes one (OrcaRouter, OpenRouter, Claude extra usage). The known flags keep every provider row present; a blank cell means no known figure and is never rendered as 0. Deposits anchor the cockpit's wallet math: Orca $100.00 paid \u2212 $91.56 vendor lifetime = $8.44 balance.",
-      "gridPos": {
-        "x": 12,
-        "y": 15,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "PK",
-          "expr": "orchestrate_lifetime_paid_known",
-          "instant": true,
-          "format": "table"
-        },
-        {
-          "refId": "SK",
-          "expr": "orchestrate_lifetime_spend_known",
-          "instant": true,
-          "format": "table"
-        },
-        {
-          "refId": "PAID",
-          "expr": "sum by (provider) (orchestrate_lifetime_paid_usd)",
-          "instant": true,
-          "format": "table"
-        },
-        {
-          "refId": "USED",
-          "expr": "sum by (provider) (orchestrate_lifetime_spend_usd)",
-          "instant": true,
-          "format": "table"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "merge",
-          "options": {}
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "__name__": true,
-              "instance": true,
-              "job": true,
-              "Value #PK": true,
-              "Value #SK": true
-            },
-            "indexByName": {
-              "provider": 0,
-              "Value #PAID": 1,
-              "Value #USED": 2
-            },
-            "renameByName": {
-              "provider": "Provider",
-              "Value #PAID": "Paid (receipts)",
-              "Value #USED": "Vendor usage"
-            }
-          }
-        },
-        {
-          "id": "sortBy",
-          "options": {
-            "sort": [
-              {
-                "field": "Provider",
-                "desc": false
-              }
-            ]
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "right"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Provider"
-            },
-            "properties": [
-              {
-                "id": "custom.align",
-                "value": "left"
-              },
-              {
-                "id": "custom.width",
-                "value": 140
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Paid (receipts)"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "currencyUSD"
-              },
-              {
-                "id": "decimals",
-                "value": 2
-              },
-              {
-                "id": "custom.width",
-                "value": 150
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Vendor usage"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "currencyUSD"
-              },
-              {
-                "id": "decimals",
-                "value": 2
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 7,
-      "type": "stat",
-      "title": "Spent in cash (7d)",
-      "description": "Real money across every metered tier in the dashboard window.",
-      "gridPos": {
-        "x": 0,
-        "y": 23,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(orchestrate_window_cost_usd{window=\"7d\"})",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "decimals": 2,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#d95926"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      }
-    },
-    {
-      "id": 8,
-      "type": "stat",
-      "title": "Avoided by prepaid (7d)",
-      "description": "What the prepaid tiers' tokens would have cost at the cheapest metered equivalent's list price. This is the subscriptions earning their keep.",
-      "gridPos": {
-        "x": 6,
-        "y": 23,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(orchestrate_window_notional_usd{window=\"7d\"}) - sum(orchestrate_window_cost_usd{window=\"7d\"})",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "decimals": 2,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#199e70"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      }
-    },
-    {
-      "id": 9,
-      "type": "stat",
-      "title": "Dispatches (7d)",
-      "description": "Worker dispatches recorded across all tiers.",
-      "gridPos": {
-        "x": 12,
-        "y": 23,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(orchestrate_window_runs{window=\"7d\"})",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#3987e5"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      }
-    },
-    {
-      "id": 10,
-      "type": "stat",
-      "title": "Accept rate (7d)",
-      "description": "Share of reviewed dispatches accepted. Routing ranks on cost per ACCEPTED slice, so this is the denominator that matters \u2014 a cheap tier rejected half the time is the expensive one.",
-      "gridPos": {
-        "x": 18,
-        "y": 23,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "100 * sum(orchestrate_window_accepted{window=\"7d\"}) / clamp_min(sum(orchestrate_window_judged{window=\"7d\"}), 1)",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "decimals": 0,
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "#c98500",
-                "value": 70
-              },
-              {
-                "color": "#199e70",
-                "value": 90
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "textMode": "value",
-        "colorMode": "value",
-        "graphMode": "none",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      }
-    },
-    {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Quota burn-down and reset",
-      "description": "Quota left in every pool that publishes one \u2014 the burn-down behind the headroom table above. The sawtooth is a window resetting; a line heading for zero before its reset is the cue to move work to another plan.",
-      "gridPos": {
-        "x": 0,
-        "y": 27,
-        "w": 16,
-        "h": 7
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "orchestrate_quota_remaining",
-          "legendFormat": "{{plan}} \u00b7 {{window}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "min": 0,
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true,
-            "axisLabel": "credits remaining"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*5h.*"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#3987e5"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": ".*1w.*"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#d95926"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      }
-    },
-    {
-      "id": 117,
-      "type": "stat",
-      "title": "OrcaRouter wallet \u2014 now",
-      "description": "The OrcaRouter wallet right now: $100.00 deposited (receipts ledger) \u2212 $91.56 vendor lifetime spend = $8.44 left. Spent since anchor is the recorded anchor less the current balance, read from OrcaRouter's own workspace spend quota \u2014 it counts every client on the key, so it can exceed what the registry booked. Paid dispatches stop at the $2.00 floor.",
-      "gridPos": {
-        "x": 16,
-        "y": 27,
-        "w": 8,
-        "h": 7
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "orchestrate_balance_usd{plan=\"orca\"}",
-          "legendFormat": "balance",
-          "instant": true
-        },
-        {
-          "refId": "B",
-          "expr": "orchestrate_metered_cash_usd{plan=\"orca\",side=\"lifetime\"}",
-          "legendFormat": "lifetime spent",
-          "instant": true
-        },
-        {
-          "refId": "C",
-          "expr": "orchestrate_lifetime_paid_usd{provider=\"orca\"}",
-          "legendFormat": "lifetime paid",
-          "instant": true
-        },
-        {
-          "refId": "D",
-          "expr": "orchestrate_spent_since_anchor_usd{plan=\"orca\"}",
-          "legendFormat": "spent since anchor",
-          "instant": true
-        },
-        {
-          "refId": "E",
-          "expr": "orchestrate_balance_anchor_usd{plan=\"orca\"}",
-          "legendFormat": "anchor",
-          "instant": true
-        },
-        {
-          "refId": "F",
-          "expr": "orchestrate_balance_floor_usd{plan=\"orca\"}",
-          "legendFormat": "floor",
-          "instant": true
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyUSD",
-          "decimals": 2,
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#3987e5"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "lifetime spent"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#e8a03e"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "lifetime paid"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#199e70"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "spent since anchor"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#d95926"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "floor"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#6e6e6e"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      }
-    },
-    {
       "id": 126,
       "type": "row",
-      "title": "Even burn \u2014 ahead / behind & projected waste",
+      "title": "Burn Pacing & Capacity Waste",
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 23,
         "w": 24,
         "h": 1
       },
@@ -1097,13 +907,13 @@
         {
           "id": 127,
           "type": "timeseries",
-          "title": "Projected unused by pool \u2014 what resets to waste",
+          "title": "Projected Unused at Reset",
           "description": "orchestrate_burn_projected_unused per prepaid pool (fraction; 0.1 = 10pp). Above the dashed zero line is capacity the current burn rate will leave unspent at reset; `dispatch.py burn` assigns the backlog there first, and an IDLE-CAPACITY warning fires when nothing can draw the pool.",
           "gridPos": {
             "x": 0,
-            "y": 35,
+            "y": 24,
             "w": 12,
-            "h": 8
+            "h": 7
           },
           "targets": [
             {
@@ -1190,13 +1000,13 @@
         {
           "id": 128,
           "type": "timeseries",
-          "title": "Burn deficit by pool \u2014 behind even burn",
+          "title": "Burn Deficit (Behind Even Burn)",
           "description": "orchestrate_burn_deficit per pool (left minus even-burn-left). Positive is a pool behind its spend clock (idle capacity); negative is burning fast. The controller ranks by projected unused first, this is the pace context every dispatch prints.",
           "gridPos": {
             "x": 12,
-            "y": 35,
+            "y": 24,
             "w": 12,
-            "h": 8
+            "h": 7
           },
           "targets": [
             {
@@ -1256,113 +1066,15 @@
           }
         },
         {
-          "id": 129,
-          "type": "stat",
-          "title": "Pools resetting to waste now",
-          "description": "orchestrate_burn_idle_capacity = 1 for a pool whose projected unused passes the gate with no ready backlog item able to draw it. Each fired once per window to Telegram/pushover (dedup in ~/.claude/orchestrate/idle_capacity.json) \u2014 this panel is the at-a-glance history via the state gauge.",
-          "gridPos": {
-            "x": 0,
-            "y": 43,
-            "w": 6,
-            "h": 8
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "count(orchestrate_burn_idle_capacity == 1)"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "decimals": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#199e70",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 1
-                  }
-                ]
-              },
-              "color": {
-                "mode": "thresholds"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "colorMode": "background",
-            "graphMode": "area",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            }
-          }
-        },
-        {
-          "id": 130,
-          "type": "bargauge",
-          "title": "Backlog \u2014 the work supply burn draws on",
-          "description": "orchestrate_backlog_items by state: ready (deps satisfied), assigned (in the current burn proposal), held (a gate or role dependency), reported (orchestrator-run live items; never dispatched). `dispatch.py backlog list` names each item and its seat.",
-          "gridPos": {
-            "x": 6,
-            "y": 43,
-            "w": 9,
-            "h": 8
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "orchestrate_backlog_items",
-              "legendFormat": "{{state}}",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "decimals": 0,
-              "min": 0,
-              "color": {
-                "mode": "palette-classic"
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "displayMode": "gradient",
-            "minVizHeight": 10,
-            "minVizWidth": 0,
-            "namePlacement": "auto",
-            "orientation": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showUnfilled": true,
-            "sizing": "auto",
-            "valueMode": "color"
-          }
-        },
-        {
           "id": 131,
           "type": "stat",
-          "title": "Hours to reset, per pool",
+          "title": "Hours to Reset by Pool",
           "description": "orchestrate_burn_hours_to_reset \u2014 the use-it-or-lose-it clock behind every deficit above.",
           "gridPos": {
-            "x": 15,
-            "y": 43,
-            "w": 9,
-            "h": 8
+            "x": 0,
+            "y": 31,
+            "w": 8,
+            "h": 7
           },
           "targets": [
             {
@@ -1412,15 +1124,62 @@
           }
         },
         {
+          "id": 130,
+          "type": "bargauge",
+          "title": "Work Backlog Supply",
+          "description": "orchestrate_backlog_items by state: ready (deps satisfied), assigned (in the current burn proposal), held (a gate or role dependency), reported (orchestrator-run live items; never dispatched). `dispatch.py backlog list` names each item and its seat.",
+          "gridPos": {
+            "x": 8,
+            "y": 31,
+            "w": 8,
+            "h": 7
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "orchestrate_backlog_items",
+              "legendFormat": "{{state}}",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "decimals": 0,
+              "min": 0,
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "displayMode": "gradient",
+            "minVizHeight": 10,
+            "minVizWidth": 0,
+            "namePlacement": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
+          }
+        },
+        {
           "id": 16,
           "type": "timeseries",
           "gridPos": {
-            "x": 0,
-            "y": 51,
-            "w": 12,
-            "h": 6
+            "x": 16,
+            "y": 31,
+            "w": 8,
+            "h": 7
           },
-          "title": "Windows that are biting",
+          "title": "Windows Actively Biting",
           "description": "Each window the provider itself reports as active, with its severity. A line at 100% means that plan's included usage is gone \u2014 for Claude Pro and Codex that is the orchestrator's own budget, not a worker's.",
           "targets": [
             {
@@ -1474,6 +1233,100 @@
               "sort": "desc"
             }
           }
+        },
+        {
+          "id": 136,
+          "type": "stat",
+          "title": "Argon Shared Gemini Fence (Used / Left)",
+          "description": "Argon is escalation-only and fenced inside the SHARED Gemini bucket (the vendor retired the separate argon-week pool, live 2026-11-23). These are pp of gemini-week, from the vendor's own fractions: the allowance Argon may spend per weekly cycle (DISPATCH_ARGON_ALLOWANCE_PP), what its runs have measured so far this cycle, what is left, and the reserve that must remain for Hydrogen/Neon (DISPATCH_ARGON_WORKER_FLOOR_PP). An allowance of the Gemini bucket \u2014 not a vendor pool, no synthetic reset. Absent when no fresh vendor reading exists.",
+          "gridPos": {
+            "x": 0,
+            "y": 38,
+            "w": 24,
+            "h": 5
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "orchestrate_argon_used_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
+              "legendFormat": "used this cycle",
+              "instant": true
+            },
+            {
+              "refId": "B",
+              "expr": "orchestrate_argon_remaining_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
+              "legendFormat": "allowance left",
+              "instant": true
+            },
+            {
+              "refId": "C",
+              "expr": "orchestrate_argon_allowance_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
+              "legendFormat": "allowance",
+              "instant": true
+            },
+            {
+              "refId": "D",
+              "expr": "orchestrate_argon_worker_floor_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
+              "legendFormat": "worker reserve",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1,
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#3987e5"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "used this cycle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#e8a03e"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "worker reserve"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#c98500"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          }
         }
       ],
       "collapsed": true
@@ -1481,10 +1334,10 @@
     {
       "type": "row",
       "id": 108,
-      "title": "Seats & routing evidence",
+      "title": "Seats, Routing & Local P40 Capacity",
       "gridPos": {
         "x": 0,
-        "y": 35,
+        "y": 24,
         "w": 24,
         "h": 1
       },
@@ -1493,13 +1346,13 @@
         {
           "id": 109,
           "type": "table",
-          "title": "Current seats \u2014 one row per routable seat, grouped by family",
+          "title": "Current Routable Seats",
           "description": "Every seat `auto` or an explicit `--tier` can still pick, sorted so one model family reads as one stack across providers. `Status` is how the seat is reached: auto (the router may choose it) or explicit (only on request). Runs, accepted and judged are lifetime totals from the dispatcher registry, so `Accept %` compares like with like; it is blank until a seat has a verdict, which is the honest reading: no evidence. `Last used` and the token/cash columns answer what is in use now, and none of these depend on Prometheus history, so they survive a Prometheus restart.",
           "gridPos": {
             "x": 0,
-            "y": 36,
+            "y": 25,
             "w": 24,
-            "h": 11
+            "h": 10
           },
           "targets": [
             {
@@ -2005,12 +1858,12 @@
         {
           "id": 110,
           "type": "table",
-          "title": "Family \u00d7 kind \u2014 what auto routes on",
+          "title": "Routing Evidence: Family \u00d7 Task Kind",
           "description": "Accepted and judged dispatches pooled by model family and task kind. Routing ranks a family per kind, so this is the evidence behind a choice; a cell with one or two judged runs is noise, not a finding. Families are the model, not the provider \u2014 the same family bought twice pools here.",
           "gridPos": {
             "x": 0,
-            "y": 47,
-            "w": 24,
+            "y": 35,
+            "w": 12,
             "h": 8
           },
           "targets": [
@@ -2266,12 +2119,12 @@
         {
           "id": 111,
           "type": "table",
-          "title": "Provider reliability \u2014 failures by seat and reason",
+          "title": "Provider Reliability & Failures",
           "description": "Every failed dispatch recorded for a seat, split by why it failed: the harness crashed, the run stalled, the provider rate-limited, or it refused on quota \u2014 the four reason columns sum to the seat's failed dispatches. Counts are lifetime (the registry keeps them), so `Failure %` is against lifetime runs. A rate limit or quota refusal is the provider telling the truth late \u2014 the seat was picked when its plan had no headroom; a stall or harness error is the model or the wrapper.",
           "gridPos": {
-            "x": 0,
-            "y": 55,
-            "w": 24,
+            "x": 12,
+            "y": 35,
+            "w": 12,
             "h": 8
           },
           "targets": [
@@ -2639,31 +2492,330 @@
             "showHeader": true,
             "cellHeight": "sm"
           }
+        },
+        {
+          "id": 103,
+          "type": "stat",
+          "title": "P40 dispatches (7d)",
+          "description": "Worker runs on the thebrain Tesla P40 tiers (brain, brain-ornith, brain-dense).",
+          "gridPos": {
+            "x": 0,
+            "y": 43,
+            "w": 6,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(orchestrate_window_runs{window=\"7d\",tier=~\"brain.*\"})",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none"
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "colorMode": "value",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 104,
+          "type": "stat",
+          "title": "P40 accept rate, current seats (7d)",
+          "description": "Accepted at review / judged, P40 tiers.",
+          "gridPos": {
+            "x": 6,
+            "y": 43,
+            "w": 6,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "100 * sum(orchestrate_window_accepted{window=\"7d\",tier=~\"brain.*\",tier!=\"brain-retired\"}) / clamp_min(sum(orchestrate_window_judged{window=\"7d\",tier=~\"brain.*\",tier!=\"brain-retired\"}),1)",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "decimals": 1
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "colorMode": "value",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 105,
+          "type": "stat",
+          "title": "P40 tokens (7d)",
+          "description": "New tokens processed on the P40 (cache reads excluded).",
+          "gridPos": {
+            "x": 12,
+            "y": 43,
+            "w": 6,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(orchestrate_window_tokens{window=\"7d\",tier=~\"brain.*\"})",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "colorMode": "value",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 106,
+          "type": "stat",
+          "title": "Value of free P40 work (7d)",
+          "description": "What the same tokens would cost on DeepSeek flash, the metered lane the P40 replaces.",
+          "gridPos": {
+            "x": 18,
+            "y": 43,
+            "w": 6,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(orchestrate_window_notional_usd{window=\"7d\",tier=~\"brain.*\"})",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "currencyUSD"
+            }
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "colorMode": "value",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 107,
+          "type": "timeseries",
+          "title": "P40 Dispatches by Model",
+          "gridPos": {
+            "x": 0,
+            "y": 47,
+            "w": 24,
+            "h": 6
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (tier) (orchestrate_window_runs{window=\"24h\",tier=~\"brain.*\",tier!=\"brain-retired\"})",
+              "legendFormat": "{{tier}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none"
+            }
+          }
         }
       ]
     },
     {
       "type": "row",
       "id": 101,
-      "title": "Spend details \u2014 per-tier ledger, Orca history & free rungs",
+      "title": "Cost, Spend & Token Ledger",
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 25,
         "w": 24,
         "h": 1
       },
       "collapsed": true,
       "panels": [
         {
+          "id": 134,
+          "type": "table",
+          "title": "Lifetime Paid & Vendor Usage",
+          "description": "Lifetime money per provider from two independent ledgers: Paid (receipts) is the Gmail receipts ledger with refunds netted out; Vendor usage is the vendor's own lifetime reading where it publishes one (OrcaRouter, OpenRouter, Claude extra usage). The known flags keep every provider row present; a blank cell means no known figure and is never rendered as 0. Deposits anchor the cockpit's wallet math: Orca $100.00 paid \u2212 $91.56 vendor lifetime = $8.44 balance.",
+          "gridPos": {
+            "x": 0,
+            "y": 26,
+            "w": 12,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "PK",
+              "expr": "orchestrate_lifetime_paid_known",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "SK",
+              "expr": "orchestrate_lifetime_spend_known",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "PAID",
+              "expr": "sum by (provider) (orchestrate_lifetime_paid_usd)",
+              "instant": true,
+              "format": "table"
+            },
+            {
+              "refId": "USED",
+              "expr": "sum by (provider) (orchestrate_lifetime_spend_usd)",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "instance": true,
+                  "job": true,
+                  "Value #PK": true,
+                  "Value #SK": true
+                },
+                "indexByName": {
+                  "provider": 0,
+                  "Value #PAID": 1,
+                  "Value #USED": 2
+                },
+                "renameByName": {
+                  "provider": "Provider",
+                  "Value #PAID": "Paid (receipts)",
+                  "Value #USED": "Vendor usage"
+                }
+              }
+            },
+            {
+              "id": "sortBy",
+              "options": {
+                "sort": [
+                  {
+                    "field": "Provider",
+                    "desc": false
+                  }
+                ]
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "right"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Provider"
+                },
+                "properties": [
+                  {
+                    "id": "custom.align",
+                    "value": "left"
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 140
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Paid (receipts)"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "currencyUSD"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 2
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 150
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Vendor usage"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "currencyUSD"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 2
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
+          }
+        },
+        {
           "id": 13,
           "type": "bargauge",
           "gridPos": {
-            "x": 0,
-            "y": 37,
+            "x": 12,
+            "y": 26,
             "w": 12,
-            "h": 6
+            "h": 8
           },
-          "title": "Booked spend by plan \u2014 harness ledger, not vendor cash",
+          "title": "Booked Spend by Plan (Ledger)",
           "description": "Cumulative cash per metered plan booked by the dispatch registry's own pricing \u2014 the harness ledger routing reads, not vendor cash. OrcaRouter's row sat at $0 when its first five 20 Nov runs were booked; vendor-gauge settlement has since landed and orca carries a settled figure. The authoritative cash picture is the cockpit's Metered cash table and the lifetime ledgers beside it.",
           "targets": [
             {
@@ -2702,11 +2854,11 @@
         {
           "id": 11,
           "type": "table",
-          "title": "Per-tier ledger \u2014 the numbers routing actually reads",
+          "title": "Per-Tier Routing Ledger",
           "description": "Cumulative per tier. Cost per accepted slice is the figure `auto` ranks on once a tier has enough judged runs; until then it falls back to priors. This table is also the accessible view of the panels above.",
           "gridPos": {
             "x": 0,
-            "y": 43,
+            "y": 34,
             "w": 24,
             "h": 9
           },
@@ -2865,13 +3017,13 @@
         {
           "id": 5,
           "type": "timeseries",
-          "title": "New tokens by tier",
+          "title": "New Tokens by Tier",
           "description": "Tokens each tier actually had to ingest or generate, normalised per harness \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately, so raw counts are not comparable.",
           "gridPos": {
             "x": 0,
-            "y": 52,
+            "y": 43,
             "w": 24,
-            "h": 8
+            "h": 7
           },
           "targets": [
             {
@@ -2992,12 +3144,12 @@
         {
           "id": 116,
           "type": "timeseries",
-          "title": "OrcaRouter wallet \u2014 balance against anchor and floor",
+          "title": "OrcaRouter Wallet History",
           "description": "The wallet's dollar balance over time, with the operator-recorded anchor it started from and the **$2.00 floor** below which a paid run is refused. A line that only falls means every paid OrcaRouter dispatch is being charged to cash; the distance from the anchor is spend, the distance to the floor is how many paid runs are left.",
           "gridPos": {
             "x": 0,
-            "y": 60,
-            "w": 16,
+            "y": 50,
+            "w": 12,
             "h": 7
           },
           "targets": [
@@ -3117,13 +3269,13 @@
         {
           "id": 115,
           "type": "table",
-          "title": "OrcaRouter free \u2014 shared bucket, Hy4 bucket, active rung",
+          "title": "OrcaRouter Free Buckets & Rung",
           "description": "The free package publishes **caps, never a balance**, so there is no gauge to draw and no remaining figure to trust: what you see is the limit itself. `shared` is the bucket every free model draws on; a model with its own bucket gets its own row (Hy4's allows more requests than the shared one). The rung \u2014 the cap tier \u2014 is set by the account's lifetime paid spend, which no endpoint exposes, so `Lifetime paid` is the operator-recorded reading the rung is computed from (`ORCA_LIFETIME_SPEND_USD`); raise it when the console shows a higher figure.",
           "gridPos": {
-            "x": 0,
-            "y": 67,
+            "x": 12,
+            "y": 50,
             "w": 12,
-            "h": 9
+            "h": 7
           },
           "targets": [
             {
@@ -3344,15 +3496,151 @@
           }
         },
         {
+          "id": 117,
+          "type": "stat",
+          "title": "OrcaRouter Wallet Now",
+          "description": "The OrcaRouter wallet right now: $100.00 deposited (receipts ledger) \u2212 $91.56 vendor lifetime spend = $8.44 left. Spent since anchor is the recorded anchor less the current balance, read from OrcaRouter's own workspace spend quota \u2014 it counts every client on the key, so it can exceed what the registry booked. Paid dispatches stop at the $2.00 floor.",
+          "gridPos": {
+            "x": 0,
+            "y": 57,
+            "w": 6,
+            "h": 5
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "orchestrate_balance_usd{plan=\"orca\"}",
+              "legendFormat": "balance",
+              "instant": true
+            },
+            {
+              "refId": "B",
+              "expr": "orchestrate_metered_cash_usd{plan=\"orca\",side=\"lifetime\"}",
+              "legendFormat": "lifetime spent",
+              "instant": true
+            },
+            {
+              "refId": "C",
+              "expr": "orchestrate_lifetime_paid_usd{provider=\"orca\"}",
+              "legendFormat": "lifetime paid",
+              "instant": true
+            },
+            {
+              "refId": "D",
+              "expr": "orchestrate_spent_since_anchor_usd{plan=\"orca\"}",
+              "legendFormat": "spent since anchor",
+              "instant": true
+            },
+            {
+              "refId": "E",
+              "expr": "orchestrate_balance_anchor_usd{plan=\"orca\"}",
+              "legendFormat": "anchor",
+              "instant": true
+            },
+            {
+              "refId": "F",
+              "expr": "orchestrate_balance_floor_usd{plan=\"orca\"}",
+              "legendFormat": "floor",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "currencyUSD",
+              "decimals": 2,
+              "color": {
+                "mode": "fixed",
+                "fixedColor": "#3987e5"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "lifetime spent"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#e8a03e"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "lifetime paid"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#199e70"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "spent since anchor"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#d95926"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "floor"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "#6e6e6e"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "orientation": "auto",
+            "textMode": "auto",
+            "colorMode": "value",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          }
+        },
+        {
           "id": 2,
           "type": "stat",
-          "title": "Metered balances",
+          "title": "Metered Balances",
           "description": "Cash left on the pay-as-you-go accounts. DeepSeek and Moonshot publish a balance directly, and MiMo's is now read live from the vendor console (`source=\"vendor\"`) \u2014 re-anchor with `usage_exporter.py anchor mimo <usd>` only if the live reading drifts. Orca is the anchor-derived wallet: recorded anchor less OrcaRouter's own workspace spend since the anchor.",
           "gridPos": {
-            "x": 12,
-            "y": 67,
-            "w": 12,
-            "h": 7
+            "x": 6,
+            "y": 57,
+            "w": 9,
+            "h": 5
           },
           "targets": [
             {
@@ -3408,12 +3696,12 @@
           "id": 15,
           "type": "stat",
           "gridPos": {
-            "x": 0,
-            "y": 76,
-            "w": 24,
-            "h": 6
+            "x": 15,
+            "y": 57,
+            "w": 9,
+            "h": 5
           },
-          "title": "Extra usage \u2014 money spent past the plan",
+          "title": "Extra Usage Past Plan",
           "description": "Once a window hits 100%, work bills against a monthly extra-usage cap rather than stopping. This is real money. The orchestrator's rule is to STOP and offer the choice at that point \u2014 never to continue silently, and never to refuse a decision that is the operator's.",
           "targets": [
             {
@@ -3472,11 +3760,11 @@
       ]
     },
     {
-      "title": "Rate limits & quota freshness",
+      "title": "Rate Limits & Exporter Health",
       "type": "row",
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 26,
         "w": 24,
         "h": 1
       },
@@ -3486,11 +3774,11 @@
         {
           "id": 3,
           "type": "stat",
-          "title": "Quota reading freshness",
+          "title": "Quota Reading Freshness",
           "description": "Age of the cached vendor reading per plan. The exporter re-polls upstream every 15 minutes (launchd --quota-ttl 900); anything over 3 hours is ignored for routing and the local run-count proxy is used instead. For codex an old reading can mean the vendor's own snapshot is old \u2014 its usage endpoint only advances when one of its turns runs \u2014 not that the poll died.",
           "gridPos": {
             "x": 0,
-            "y": 38,
+            "y": 27,
             "w": 12,
             "h": 7
           },
@@ -3546,13 +3834,13 @@
         {
           "id": 125,
           "type": "timeseries",
-          "title": "Quota staleness by plan \u2014 the 3h routing gate",
+          "title": "Quota Staleness vs 3h Gate",
           "description": "History of orchestrate_quota_age_seconds per plan. The dashed line is the 3-hour gate (QUOTA_STALE_S): a reading older than this is ignored for routing. A plan that rides the line for hours is the codex pattern \u2014 a fresh poll behind a vendor snapshot that only advances when one of its turns runs; a plan that climbs off the chart is a dead refresher.",
           "gridPos": {
             "x": 12,
-            "y": 38,
+            "y": 27,
             "w": 12,
-            "h": 8
+            "h": 7
           },
           "targets": [
             {
@@ -3636,13 +3924,13 @@
           }
         },
         {
-          "title": "Requests today vs published daily cap, per plan pool",
+          "title": "Daily Requests vs Published Cap",
           "type": "table",
           "gridPos": {
             "x": 0,
-            "y": 46,
+            "y": 34,
             "w": 12,
-            "h": 9
+            "h": 8
           },
           "targets": [
             {
@@ -3675,13 +3963,13 @@
           "id": 119
         },
         {
-          "title": "rpm high-water vs per-minute cap",
+          "title": "RPM High-Water vs Per-Minute Cap",
           "type": "timeseries",
           "gridPos": {
             "x": 12,
-            "y": 46,
+            "y": 34,
             "w": 12,
-            "h": 9
+            "h": 8
           },
           "targets": [
             {
@@ -3707,13 +3995,13 @@
           "id": 120
         },
         {
-          "title": "Provider rate-limit events by plan / pool / reason (24h)",
+          "title": "Rate-Limit Events (24h)",
           "type": "table",
           "gridPos": {
             "x": 0,
-            "y": 55,
-            "w": 12,
-            "h": 8
+            "y": 42,
+            "w": 16,
+            "h": 7
           },
           "targets": [
             {
@@ -3739,51 +4027,13 @@
           "id": 121
         },
         {
-          "title": "Pools fenced by a retry time now",
+          "title": "Last Rate-Limit Retry Time",
           "type": "stat",
           "gridPos": {
-            "x": 12,
-            "y": 55,
-            "w": 6,
-            "h": 8
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "count(orchestrate_rate_limit_retry_timestamp > time())",
-              "legendFormat": "fenced pools"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "none",
-              "color": {
-                "mode": "thresholds"
-              },
-              "thresholds": {
-                "steps": [
-                  {
-                    "value": 0,
-                    "color": "green"
-                  },
-                  {
-                    "value": 1,
-                    "color": "red"
-                  }
-                ]
-              }
-            }
-          },
-          "id": 122
-        },
-        {
-          "title": "Retry time of the last rate-limit event",
-          "type": "stat",
-          "gridPos": {
-            "x": 18,
-            "y": 55,
-            "w": 6,
-            "h": 8
+            "x": 16,
+            "y": 42,
+            "w": 8,
+            "h": 7
           },
           "targets": [
             {
@@ -3802,12 +4052,12 @@
         {
           "id": 124,
           "type": "table",
-          "title": "Last rate-limit event and retry time per pool",
+          "title": "Last Rate-Limit Event per Pool",
           "gridPos": {
             "x": 0,
-            "y": 63,
+            "y": 49,
             "w": 24,
-            "h": 8
+            "h": 7
           },
           "targets": [
             {
@@ -3834,182 +4084,12 @@
       ]
     },
     {
-      "id": 102,
-      "type": "row",
-      "title": "Free P40 lane (thebrain) \u2014 local, unlimited",
-      "gridPos": {
-        "x": 0,
-        "y": 38,
-        "w": 24,
-        "h": 1
-      },
-      "collapsed": true,
-      "panels": [
-        {
-          "id": 103,
-          "type": "stat",
-          "title": "P40 dispatches (7d)",
-          "description": "Worker runs on the thebrain Tesla P40 tiers (brain, brain-ornith, brain-dense).",
-          "gridPos": {
-            "x": 0,
-            "y": 39,
-            "w": 6,
-            "h": 5
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "sum(orchestrate_window_runs{window=\"7d\",tier=~\"brain.*\"})",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "none"
-            }
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "colorMode": "value",
-            "graphMode": "none"
-          }
-        },
-        {
-          "id": 104,
-          "type": "stat",
-          "title": "P40 accept rate, current seats (7d)",
-          "description": "Accepted at review / judged, P40 tiers.",
-          "gridPos": {
-            "x": 6,
-            "y": 39,
-            "w": 6,
-            "h": 5
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "100 * sum(orchestrate_window_accepted{window=\"7d\",tier=~\"brain.*\",tier!=\"brain-retired\"}) / clamp_min(sum(orchestrate_window_judged{window=\"7d\",tier=~\"brain.*\",tier!=\"brain-retired\"}),1)",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "decimals": 1
-            }
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "colorMode": "value",
-            "graphMode": "none"
-          }
-        },
-        {
-          "id": 105,
-          "type": "stat",
-          "title": "P40 tokens (7d)",
-          "description": "New tokens processed on the P40 (cache reads excluded).",
-          "gridPos": {
-            "x": 12,
-            "y": 39,
-            "w": 6,
-            "h": 5
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "sum(orchestrate_window_tokens{window=\"7d\",tier=~\"brain.*\"})",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short"
-            }
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "colorMode": "value",
-            "graphMode": "none"
-          }
-        },
-        {
-          "id": 106,
-          "type": "stat",
-          "title": "Value of free P40 work (7d)",
-          "description": "What the same tokens would cost on DeepSeek flash, the metered lane the P40 replaces.",
-          "gridPos": {
-            "x": 18,
-            "y": 39,
-            "w": 6,
-            "h": 5
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "sum(orchestrate_window_notional_usd{window=\"7d\",tier=~\"brain.*\"})",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "currencyUSD"
-            }
-          },
-          "options": {
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "colorMode": "value",
-            "graphMode": "none"
-          }
-        },
-        {
-          "id": 107,
-          "type": "timeseries",
-          "title": "P40 dispatches by model",
-          "gridPos": {
-            "x": 0,
-            "y": 44,
-            "w": 24,
-            "h": 7
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "sum by (tier) (orchestrate_window_runs{window=\"24h\",tier=~\"brain.*\",tier!=\"brain-retired\"})",
-              "legendFormat": "{{tier}}"
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "none"
-            }
-          }
-        }
-      ]
-    },
-    {
       "type": "row",
       "id": 112,
-      "title": "Retired \u2014 history only, not routable",
+      "title": "Archive & Data Notes",
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 27,
         "w": 24,
         "h": 1
       },
@@ -4018,13 +4098,13 @@
         {
           "id": 113,
           "type": "table",
-          "title": "Retired seats \u2014 history only, never routable",
+          "title": "Retired Seats (History Only)",
           "description": "Seats and models that are no longer in the roster (removed, or retired at a known date) but still have recorded dispatches. They are kept so a verdict and its cost stay attributable after the seat is gone; nothing here can be picked by auto or by an explicit --tier. `Last used` is the last dispatch the registry recorded, not the model's deprecation date.",
           "gridPos": {
             "x": 0,
-            "y": 40,
+            "y": 28,
             "w": 24,
-            "h": 8
+            "h": 7
           },
           "targets": [
             {
@@ -4399,142 +4479,20 @@
             "showHeader": true,
             "cellHeight": "sm"
           }
-        }
-      ]
-    },
-    {
-      "id": 132,
-      "type": "row",
-      "title": "Notes \u2014 what this dashboard can and cannot see",
-      "gridPos": {
-        "x": 0,
-        "y": 40,
-        "w": 24,
-        "h": 1
-      },
-      "collapsed": true,
-      "panels": [
+        },
         {
           "id": 12,
           "type": "text",
-          "title": "What this dashboard can and cannot see",
+          "title": "Dashboard Scope & Data Notes",
           "gridPos": {
             "x": 0,
-            "y": 41,
+            "y": 35,
             "w": 24,
-            "h": 7
+            "h": 6
           },
           "options": {
             "mode": "markdown",
             "content": "**Quota is the vendor's own number.** Z.ai publishes both Coding Plan pools (5-hour and weekly credits); Alibaba TP publishes a monthly credit pool; Anthropic publishes Claude Pro's 5-hour and 7-day utilisation, the same source Claude Code's own `/usage` reads; OpenAI publishes ChatGPT Plus / Codex's 5-hour and 7-day utilisation; OpenCode Go publishes 5-hour, weekly and monthly percent of the subscription from `inference/go/v1/usage`; and DeepSeek and Moonshot publish dollar balances. Polled hourly by a background refresher and served from cache; a reading older than 3 hours is ignored for routing. Every quota-publishing plan \u2014 Gemini Pro's pools included \u2014 reads as one row in the unified **Plan headroom & burn pace** table at the top of the page.\n\n**Gemini Pro (Antigravity) is read through `agy -p /usage`.** It reports its buckets as remaining *fractions*, so those pools are percent, one row per NAMED window in the unified headroom table: `gemini-week` + `gemini-5h` (the shared Gemini bucket \u2014 Gemini 4 Argon draws it too since the vendor retired its separate bucket, live 2026-11-23) and `3p-week` + `3p-5h` (the Claude and GPT bucket). Argon is escalation-only and fenced: the **Argon fence** row shows its allowance of `gemini-week` (used/remaining, from the vendor's own fractions) \u2014 an allowance of the Gemini bucket, not a vendor pool, and never a synthetic reset. The pace column is headroom minus the % of the window already elapsed \u2014 negative is a bucket that runs dry before it resets.\n\n**OrcaRouter has two meters, reconciled three ways.** The wallet is a dollar balance from the workspace spend quota served by `/metrics/workspace`, with an operator-recorded anchor: *spent since anchor* is that anchor less the current balance, and a paid dispatch is refused below the **$2.00 floor**. The Gmail receipts ledger holds lifetime deposits ($100.00) and the vendor's own lifetime spend reading ($91.56) closes the loop: paid \u2212 lifetime = balance \u2014 all three sit in the cockpit's wallet panel. The free package publishes caps, never a balance \u2014 one shared bucket plus a bucket for each free model that has its own (Hy4 does) \u2014 and the rung those caps sit on is set by the account's lifetime paid spend, which no endpoint exposes; it is an operator-recorded reading (`ORCA_LIFETIME_SPEND_USD`). There is deliberately no remaining gauge for the free lane: the vendor does not publish one, so drawing one would be a guess.\n\n**MiMo's balance is vendor-read, not derived.** The exporter reads the Xiaomi console balance live (`source=\"vendor\"`), so the old anchor-minus-booked derivation is retired; re-anchor with `usage_exporter.py anchor mimo <usd>` only if the live reading ever drifts.\n\n**SuperGrok's figure costs a request.** xAI publishes no quota endpoint; the plan's headroom arrives as `x-ratelimit-{limit,remaining}-{tokens,requests}` on a chat response \u2014 the same numbers the CLI's `/usage` screen shows. The exporter reads it with a one-token completion, so it refreshes hourly rather than every 15 minutes.\n\n**Cash is real; notional is modelled.** Prepaid tiers cost nothing at the margin, so *Avoided by prepaid* prices their tokens at the cheapest metered equivalent's list price. An estimate, not an invoice.\n\n**Token counts are normalised per harness** \u2014 codex reports input inclusive of its cached prefix while opencode and grok report cache separately. Raw fields differ by roughly an order of magnitude and must not be compared directly.\n\n**Seats come from the dispatch registry, not Prometheus history.** A seat's runs, verdicts, last-used time and lifetime spend survive a Prometheus restart; only the rate-shaped panels in the collapsed rows need a full scrape window to be meaningful."
-          }
-        }
-      ]
-    },
-    {
-      "id": 135,
-      "type": "row",
-      "title": "Argon fence \u2014 allowance of the shared Gemini bucket",
-      "gridPos": {
-        "x": 0,
-        "y": 41,
-        "w": 24,
-        "h": 1
-      },
-      "collapsed": true,
-      "panels": [
-        {
-          "id": 136,
-          "type": "stat",
-          "title": "Argon allowance of gemini-week \u2014 used / left this cycle",
-          "description": "Argon is escalation-only and fenced inside the SHARED Gemini bucket (the vendor retired the separate argon-week pool, live 2026-11-23). These are pp of gemini-week, from the vendor's own fractions: the allowance Argon may spend per weekly cycle (DISPATCH_ARGON_ALLOWANCE_PP), what its runs have measured so far this cycle, what is left, and the reserve that must remain for Hydrogen/Neon (DISPATCH_ARGON_WORKER_FLOOR_PP). An allowance of the Gemini bucket \u2014 not a vendor pool, no synthetic reset. Absent when no fresh vendor reading exists.",
-          "gridPos": {
-            "x": 0,
-            "y": 42,
-            "w": 24,
-            "h": 6
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "expr": "orchestrate_argon_used_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
-              "legendFormat": "used this cycle",
-              "instant": true
-            },
-            {
-              "refId": "B",
-              "expr": "orchestrate_argon_remaining_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
-              "legendFormat": "allowance left",
-              "instant": true
-            },
-            {
-              "refId": "C",
-              "expr": "orchestrate_argon_allowance_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
-              "legendFormat": "allowance",
-              "instant": true
-            },
-            {
-              "refId": "D",
-              "expr": "orchestrate_argon_worker_floor_pp{plan=\"gemini-pro\",window=\"gemini-week\"}",
-              "legendFormat": "worker reserve",
-              "instant": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "decimals": 1,
-              "color": {
-                "mode": "fixed",
-                "fixedColor": "#3987e5"
-              }
-            },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "used this cycle"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#e8a03e"
-                    }
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "worker reserve"
-                },
-                "properties": [
-                  {
-                    "id": "color",
-                    "value": {
-                      "mode": "fixed",
-                      "fixedColor": "#c98500"
-                    }
-                  }
-                ]
-              }
-            ]
-          },
-          "options": {
-            "orientation": "auto",
-            "textMode": "auto",
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            }
           }
         }
       ]
