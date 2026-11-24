@@ -180,7 +180,12 @@ class IdentityPlan:
 
     @property
     def object_mode(self) -> str:
-        return "shape" if any(mode == "shape" for _name, mode in self.objects) else "literal"
+        modes = {mode for _name, mode in self.objects}
+        if "bucket" in modes:
+            return "bucket"
+        if "shape" in modes:
+            return "shape"
+        return "literal"
 
 
 _COLUMNS = (
@@ -317,6 +322,61 @@ def _choose_with_fallback(
     return field_name, mode, override
 
 
+def _numeric_value(value: str) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _measurement_field(events: Sequence[ExampleEvent]) -> str:
+    values: dict[str, list[str]] = {}
+    ignored = {"_time", "time", "timestamp", "ts", "host", "hostname", "source", "id"}
+    for event in events:
+        for name, value in event.fields.items():
+            normalized = name.casefold().replace("-", "_")
+            if normalized in ignored or normalized.endswith("_id") or not value.strip():
+                continue
+            values.setdefault(name, []).append(value.strip())
+    numeric: list[tuple[float, int, int, str]] = []
+    states: list[tuple[int, int, str]] = []
+    for name, entries in values.items():
+        numbers = [_numeric_value(value) for value in entries]
+        if all(value is not None for value in numbers):
+            numeric_values = [value for value in numbers if value is not None]
+            if len(set(numeric_values)) > 1:
+                numeric.append(
+                    (
+                        statistics.pvariance(numeric_values),
+                        len(set(numeric_values)),
+                        len(entries),
+                        name,
+                    )
+                )
+        distinct = len(set(entries))
+        if 2 <= distinct <= 16:
+            states.append((distinct, len(entries), name))
+    if numeric:
+        return max(numeric)[3]
+    return max(states)[2] if states else ""
+
+
+def measurement_identity_plan(events: Sequence[ExampleEvent]) -> IdentityPlan:
+    fields = sorted({name for event in events for name in event.fields})
+    stats = identity_stats(fields, events) if fields else {}
+    field_name = _measurement_field(events)
+    objects = ((field_name, "bucket"),) if field_name else ()
+    overrides: list[Mapping[str, Any]] = [
+        {"role": "actor", "chosen": "host", "reason": "measurement_host"}
+    ]
+    if field_name:
+        overrides.append({"role": "object", "chosen": field_name, "reason": "measurement_bucket"})
+    return IdentityPlan(
+        "host", "literal", "measurement", "literal", objects, tuple(overrides), stats
+    )
+
+
 def identity_plan(card: SourceCard, events: Sequence[ExampleEvent]) -> IdentityPlan:
     """Decide actor, action and object fields from recurrence across events and time."""
     stats = identity_stats(role_fields(card), events)
@@ -382,9 +442,23 @@ def _query_terms(plan: IdentityPlan, fields: Mapping[str, str]) -> list[str]:
 
 
 def behaviour_key(
-    card: SourceCard, fields: Mapping[str, str], plan: IdentityPlan
+    card: SourceCard,
+    fields: Mapping[str, str],
+    plan: IdentityPlan,
+    *,
+    host: str = "",
+    numeric_ranges: Mapping[str, tuple[float, float]] | None = None,
 ) -> tuple[str, str, str, str, str, str]:
     """(actor_field, actor, action_field, action, object_field, object) for one event."""
+    if plan.action_field == "measurement":
+        field_name = plan.objects[0][0] if plan.objects else ""
+        value = (fields.get(field_name) or "").strip()
+        interval = (numeric_ranges or {}).get(field_name)
+        if value and interval is not None and (number := _numeric_value(value)) is not None:
+            low, high = interval
+            bucket = min(3, max(0, int((number - low) * 4 / (high - low))))
+            value = f"bin_{bucket + 1}"
+        return "host", host, "measurement", field_name or "sample", field_name, value[:80]
     if card.fmt == "template":
         actor = _value(fields, plan.actor_field, plan.actor_mode)
         action = (fields.get("template") or "").strip()
@@ -575,14 +649,31 @@ def keyed_rows(
 ) -> list[tuple[Any, ...]]:
     """One row per event: the behaviour key, the reproducing query and the event's window."""
     plan = plan or identity_plan(card, events)
+    numeric_ranges: dict[str, tuple[float, float]] = {}
+    if plan.action_field == "measurement" and plan.objects:
+        field_name = plan.objects[0][0]
+        values = [
+            number
+            for event in events
+            if (number := _numeric_value(event.fields.get(field_name, ""))) is not None
+        ]
+        if values and min(values) < max(values):
+            numeric_ranges[field_name] = (min(values), max(values))
     rows: list[tuple[Any, ...]] = []
     for event in events:
         actor_field, actor, action_field, action, object_field, object_value = behaviour_key(
-            card, event.fields, plan
+            card, event.fields, plan, host=event.host, numeric_ranges=numeric_ranges
         )
+        if plan.action_field == "measurement" and plan.objects:
+            measured = event.fields.get(plan.objects[0][0], "")
+            if not measured:
+                continue
         if not actor and not object_value:
             continue
-        query = reproduction_query(facts, _query_terms(plan, event.fields))
+        terms = _query_terms(plan, event.fields)
+        if plan.action_field == "measurement" and plan.objects:
+            terms.append(event.fields.get(plan.objects[0][0], ""))
+        query = reproduction_query(facts, terms)
         rows.append(
             (
                 event.source_id,
@@ -687,6 +778,28 @@ def _source_groups(cards: Sequence[SourceCard]) -> dict[str, list[SourceCard]]:
     for card in cards:
         grouped.setdefault(card.source_id, []).append(card)
     return grouped
+
+
+def measurement_fallback_card_ids(cards: Sequence[SourceCard]) -> set[str]:
+    indexes_with_primary_sources = {
+        card.index for card in cards if card.understood and card.kind in {"activity", "alert"}
+    }
+    return {
+        card.card_id
+        for card in cards
+        if card.understood
+        and card.kind == "measurement"
+        and card.index not in indexes_with_primary_sources
+    }
+
+
+def _uses_behaviours(card: SourceCard, measurement_cards: set[str] | frozenset[str]) -> bool:
+    return "behaviours" in card_consumers(card) or card.card_id in measurement_cards
+
+
+def behaviour_source_ids(cards: Sequence[SourceCard]) -> list[str]:
+    measurement_cards = measurement_fallback_card_ids(cards)
+    return sorted({card.source_id for card in cards if _uses_behaviours(card, measurement_cards)})
 
 
 def _skip_reason(card: SourceCard) -> str:
@@ -1236,6 +1349,7 @@ def _key_source(
     burst_windows: Sequence[tuple[float, float]] = (),
     anchors: Sequence[LocalWindow] = (),
     value_spans: Sequence[tuple[float, float]] = (),
+    measurement_cards: set[str] | frozenset[str] = frozenset(),
 ) -> tuple[
     list[dict[str, Any]],
     int,
@@ -1264,9 +1378,13 @@ def _key_source(
     for card in group:
         events, matched, unparsed = _extract(card, read.rows, windows)
         claimed |= matched
-        if "behaviours" not in card_consumers(card):
+        if not _uses_behaviours(card, measurement_cards):
             continue
-        plan = identity_plan(card, events)
+        plan = (
+            measurement_identity_plan(events)
+            if card.card_id in measurement_cards
+            else identity_plan(card, events)
+        )
         rows = keyed_rows(card, facts, events, plan)
         if rows:
             con.executemany(_INSERT, rows)
@@ -1401,11 +1519,12 @@ def _schedule_sources(
     grouped: Mapping[str, list[SourceCard]],
     facts_by_source: Mapping[str, SourceFacts],
     skipped: list[dict[str, Any]],
+    measurement_cards: set[str] | frozenset[str] = frozenset(),
 ) -> list[tuple[str, list[SourceCard], SourceFacts, float]]:
     """The sources the stage will read, with every unreadable card's reason declared."""
     scheduled: list[tuple[str, list[SourceCard], SourceFacts, float]] = []
     for source_id, group in grouped.items():
-        usable = [card for card in group if "behaviours" in card_consumers(card)]
+        usable = [card for card in group if _uses_behaviours(card, measurement_cards)]
         if not usable:
             skipped.extend(
                 {
@@ -1585,6 +1704,7 @@ def _store_source_result(
     burst_windows: Sequence[tuple[float, float]],
     anchors: Sequence[LocalWindow],
     value_spans: Sequence[tuple[float, float]],
+    measurement_cards: set[str] | frozenset[str],
 ) -> tuple[dict[str, Any], bool]:
     con.execute("DELETE FROM events WHERE source_id=?", [source_id])
     con.execute("DELETE FROM misfits WHERE source_id=?", [source_id])
@@ -1600,6 +1720,7 @@ def _store_source_result(
         burst_windows=burst_windows,
         anchors=anchors,
         value_spans=value_spans,
+        measurement_cards=measurement_cards,
     )
     _insert_misfits(con, source_id, misfits, stats)
     con.commit()
@@ -1672,6 +1793,7 @@ def _process_behaviour_sources(
     completed: set[str],
     results: dict[str, dict[str, Any]],
     prior_localisation: Mapping[str, Any],
+    measurement_cards: set[str] | frozenset[str],
 ) -> dict[str, Any]:
     _save_behaviour_checkpoint(checkpoint_path, expected, completed, results, prior_localisation)
     anchors, current_localisation, burst_plan, reads = _read_behaviour_batch(
@@ -1693,6 +1815,7 @@ def _process_behaviour_sources(
             burst_plan.get(facts.sourcetype, ()),
             located.windows,
             value_spans.get(source_id, ()),
+            measurement_cards,
         )
         results[source_id] = result
         if incomplete:
@@ -1715,15 +1838,19 @@ def collect_behaviours(
     """Read each activity source once, key each structure's events, and count on DuckDB."""
     began = time.monotonic()
     grouped = _source_groups(cards)
+    measurement_cards = measurement_fallback_card_ids(cards)
     stored_lists = inventory or {}
     usable_sources = sum(
         1
         for group in grouped.values()
-        if any("behaviours" in card_consumers(card) for card in group)
+        if any(_uses_behaviours(card, measurement_cards) for card in group)
     )
     skipped: list[dict[str, Any]] = []
     per_window = per_window_events(usable_sources)
-    scheduled_all = sorted(_schedule_sources(grouped, facts_by_source, skipped), key=_read_priority)
+    scheduled_all = sorted(
+        _schedule_sources(grouped, facts_by_source, skipped, measurement_cards),
+        key=_read_priority,
+    )
     expected = sorted(item[0] for item in scheduled_all)
     store_path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint_path = store_path.parent / BEHAVIOURS_CHECKPOINT_FILE
@@ -1761,6 +1888,7 @@ def collect_behaviours(
             completed,
             source_results,
             checkpoint.get("localisation") or {},
+            measurement_cards,
         )
         behaviours, existed = aggregate_events(con)
     finally:
