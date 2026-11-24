@@ -369,8 +369,9 @@ def _apply_pinned(previous: str, dry_run: bool, proposal: str = "") -> tuple[boo
         return True, f"open-webui: build of {release} failed — staying on the current build"
     new_id = _image_id(pinned)
     # Inherited from the upstream base; a derived build without it is tracked by release.
+    old_rev = _revision(old_id)
     rev = _revision(pinned) or release
-    if new_id == old_id:
+    if new_id == old_id or (old_rev and old_rev == rev):
         note = f"; {proposal}" if proposal else ""
         return True, f"open-webui: current ({rev}){note}"
 
@@ -396,6 +397,8 @@ def owui_update(dry_run: bool = False, bump: str | None = None) -> tuple[bool, s
         target = _release_tag(bump) if bump else _release_tag(_latest_release())
         if not target:
             return False, f"open-webui: could not resolve a release tag ({bump or 'upstream'})"
+        if target == release:
+            return True, f"open-webui: current ({release})"
         if dry_run:
             return True, f"[dry-run] would bump the pin to {target} behind the health gate"
         if not _set_pinned(target):
