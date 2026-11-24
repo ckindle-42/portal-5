@@ -303,6 +303,15 @@ _EXTENDED_HUNT = (
     "hb_icssim",
     "hb_pdmfc_ot",
     "hb_robotdog_audit",
+    "hb_otrf_caldera",
+    "hb_otrf_apt29",
+    "hb_k8s_audit",
+    "hb_hai_scada",
+    "hb_o365_bec",
+    "hb_goldensaml",
+    "hb_batadal_water",
+    "hb_morris_gas",
+    "hb_kit_s7comm",
 )
 
 
