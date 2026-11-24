@@ -207,6 +207,8 @@ class OWUIClient:
         content: str | list[dict[str, Any]] = prompt
         if image_png is not None:
             content = vision_message_content(prompt, image_png)
+        if self._pending_message_ids.get(chat_id):
+            self._persist_turn_nodes(token, chat_id, model_slug, content, turn, files, deadline)
         body: dict[str, Any] = {
             "model": model_slug,
             "messages": [*(prior_messages or []), {"role": "user", "content": content}],
@@ -234,6 +236,64 @@ class OWUIClient:
             )
         self._pending_message_ids[chat_id] = message_id
         return response
+
+    def _persist_turn_nodes(
+        self,
+        token: str,
+        chat_id: str,
+        model_slug: str,
+        content: str | list[dict[str, Any]],
+        turn: dict[str, str],
+        files: list[dict[str, Any]] | None,
+        deadline: float | None,
+    ) -> None:
+        """Append Turn 2+ user/assistant nodes so OWUI renders every question."""
+        prev_assistant_id = self._pending_message_ids[chat_id]
+        detail = self.chat_detail(token, chat_id, deadline=deadline)
+        history = (detail.get("chat") or {}).get("history") or {}
+        messages = history.get("messages")
+        if not isinstance(messages, dict) or not messages:
+            raise RuntimeError(f"OWUI chat {chat_id} history unavailable; cannot persist turn")
+        user_id, message_id = turn["user_id"], turn["message_id"]
+        now = int(time.time())
+        user_node: dict[str, Any] = {
+            "id": user_id,
+            "role": "user",
+            "content": content,
+            "timestamp": now,
+            "models": [model_slug],
+            "parentId": prev_assistant_id,
+            "childrenIds": [message_id],
+        }
+        if files is not None:
+            user_node["files"] = files
+        messages[user_id] = user_node
+        messages[message_id] = {
+            "id": message_id,
+            "role": "assistant",
+            "content": "",
+            "parentId": user_id,
+            "childrenIds": [],
+            "model": model_slug,
+            "modelName": model_slug,
+            "modelIdx": 0,
+            "done": False,
+            "timestamp": now + 1,
+        }
+        prev = messages.get(prev_assistant_id)
+        if isinstance(prev, dict):
+            children = prev.get("childrenIds")
+            prev["childrenIds"] = [*(children if isinstance(children, list) else []), user_id]
+        history["messages"] = messages
+        history["currentId"] = message_id
+        with self._client(_remaining(deadline)) as client:
+            r = client.post(
+                f"{self.settings.owui_url}/api/v1/chats/{chat_id}",
+                json={"chat": {"history": history}},
+                headers=self._headers(token),
+            )
+        if r.status_code not in (200, 201):
+            raise RuntimeError(f"chats/{chat_id} turn persistence failed: HTTP {r.status_code}")
 
     def upload_attachment(
         self, token: str, relative_path: str, deadline: float | None = None
