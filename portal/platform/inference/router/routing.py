@@ -150,6 +150,22 @@ _MISTRAL_KEYWORDS: dict[str, int] = {
     "planning": 1,
 }
 
+_KUBERNETES_CODING_KEYWORDS: dict[str, int] = {
+    "rbac": 3,
+    "rolebinding": 3,
+    "role binding": 3,
+    "yaml manifest": 3,
+    "kubernetes manifest": 3,
+}
+_MATH_ROUTING_KEYWORDS: dict[str, int] = {
+    "integral": 3,
+    "calculus": 3,
+    "antiderivative": 3,
+    "differentiate": 3,
+    "derivative": 3,
+    "integrate": 3,
+}
+
 # Variant-signal keyword sets for the coding base workspace. Described as
 # *variants* of a canonical base workspace; keyword content and weights are
 # byte-for-byte unchanged from before alias retirement.
@@ -293,7 +309,7 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
         "threshold": 3,
     },
     "auto-coding": {
-        "keywords": _CODING_KEYWORDS,
+        "keywords": {**_CODING_KEYWORDS, **_KUBERNETES_CODING_KEYWORDS},
         "threshold": 3,
     },
     "_coding_laguna": {  # -> (auto-coding, laguna)
@@ -305,7 +321,7 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
         "threshold": 3,
     },
     "auto-reasoning": {
-        "keywords": {**_REASONING_KEYWORDS, **_MISTRAL_KEYWORDS},
+        "keywords": {**_REASONING_KEYWORDS, **_MISTRAL_KEYWORDS, **_MATH_ROUTING_KEYWORDS},
         "threshold": 3,
     },
     "auto-compliance": {
@@ -636,9 +652,29 @@ def _merge_keywords(*sources: dict[str, int]) -> dict[str, int]:
 # corpus and the router's former few-shot set: 29/29 recognised, 0 false
 # positives across 77 non-security prompts.
 _ROUTER_HANDOFF_THRESHOLD = 2
+_NETWORK_SECURITY_HANDOFF_KEYWORDS = {
+    "security": 2,
+    "tls": 3,
+    "ssl": 3,
+    "firewall": 3,
+    "firewall rule": 3,
+    "certificate": 2,
+    "certificate chain": 3,
+    "sni": 3,
+    "security rule": 2,
+    "security rules": 2,
+    "cve": 3,
+    "vulnerability": 2,
+    "vulnerable": 2,
+    "hardening": 2,
+    "ingress": 1,
+}
 _ROUTER_HANDOFF_KEYWORDS: dict[str, dict[str, int]] = {
     "auto-security": _merge_keywords(
-        _SECURITY_KEYWORDS, _REDTEAM_KEYWORDS, *_SECURITY_VARIANT_SIGNALS.values()
+        _SECURITY_KEYWORDS,
+        _REDTEAM_KEYWORDS,
+        *_SECURITY_VARIANT_SIGNALS.values(),
+        _NETWORK_SECURITY_HANDOFF_KEYWORDS,
     ),
 }
 
@@ -672,6 +708,21 @@ def detect_router_handoff(messages: list[dict[str, Any]]) -> str | None:
         lane,
     )
     return lane
+
+
+def detect_specialist_intent(messages: list[dict[str, Any]]) -> str | None:
+    """Route unmistakable Kubernetes code and calculus turns deterministically."""
+    text = _last_user_text(messages, 2000).lower()
+    if not text:
+        return None
+    kubernetes = "kubernetes" in text or "k8s" in text
+    if kubernetes and any(
+        term in text for term in ("rbac", "rolebinding", "role binding", "yaml", "manifest")
+    ):
+        return "auto-coding"
+    if any(term in text for term in _MATH_ROUTING_KEYWORDS):
+        return "auto-reasoning"
+    return None
 
 
 def _infer_variant(base: str, message: str) -> str:

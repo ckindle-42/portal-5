@@ -179,10 +179,15 @@ def test_route_and_lane_behavior_graders() -> None:
     assert "expected route" in uat.grade_case(route, bad_route, {})[0][0]
 
     math_case = uat.UATCase(
-        "m", "m", "auto", ("first", "second"), "route_math", {"target": "auto-reasoning::math"}
+        "m",
+        "m",
+        "auto",
+        ("first", "second"),
+        "route_math",
+        {"targets": ["auto-reasoning", "auto-reasoning::math"]},
     )
     math_turns = [
-        _turn("Integral result e - 2", "auto-reasoning::math"),
+        _turn("Integral result e - 2", "auto-reasoning"),
         _turn("Derivative check gives 0.718", "auto-reasoning::math"),
     ]
     assert uat.grade_case(math_case, math_turns, {})[0] == []
@@ -374,6 +379,52 @@ def test_model_catalog_lists_registered_openwebui_ids(tmp_path: Path) -> None:
 
     client = OWUIClient(make_settings(tmp_path), httpx.MockTransport(handler))
     assert client.list_models("token") == {"agentorchestrator", "auto-data"}
+
+
+def test_lookup_trace_matches_persona_base_model_id(tmp_path: Path) -> None:
+    started = 1_700_000_000.0
+    details = {
+        "c-persona": {
+            "correlation_id": "c-persona",
+            "workspace": "auto-coding",
+            "model": "coding-model",
+            "backend": "omlx-coding",
+        }
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/models":
+            assert request.headers["Authorization"] == "Bearer token"
+            return httpx.Response(
+                200,
+                json={"data": [{"id": "agentorchestrator", "base_model_id": "auto-coding"}]},
+            )
+        if request.url.path == "/v1/trace":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "correlation_id": "c-persona",
+                            "workspace": "auto-coding",
+                            "requested": "auto-coding",
+                            "persona": "",
+                            "started_at": started,
+                        }
+                    ]
+                },
+            )
+        correlation_id = request.url.path.rsplit("/", 1)[-1]
+        detail = details.get(correlation_id)
+        return httpx.Response(200, json=detail) if detail is not None else httpx.Response(404)
+
+    client = OWUIClient(make_settings(tmp_path), httpx.MockTransport(handler))
+    trace = client.lookup_trace(
+        model_slug="agentorchestrator", turn_started_at=started, token="token"
+    )
+
+    assert trace.get("model") == "coding-model"
+    assert trace.get("backend") == "omlx-coding"
 
 
 def test_persona_contract_graders() -> None:
