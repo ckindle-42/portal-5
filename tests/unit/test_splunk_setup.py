@@ -301,6 +301,8 @@ _EXTENDED_HUNT = (
     "hb_iec104",
     "hb_sherlock_grid",
     "hb_icssim",
+    "hb_pdmfc_ot",
+    "hb_robotdog_audit",
 )
 
 

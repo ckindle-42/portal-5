@@ -215,6 +215,8 @@ CIM_EXTRA_INDEXES = (
     "hb_iec104",
     "hb_sherlock_grid",
     "hb_icssim",
+    "hb_pdmfc_ot",
+    "hb_robotdog_audit",
 )
 
 #: Files an earlier release shipped and this one does not; a tar install overwrites but never
