@@ -563,14 +563,10 @@ def create_powerpoint(
             body_text = slide_data.get("content", "")
             if isinstance(body_text, (list, tuple)):  # models often send bullets as a list
                 body_text = "\n".join(str(item) for item in body_text)
-            for i, line in enumerate(str(body_text).splitlines()):
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                if i == 0:
-                    tf.text = stripped
-                else:
-                    tf.add_paragraph().text = stripped
+            body_lines = [line for line in str(body_text).splitlines() if line.strip()]
+            for index, line in enumerate(body_lines):
+                paragraph = tf.paragraphs[0] if index == 0 else tf.add_paragraph()
+                _set_powerpoint_bullet(paragraph, line)
 
             if "notes" in slide_data and slide_data["notes"]:
                 notes_slide = slide.notes_slide
@@ -632,6 +628,24 @@ def create_powerpoint(
     except Exception as e:
         logger.exception("Presentation creation failed")
         return {"success": False, "error": str(e)}
+
+
+def _set_powerpoint_bullet(paragraph: Any, line: str) -> None:
+    from pptx.oxml.ns import qn
+    from pptx.oxml.xmlchemy import OxmlElement
+
+    text = line.strip()
+    if text.startswith(("- ", "* ", "• ")):
+        text = text[2:].lstrip()
+    paragraph.text = text
+    paragraph.level = 0
+    p_pr = paragraph._p.get_or_add_pPr()
+    for tag in ("a:buNone", "a:buChar"):
+        for existing in p_pr.findall(qn(tag)):
+            p_pr.remove(existing)
+    bullet = OxmlElement("a:buChar")
+    bullet.set("char", "•")
+    p_pr.insert_element_before(bullet, "a:tabLst", "a:defRPr", "a:extLst")
 
 
 @mcp.tool()
