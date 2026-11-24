@@ -170,9 +170,7 @@ python3 scripts/verify_foundation_routed.py --service-pid <pid> --served-commit 
                                     # P7: the eight foundation observations over HTTP (:8937)
 python3 scripts/probe_single_part_live.py --part "CIP-007-6 R2 Part 2.2"
                                     # smallest live case with per-stage timing before expensive runs
-python3 scripts/run_seven_question_routed.py [--scenario]
-                                    # P6: the compound seven-question CIP-007 R2 arm through the
-                                    # deployed route; --scenario adds the isolated proposed edit
+
 python3 scripts/measure_substrate_properties.py
                                     # SUBSTRATE_PROPERTIES_V1 P6.2: re-run the superseded-competition,
                                     # recall@k and scorer-validation measurements against the live store

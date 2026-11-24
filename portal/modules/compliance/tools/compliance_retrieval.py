@@ -343,36 +343,14 @@ async def _project_sections_locked(
 
 
 async def search(kb_id: str, query: str, top_k: int = 5, *, where: str = "") -> dict[str, Any]:
-    """Plain-arg entry point — the HTTP concern (request parsing, status codes)
-    stays in ``_search`` below; ``compliance_mcp``'s sync dispatch wrapper calls
-    this directly (pipeline.py's own separation, P3).
+    """Plain-arg entry point — core callers (search_service, candidate_links)
+    call this directly (pipeline.py's own separation, P3).
 
     ``where`` (SUBSTRATE_PROPERTIES_V1 P3) is the pushdown predicate the MCP
     tool builds from its ``standard`` / ``layer`` / clock arguments — the
     filter runs INSIDE the arms, before ranking, instead of sieving the
     results afterwards."""
     return await _pipeline.search(_composition(), kb_id, query, min(int(top_k), 50), where=where)
-
-
-async def _search(request: Request) -> JSONResponse:
-    """compliance_kb_search: raw kb-scoped retrieval over the compliance_* tables.
-
-    Renamed from ``compliance_search`` in BILATERAL_CORPUS_V1 P5: that name now
-    belongs to the bilateral, section-addressed search tool on the MCP, which
-    resolves every hit to a canonical section. This stays as the seam's raw
-    passthrough — one kb, no resolution, no clocks."""
-    args = (await request.json()).get("arguments", {})
-    kb_id = args.get("kb_id", "")
-    query = args.get("query", "")
-    top_k = args.get("top_k", 5)
-    if not kb_id or not query:
-        return JSONResponse({"error": "kb_id and query required"}, status_code=400)
-    try:
-        return JSONResponse(await search(kb_id, query, top_k))
-    except _pipeline.UnknownKBError as e:
-        return JSONResponse({"error": str(e)}, status_code=404)
-    except Exception as e:  # noqa: BLE001
-        return JSONResponse({"error": str(e)}, status_code=503)
 
 
 def _compliance_ingest_roots() -> list[Path]:
@@ -436,4 +414,3 @@ async def _ingest(request: Request) -> JSONResponse:
 def register_compliance_retrieval_routes(mcp: Any) -> None:
     """Own the compliance_* retrieval routes on the compliance MCP."""
     mcp.custom_route("/tools/compliance_ingest", methods=["POST"])(_ingest)
-    mcp.custom_route("/tools/compliance_kb_search", methods=["POST"])(_search)

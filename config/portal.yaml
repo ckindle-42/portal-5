@@ -1071,7 +1071,6 @@ workspaces:
         - browser_evaluate
         - browser_close
         - browser_list_profiles
-        - browser_get_markdown
         - proxmox_list_nodes
         - proxmox_node_status
         - proxmox_cluster_status
@@ -1254,6 +1253,8 @@ workspaces:
     - execute_nodejs
     - execute_bash
     - sandbox_status
+    - list_sessions
+    - reset_session
     - read_word_document
     - read_pdf
     - remember
@@ -1266,7 +1267,6 @@ workspaces:
     - browser_evaluate
     - browser_close
     - browser_list_profiles
-    - browser_get_markdown
     - proxmox_list_nodes
     - proxmox_node_status
     - proxmox_cluster_status
@@ -1363,6 +1363,8 @@ workspaces:
         - execute_python
         - execute_nodejs
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_word_document
         - read_pdf
         - remember
@@ -1388,6 +1390,8 @@ workspaces:
         - execute_nodejs
         - execute_bash
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_word_document
         - read_pdf
         - remember
@@ -1416,6 +1420,8 @@ workspaces:
         - execute_python
         - execute_nodejs
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_word_document
         - read_pdf
         - remember
@@ -1444,6 +1450,8 @@ workspaces:
         - execute_python
         - execute_nodejs
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_word_document
         - read_pdf
         - remember
@@ -1473,6 +1481,8 @@ workspaces:
         - execute_python
         - execute_nodejs
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_word_document
         - read_pdf
         - remember
@@ -1499,6 +1509,8 @@ workspaces:
         - execute_bash
         - execute_nodejs
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_word_document
         - read_excel
         - read_powerpoint
@@ -1534,6 +1546,8 @@ workspaces:
         - execute_bash
         - execute_nodejs
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_word_document
         - read_excel
         - read_powerpoint
@@ -1570,6 +1584,8 @@ workspaces:
         - execute_bash
         - execute_nodejs
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_word_document
         - read_excel
         - read_powerpoint
@@ -1621,6 +1637,8 @@ workspaces:
         - execute_python
         - execute_bash
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_pdf
         - read_word_document
         - web_search
@@ -1699,6 +1717,8 @@ workspaces:
         - execute_nodejs
         - execute_bash
         - sandbox_status
+        - list_sessions
+        - reset_session
         - read_word_document
         - read_pdf
         - remember
@@ -1847,8 +1867,14 @@ workspaces:
     - extract_fields
     - conversations
     - mitre_technique_lookup
+    - mitre_data_sources_for_technique
+    - mitre_detections_for_technique
+    - mitre_techniques_list
     - spl_search_library
     - spl_validate_syntax
+    - spl_explain_detection
+    - spl_techniques_covered
+    - spl_diff_hypothesis
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — coding variant: spl (SPL model)
     engine: true
@@ -1914,6 +1940,7 @@ workspaces:
     - web_search
     - web_fetch
     - classify_vulnerability
+    - lab_perception
     - execute_python
     - execute_bash
     - kb_search
@@ -2640,6 +2667,9 @@ workspaces:
     - read_excel
     - read_powerpoint
     - read_pdf
+    - convert_document
+    - export_pdf
+    - list_generated_files
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — documents engine
     engine: true
@@ -2704,6 +2734,10 @@ workspaces:
     - graph_recall
     - neighbors
     - entity_timeline
+    - link
+    - kb_optimize
+    - kb_restore
+    - kb_versions
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — research engine
     engine: true

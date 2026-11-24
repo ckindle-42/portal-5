@@ -1,60 +1,12 @@
-"""Workstream F — compliance MCP routing: async gaps, projections, trace, orphans.
+"""Compliance MCP conversation surface: context material serialization.
 
-Hermetic: no network, no models, no retrieval. The assessment run service and
-repository are injected/monkeypatched.
+Hermetic: no network, no models, no retrieval; repository and runtime config
+are monkeypatched.
 """
 
 from __future__ import annotations
 
-import pytest
-
 from portal.modules.compliance.tools import compliance_mcp
-
-
-def test_compact_citation_prefers_the_canonical_operative_slice():
-    spans = [
-        {"document_id": "d", "section_id": "s1", "span": "first", "locatable": True},
-        {
-            "document_id": "d",
-            "section_id": "s2",
-            "span": "operative",
-            "operative": True,
-            "locatable": True,
-        },
-    ]
-    assert compliance_mcp._compact_citation(spans)["section"] == "s2"
-
-
-def test_compact_citation_legacy_falls_back_to_first_locatable():
-    spans = [
-        {"document_id": "d", "section_id": "s1", "span": "first", "locatable": True},
-        {"document_id": "d", "section_id": "s2", "span": "second", "locatable": True},
-    ]
-    assert compliance_mcp._compact_citation(spans)["section"] == "s1"
-    assert compliance_mcp._compact_citation([]) is None
-
-
-@pytest.mark.parametrize(
-    "documentary,expected",
-    [
-        ("FULL", "SUPPORTED"),
-        ("PARTIAL", "PARTIAL"),
-        ("NONE", "ABSENT"),
-        ("NOT_APPLICABLE", "NOT_APPLICABLE"),
-        ("UNRESOLVED", "UNRESOLVED"),
-    ],
-)
-def test_determination_projection(documentary, expected):
-    projected = compliance_mcp._determination_projection(
-        {
-            "requirement_id": "R",
-            "documentary_coverage": documentary,
-            "coverage": documentary,
-            "assessment_id": "a",
-        }
-    )
-    assert projected["determination"] == expected
-    assert projected["assessment_id"] == "a"
 
 
 def test_compliance_context_material_is_json(monkeypatch):

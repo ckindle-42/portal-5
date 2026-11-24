@@ -41,9 +41,8 @@ for _var in (
 # exception via try/except-around-yield (verified — pluggy does not route it
 # through the generator), and several of these tests swallow the
 # FileNotFoundError themselves (assessment_runs' background-worker run
-# converts it into a FAILED status, compliance_gaps' sync path into
-# {"error": ...}), so there is no single exception type to hook generically
-# even with the correct mechanism.
+# converts it into a FAILED status), so there is no single exception type
+# to hook generically even with the correct mechanism.
 #
 # The list covers only the swallowers. A test that lets the FileNotFoundError
 # out is skipped automatically by `_skip_when_the_cip_pdf_corpus_is_absent`
