@@ -361,14 +361,25 @@ class BrowserUI:
     def _await_assistant_turn(self, before: int, deadline: float) -> None:
         page = self._require_page()
         stop = page.locator(STOP_CIRCLE_SELECTOR)
-        grace = min(deadline, time.monotonic() + 15.0)
         appeared = False
+        last_text = ""
+        stable_since: float | None = None
         while time.monotonic() < deadline:
             if stop.count():
                 appeared = True
+                stable_since = None
             _, count = self.visible_turn_count()
-            if count > before and not stop.count() and (appeared or time.monotonic() >= grace):
-                return
+            if count > before and not stop.count():
+                turns = self._assistant_turns()
+                text = str(turns[-1]["text"]).strip() if len(turns) > before else ""
+                if text:
+                    if text != last_text:
+                        last_text = text
+                        stable_since = time.monotonic()
+                    elif stable_since is not None and (
+                        time.monotonic() - stable_since >= (1.0 if appeared else 2.5)
+                    ):
+                        return
             page.wait_for_timeout(300)
         raise TimeoutError("Open WebUI assistant turn did not complete within the scenario budget")
 
