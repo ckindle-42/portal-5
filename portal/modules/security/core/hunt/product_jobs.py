@@ -7,7 +7,7 @@ import os
 import threading
 import time
 import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -1038,11 +1038,12 @@ def _matching_cards(cards: Sequence[Any], source: str) -> list[Mapping[str, Any]
 
 
 def indexes_view(
-    rows: Sequence[Mapping[str, Any]],
+    rows: Iterable[dict[str, Any]],
     n: int = 3,
     offset: int = 0,
     byte_limit: int | None = None,
 ) -> dict[str, Any]:
+    rows = list(rows)
     want = max(0, min(n, LEADS_VIEW_LIMIT))
     return compact(
         _page_view(
