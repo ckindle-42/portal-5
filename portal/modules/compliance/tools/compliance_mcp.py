@@ -1669,14 +1669,20 @@ def _source_inventory(repo: Any, kind: str) -> dict[str, Any]:
            LEFT JOIN document_scope ds ON ds.logical_id = d.logical_id
            WHERE d.jurisdiction IN (?,?,?)
            GROUP BY d.logical_id, r.revision_id
-           ORDER BY d.jurisdiction, d.logical_id, r.revision_id""",
+           ORDER BY CASE WHEN d.jurisdiction = 'US' THEN 1 ELSE 0 END, d.logical_id, r.revision_id""",
         jurisdictions,
     ).fetchall()
     documents = []
+    operator_count = 0
+    regulatory_count = 0
     for row in rows:
         side = side_of(row["jurisdiction"])
         if row["revision_id"] not in active_revisions or (kind and side != kind):
             continue
+        if side == "operator":
+            operator_count += 1
+        elif side == "regulatory":
+            regulatory_count += 1
         scope_claims = json.loads(row["standards_json"] or "[]")
         documents.append(
             {
@@ -1697,8 +1703,10 @@ def _source_inventory(repo: Any, kind: str) -> dict[str, Any]:
         "mode": "inventory",
         "kind": kind or "all",
         "count": len(documents),
+        "operator_count": operator_count,
+        "regulatory_count": regulatory_count,
         "documents": documents,
-        "note": "Current recorded revisions in the canonical store; external publication completeness is not checked.",
+        "note": "Current recorded revisions in the canonical store; operator documents are listed first. Pass kind='operator' for a compact operator-only list.",
     }
 
 
@@ -2170,12 +2178,16 @@ def compliance_search(
     relations: str = "governing",
     top_k: int = 10,
     max_chars: int = 4000,
+    include_dual_document: bool = False,
 ) -> dict[str, Any]:
     """Ranked sections across BOTH corpora — regulatory and operator together.
 
     The composition itself is :func:`core.search_service.search`, which the
     reader's tool surface calls too: one pre-ranking predicate with one set of
     semantics, rather than a second implementation that filters after ranking.
+    Pass ``include_dual_document=True`` to also attach the full dual-document
+    payload when no requirement is scoped (off by default to stay within
+    interactive chat context budgets).
     """
     repo = _repo()
     try:
@@ -2192,12 +2204,7 @@ def compliance_search(
             top_k=top_k,
             max_chars=max_chars,
         )
-        # DATA_TRUTH Amendment 1 DD3: a question with no requirement scope is a
-        # dual-document request — resolve the top-2 standards through the
-        # governing-anchor lane and deliver the standard's normative text plus
-        # the operator's own document set alongside the ranked list (which
-        # stays, never replaced).
-        if not requirement.strip():
+        if include_dual_document and not requirement.strip():
             from portal.modules.compliance.core import dual_document
 
             payload = dual_document.build(repo, query=query, **_payload_pricing())
