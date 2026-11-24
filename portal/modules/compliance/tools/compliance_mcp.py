@@ -1647,12 +1647,68 @@ def _clip_revised_sections(revision_id: str, repo: Any) -> list[dict[str, Any]]:
     return sections
 
 
+def _source_inventory(repo: Any, kind: str) -> dict[str, Any]:
+    if kind not in ("", "operator", "regulatory"):
+        return {"error": "kind must be 'operator', 'regulatory', or empty"}
+    from portal.modules.compliance.core.document_scope import families_for
+    from portal.modules.compliance.core.jurisdiction import side_of
+    from portal.modules.compliance.core.section_index import _governing_revisions
+
+    jurisdictions = ("internal", "operator_note", "US")
+    active_revisions = set().union(
+        *(_governing_revisions(repo, jurisdiction) for jurisdiction in jurisdictions)
+    )
+    rows = repo._conn.execute(
+        """SELECT d.logical_id, d.title, d.source_kind, d.jurisdiction,
+                  r.revision_id, r.document_number, r.version, r.effective_date,
+                  r.lifecycle_status, COUNT(DISTINCT s.section_id) AS section_count,
+                  COALESCE(ds.standards_json, '[]') AS standards_json
+           FROM source_documents d
+           JOIN document_revisions r ON r.logical_id = d.logical_id
+           LEFT JOIN source_sections s ON s.revision_id = r.revision_id
+           LEFT JOIN document_scope ds ON ds.logical_id = d.logical_id
+           WHERE d.jurisdiction IN (?,?,?)
+           GROUP BY d.logical_id, r.revision_id
+           ORDER BY d.jurisdiction, d.logical_id, r.revision_id""",
+        jurisdictions,
+    ).fetchall()
+    documents = []
+    for row in rows:
+        side = side_of(row["jurisdiction"])
+        if row["revision_id"] not in active_revisions or (kind and side != kind):
+            continue
+        scope_claims = json.loads(row["standards_json"] or "[]")
+        documents.append(
+            {
+                "kind": side,
+                "logical_id": row["logical_id"],
+                "revision_id": row["revision_id"],
+                "title": row["title"],
+                "source_kind": row["source_kind"],
+                "document_number": row["document_number"],
+                "version": row["version"],
+                "effective_date": row["effective_date"],
+                "lifecycle_status": row["lifecycle_status"],
+                "section_count": int(row["section_count"]),
+                "linked_standards": sorted(families_for({"claims": scope_claims})),
+            }
+        )
+    return {
+        "mode": "inventory",
+        "kind": kind or "all",
+        "count": len(documents),
+        "documents": documents,
+        "note": "Current recorded revisions in the canonical store; external publication completeness is not checked.",
+    }
+
+
 @mcp.tool()
 def compliance_sources(
     revision_id: str = "",
     alias_path: str = "",
     logical_id: str = "",
     include_sections: bool = False,
+    kind: str = "",
 ) -> dict[str, Any]:
     """Exact permitted source context for an immutable document revision
     (design §9's "What documents... connect" / P7's `compliance_sources`
@@ -1661,9 +1717,10 @@ def compliance_sources(
     historical anchor; ``logical_id`` for the human-facing, source-dir-
     relative identity (e.g. "CIP-007/Some Procedure.pdf" — what an operator
     or another tool would naturally name it); or ``alias_path`` for the
-    literal resolvable filesystem path a revision was ingested from. Any
-    match returns the CURRENT/every revision ever recorded under that key —
-    a same-path replacement never erases history, P2's core invariant.
+    literal resolvable filesystem path a revision was ingested from. With no
+    selector, return the current document inventory; ``kind`` filters operator
+    or regulatory sources. A match returns the CURRENT/every revision ever
+    recorded under that key — a same-path replacement never erases history.
 
     Integrity: when the file still exists on disk at its recorded
     ``alias_path``, its bytes are re-hashed now and compared against the
@@ -1675,6 +1732,8 @@ def compliance_sources(
         from portal.modules.compliance.core.repository import Repository
 
         repo = Repository()
+        if not any((revision_id, logical_id, alias_path)):
+            return _source_inventory(repo, kind)
         if revision_id:
             rev = repo.get_revision(revision_id)
             revisions = [rev] if rev else []
@@ -1682,8 +1741,6 @@ def compliance_sources(
             revisions = repo.revisions_for_logical_id(logical_id)
         elif alias_path:
             revisions = repo.revisions_for_alias(alias_path)
-        else:
-            return {"error": "must supply revision_id, logical_id, or alias_path"}
         if not revisions:
             return {
                 "found": False,
