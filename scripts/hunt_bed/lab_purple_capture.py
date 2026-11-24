@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import random
 import re
 import shlex
 import socket
+import struct
 import sys
 import time
 from datetime import UTC, datetime
@@ -27,7 +29,14 @@ CANONICAL_SOURCETYPES = {"access_combined", "syslog", "redis:log", "solr:log"}
 _INDEX_RE = re.compile(r"^hb_lab_[A-Za-z0-9_-]{1,100}$")
 _RAW_PATH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 _COMBINED_RE = re.compile(r'^\S+ \S+ \S+ \[[^]]+\] "[A-Z]+ \S+ HTTP/\d(?:\.\d)?"')
-_DOCKER_TS_RE = re.compile(r"^(\S+) (.*)$")
+_DOCKER_TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\S+) (.*)$")
+_RAW_CVES = {
+    "httpd/cve-2021-41773": "CVE-2021-41773",
+    "struts2/s2-045": "CVE-2017-5638",
+    "spring/cve-2022-22965": "CVE-2022-22965",
+    "postgres/cve-2019-9193": "CVE-2019-9193",
+    "elasticsearch/cve-2015-1427": "CVE-2015-1427",
+}
 _BENIGN_PATHS = (
     "/",
     "/favicon.ico",
@@ -52,19 +61,28 @@ def _target_details(target_id: str) -> tuple[dict[str, Any] | None, str, str]:
             raise ValueError(f"target is not a Vulhub environment: {target_id}")
         path = str(target["path"])
     else:
+        path = target_id.removeprefix("vulhub/")
         if (
-            not _RAW_PATH_RE.fullmatch(target_id)
-            or target_id.startswith("/")
-            or any(part in ("", ".", "..") for part in target_id.split("/"))
+            not _RAW_PATH_RE.fullmatch(path)
+            or path.startswith("/")
+            or any(part in ("", ".", "..") for part in path.split("/"))
         ):
             raise ValueError("raw Vulhub paths must be relative path components")
-        path = target_id
     return target, path, _target_kind(target_id, path)
 
 
 def _target_kind(target_id: str, path: str) -> str:
     identity = f"{target_id}/{path}".lower()
     for marker, kind in (("redis", "redis"), ("solr", "solr"), ("log4j", "solr")):
+        if marker in identity:
+            return kind
+    for marker, kind in (
+        ("postgres", "postgres"),
+        ("elasticsearch", "elasticsearch"),
+        ("struts2", "struts2"),
+        ("spring", "spring"),
+        ("httpd", "httpd"),
+    ):
         if marker in identity:
             return kind
     for marker in ("tomcat", "nginx"):
@@ -80,7 +98,7 @@ def canonical_sourcetype(target_id: str, raw_line: str) -> str:
         return "redis:log"
     if kind == "solr":
         return "solr:log"
-    if kind in {"nginx", "tomcat"} and _COMBINED_RE.match(raw_line):
+    if kind in {"nginx", "tomcat", "httpd", "struts2", "spring"} and _COMBINED_RE.match(raw_line):
         return "access_combined"
     return "syslog"
 
@@ -91,7 +109,7 @@ def _dry_run_plan(target_id: str, index: str, benign_requests: int) -> dict[str,
     port = (target or {}).get("port")
     sourcetypes = (
         ["access_combined", "syslog"]
-        if kind in {"nginx", "tomcat"}
+        if kind in {"nginx", "tomcat", "httpd"}
         else [{"redis": "redis:log", "solr": "solr:log"}.get(kind, "syslog")]
     )
     return {
@@ -156,6 +174,8 @@ def _send_benign_traffic(
         if kind == "redis":
             command = ("PING", "TIME", "DBSIZE", "INFO server")[number % 4]
             _redis_command(host, port, *command.split())
+        elif kind == "postgres":
+            _postgres_startup(host, port, "portal-benign")
         else:
             headers = {
                 "User-Agent": rng.choice(_USER_AGENTS),
@@ -167,6 +187,44 @@ def _send_benign_traffic(
         if number + 1 < count:
             time.sleep(rng.uniform(0.04, 0.16))
     return count
+
+
+def _postgres_startup(host: str, port: int, application_name: str) -> None:
+    parameters = (
+        b"user\x00portal_probe\x00database\x00postgres\x00application_name\x00"
+        + application_name.encode("utf-8")
+        + b"\x00\x00"
+    )
+    body = struct.pack("!I", 196608) + parameters
+    message = struct.pack("!I", len(body) + 4) + body
+    with socket.create_connection((host, port), timeout=5.0) as connection:
+        connection.sendall(message)
+
+
+def _send_web_attack_probe(kind: str, host: str, port: int) -> tuple[int, dict[str, object]]:
+    headers = {"X-Forwarded-For": ATTACKER_IP}
+    base_url = f"http://{host}:{port}"
+    if kind == "httpd":
+        path = "/cgi-bin/.%2e/.%2e/.%2e/etc/passwd"
+        _http_request("GET", f"{base_url}{path}", headers)
+        return 1, {"headers": headers, "method": "GET", "path": path}
+    if kind == "struts2":
+        headers["Content-Type"] = "%{7*7}"
+        _http_request("POST", f"{base_url}/", headers, "")
+        return 1, {"headers": headers, "method": "POST", "path": "/", "body": ""}
+    if kind == "spring":
+        path = "/"
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        body = "class.module.classLoader.resources.context.parent.pipeline.first.pattern=probe"
+        _http_request("POST", f"{base_url}{path}", headers, body)
+        return 1, {"headers": headers, "method": "POST", "path": path, "body": body}
+    if kind == "elasticsearch":
+        path = "/_search"
+        headers["Content-Type"] = "application/json"
+        body = '{"script_fields":{"probe":{"script":"1+1"}}}'
+        _http_request("POST", f"{base_url}{path}", headers, body)
+        return 1, {"headers": headers, "method": "POST", "path": path, "body": body}
+    raise ValueError(f"no web probe recipe for {kind}")
 
 
 def _send_attack_probe(kind: str, host: str, port: int) -> tuple[int, dict[str, object]]:
@@ -184,6 +242,8 @@ def _send_attack_probe(kind: str, host: str, port: int) -> tuple[int, dict[str, 
             "protocol": "RESP",
             "command": ["EVAL", "return redis.call('PING')", "0"],
         }
+    if kind in {"httpd", "struts2", "spring", "elasticsearch"}:
+        return _send_web_attack_probe(kind, host, port)
     headers = {"X-Forwarded-For": ATTACKER_IP}
     base_url = f"http://{host}:{port}"
     if kind == "nginx":
@@ -194,6 +254,9 @@ def _send_attack_probe(kind: str, host: str, port: int) -> tuple[int, dict[str, 
         headers["User-Agent"] = "${jndi:ldap://127.0.0.1:1/a}"
         _http_request("GET", f"{base_url}/solr/", headers)
         return 1, {"headers": headers, "method": "GET", "path": "/solr/"}
+    if kind == "postgres":
+        _postgres_startup(host, port, ATTACKER_IP)
+        return 1, {"protocol": "PostgreSQL startup", "application_name": ATTACKER_IP}
     if kind == "tomcat":
         jsp_url = f"{base_url}/probe.jsp"
         payload = '<%@ page contentType="text/plain" %>ok'
@@ -273,11 +336,21 @@ def _log_events(
     year = datetime.now(UTC).year
     for _container, output in logs:
         for line in output.splitlines():
+            line = line.replace("\x00", "")
             if not line.strip():
                 continue
             match = _DOCKER_TS_RE.match(line)
-            timestamp = parse_time(match.group(1), year) if match else None
-            raw = match.group(2) if match and timestamp is not None else line
+            try:
+                timestamp = parse_time(match.group(1), year) if match else None
+            except (OverflowError, ValueError):
+                timestamp = None
+            if timestamp is not None and (
+                not math.isfinite(timestamp) or timestamp < 0 or timestamp > time.time() + 86400
+            ):
+                timestamp = None
+            raw = match.group(2) if match else line
+            if not raw.strip():
+                continue
             sourcetype = canonical_sourcetype(target_id, raw)
             event = {
                 "host": target_host,
@@ -328,7 +401,10 @@ def _ship_events(index: str, events: list[dict[str, Any]]) -> None:
             verify=False,
         )
         if response.status_code != 200:
-            raise RuntimeError(f"Splunk HEC rejected an event with HTTP {response.status_code}")
+            raise RuntimeError(
+                f"Splunk HEC rejected an event with HTTP {response.status_code}: "
+                f"{response.text[:500]}"
+            )
         payload = response.json()
         if payload.get("code", 0) != 0:
             raise RuntimeError(f"Splunk HEC rejected an event with code {payload.get('code')}")
@@ -347,6 +423,39 @@ def _utc_timestamp() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _remote_lxc_epoch() -> float:
+    result = lab_host._host_exec_lxc("date -u +%s")
+    output = str(result.get("output", "")).strip()
+    if not result.get("ok"):
+        raise RuntimeError(f"clock preflight failed on LXC 112: {output}")
+    try:
+        remote_now = float(output)
+    except ValueError as exc:
+        raise RuntimeError(f"clock preflight returned an invalid UTC epoch: {output}") from exc
+    if not math.isfinite(remote_now) or remote_now < 0:
+        raise RuntimeError(f"clock preflight returned an invalid UTC epoch: {output}")
+    return remote_now
+
+
+def _clock_sync_preflight(sync_clock: bool) -> float:
+    drift = abs(time.time() - _remote_lxc_epoch())
+    if drift < 10.0:
+        return drift
+    if not sync_clock:
+        raise RuntimeError(f"clock drift is {drift:.3f}s; expected less than 10.0s")
+    sync_result = lab_host._proxmox_exec("chronyc -a makestep", timeout=30)
+    if not sync_result.get("ok"):
+        raise RuntimeError(
+            f"clock drift is {drift:.3f}s and NTP sync failed: {sync_result.get('output', '')}"
+        )
+    drift = abs(time.time() - _remote_lxc_epoch())
+    if drift >= 10.0:
+        raise RuntimeError(
+            f"clock drift remains {drift:.3f}s after NTP sync; expected less than 10.0s"
+        )
+    return drift
+
+
 def run_capture(
     target_id: str,
     index: str,
@@ -354,18 +463,21 @@ def run_capture(
     *,
     keep_up: bool = False,
     dry_run: bool = False,
+    sync_clock: bool = False,
     keys_dir: Path = KEYS_DIR,
 ) -> dict[str, Any]:
     _validate_request(index, benign_requests)
     target, path, kind = _target_details(target_id)
     if dry_run:
         return _dry_run_plan(target_id, index, benign_requests)
+    clock_drift_s = _clock_sync_preflight(sync_clock)
+    target_ref = target_id if target else path
     up_attempted = False
     primary_error = False
     capture_start = _utc_timestamp()
     try:
         up_attempted = True
-        up_result = lab_targets.cmd_up(target_id)
+        up_result = lab_targets.cmd_up(target_ref)
         if up_result.get("status") != "running":
             raise RuntimeError(f"target did not start: {up_result}")
         host = str(
@@ -381,6 +493,7 @@ def run_capture(
         events = _log_events(target_id, host, index, logs)
         _ensure_splunk_index(index)
         _ship_events(index, events)
+        cve = (target or {}).get("cve") or _RAW_CVES.get(path.lower())
         answer = {
             "target_id": target_id,
             "attack_window": {"start": attack_start, "end": attack_end},
@@ -389,8 +502,9 @@ def run_capture(
             "attacker_ips": [ATTACKER_IP],
             "attacker_indicators": attacker_indicators,
             "target_host": host,
-            "cve": (target or {}).get("cve"),
-            "mitre_techniques": ["T1190"] if target and target.get("cve") else [],
+            "cve": cve,
+            "mitre_techniques": ["T1190"] if cve else [],
+            "clock_drift_s": clock_drift_s,
             "benign_count": benign_count,
             "attack_count": attack_count,
         }
@@ -400,6 +514,7 @@ def run_capture(
             "container_names": containers,
             "target_host": host,
             "port": port,
+            "clock_drift_s": clock_drift_s,
             "events_captured": len(events),
             "hec_events_accepted": len(events),
             "answer_key_path": str(key_path),
@@ -411,7 +526,7 @@ def run_capture(
     finally:
         if up_attempted and not keep_up:
             try:
-                result = lab_targets.cmd_down(target_id)
+                result = lab_targets.cmd_down(target_ref)
                 if result.get("status") != "stopped":
                     raise RuntimeError(f"target teardown failed: {result}")
             except Exception:
@@ -425,6 +540,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--index", required=True, help="zero-label Splunk index (hb_lab_*)")
     parser.add_argument("--benign-requests", type=int, default=200)
     parser.add_argument("--keep-up", action="store_true", help="leave the Vulhub target running")
+    parser.add_argument(
+        "--sync-clock",
+        action="store_true",
+        help="attempt NTP sync if LXC clock drift is at least 10s",
+    )
     parser.add_argument(
         "--dry-run", action="store_true", help="print the plan without external actions"
     )
@@ -440,6 +560,7 @@ def main() -> None:
             args.benign_requests,
             keep_up=args.keep_up,
             dry_run=args.dry_run,
+            sync_clock=args.sync_clock,
         )
     except Exception as exc:
         print(f"capture failed: {exc}", file=sys.stderr)
