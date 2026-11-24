@@ -294,7 +294,13 @@ _EXTENDED_HUNT = (
     "hb_flaws_aws",
     "hb_uwf_zeek24",
     "hb_lmd_2023",
+    "hb_lmd_2023_v2",
     "hb_ics_pcap",
+    "hb_otrf_apt3",
+    "hb_cyber4ot",
+    "hb_iec104",
+    "hb_sherlock_grid",
+    "hb_icssim",
 )
 
 
