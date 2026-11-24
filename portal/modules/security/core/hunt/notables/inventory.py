@@ -11,7 +11,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from ..engine import _search_literal
-from ..executor import HuntExecutor
+from ..executor import HuntExecutor, HuntSubBudgetExceededError
 from .behaviours import Behaviour, reproduction_query
 from .cards import ROLE_CONSUMERS, SourceCard, card_consumers
 from .parse import FieldStat
@@ -420,6 +420,9 @@ class _Prober:
         part: str | None = None,
     ) -> tuple[list[dict[str, Any]], str]:
         """One read; a transport failure is a recorded reason, not an empty answer."""
+        expired = getattr(getattr(self.executor, "budget", None), "sub_budget_expired", None)
+        if callable(expired) and expired():
+            return [], "inventory_budget_exhausted"
         self.queries += 1
         try:
             result = self.executor.read(
@@ -431,6 +434,8 @@ class _Prober:
                 source_id=source_id,
                 part=part,
             )
+        except HuntSubBudgetExceededError:
+            return [], "inventory_budget_exhausted"
         except Exception as exc:  # noqa: BLE001 -- one failed aggregate is coverage, not a crash
             return [], f"read_failed:{type(exc).__name__}"
         rows = [dict(row) for row in result.rows]

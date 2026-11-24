@@ -11,6 +11,7 @@ import threading
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -56,6 +57,10 @@ class HuntBudgetExceededError(SearchBudgetExceededError):
 
 class HuntDeadlineExceededError(HuntBudgetExceededError):
     """The single job deadline expired; the read path stopped the job."""
+
+
+class HuntSubBudgetExceededError(RuntimeError):
+    """A temporary stage operation reached its own wall-time cap."""
 
 
 class HuntSearchFailedError(RuntimeError):
@@ -151,6 +156,7 @@ class HuntBudget:
     phase: str = "ranking"
     active_stage: str | None = None
     stage_deadline: float | None = None
+    sub_deadline: float | None = None
     seed_rank: int | None = None
     lead_count: int = 0
     pivot_count: int = 0
@@ -181,7 +187,9 @@ class HuntBudget:
 
     @property
     def request_deadline(self) -> float:
-        return min(self.deadline, self.stage_deadline or self.deadline)
+        return min(
+            self.deadline, self.stage_deadline or self.deadline, self.sub_deadline or self.deadline
+        )
 
     def job_remaining(self) -> float:
         return max(0.0, self.deadline - time.monotonic())
@@ -194,7 +202,32 @@ class HuntBudget:
     def remaining(self) -> float:
         remaining = self.job_remaining()
         stage_remaining = self.stage_remaining()
-        return min(remaining, stage_remaining) if stage_remaining is not None else remaining
+        if stage_remaining is not None:
+            remaining = min(remaining, stage_remaining)
+        if self.sub_deadline is not None:
+            remaining = min(remaining, max(0.0, self.sub_deadline - time.monotonic()))
+        return remaining
+
+    def sub_budget_expired(self) -> bool:
+        """Whether the temporary cap expired while the enclosing job and stage remain live."""
+        return (
+            self.sub_deadline is not None
+            and time.monotonic() >= self.sub_deadline
+            and self.expired_reason() is None
+        )
+
+    @contextmanager
+    def capped_deadline(self, seconds: float) -> Iterator[float]:
+        """Temporarily cap reads without changing the enclosing stage deadline."""
+        with self.lock:
+            previous = self.sub_deadline
+            self.sub_deadline = min(self.request_deadline, time.monotonic() + max(0.0, seconds))
+            deadline = self.sub_deadline
+        try:
+            yield deadline
+        finally:
+            with self.lock:
+                self.sub_deadline = previous
 
     def remaining_requests(self) -> int:
         """The unspent request ceiling: the one counter a stage never restarts."""
@@ -592,7 +625,10 @@ class HuntExecutor:
                     raise HuntDeadlineExceededError(budget.exhausted)
                 raise HuntBudgetExceededError(budget.exhausted)
             if budget.remaining() <= 0:
-                budget.exhausted = budget.expired_reason() or "job_deadline_exceeded"
+                expired = budget.expired_reason()
+                if expired is None and budget.sub_budget_expired():
+                    raise HuntSubBudgetExceededError("temporary_hunt_sub_budget_exceeded")
+                budget.exhausted = expired or "job_deadline_exceeded"
                 if budget.exhausted == "job_deadline_exceeded":
                     raise HuntDeadlineExceededError(budget.exhausted)
                 raise HuntBudgetExceededError(budget.exhausted)
@@ -635,9 +671,10 @@ class HuntExecutor:
         if not outcome.done.wait(timeout + CANCEL_WAIT_SECONDS):
             _cancel(outcome)
             if self.budget.remaining() <= 0:
-                self.budget.exhausted = (
-                    self.budget.exhausted or self.budget.expired_reason() or "job_deadline_exceeded"
-                )
+                expired = self.budget.expired_reason()
+                if expired is None and self.budget.sub_budget_expired():
+                    return list(outcome.rows), QUERY_BOUND, None, None
+                self.budget.exhausted = self.budget.exhausted or expired or "job_deadline_exceeded"
                 error = (
                     HuntDeadlineExceededError(self.budget.exhausted)
                     if self.budget.exhausted == "job_deadline_exceeded"
@@ -739,6 +776,7 @@ __all__ = [
     "HuntBudgetExceededError",
     "HuntCoverageError",
     "HuntDeadlineExceededError",
+    "HuntSubBudgetExceededError",
     "HuntExecutor",
     "HuntSearchFailedError",
     "Read",
