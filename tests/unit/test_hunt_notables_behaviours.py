@@ -287,7 +287,7 @@ def test_per_window_events_allocates_each_source_its_share_of_the_stage_budget()
     # a lone source may spend its whole share: the old 2500 slice ceiling starved it
     assert per_window_events(1) == BEHAVIOUR_TOTAL_EVENTS // BEHAVIOUR_WINDOWS
     assert per_window_events(1) > 2500
-    for sources in (1, 2, 8, 16, 10_000):
+    for sources in (1, 2, 8, 16, 26, 50, 10_000):
         assert per_window_events(sources) >= 1
         assert sources * BEHAVIOUR_WINDOWS * per_window_events(sources) <= BEHAVIOUR_TOTAL_EVENTS
 
@@ -1015,3 +1015,68 @@ def test_a_window_dropped_by_the_planner_is_declared():
     assert {item.reason for item in dropped} == {"request_budget_exhausted"}
     assert len(executor.skipped) == len(dropped)
     assert all(reason == "request_budget_exhausted" for _query, reason in executor.skipped)
+
+
+def test_behaviours_stage_keeps_event_reads_after_inventory_sub_budget(tmp_path, monkeypatch):
+    import json
+    import time
+
+    from portal.modules.security.core.hunt.engine import SearchQueryBoundError
+    from portal.modules.security.core.hunt.executor import DEFAULT_BUDGETS, HuntBudget, HuntExecutor
+    from portal.modules.security.core.hunt.notables import run
+
+    card = _card()
+    facts = SourceFacts("ix", "st", 1, 0.0, 60.0, ("h1",), 1, ("s1",), 1)
+
+    class SlowInventorySearch:
+        def __init__(self):
+            self.inventory_requests = 0
+            self.behaviour_requests = 0
+            self.executor = None
+
+        def iter_post_bounded(self, query, start, end, *, timeout_seconds, max_results, cancel):
+            del end, max_results, cancel
+            sub_deadline = getattr(self.executor.budget, "sub_deadline", None)
+            if sub_deadline is not None:
+                self.inventory_requests += 1
+                if self.inventory_requests == 1:
+                    time.sleep(timeout_seconds)
+                    raise SearchQueryBoundError("slow inventory query")
+                return iter(())
+            self.behaviour_requests += 1
+            if query.startswith("| tstats"):
+                return iter(())
+            return iter(
+                [
+                    {
+                        "_time": start + 1,
+                        "host": "h1",
+                        "_raw": '{"user":"alice","image":"cmd.exe","path":"/tmp/x"}',
+                    }
+                ]
+            )
+
+    search = SlowInventorySearch()
+    budget = HuntBudget(dict(DEFAULT_BUDGETS))
+    budget.set_stage_deadline("behaviours", 1.0)
+    search.executor = HuntExecutor(search, budget)
+    monkeypatch.setattr(run, "load_cards", lambda _out: [card])
+    monkeypatch.setattr(run, "facts_by_source", lambda _cards: {"ix:st": facts})
+    out = tmp_path / "hunt"
+    out.mkdir()
+    (out / run.SOURCES_FILE).write_text(
+        json.dumps({"index": "ix", "start": 0, "end": 60, "cards": [{"card_id": card.card_id}]}),
+        encoding="utf-8",
+    )
+
+    behaviours, receipt = run.behaviours_stage(out=out, search=search)
+
+    assert search.inventory_requests == 1
+    assert search.behaviour_requests > 0
+    assert receipt["inventory"]["probe_failures"]
+    assert receipt["inventory"]["budget_exhausted"] is True
+    assert receipt["receipts"][0]["events_read"] > 0
+    assert behaviours
+    assert (out / run.STORE_FILE).is_file()
+    assert (out / "entities.duckdb").is_file()
+    assert budget.exhausted is None

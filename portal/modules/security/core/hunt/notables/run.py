@@ -67,6 +67,8 @@ from .window_activity import resolve_source_windows
 
 HTTP_ERROR_THRESHOLD = 0.20
 JUDGE_STAGE_DEADLINE_SECONDS = 720.0  # effort budget: the hunt job wall time (executor job_seconds)
+INVENTORY_SUB_BUDGET_SHARE = 0.30
+INVENTORY_SUB_BUDGET_MAX_SECONDS = 180.0
 
 STAGES = ("cards", "behaviours", "notables", "relate", "judge")
 GENERATORS = (*BASE_GENERATORS, MISFIT_GENERATOR, SIMILAR_GENERATOR)
@@ -511,6 +513,13 @@ def _write_role_overrides(out: Path, overrides: Mapping[str, Any]) -> None:
     write_json(out / SOURCES_FILE, payload)
 
 
+def _inventory_sub_budget_seconds(executor: HuntExecutor) -> float:
+    return min(
+        executor.budget.remaining() * INVENTORY_SUB_BUDGET_SHARE,
+        INVENTORY_SUB_BUDGET_MAX_SECONDS,
+    )
+
+
 def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dict[str, Any]]:
     """Count distinct behaviours for every activity source on DuckDB, declaring coverage."""
     cards = load_cards(out)
@@ -525,18 +534,23 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
         "requests_spent": executor.budget.queries,
     }
     before = executor.stats()
-    inventory = collect_inventory(
-        executor,
-        cards,
-        str(sources.get("index") or ""),
-        float(sources.get("start") or 0.0),
-        float(sources.get("end") or 0.0),
-    )
+    inventory_budget_seconds = _inventory_sub_budget_seconds(executor)
+    with executor.budget.capped_deadline(inventory_budget_seconds):
+        inventory = collect_inventory(
+            executor,
+            cards,
+            str(sources.get("index") or ""),
+            float(sources.get("start") or 0.0),
+            float(sources.get("end") or 0.0),
+        )
+        inventory_budget_exhausted = executor.budget.sub_budget_expired()
     write_json(out / INVENTORY_FILE, inventory)
     behaves, receipt = collect_behaviours(
         executor, cards, facts_by_source(cards), out / STORE_FILE, inventory
     )
     receipt["inventory"] = inventory_summary(inventory)
+    receipt["inventory"]["budget_seconds"] = round(inventory_budget_seconds, 3)
+    receipt["inventory"]["budget_exhausted"] = inventory_budget_exhausted
     receipt["clock"] = clock
     receipt["spine"] = spine_from_store(out, receipts=receipt.get("receipts") or ())
     receipt["searches"] = _search_cost(executor, before)
