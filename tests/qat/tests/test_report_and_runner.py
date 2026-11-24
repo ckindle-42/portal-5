@@ -245,7 +245,8 @@ class FakeOWUI:
 
     def poll_turn(self, token: str, chat_id: str, **kwargs: object) -> FakeOutcome:
         mode = type(self).mode
-        workspace = str(kwargs.get("model_slug") or "")
+        requested = str(kwargs.get("model_slug") or "")
+        routed = requested if rn.primary_model_for(requested) else "auto-daily"
         return FakeOutcome(
             text="leak JSONDecodeError happened" if mode == "leak" else "the answer",
             leak_marker="JSONDecodeError" if mode == "leak" else None,
@@ -255,8 +256,9 @@ class FakeOWUI:
             if mode == "short_mp4"
             else ("/files/a.wav",),
             trace={
-                "workspace": workspace,
-                "model": rn.primary_model_for(workspace),
+                "workspace": routed,
+                "requested": requested,
+                "model": rn.primary_model_for(routed),
                 "backend": "omlx-general",
             },
         )

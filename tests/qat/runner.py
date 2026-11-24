@@ -91,12 +91,37 @@ def _safety_guard_refusal(trace: dict[str, object]) -> bool:
     )
 
 
+_TRACE_EXPECTED_STAGES = frozenset({2, 4, 5})
+
+
+def _unverified_model_failure(
+    scenario: QATScenario, trace: dict[str, object], served_model: str, chat_id: str = ""
+) -> QATResult | None:
+    """Stage 2/4/5 chats must name the model that served; an empty trace is a miss."""
+    if "adversarial" in scenario.tags or scenario.stage not in _TRACE_EXPECTED_STAGES:
+        return None
+    if trace and str(trace.get("model") or ""):
+        return None
+    return QATResult(
+        scenario.scenario_id,
+        Status.FAIL,
+        "missing pipeline trace or served_model; cannot verify serving model",
+        defect_class=classify_defect(infra_hop_failed=True),
+        chat_id=chat_id,
+        served_model=served_model,
+        backend=str(trace.get("backend") or ""),
+    )
+
+
 def _primary_model_failure(
     scenario: QATScenario, trace: dict[str, object], served_model: str, chat_id: str = ""
 ) -> QATResult | None:
     if "adversarial" in scenario.tags and _safety_guard_refusal(trace):
         # The guard refuses before any backend call: an empty model is the guarantee.
         return None
+    unverified = _unverified_model_failure(scenario, trace, served_model, chat_id)
+    if unverified is not None:
+        return unverified
     target_workspace = str(trace.get("workspace") or scenario.model_slug)
     expected = primary_model_for(target_workspace)
     if not expected:

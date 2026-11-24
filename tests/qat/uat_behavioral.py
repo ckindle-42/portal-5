@@ -1462,9 +1462,47 @@ def _grade_payload_types(case: UATCase, payloads: dict[str, list[bytes]]) -> lis
     return errors
 
 
-def _status_result(scenario: QATScenario, error: str, chat_id: str = "") -> QATResult:
+def _stamp_served(result: QATResult, turns: list[UATTurn]) -> QATResult:
+    if not turns:
+        return result
+    trace = turns[-1].trace
+    if not result.served_model:
+        result.served_model = str(trace.get("model") or "")
+    if not result.backend:
+        result.backend = str(trace.get("backend") or "")
+    return result
+
+
+def _status_result(
+    scenario: QATScenario,
+    error: str,
+    chat_id: str = "",
+    turns: list[UATTurn] | None = None,
+) -> QATResult:
     defect = classify_defect(tool_misbehaved="artifact" in error or "tool" in error)
-    return QATResult(scenario.scenario_id, Status.FAIL, error, defect_class=defect, chat_id=chat_id)
+    result = QATResult(
+        scenario.scenario_id, Status.FAIL, error, defect_class=defect, chat_id=chat_id
+    )
+    return _stamp_served(result, turns or [])
+
+
+def _graded_failure(
+    scenario: QATScenario,
+    errors: list[str],
+    chat_id: str,
+    turns: list[UATTurn],
+    evidence: dict[str, object],
+) -> QATResult:
+    result = QATResult(
+        scenario.scenario_id,
+        Status.FAIL,
+        "; ".join(errors),
+        defect_class=classify_defect(model_output_miss=True),
+        chat_id=chat_id,
+        artifacts=tuple(url for turn in turns for url in turn.artifact_urls),
+        evidence=evidence,
+    )
+    return _stamp_served(result, turns)
 
 
 def run_case(settings: Settings, scenario: QATScenario, state: Any, options: Any) -> QATResult:
@@ -1502,21 +1540,13 @@ def _run_chat_case(
                 chat_id,
                 scenario,
                 options,
-                _status_result(scenario, download_error, chat_id),
+                _status_result(scenario, download_error, chat_id, turns),
             )
         errors = _grade_payload_types(case, payloads)
         quality_errors, evidence = grade_case(case, turns, payloads)
         errors.extend(quality_errors)
         if errors:
-            result = QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                "; ".join(errors),
-                defect_class=classify_defect(model_output_miss=True),
-                chat_id=chat_id,
-                artifacts=tuple(url for turn in turns for url in turn.artifact_urls),
-                evidence=evidence,
-            )
+            result = _graded_failure(scenario, errors, chat_id, turns, evidence)
             return _archive_chat(client, token, chat_id, scenario, options, result)
         status = Status.WARN if case.grader == "stt_accuracy" else Status.PASS
         result_detail = "human-grade conversation and content checks passed"
@@ -1581,7 +1611,7 @@ def _run_sequence(
         prompt = template.replace("{{memory_key}}", memory_key)
         files, error = _turn_files(client, token, case, index, transcript, deadline)
         if error:
-            return transcript, _status_result(scenario, error, chat_id)
+            return transcript, _status_result(scenario, error, chat_id, transcript)
         started_at = time.time()
         response = client.send_turn(
             token,
@@ -1596,7 +1626,7 @@ def _run_sequence(
         )
         if not response.is_success:
             return transcript, _status_result(
-                scenario, f"OWUI returned HTTP {response.status_code}", chat_id
+                scenario, f"OWUI returned HTTP {response.status_code}", chat_id, transcript
             )
         outcome = client.poll_turn(
             token,
@@ -1614,8 +1644,12 @@ def _run_sequence(
         if failure:
             return transcript, failure
         if outcome.leak_marker:
+            leaked = UATTurn(prompt, outcome.text, outcome.trace, (), outcome.artifact_urls)
             return transcript, _status_result(
-                scenario, f"raw tool error leaked: {outcome.leak_marker}", chat_id
+                scenario,
+                f"raw tool error leaked: {outcome.leak_marker}",
+                chat_id,
+                [*transcript, leaked],
             )
         names = _tool_names_from_calls(outcome.tool_calls, outcome.trace)
         transcript.append(
@@ -1626,7 +1660,7 @@ def _run_sequence(
         )
     tool_error = _required_tool_error(case, transcript)
     if tool_error:
-        return transcript, _status_result(scenario, tool_error, chat_id)
+        return transcript, _status_result(scenario, tool_error, chat_id, transcript)
     return transcript, None
 
 
@@ -1766,12 +1800,15 @@ def _run_memory_case(
                 options,
             )
         if errors:
-            return QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                "; ".join(errors),
-                defect_class=classify_defect(model_output_miss=True),
-                evidence=evidence,
+            return _stamp_served(
+                QATResult(
+                    scenario.scenario_id,
+                    Status.FAIL,
+                    "; ".join(errors),
+                    defect_class=classify_defect(model_output_miss=True),
+                    evidence=evidence,
+                ),
+                records,
             )
         return QATResult(
             scenario.scenario_id,
