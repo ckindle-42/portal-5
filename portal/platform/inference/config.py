@@ -212,6 +212,7 @@ class WorkspaceSpec(BaseModel):
     # asks once for a grounded answer, then delivers with a notice (router/tool_repeat.py).
     require_tool_before_answer: bool | None = None
     keep_alive: str | None = None
+    stop: list[str] | None = None
     temperature: float | None = None
     top_p: float | None = None
     top_k: int | None = None

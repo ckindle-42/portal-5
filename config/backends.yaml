@@ -955,9 +955,6 @@ backends:
     supports_tools: true
   - id: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
     supports_tools: true
-  - id: huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
-    supports_tools: true
-    supports_tools: true
   priority: 10
   aliases:
     hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k: VulnLLM-R-7B-4bit
