@@ -365,21 +365,24 @@ class BrowserUI:
         last_text = ""
         stable_since: float | None = None
         while time.monotonic() < deadline:
-            if stop.count():
+            stopping = bool(stop.count())
+            if stopping:
                 appeared = True
-                stable_since = None
             _, count = self.visible_turn_count()
-            if count > before and not stop.count():
+            if count > before:
                 turns = self._assistant_turns()
                 text = str(turns[-1]["text"]).strip() if len(turns) > before else ""
                 if text:
                     if text != last_text:
                         last_text = text
                         stable_since = time.monotonic()
-                    elif stable_since is not None and (
-                        time.monotonic() - stable_since >= (1.0 if appeared else 2.5)
-                    ):
-                        return
+                    elif stable_since is not None:
+                        elapsed = time.monotonic() - stable_since
+                        needed = 10.0 if stopping else (1.0 if appeared else 2.5)
+                        if elapsed >= needed:
+                            return
+                else:
+                    stable_since = None
             page.wait_for_timeout(300)
         raise TimeoutError("Open WebUI assistant turn did not complete within the scenario budget")
 

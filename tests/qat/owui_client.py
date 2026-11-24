@@ -367,8 +367,15 @@ class OWUIClient:
         return r.json() if r.status_code == 200 else {}
 
     def download_artifact(self, token: str, url: str) -> bytes:
-        target = url if urlsplit(url).scheme else f"{self.settings.owui_url}{url}"
-        headers = self._headers(token) if _same_origin(target, self.settings.owui_url) else {}
+        parsed = urlsplit(url)
+        if parsed.path.startswith("/api/v1/files/"):
+            target = f"{self.settings.owui_url.rstrip('/')}{parsed.path}"
+            if parsed.query:
+                target = f"{target}?{parsed.query}"
+            headers = self._headers(token)
+        else:
+            target = url if parsed.scheme else f"{self.settings.owui_url}{url}"
+            headers = self._headers(token) if _same_origin(target, self.settings.owui_url) else {}
         try:
             with self._client(30.0) as client:
                 r = client.get(target, headers=headers)
