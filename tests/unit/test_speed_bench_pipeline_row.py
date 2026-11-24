@@ -238,7 +238,7 @@ def test_resolve_intended_seat_matches_real_repo_config():
     ) == ("omlx-coding", "omlx", "Huihui-Qwen3.6-27B-abliterated-MLX-4bit")
     assert resolve_intended_seat(
         "security-reviewer", registry=reg, portal_config=cfg, personas=personas
-    ) == ("ollama-general", "ollama", "granite4.1:8b-ctx8k")
+    ) == ("ollama-general", "ollama", "granite4.1:8b-ctx16k")
 
 
 def test_run_bench_pipeline_accepts_intended_and_rejects_wrong_engine(

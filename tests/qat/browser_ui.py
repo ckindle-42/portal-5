@@ -101,8 +101,11 @@ class BrowserUI:
     def login(self) -> None:
         page = self._require_page()
         page.goto(f"{self.settings.owui_url}/auth", wait_until="domcontentloaded")
-        page.fill("input[type='email']", self.settings.owui_user)
-        page.fill("input[type='password']", self.settings.owui_pass)
+        page.fill("input[type='email'], input[name='email'], input#email", self.settings.owui_user)
+        page.fill(
+            "input[type='password'], input[name='password'], input#password",
+            self.settings.owui_pass,
+        )
         page.click("button[type='submit']")
         page.wait_for_url("**/", timeout=30_000)
 
@@ -156,11 +159,11 @@ class BrowserUI:
 
         _collect()
         if listbox.count():
-            for _ in range(15):
+            for _ in range(150):
                 moved = listbox.first.evaluate(_SCROLL_LISTBOX_JS)
                 if not moved:
                     break
-                page.wait_for_timeout(200)
+                page.wait_for_timeout(150)
                 _collect()
         if not names and listbox.count():
             names.update(
@@ -376,9 +379,9 @@ class BrowserUI:
                     if text != last_text:
                         last_text = text
                         stable_since = time.monotonic()
-                    elif stable_since is not None:
+                    elif not stopping and stable_since is not None:
                         elapsed = time.monotonic() - stable_since
-                        needed = 10.0 if stopping else (1.0 if appeared else 2.5)
+                        needed = 1.0 if appeared else 2.5
                         if elapsed >= needed:
                             return
                 else:

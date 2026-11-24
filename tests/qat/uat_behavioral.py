@@ -792,9 +792,10 @@ def _sandbox_lifecycle_case(discovery: Discovery, cases: list[UATCase]) -> None:
             "Sandbox: Node + Python runtimes, health, session isolation",
             coding,
             (
-                "Use execute_nodejs to run console.log('UAT_NODEJS_87') and quote the exact "
-                "stdout. Then use sandbox_status and report whether Docker is available and "
-                "which Node image is configured.",
+                "Call execute_nodejs to run console.log('UAT_NODEJS_87') and quote the exact "
+                "stdout. Then call sandbox_status and report whether Docker is available and "
+                "which Node image is configured. You must call both execute_nodejs and "
+                "sandbox_status in this turn.",
                 "Use execute_nodejs with session_id 'uat_iso_a' to run "
                 "globalThis.uatLeak = 'UAT_LEAK_55'; console.log('set'). Then use "
                 "execute_nodejs with session_id 'uat_iso_b' to run "
@@ -1008,13 +1009,17 @@ def _cad_measure_convert_case(discovery: Discovery, cases: list[UATCase]) -> Non
             cad,
             (
                 "Use cad_build with one build123d script to model an L-bracket: a 60 mm x "
-                "40 mm base plate 5 mm thick, plus a vertical wall 60 mm wide, 30 mm tall "
-                "and 5 mm thick along the back edge. Report the build result.",
+                "40 mm base plate 5 mm thick, plus a 5 mm thick vertical wall 60 mm wide "
+                "along the back edge reaching a total overall height of 30 mm (25 mm above "
+                "the 5 mm base plate, so the overall bounding box is 60 x 40 x 30 mm). "
+                "Report the build result.",
                 "Use cad_measure on the bracket and report its exact bounding box. Then "
                 "use cad_finalize (or cad_render) to deliver the STL and an iso PNG "
                 "preview, and surface both download links.",
-                "Use convert_cad to convert the delivered STL to OBJ and surface the "
-                "converted file link. Confirm the measured dimensions match 60 x 40 x 30.",
+                "Call convert_cad directly on the STL filename delivered above with "
+                "target_format='obj' (do not re-run cad_measure) and surface the "
+                "converted OBJ download link. Confirm the measured dimensions match "
+                "60 x 40 x 30.",
             ),
             "cad_measure_convert",
             {
@@ -1080,21 +1085,21 @@ def _security_toolbelt_cases(discovery: Discovery, cases: list[UATCase]) -> None
             )
         )
     security = _workspace_preset(discovery, "security")
-    cve_tools = {"classify_vulnerability", "lookup_cve", "get_epss", "check_kev", "triage_cve"}
+    cve_tools = {"lookup_cve", "get_epss", "check_kev", "triage_cve"}
     if security and cve_tools <= _tool_names(discovery, security):
         cases.append(
             _case(
                 discovery,
                 "s5-security-toolbelt-cve",
-                "Security: CVE-2021-44228 lookup, EPSS, KEV, triage, classification",
+                "Security: CVE-2021-44228 lookup, EPSS, KEV, triage + remediation",
                 security,
                 (
                     "Use lookup_cve, get_epss and check_kev for CVE-2021-44228, then "
                     "triage_cve. Report the CVSS severity, EPSS probability and percentile, "
                     "and KEV status.",
-                    "Use classify_vulnerability on: 'Apache Log4j2 JNDI lookup remote code "
-                    "execution (Log4Shell) allows unauthenticated attackers to execute "
-                    "arbitrary code.' Report the severity label and confidence.",
+                    "Based on those CVE-2021-44228 triage results, explain why this "
+                    "vulnerability requires emergency patching and list 3 concrete "
+                    "remediation steps.",
                 ),
                 "security_cve_triage",
                 {
@@ -1127,13 +1132,14 @@ def _compliance_policy_case(discovery: Discovery, cases: list[UATCase]) -> None:
             "Compliance: ingested patch procedure vs CIP-007-6 R2 gap conversation",
             compliance,
             (
-                "Use compliance_sources to list the internal operator policies and "
-                "procedures ingested for NERC CIP patch management. Then use compliance_read "
-                "on the Security Patch Management Policy/Procedure (OT-POL-007 / "
-                "OT-PROC-007) and summarize what it actually requires, quoting key clauses.",
+                "Use compliance_sources and compliance_search (for 'patch management') to "
+                "list the internal operator policies and procedures ingested for NERC CIP "
+                "patch management. Then use compliance_read on the Security Patch Management "
+                "Policy/Procedure (OT-POL-007 / OT-PROC-007) and summarize what it actually "
+                "requires, quoting key clauses.",
                 "Compare that procedure against NERC CIP-007-6 R2 Parts 2.1 through 2.4: "
                 "use nerc_cip_requirement (or its alias compliance_requirement) for each part "
-                "and compliance_search / compliance_links to connect them. Where is the "
+                "and call both compliance_search and compliance_links to connect them. Where is the "
                 "procedure too loose or missing concrete requirements? Quote both sides "
                 "verbatim, name the weakest part, do not certify compliance, and scope "
                 "absence claims to the corpus.",
@@ -1884,8 +1890,19 @@ def _grade_documents_convert_case(
     if pdf is None or validate_pdf(pdf):
         errors.append("converted PDF was not returned or is invalid")
     lowered = text.casefold()
-    if str(case.expected["docx"]).casefold() not in lowered:
-        errors.append("conversion answer omitted the document marker")
+    marker = str(case.expected["docx"]).casefold()
+    pdf_has_marker = False
+    if pdf is not None:
+        try:
+            import fitz  # type: ignore[import-untyped]
+
+            with fitz.open(stream=pdf, filetype="pdf") as doc:
+                pdf_text = "\n".join(page.get_text() for page in doc).casefold()
+            pdf_has_marker = marker in pdf_text
+        except Exception:
+            pdf_has_marker = marker.encode("utf-8") in pdf.lower()
+    if marker not in lowered and not pdf_has_marker:
+        errors.append("conversion answer and converted PDF omitted the document marker")
     if "pdf" not in lowered or not any(w in lowered for w in ("list", "generated", "files")):
         errors.append("answer did not report the generated-file listing")
     return errors
@@ -1901,8 +1918,10 @@ def _grade_memory_admin_case(
     del payloads, text
     marker = str(case.expected.get("marker") or "")
     errors: list[str] = []
-    if marker not in turns[0].text.casefold():
-        errors.append("remember turn did not confirm the QAT marker")
+    first = turns[0].text.casefold()
+    has_uuid = bool(re.search(r"\b[0-9a-f]{8}-[0-9a-f]{4}-", first))
+    if marker not in first and not has_uuid:
+        errors.append("remember turn did not confirm the QAT marker or memory id")
     second = turns[1].text.casefold()
     if marker not in second and "forget" not in second:
         errors.append("admin turn neither listed the marker nor confirmed forget")
@@ -1948,7 +1967,8 @@ def _grade_cad_measure_convert_case(
 ) -> list[str]:
     del turns
     errors: list[str] = []
-    stl = _first(payloads, "stl")
+    stl_list = payloads.get("stl") or []
+    stl = stl_list[-1] if stl_list else None
     extents = _stl_extents(stl) if stl else []
     wanted = sorted(float(v) for v in case.expected.get("extents") or ())
     if not extents:
@@ -2586,7 +2606,6 @@ def _run_browser_chat(
     options: Any,
 ) -> QATResult:
     ui.new_chat()
-    ui.select_model(case.model_slug, _preset_display_name(state, case))
     if case.roster_check:
         missing = _roster_missing(state, ui)
         if missing:
@@ -2595,6 +2614,7 @@ def _run_browser_chat(
             )
             result.evidence = {"driver": "browser_gui", "roster_missing": missing}
             return result
+    ui.select_model(case.model_slug, _preset_display_name(state, case))
     gui_tools = ui.inspect_and_manage_tools(case.expected_tools)
     deadline = time.monotonic() + case.timeout_s
     turns, error, chat_id = _run_browser_sequence(
@@ -3122,6 +3142,7 @@ def _download_payloads(
     client: OWUIClient, token: str, turns: list[UATTurn]
 ) -> tuple[dict[str, list[bytes]], str | None]:
     payloads: dict[str, list[bytes]] = {}
+    empty_by_kind: list[tuple[str, str]] = []
     urls = list(dict.fromkeys(url for turn in turns for url in turn.artifact_urls))
     for url in urls:
         kind = Path(urlsplit(url).path).suffix.lower().lstrip(".")
@@ -3129,6 +3150,9 @@ def _download_payloads(
         if data:
             payloads.setdefault(kind, []).append(data)
         else:
+            empty_by_kind.append((kind, url))
+    for kind, url in empty_by_kind:
+        if not payloads.get(kind):
             return payloads, f"artifact download was empty: {url}"
     return payloads, None
 

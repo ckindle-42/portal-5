@@ -106,6 +106,22 @@ def _resolve_input(path_str: str) -> Path:
     found = resolve_upload_path(path_str)
     if found is not None:
         return found
+    # cad_finalize appends a 6-char hex suffix (<stem>_<hex>.<ext>); when a caller
+    # asks for <stem>.<ext>, resolve to the most recently generated matching file.
+    stem, suffix = Path(name).stem, Path(name).suffix
+    if stem and suffix:
+        matches = sorted(
+            (p for p in _out_dir().glob(f"{stem}_*{suffix}") if p.is_file()),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for match in matches:
+            resolved = match.resolve()
+            try:
+                resolved.relative_to(workspace)
+            except ValueError:
+                continue
+            return resolved
     raise FileNotFoundError(f"Input not found: {name}")
 
 

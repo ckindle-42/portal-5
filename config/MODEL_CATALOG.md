@@ -1572,6 +1572,16 @@ The distinction that matters here is routing: `config/portal.yaml` resolves the 
 
 ---
 
+### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx32k`
+
+`hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx32k` is the derived 32K-context tag of the AppSec specialist (`PARAMETER num_ctx 32768`), minted from `:q4_K_M-ctx8k` on 2026-11-24 so `auto-security` (19 security tools + system prompt) has full 32K multi-turn headroom on both `omlx-security` (`VulnLLM-R-7B-4bit`) and Ollama failover (`ollama-security`). Registered in `config/backends.yaml` with `supports_tools: true` and aliased to `VulnLLM-R-7B-4bit`.
+
+## Why
+
+The 19 security tool schemas plus system prompt consumed ~5K of the prior 8,192-token budget, starving multi-turn interactive security conversations; raising the baked `num_ctx` to 32,768 restores multi-turn headroom while keeping Ollama failover parity with `omlx-security`.
+
+---
+
 ### `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k`
 
 `hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k` is the 64K-context derived tag that `auto-reasoning` actually routes to: `config/portal.yaml` carries it as that workspace's `model_hint` and as the Operator and User Advocate role in the `auto-council` chain, and it appears in several personas' `preferred_models` lists. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. The `PARAMETER num_ctx 65536` is baked into the derived tag because Ollama's chat completions ignore request-time `options.num_ctx`, so a per-workspace context cap has to be a distinct model id. Full model detail lives in the base tag's entry.

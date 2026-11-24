@@ -941,8 +941,8 @@ workspaces:
         name: ✍️  Portal Creative Writer
         description: |-
           Creative writing, storytelling, content generation. Qwen3.6-35B-A3B HauhauCS uncensored (V8: 0/465 refusals, MoE 3B active, tool-capable + vision, ~22GB. Upgraded from gemma-4-heretic Q4).
-        model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
-        context_limit: 8192
+        model_hint: fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k
+        context_limit: 24576
         keep_alive: null
         temperature: 0.85
         top_p: 0.95
@@ -974,7 +974,8 @@ workspaces:
     # auto_rag disabled: TASK_RAG_COMPOSITION_SEAM_V1 P1 [GATE] (c) — the feature
     # never ran (kb_search dispatched without a kb_id) and the KB set is unsettled.
     memory_writeback: true
-    context_limit: 16384
+    # 2026-11-24: bumped 16384 -> 32768 to match deployed ctx32k model and give 14 tools multi-turn headroom.
+    context_limit: 32768
     # realuse_autodaily_gemma_think8k_20261105: think-on 25/28 (checker-adjusted) vs 21/28
     # think-off; oMLX needs enable_thinking (router maps workspace think), and at 4096 the
     # think-on turn hit the cap with no answer — hence predict_limit 8192.
@@ -998,6 +999,8 @@ workspaces:
     - execute_python
     - remember
     - recall
+    - list_memories
+    - forget
     - transcribe_audio
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — chat engine (daily driver)
@@ -1915,8 +1918,10 @@ workspaces:
     name: 🔒 Portal Security Analyst
     description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). NOTE 2026-07-16 (P5-AUTOSEC-RESELECT): the "2026-06-20: 2/2 chain wins, fastest" claim predates the reliability-scoring fix. Live re-bench on the kerberoast_to_da EXECUTION chain found valid_rate 0.89 but redundant_call_rate 0.50 (docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md) — but that scenario tests live-exploit tool orchestration, not this workspace''s actual job (CVE/CWE analysis, hardening). No candidate has been benched against the analytical workload itself, so no swap is made here pending that test (see docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md for the full candidate comparison, which found glm-4.7-flash:Q4_K_M strongest on tool-reliability generically — untested for this workspace''s specific analytical use case). Retained as incumbent. Fast vuln analysis with web search, vuln classification, and code execution.'
     # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-    model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
-    context_limit: 8192
+    model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx32k
+    # 2026-11-24: 19 security tools + system prompt consumed ~5k of 8192; bumped to 32768
+    # (VulnLLM-R-7B-4bit on omlx-security and VulnLLM-R-7B-GGUF:q4_K_M-ctx32k both support 32k).
+    context_limit: 32768
     keep_alive: 10m
     temperature: 0.4
     top_p: 0.8
@@ -2027,8 +2032,8 @@ workspaces:
         name: 🔵 Portal Blue Team
         description: Defensive security, SOC triage, threat hunting, incident response. Granite 4.1 8B (IBM, supports tool calls, good at structured analysis). Previous model sylink/sylink:8b is a reasoning model that does not call tools — switched to granite for autonomous investigation capability.
         # 2026-09-25: sampling set to the granite-4.1 (greedy) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        model_hint: granite4.1:8b-ctx8k
-        context_limit: 8192
+        model_hint: granite4.1:8b-ctx16k
+        context_limit: 16384
         temperature: 0.0
         top_p: 0.9
         top_k: 40
@@ -2056,9 +2061,9 @@ workspaces:
         name: 🔴 Portal Red Team
         description: Deep offensive security, attack chain simulation, exploit scripting. Huihui-ai Qwen3.5-9B abliterated (zero refusals, Qwen3 architecture). Structures responses in attack phases with mandatory DEFENDER CUE for blue team handoff.
         # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
+        model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx64k
         presence_penalty: 1.5
-        context_limit: 8192
+        context_limit: 32768
         keep_alive: 15m
         temperature: 0.7
         top_p: 0.8
@@ -2092,9 +2097,9 @@ workspaces:
         name: 🟣 Portal Purple Team
         description: "Two-hop purple team chain — one seamless response:\n1. \U0001F534 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, mitigations\n\nUse for threat modeling and attack/detect alignment. For full detection artifacts + IR playbook, use the purpleteam-deep variant (auto-security?variant=purpleteam-deep)."
         # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx8k
+        model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx64k
         presence_penalty: 1.5
-        context_limit: 8192
+        context_limit: 32768
         keep_alive: 15m
         temperature: 0.7
         top_p: 0.8
@@ -2342,8 +2347,8 @@ workspaces:
         description: 'Security-role-scoped seat binding for RBP''s tool-model
           role (retrieval) -- not user-facing, not auto-routed.'
         expose_to_owui: false
-        model_hint: granite4.1:8b-ctx8k
-        context_limit: 8192
+        model_hint: granite4.1:8b-ctx16k
+        context_limit: 16384
         tools: []
         depth: default
         guardrail: default
@@ -2654,7 +2659,8 @@ workspaces:
     # 2026-11-06 same-engine oMLX A/B: plain 31/32, QAT 30/32; pooled 46/48 each.
     # QAT is selected for consolidation; the seat sampling below stays unchanged.
     model_hint: gemma4:26b-a4b-it-qat-ctx32k
-    context_limit: 16384
+    # 2026-11-24: bumped 16384 -> 32768 to match deployed ctx32k model and give 10 document tools headroom.
+    context_limit: 32768
     predict_limit: 8192
     temperature: 1.0
     top_p: 0.95
@@ -2848,8 +2854,8 @@ workspaces:
     module: security
     name: Portal Security Review Analyst
     description: Read-only, evidence-grounded reviews of indexed security telemetry. The analyst owns every verdict.
-    model_hint: granite4.1:8b-ctx8k
-    context_limit: 8192
+    model_hint: granite4.1:8b-ctx16k
+    context_limit: 16384
     max_tool_hops: 8
     temperature: 0.0
     tools:
