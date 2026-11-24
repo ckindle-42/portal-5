@@ -21,9 +21,9 @@ from urllib.parse import urlsplit
 
 import yaml
 
-from .artifacts import raw_tool_error_leak
+from .artifacts import raw_tool_error_leak, validate_pdf
 from .browser_ui import BrowserUI, PlaywrightUnavailable
-from .config import PERSONA_DIR, Discovery, Settings, workspace_tools_for
+from .config import PERSONA_DIR, REPO_ROOT, Discovery, Settings, workspace_tools_for
 from .models import QATResult, QATScenario, Status, classify_defect
 from .owui_client import OWUIClient, artifact_urls
 
@@ -47,6 +47,7 @@ class UATCase:
     timeout_s: float = 300.0
     generated_upload_turn: int = 0
     cross_session: bool = False
+    roster_check: bool = False
 
 
 @dataclass
@@ -95,6 +96,7 @@ def discover_cases(
     _routing_cases(discovery, cases)
     _persona_cases(discovery, persona_dir, cases, available_models)
     _tool_cases(discovery, cases)
+    _stage5_expansion_cases(discovery, cases, persona_dir, available_models)
     return tuple(cases)
 
 
@@ -575,6 +577,655 @@ def _advanced_cases(discovery: Discovery, cases: list[UATCase]) -> None:
         )
 
 
+def _stage5_expansion_cases(
+    discovery: Discovery,
+    cases: list[UATCase],
+    persona_dir: Path = PERSONA_DIR,
+    available_models: set[str] | None = None,
+) -> None:
+    _gui_persona_roster_case(discovery, cases, persona_dir, available_models)
+    _web_research_cases(discovery, cases)
+    _sandbox_lifecycle_case(discovery, cases)
+    _documents_lifecycle_cases(discovery, cases)
+    _memory_graph_admin_cases(discovery, cases, persona_dir, available_models)
+    _media_async_poll_cases(discovery, cases)
+    _cad_measure_convert_case(discovery, cases)
+    _security_toolbelt_cases(discovery, cases)
+    _compliance_policy_case(discovery, cases)
+    _proxmox_readonly_case(discovery, cases)
+    _data_sql_case(discovery, cases)
+    _introspection_git_case(discovery, cases)
+
+
+def _first_seat(discovery: Discovery, seats: tuple[str, ...], required: set[str]) -> str:
+    for seat in seats:
+        if seat in discovery.presets and required <= _tool_names(discovery, seat):
+            return seat
+    return ""
+
+
+def _owui_server_tools() -> dict[str, set[str]]:
+    path = REPO_ROOT / "config" / "owui_tool_servers.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    servers = (data or {}).get("servers") or {}
+    return {str(name): {str(t) for t in tools or ()} for name, tools in servers.items()}
+
+
+def _gui_tool_names(discovery: Discovery, preset_id: str) -> set[str]:
+    """Workspace whitelist plus tools exposed through the preset's OWUI tool servers."""
+    names = _tool_names(discovery, preset_id)
+    preset = discovery.presets.get(preset_id)
+    if preset is None:
+        return names
+    servers = _owui_server_tools()
+    for tool_id in preset.tool_ids:
+        if tool_id.startswith("server:mcp:"):
+            names |= servers.get(tool_id.removeprefix("server:mcp:"), set())
+    return names
+
+
+def _persona_yaml_specs(persona_dir: Path) -> dict[str, dict[str, Any]]:
+    specs: dict[str, dict[str, Any]] = {}
+    for path in sorted(persona_dir.glob("*.yaml")):
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        specs[str(data.get("slug", path.stem))] = data
+    return specs
+
+
+def _persona_tools(spec: dict[str, Any], discovery: Discovery) -> set[str]:
+    workspace = str(spec.get("workspace_model") or "")
+    variant = str(spec.get("variant") or "")
+    seat = f"{workspace}::{variant}" if variant else workspace
+    base = set(workspace_tools_for(seat)) or _tool_names(discovery, workspace)
+    allow = spec.get("tools_allow")
+    effective = base if allow is None else {str(t) for t in allow}
+    return effective - {str(t) for t in spec.get("tools_deny") or ()}
+
+
+def _seeded_personas(discovery: Discovery, persona_dir: Path) -> list[dict[str, Any]]:
+    """Conservative seeded-model subset: not a role, workspace preset present, variant exposed."""
+    out: list[dict[str, Any]] = []
+    for spec in _persona_yaml_specs(persona_dir).values():
+        workspace = str(spec.get("workspace_model") or "")
+        variant = str(spec.get("variant") or "")
+        seat = f"{workspace}::{variant}" if variant else workspace
+        if spec.get("delivery") == "role" or workspace not in discovery.presets:
+            continue
+        if not variant or seat in discovery.presets:
+            out.append(spec)
+    return out
+
+
+_ROLE_FIT_SPECS: tuple[tuple[str, tuple[str, ...], tuple[str, ...], tuple[str, str]], ...] = (
+    (
+        "webresearcher",
+        ("429",),
+        ("too many requests", "rate limit", "6585"),
+        (
+            "In your specialist role, research what HTTP status code 429 means and which RFC "
+            "defines it. Follow your citation protocol: use web_search, fetch your sources, "
+            "and list the URLs you read.",
+            "From the source you fetched, what does the RFC say about the Retry-After "
+            "header for 429 responses? Quote the relevant line and cite the URL again.",
+        ),
+    ),
+    (
+        "factchecker",
+        ("429",),
+        ("true", "verified", "unverified", "mostly"),
+        (
+            "In your specialist role, verify this claim against primary sources: 'HTTP status "
+            "code 429 means Too Many Requests and is defined in RFC 6585.' Use web_search and "
+            "web_fetch, give your verdict, and cite the sources you read.",
+            "What confidence rating did you assign to that claim, and which primary source "
+            "supports it? Quote the relevant line from the source you fetched.",
+        ),
+    ),
+)
+
+
+def _gui_persona_roster_case(
+    discovery: Discovery,
+    cases: list[UATCase],
+    persona_dir: Path,
+    available_models: set[str] | None,
+) -> None:
+    specs = _persona_yaml_specs(persona_dir)
+    known = {persona.slug for persona in discovery.personas}
+    for slug, markers, any_markers, prompts in _ROLE_FIT_SPECS:
+        spec = specs.get(slug)
+        if spec is None or slug not in known or spec.get("delivery") == "role":
+            continue
+        if str(spec.get("workspace_model") or "") not in discovery.presets:
+            continue
+        if available_models is not None and slug not in available_models:
+            continue
+        cases.append(
+            _case(
+                discovery,
+                "s5-gui-persona-roster",
+                "GUI: selector roster parity + specialist role-fit turn",
+                slug,
+                prompts,
+                "persona_role_fit",
+                {"markers": list(markers), "any_markers": list(any_markers), "citation": True},
+                expected_tools=("web_search",),
+                timeout_s=600.0,
+                roster_check=True,
+            )
+        )
+        return
+
+
+def _web_research_cases(discovery: Discovery, cases: list[UATCase]) -> None:
+    research = _workspace_preset(discovery, "research")
+    needed = {"web_search", "news_search", "web_fetch", "kb_search_all"}
+    if research and needed <= _tool_names(discovery, research):
+        cases.append(
+            _case(
+                discovery,
+                "s5-browser-web-research",
+                "Research: web + news search, fetch, and KB cross-check",
+                research,
+                (
+                    "Use web_search to find authoritative sources on what HTTP status code "
+                    "429 means and which RFC defines it. Also use news_search for recent "
+                    "news about API rate limiting. List the sources you found with URLs.",
+                    "Use web_fetch to read one authoritative source you found (prefer the "
+                    "RFC or MDN page), and kb_search_all for internal guidance on rate "
+                    "limiting. Quote what the fetched page says about 429, cite its URL, "
+                    "and state whether the KB had relevant guidance. Do not invent content.",
+                ),
+                "web_research",
+                {
+                    "markers": ["429"],
+                    "any_markers": ["too many requests", "rate limit", "6585"],
+                    "citation": True,
+                },
+                expected_tools=tuple(sorted(needed)),
+                timeout_s=900.0,
+            )
+        )
+    obscura = _first_seat(
+        discovery, ("auto-coding", "auto-daily::fast"), {"browser_navigate", "browser_snapshot"}
+    )
+    if obscura:
+        cases.append(
+            _case(
+                discovery,
+                "s5-browser-web-research-obscura",
+                "Obscura: navigate + snapshot heading proof",
+                obscura,
+                (
+                    "Use browser_navigate to open http://host.docker.internal:8080 and then "
+                    "browser_snapshot to capture the page. Quote the main heading exactly "
+                    "as the snapshot returned it.",
+                    "Use browser_snapshot again on the same page and confirm whether the "
+                    "heading is unchanged. Report the page title and the heading text.",
+                ),
+                "obscura_navigate",
+                {
+                    "markers": ["open webui"],
+                    "any_markers": ["heading", "snapshot", "sign in", "title"],
+                },
+                expected_tools=("browser_navigate", "browser_snapshot"),
+                timeout_s=600.0,
+            )
+        )
+
+
+def _sandbox_lifecycle_case(discovery: Discovery, cases: list[UATCase]) -> None:
+    coding = _workspace_preset(discovery, "coding")
+    needed = {"execute_nodejs", "sandbox_status", "execute_python"}
+    if not coding or not needed <= _tool_names(discovery, coding):
+        return
+    cases.append(
+        _case(
+            discovery,
+            "s5-sandbox-lifecycle",
+            "Sandbox: Node + Python runtimes, health, session isolation",
+            coding,
+            (
+                "Use execute_nodejs to run console.log('UAT_NODEJS_87') and quote the exact "
+                "stdout. Then use sandbox_status and report whether Docker is available and "
+                "which Node image is configured.",
+                "Use execute_nodejs with session_id 'uat_iso_a' to run "
+                "globalThis.uatLeak = 'UAT_LEAK_55'; console.log('set'). Then use "
+                "execute_nodejs with session_id 'uat_iso_b' to run "
+                "console.log(typeof globalThis.uatLeak) and quote the exact output — it "
+                "must be undefined if sessions are isolated.",
+                "Use execute_python to print UAT_PY_SESSION_91 and confirm the Python "
+                "runtime executed it successfully.",
+            ),
+            "sandbox_lifecycle",
+            {
+                "markers": ["uat_nodejs_87", "uat_py_session_91", "undefined"],
+                "any_markers": ["docker", "node image", "sandbox"],
+            },
+            expected_tools=tuple(sorted(needed)),
+            timeout_s=600.0,
+        )
+    )
+
+
+def _documents_lifecycle_cases(discovery: Discovery, cases: list[UATCase]) -> None:
+    docs = _workspace_preset(discovery, "documents")
+    if not docs:
+        return
+    tools = _tool_names(discovery, docs)
+    office = {"create_excel", "create_powerpoint", "read_excel", "read_powerpoint"}
+    if office <= tools:
+        cases.append(
+            _case(
+                discovery,
+                "s5-documents-full-lifecycle",
+                "Documents: create Excel + PowerPoint, read both back",
+                docs,
+                (
+                    "Use create_excel to build an XLSX whose first row is Asset, Owner, "
+                    "State and whose first data row is UAT-XLSX-62, Priya, active. Use "
+                    "create_powerpoint to build a one-slide PPTX with a real bullet "
+                    "containing UAT-PPTX-83. Surface both download links.",
+                    "Use read_excel on the workbook you just created and quote the exact "
+                    "Asset value from its first data row.",
+                    "Use read_powerpoint on the deck you just created and quote the exact "
+                    "bullet text containing the marker.",
+                ),
+                "documents_readback",
+                {"xlsx": "UAT-XLSX-62", "pptx": "UAT-PPTX-83"},
+                expected_tools=tuple(sorted(office)),
+                artifact_kind="xlsx+pptx",
+                timeout_s=900.0,
+            )
+        )
+    gui = _gui_tool_names(discovery, docs)
+    if "create_word_document" in tools and {"convert_document", "list_generated_files"} <= gui:
+        cases.append(
+            _case(
+                discovery,
+                "s5-documents-full-lifecycle-convert",
+                "Documents: DOCX to PDF conversion + generated-file listing",
+                docs,
+                (
+                    "Use create_word_document to create a DOCX titled 'UAT Conversion Note' "
+                    "containing the exact marker UAT-CONV-45. Surface its download link.",
+                    "Use convert_document to convert that DOCX to PDF and surface the "
+                    "converted PDF download link.",
+                    "Use list_generated_files and report the generated files, confirming "
+                    "the PDF is listed.",
+                ),
+                "documents_convert",
+                {"docx": "UAT-CONV-45"},
+                expected_tools=("create_word_document", "convert_document", "list_generated_files"),
+                artifact_kind="docx+pdf",
+                timeout_s=900.0,
+            )
+        )
+
+
+def _memory_graph_admin_cases(
+    discovery: Discovery,
+    cases: list[UATCase],
+    persona_dir: Path,
+    available_models: set[str] | None,
+) -> None:
+    research = _workspace_preset(discovery, "research")
+    needed = {"remember", "graph_recall", "neighbors"}
+    if research and needed <= _tool_names(discovery, research):
+        cases.append(
+            _case(
+                discovery,
+                "s5-memory-graph-admin",
+                "Memory graph: remember an entity, recall via graph + neighbors",
+                research,
+                (
+                    "Use remember to store the fact 'QAT-GRAPH-9D4 is the acceptance marker "
+                    "for project Orchid' with tags ['qat-uat']. Confirm what you stored.",
+                    "Use graph_recall with query 'QAT-GRAPH-9D4' and then neighbors on the "
+                    "marker entity. Quote the stored fact and name the related entities the "
+                    "graph returned.",
+                ),
+                "memory_graph",
+                {
+                    "markers": ["qat-graph-9d4"],
+                    "any_markers": ["neighbor", "graph", "entity", "node"],
+                },
+                expected_tools=tuple(sorted(needed)),
+                timeout_s=600.0,
+            )
+        )
+    spec = _persona_yaml_specs(persona_dir).get("personalassistant")
+    known = {persona.slug for persona in discovery.personas}
+    if spec is None or "personalassistant" not in known:
+        return
+    if str(spec.get("workspace_model") or "") not in discovery.presets:
+        return
+    if available_models is not None and "personalassistant" not in available_models:
+        return
+    if not {"remember", "list_memories", "forget"} <= _persona_tools(spec, discovery):
+        return
+    cases.append(
+        _case(
+            discovery,
+            "s5-memory-graph-admin-lifecycle",
+            "Memory admin: remember, list, forget, verify cleanup",
+            "personalassistant",
+            (
+                "Use remember to store 'QAT-MEMADMIN-7C1 is a disposable acceptance marker' "
+                "with category 'fact' and tags ['qat-uat']. Report the returned memory id.",
+                "Use list_memories with tags ['qat-uat'] to confirm the marker is stored, "
+                "then use forget with that exact id to delete it. Confirm the deletion.",
+                "Use list_memories with tags ['qat-uat'] again and report whether the "
+                "marker is gone.",
+            ),
+            "memory_admin",
+            {"marker": "qat-memadmin-7c1"},
+            expected_tools=("remember", "list_memories", "forget"),
+            timeout_s=600.0,
+        )
+    )
+
+
+def _media_async_poll_cases(discovery: Discovery, cases: list[UATCase]) -> None:
+    image = _variant_preset(discovery, "image")
+    if image and {"image_start", "image_status"} <= _tool_names(discovery, image):
+        cases.append(
+            _case(
+                discovery,
+                "s5-media-async-poll-image",
+                "Media: async image start + status poll to completion",
+                image,
+                (
+                    "Use image_start to queue an image of a green lighthouse on a basalt "
+                    "coast at dawn. Report the returned job id.",
+                    "Use image_status with that exact job id and wait for completion. "
+                    "Surface the finished PNG download link.",
+                ),
+                "media_async_image",
+                artifact_kind="png",
+                expected_tools=("image_start", "image_status"),
+                timeout_s=900.0,
+            )
+        )
+    music = _variant_preset(discovery, "music")
+    if music and {"music_models", "list_voices"} <= _tool_names(discovery, music):
+        cases.append(
+            _case(
+                discovery,
+                "s5-media-async-poll-music",
+                "Media: music engine + voice roster metadata",
+                music,
+                (
+                    "Use music_models and list_voices. Report the available music engines "
+                    "with their model ids and availability, and name at least two voices.",
+                    "From the music_models output, what sample rate does the primary "
+                    "engine render at, and which engines are currently available?",
+                ),
+                "media_metadata",
+                {"markers": ["acestep", "voice"], "any_markers": ["48000", "48 khz", "minimax"]},
+                expected_tools=("music_models", "list_voices"),
+                timeout_s=600.0,
+            )
+        )
+    video = _variant_preset(discovery, "video")
+    if video and "video_models" in _tool_names(discovery, video):
+        cases.append(
+            _case(
+                discovery,
+                "s5-media-async-poll-video",
+                "Media: video model roster metadata",
+                video,
+                (
+                    "Use video_models and report each configured video model with its "
+                    "engine and whether it is installed.",
+                    "From the video_models output, which models render synchronized audio "
+                    "and which are silent? Name the engines.",
+                ),
+                "media_metadata",
+                {"markers": ["audio"], "any_markers": ["ltx", "wan"]},
+                expected_tools=("video_models",),
+                timeout_s=600.0,
+            )
+        )
+
+
+def _cad_measure_convert_case(discovery: Discovery, cases: list[UATCase]) -> None:
+    cad = _variant_preset(discovery, "cad")
+    needed = {"cad_build", "cad_measure", "cad_render", "convert_cad"}
+    if not cad or not needed <= _tool_names(discovery, cad):
+        return
+    cases.append(
+        _case(
+            discovery,
+            "s5-cad-measurement-and-convert",
+            "CAD: parametric bracket, measured dimensions, format conversion",
+            cad,
+            (
+                "Use cad_build with one build123d script to model an L-bracket: a 60 mm x "
+                "40 mm base plate 5 mm thick, plus a vertical wall 60 mm wide, 30 mm tall "
+                "and 5 mm thick along the back edge. Report the build result.",
+                "Use cad_measure on the bracket and report its exact bounding box. Then "
+                "use cad_finalize (or cad_render) to deliver the STL and an iso PNG "
+                "preview, and surface both download links.",
+                "Use convert_cad to convert the delivered STL to OBJ and surface the "
+                "converted file link. Confirm the measured dimensions match 60 x 40 x 30.",
+            ),
+            "cad_measure_convert",
+            {
+                "extents": [60.0, 40.0, 30.0],
+                "required_any_tools": ["cad_render", "cad_finalize"],
+            },
+            expected_tools=("cad_build", "cad_measure", "convert_cad"),
+            artifact_kind="stl+png",
+            timeout_s=1200.0,
+        )
+    )
+
+
+def _security_toolbelt_cases(discovery: Discovery, cases: list[UATCase]) -> None:
+    spl = _workspace_preset(discovery, "general", ("spl",))
+    belt = {
+        "classify_vulnerability",
+        "spl_search_library",
+        "spl_validate_syntax",
+        "mitre_technique_lookup",
+        "lookup_cve",
+        "get_epss",
+        "check_kev",
+        "triage_cve",
+        "validate_sigma",
+    }
+    if spl and belt <= _tool_names(discovery, spl):
+        cases.append(
+            _case(
+                discovery,
+                "s5-security-toolbelt",
+                "Security: CVE triage, classification, MITRE, SPL + Sigma validation",
+                spl,
+                (
+                    "Use lookup_cve, get_epss and check_kev for CVE-2021-44228, then "
+                    "triage_cve for a full triage. Report the CVSS severity, the EPSS "
+                    "probability and percentile, and whether it is in the KEV catalog.",
+                    "Use classify_vulnerability on: 'Apache Log4j2 JNDI lookup remote code "
+                    "execution (Log4Shell) allows unauthenticated attackers to execute "
+                    "arbitrary code.' Report the severity label and confidence. Then use "
+                    "mitre_technique_lookup for T1190 and give the technique name.",
+                    "Use spl_search_library for a Log4Shell or JNDI detection, then "
+                    "spl_validate_syntax on: index=web sourcetype=access_combined "
+                    '"${jndi:" | stats count by src_ip. Finally use validate_sigma on a '
+                    "minimal Sigma rule titled 'Log4Shell JNDI Lookup' with a webserver "
+                    "logsource and a selection matching '${jndi:'. Report each result.",
+                ),
+                "security_toolbelt",
+                {
+                    "markers": [
+                        "cve-2021-44228",
+                        "epss",
+                        "kev",
+                        "t1190",
+                        "public-facing",
+                        "sigma",
+                        "spl",
+                    ],
+                    "any_markers": ["critical", "cvss", "9.8", "10.0", "high"],
+                },
+                expected_tools=tuple(sorted(belt)),
+                timeout_s=900.0,
+            )
+        )
+    security = _workspace_preset(discovery, "security")
+    cve_tools = {"classify_vulnerability", "lookup_cve", "get_epss", "check_kev", "triage_cve"}
+    if security and cve_tools <= _tool_names(discovery, security):
+        cases.append(
+            _case(
+                discovery,
+                "s5-security-toolbelt-cve",
+                "Security: CVE-2021-44228 lookup, EPSS, KEV, triage, classification",
+                security,
+                (
+                    "Use lookup_cve, get_epss and check_kev for CVE-2021-44228, then "
+                    "triage_cve. Report the CVSS severity, EPSS probability and percentile, "
+                    "and KEV status.",
+                    "Use classify_vulnerability on: 'Apache Log4j2 JNDI lookup remote code "
+                    "execution (Log4Shell) allows unauthenticated attackers to execute "
+                    "arbitrary code.' Report the severity label and confidence.",
+                ),
+                "security_cve_triage",
+                {
+                    "markers": ["cve-2021-44228", "epss", "kev"],
+                    "any_markers": ["critical", "cvss", "9.8", "10.0", "high"],
+                },
+                expected_tools=tuple(sorted(cve_tools)),
+                timeout_s=900.0,
+            )
+        )
+
+
+def _compliance_policy_case(discovery: Discovery, cases: list[UATCase]) -> None:
+    compliance = _workspace_preset(discovery, "compliance")
+    needed = {
+        "compliance_sources",
+        "compliance_read",
+        "nerc_cip_requirement",
+        "compliance_search",
+        "compliance_links",
+    }
+    if not compliance or not needed <= _tool_names(discovery, compliance):
+        return
+    cases.append(
+        _case(
+            discovery,
+            "s5-compliance-policy-conversation",
+            "Compliance: ingested patch procedure vs CIP-007-6 R2 gap conversation",
+            compliance,
+            (
+                "Use compliance_sources to list the internal operator policies and "
+                "procedures ingested for NERC CIP patch management. Then use compliance_read "
+                "on the Security Patch Management Policy/Procedure (OT-POL-007 / "
+                "OT-PROC-007) and summarize what it actually requires, quoting key clauses.",
+                "Compare that procedure against NERC CIP-007-6 R2 Parts 2.1 through 2.4: "
+                "use nerc_cip_requirement for each part and compliance_search / "
+                "compliance_links to connect them. Where is the procedure too loose or "
+                "missing concrete requirements? Quote both sides verbatim, name the weakest "
+                "part, do not certify compliance, and scope absence claims to the corpus.",
+            ),
+            "compliance_policy_gap",
+            expected_tools=tuple(sorted(needed)),
+            timeout_s=900.0,
+        )
+    )
+
+
+def _proxmox_readonly_case(discovery: Discovery, cases: list[UATCase]) -> None:
+    needed = {"proxmox_cluster_status", "proxmox_list_nodes", "proxmox_list_vms"}
+    seat = _first_seat(discovery, ("auto-coding", "auto-daily::fast"), needed)
+    if not seat:
+        return
+    cases.append(
+        _case(
+            discovery,
+            "s5-proxmox-readonly",
+            "Proxmox: read-only cluster, node, and VM inventory",
+            seat,
+            (
+                "Use proxmox_cluster_status and proxmox_list_nodes (read-only) to report "
+                "the cluster quorum state and each node's name and online status.",
+                "Use proxmox_list_vms (read-only) to list the QEMU VMs with their vmid, "
+                "name, and status. Do not start, stop, or modify anything.",
+            ),
+            "proxmox_readonly",
+            {
+                "markers": ["cluster", "node"],
+                "any_markers": ["vmid", "qemu", "virtual machine"],
+                "forbidden_tools": list(_PROXMOX_WRITE_TOOLS),
+            },
+            expected_tools=tuple(sorted(needed)),
+            timeout_s=600.0,
+        )
+    )
+
+
+def _data_sql_case(discovery: Discovery, cases: list[UATCase]) -> None:
+    data = _variant_preset(discovery, "data")
+    needed = {"attach_source", "profile_table", "run_sql", "list_session"}
+    if not data or not needed <= _tool_names(discovery, data):
+        return
+    cases.append(
+        _case(
+            discovery,
+            "s5-data-sql",
+            "Data: attach fixture CSV, profile, exact-answer SQL, session listing",
+            data,
+            (
+                "Use attach_source to attach the CSV at qat_fixtures/qat_orders.csv (under "
+                "the data root) as table orders in session qat_uat_data. Report the row "
+                "count and columns.",
+                "Use run_sql in session qat_uat_data for SELECT SUM(orders) FROM orders and "
+                "SELECT SUM(orders) FROM orders WHERE region = 'north'. Report both exact "
+                "totals. Then use profile_table on orders and report the orders column mean.",
+                "Use list_session for qat_uat_data and confirm the orders table is present.",
+            ),
+            "data_sql",
+            {"total": "133", "north": "76"},
+            expected_tools=tuple(sorted(needed)),
+            timeout_s=600.0,
+        )
+    )
+
+
+def _introspection_git_case(discovery: Discovery, cases: list[UATCase]) -> None:
+    seat = "auto-daily::fast"
+    needed = {"get_pipeline_status", "get_loaded_models", "git_status", "git_log"}
+    if seat not in discovery.presets or not needed <= _tool_names(discovery, seat):
+        return
+    cases.append(
+        _case(
+            discovery,
+            "s5-platform-introspection-and-git",
+            "Platform: pipeline status, loaded models, read-only git on scratch repo",
+            seat,
+            (
+                "Use get_pipeline_status and get_loaded_models to report the pipeline "
+                "health (backend and workspace counts) and which models are currently "
+                "loaded with their sizes.",
+                "Use git_status and git_log (read-only, max_count 3) on the scratch "
+                "repository at ~/AI_Output/qat_scratch_repo. Report the branch, whether "
+                "the tree is clean, and recent commit subjects with short SHAs. Never "
+                "commit, push, or modify the repository.",
+            ),
+            "introspection_git",
+            {
+                "markers": ["backend", "commit"],
+                "any_markers": ["branch", "clean", "working tree"],
+                "pattern": r"\b[0-9a-f]{7,40}\b",
+                "forbidden_tools": ["git_commit", "git_push"],
+            },
+            expected_tools=tuple(sorted(needed)),
+            timeout_s=600.0,
+        )
+    )
+
+
 def _case(
     discovery: Discovery,
     scenario_id: str,
@@ -589,6 +1240,7 @@ def _case(
     timeout_s: float = 300.0,
     generated_upload_turn: int = 0,
     cross_session: bool = False,
+    roster_check: bool = False,
 ) -> UATCase:
     preset = discovery.presets.get(model_slug)
     if preset is None and "::" in model_slug:
@@ -611,6 +1263,7 @@ def _case(
         timeout_s=timeout_s,
         generated_upload_turn=generated_upload_turn,
         cross_session=cross_session,
+        roster_check=roster_check,
     )
 
 
@@ -688,6 +1341,27 @@ GradeHandler = Callable[
 ]
 
 
+_PROXMOX_WRITE_TOOLS = (
+    "proxmox_vm_start",
+    "proxmox_vm_shutdown",
+    "proxmox_vm_stop",
+    "proxmox_vm_reset",
+    "proxmox_vm_reboot",
+    "proxmox_vm_suspend",
+    "proxmox_vm_resume",
+    "proxmox_clone_vm",
+    "proxmox_delete_vm",
+    "proxmox_create_snapshot",
+    "proxmox_rollback_snapshot",
+    "proxmox_delete_snapshot",
+    "proxmox_exec_vm",
+    "proxmox_container_start",
+    "proxmox_container_stop",
+    "proxmox_container_shutdown",
+    "proxmox_container_exec",
+    "proxmox_node_exec",
+    "proxmox_deploy_ctf_lab",
+)
 _CJK_RE = re.compile(
     r"[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]"
 )
@@ -1127,6 +1801,215 @@ def _grade_cad_case(
     return _grade_cad(payloads)
 
 
+def _grade_markers_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del payloads
+    errors: list[str] = []
+    lowered = text.casefold()
+    for marker in case.expected.get("markers") or ():
+        if str(marker).casefold() not in lowered:
+            errors.append(f"answer omitted required marker {marker}")
+    any_markers = case.expected.get("any_markers") or ()
+    if any_markers and not any(str(m).casefold() in lowered for m in any_markers):
+        errors.append(f"answer omitted all of: {', '.join(str(m) for m in any_markers)}")
+    if case.expected.get("citation") and not re.search(r"https?://\S+|\[source", lowered):
+        errors.append("answer carried no source citation")
+    pattern = str(case.expected.get("pattern") or "")
+    if pattern and not re.search(pattern, text, re.IGNORECASE):
+        errors.append(f"answer did not match required pattern {pattern}")
+    forbidden = {str(t).casefold() for t in case.expected.get("forbidden_tools") or ()}
+    used = {name.casefold() for turn in turns for name in turn.tool_names}
+    hit = sorted(forbidden & used)
+    if hit:
+        errors.append(f"read-only journey called mutating tools: {', '.join(hit)}")
+    evidence["markers_checked"] = len(case.expected.get("markers") or ())
+    return errors
+
+
+def _grade_documents_readback_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del turns, evidence
+    errors: list[str] = []
+    xlsx = _first(payloads, "xlsx")
+    if xlsx is None or validate_xlsx_content(
+        xlsx, ("Asset", "Owner", "State"), str(case.expected["xlsx"])
+    ):
+        errors.append("XLSX is missing its required headers or data row")
+    pptx = _first(payloads, "pptx")
+    if pptx is None or validate_pptx_content(pptx, str(case.expected["pptx"])):
+        errors.append("PPTX is missing its slide or required bullet")
+    lowered = text.casefold()
+    for key in ("xlsx", "pptx"):
+        marker = str(case.expected[key]).casefold()
+        if marker not in lowered:
+            errors.append(f"read-back answer omitted {marker}")
+    return errors
+
+
+def _grade_documents_convert_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del turns, evidence
+    errors: list[str] = []
+    docx = _first(payloads, "docx")
+    if docx is None or validate_docx_content(
+        docx, "UAT Conversion Note", str(case.expected["docx"])
+    ):
+        errors.append("source DOCX is missing its heading or marker")
+    pdf = _first(payloads, "pdf")
+    if pdf is None or validate_pdf(pdf):
+        errors.append("converted PDF was not returned or is invalid")
+    lowered = text.casefold()
+    if str(case.expected["docx"]).casefold() not in lowered:
+        errors.append("conversion answer omitted the document marker")
+    if "pdf" not in lowered or not any(w in lowered for w in ("list", "generated", "files")):
+        errors.append("answer did not report the generated-file listing")
+    return errors
+
+
+def _grade_memory_admin_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del payloads, text
+    marker = str(case.expected.get("marker") or "")
+    errors: list[str] = []
+    if marker not in turns[0].text.casefold():
+        errors.append("remember turn did not confirm the QAT marker")
+    second = turns[1].text.casefold()
+    if marker not in second and "forget" not in second:
+        errors.append("admin turn neither listed the marker nor confirmed forget")
+    final = turns[-1].text.casefold()
+    absence = ("no memories", "empty", "gone", "removed", "deleted", "no longer", "0 memories")
+    cleaned = marker not in final or any(phrase in final for phrase in absence)
+    if not cleaned:
+        errors.append("final list_memories still shows the forgotten marker")
+    evidence["cleanup_verified"] = cleaned
+    return errors
+
+
+def _grade_media_async_image_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del case, evidence
+    errors = _grade_image(payloads, turns)
+    if not re.search(r"\b[a-f0-9]{8,}\b", text, re.IGNORECASE):
+        errors.append("answer omitted the async job identifier")
+    return errors
+
+
+def _stl_extents(data: bytes) -> list[float]:
+    vertices = _stl_vertices(data)
+    if not vertices:
+        return []
+    return [
+        max(vertex[axis] for vertex in vertices) - min(vertex[axis] for vertex in vertices)
+        for axis in range(3)
+    ]
+
+
+def _grade_cad_measure_convert_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del turns
+    errors: list[str] = []
+    stl = _first(payloads, "stl")
+    extents = _stl_extents(stl) if stl else []
+    wanted = sorted(float(v) for v in case.expected.get("extents") or ())
+    if not extents:
+        errors.append("no readable STL payload was downloaded")
+    elif len(extents) != len(wanted) or any(
+        abs(a - b) > max(0.5, b * 0.05) for a, b in zip(sorted(extents), wanted, strict=True)
+    ):
+        errors.append(f"STL bounds {extents!r} do not match the requested bracket {wanted!r}")
+    png = _first(payloads, "png")
+    if png is None or validate_png_quality(png):
+        errors.append("no valid CAD render PNG was downloaded")
+    obj = _first(payloads, "obj")
+    if obj is None or b"v " not in obj:
+        errors.append("convert_cad produced no OBJ mesh payload")
+    lowered = text.casefold()
+    for dim in wanted:
+        if f"{dim:g}" not in lowered:
+            errors.append(f"answer did not report the measured dimension {dim:g}")
+    evidence["stl_extents"] = extents
+    return errors
+
+
+def _grade_compliance_policy_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del case, turns, payloads
+    errors: list[str] = []
+    lowered = text.casefold()
+    _grade_compliance(text, errors, ("CIP-007-6 R2",))
+    for part in ("2.1", "2.3", "2.4"):
+        if part not in lowered:
+            errors.append(f"gap analysis omitted CIP-007-6 R2 Part {part}")
+    docs = ("ot-pol-007", "ot-proc-007", "patch management", "patch evaluation")
+    if not any(marker in lowered for marker in docs):
+        errors.append("answer did not identify the ingested patch policy/procedure")
+    quotes = re.findall(r'"([^"]{15,})"', text) + re.findall(r"\u201c([^\u201d]{15,})\u201d", text)
+    if len(quotes) < 2:
+        errors.append("gap analysis did not quote both sides verbatim")
+    gap = ("missing", "loose", "gap", "does not", "no explicit", "absent", "weaker", "not specify")
+    if not any(marker in lowered for marker in gap):
+        errors.append("answer did not identify where the procedure is loose or missing")
+    scope = ("ingested", "corpus", "provided", "supplied", "documented")
+    if not any(marker in lowered for marker in scope):
+        errors.append("absence claims were not scoped to the ingested corpus")
+    evidence["verbatim_quotes"] = len(quotes)
+    return errors
+
+
+def _grade_data_sql_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del turns, payloads, evidence
+    errors: list[str] = []
+    lowered = text.casefold()
+    for key in ("total", "north"):
+        value = str(case.expected.get(key) or "")
+        if value and value not in lowered:
+            errors.append(f"SQL answer omitted the exact {key} total {value}")
+    if "orders" not in lowered:
+        errors.append("SQL answer did not name the orders table")
+    return errors
+
+
 _CASE_GRADERS: dict[str, GradeHandler] = {
     "route": _grade_route_case,
     "route_security_handoff": _grade_security_route_case,
@@ -1158,6 +2041,28 @@ _CASE_GRADERS: dict[str, GradeHandler] = {
     "compliance_multiframe": _grade_compliance_case,
     "rag_followup": _grade_rag_case,
     "cad_quality": _grade_cad_case,
+    **dict.fromkeys(
+        (
+            "persona_role_fit",
+            "web_research",
+            "obscura_navigate",
+            "sandbox_lifecycle",
+            "media_metadata",
+            "security_toolbelt",
+            "security_cve_triage",
+            "proxmox_readonly",
+            "introspection_git",
+            "memory_graph",
+        ),
+        _grade_markers_case,
+    ),
+    "documents_readback": _grade_documents_readback_case,
+    "documents_convert": _grade_documents_convert_case,
+    "memory_admin": _grade_memory_admin_case,
+    "media_async_image": _grade_media_async_image_case,
+    "cad_measure_convert": _grade_cad_measure_convert_case,
+    "compliance_policy_gap": _grade_compliance_policy_case,
+    "data_sql": _grade_data_sql_case,
 }
 
 
@@ -1472,7 +2377,7 @@ def _grade_wav(payloads: dict[str, list[bytes]], minimum: float) -> list[str]:
     return [error] if error else []
 
 
-def validate_stl_geometry(data: bytes, expected_extent_mm: float = 20.0) -> str | None:
+def _stl_vertices(data: bytes) -> list[tuple[float, float, float]]:
     vertices: list[tuple[float, float, float]] = []
     if len(data) >= 84:
         count = int.from_bytes(data[80:84], "little")
@@ -1487,6 +2392,11 @@ def validate_stl_geometry(data: bytes, expected_extent_mm: float = 20.0) -> str 
         for match in re.finditer(rb"vertex\s+([-+\deE.]+)\s+([-+\deE.]+)\s+([-+\deE.]+)", data):
             values = match.groups()
             vertices.append((float(values[0]), float(values[1]), float(values[2])))
+    return vertices
+
+
+def validate_stl_geometry(data: bytes, expected_extent_mm: float = 20.0) -> str | None:
+    vertices = _stl_vertices(data)
     if not vertices:
         return "STL contains no readable triangles"
     if len(vertices) < 36:
@@ -1667,6 +2577,14 @@ def _run_browser_chat(
 ) -> QATResult:
     ui.new_chat()
     ui.select_model(case.model_slug, _preset_display_name(state, case))
+    if case.roster_check:
+        missing = _roster_missing(state, ui)
+        if missing:
+            result = _status_result(
+                scenario, f"model selector missing seeded entries: {', '.join(missing)}", "", []
+            )
+            result.evidence = {"driver": "browser_gui", "roster_missing": missing}
+            return result
     gui_tools = ui.inspect_and_manage_tools(case.expected_tools)
     deadline = time.monotonic() + case.timeout_s
     turns, error, chat_id = _run_browser_sequence(
@@ -1804,6 +2722,23 @@ def _gui_transparency_errors(case: UATCase, extra: dict[str, object]) -> list[st
     if assistants < len(case.prompts):
         errors.append(f"GUI rendered {assistants}/{len(case.prompts)} assistant responses")
     return errors
+
+
+def _roster_missing(state: Any, ui: BrowserUI) -> list[str]:
+    discovery = getattr(state, "discovery", None)
+    presets = getattr(discovery, "presets", {}) or {}
+    roster = {name.casefold() for name in ui.workspace_roster()}
+    missing = [
+        pid
+        for pid, preset in presets.items()
+        if pid.casefold() not in roster and str(preset.name).casefold() not in roster
+    ]
+    for spec in _seeded_personas(discovery, PERSONA_DIR) if discovery is not None else []:
+        slug = str(spec.get("slug") or "")
+        name = str(spec.get("name") or slug)
+        if slug.casefold() not in roster and name.casefold() not in roster:
+            missing.append(slug)
+    return missing
 
 
 def _preset_display_name(state: Any, case: UATCase) -> str:
