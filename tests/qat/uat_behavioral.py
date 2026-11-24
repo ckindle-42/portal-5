@@ -10,6 +10,7 @@ import struct
 import subprocess
 import tempfile
 import time
+import unicodedata
 import uuid
 import wave
 from collections.abc import Callable
@@ -101,7 +102,11 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
     coding = _workspace_preset(discovery, "coding")
     security = _workspace_preset(discovery, "security")
     math = _variant_preset(discovery, "math")
+    daily = _workspace_preset(discovery, "general", ("daily",))
     if coding:
+        expected: dict[str, object] = {"target": coding}
+        if daily:
+            expected["followup_targets"] = list(dict.fromkeys((coding, daily)))
         cases.append(
             _case(
                 discovery,
@@ -116,7 +121,7 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                     "as the target service account?",
                 ),
                 "route",
-                {"target": coding},
+                expected,
             )
         )
     if security:
@@ -170,7 +175,6 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 {"targets": [math.split("::", 1)[0], math]},
             )
         )
-    daily = _workspace_preset(discovery, "general", ("daily",))
     if daily and coding:
         target_name = discovery.workspaces.get(coding)
         cases.append(
@@ -544,7 +548,10 @@ def _advanced_cases(discovery: Discovery, cases: list[UATCase]) -> None:
             )
         )
     cad = _variant_preset(discovery, "cad")
-    if cad and "cad_render" in _tool_names(discovery, cad):
+    cad_tools = _tool_names(discovery, cad) if cad else set()
+    render_tools = tuple(tool for tool in ("cad_render", "cad_finalize") if tool in cad_tools)
+    if cad and "cad_build" in cad_tools and render_tools:
+        render_choice = " or ".join(render_tools)
         cases.append(
             _case(
                 discovery,
@@ -552,10 +559,14 @@ def _advanced_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 "CAD: generate and render an STL",
                 cad,
                 (
-                    "Use cad_build to create a watertight 20 mm cube as an STL, then use cad_render to render a PNG preview. Surface both download links and report the measured bounding dimensions.",
+                    "Use cad_build to create a watertight 20 mm cube as an STL, then use "
+                    f"{render_choice} to finish it and provide a PNG preview. cad_finalize "
+                    "also returns the STL and rendered PNG. Surface both download links and "
+                    "report the measured bounding dimensions.",
                 ),
                 "cad_quality",
-                expected_tools=("cad_build", "cad_render"),
+                expected={"required_any_tools": list(render_tools)},
+                expected_tools=("cad_build",),
                 artifact_kind="stl+png",
                 timeout_s=1200.0,
             )
@@ -678,7 +689,45 @@ GradeHandler = Callable[
 _CJK_RE = re.compile(
     r"[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]"
 )
+_PHRASE_TRANSLATION = str.maketrans(
+    {
+        **dict.fromkeys("\u2010\u2011\u2012\u2013\u2014\u2212", "-"),
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201a": "'",
+        "\u201b": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u201e": '"',
+        "\u201f": '"',
+    }
+)
+_RETENTION_PERIOD_RE = re.compile(
+    r"\b(?:\d+\s*(?:days?|weeks?|months?|years?)|"
+    r"(?:a|one)\s+(?:days?|weeks?|months?|years?)|daily|weekly|monthly|yearly)\b",
+    re.IGNORECASE,
+)
 _OUTPUT_TAGS = ("</tool_response>", "<tool_call>", "</tool_call>", "</工具使用记录>")
+
+
+def _normalize_phrase_text(value: str) -> str:
+    translated = value.translate(_PHRASE_TRANSLATION).casefold()
+    plain = "".join(
+        char
+        for char in translated
+        if not unicodedata.category(char).startswith("S")
+        and unicodedata.category(char) != "Cf"
+        and not 0xFE00 <= ord(char) <= 0xFE0F
+        and not 0xE0100 <= ord(char) <= 0xE01EF
+    )
+    return " ".join(re.sub(r"[*_`]", "", plain).split())
+
+
+def _inline_code_line_count(text: str) -> int:
+    return sum(
+        sum(bool(line.strip()) for line in match.group(1).splitlines())
+        for match in re.finditer(r"```[^\n]*\n(.*?)```", text, re.DOTALL)
+    )
 
 
 def check_output_hygiene(prompt: str, response: str) -> list[str]:
@@ -717,7 +766,13 @@ def _grade_route_case(
         targets = tuple(str(target) for target in raw_targets)
     else:
         targets = (str(case.expected.get("target") or ""),)
-    return _grade_route_targets(turns, targets)
+    raw_followup_targets = case.expected.get("followup_targets")
+    followup_targets = (
+        tuple(str(target) for target in raw_followup_targets)
+        if isinstance(raw_followup_targets, list)
+        else ()
+    )
+    return _grade_route_targets(turns, targets, followup_targets)
 
 
 def _resolved_workspace(trace: dict[str, object]) -> str:
@@ -732,12 +787,15 @@ def _resolved_workspace(trace: dict[str, object]) -> str:
     return ""
 
 
-def _grade_route_targets(turns: list[UATTurn], targets: tuple[str, ...]) -> list[str]:
+def _grade_route_targets(
+    turns: list[UATTurn], targets: tuple[str, ...], followup_targets: tuple[str, ...] = ()
+) -> list[str]:
     errors = []
-    target_list = ", ".join(targets)
     for index, turn in enumerate(turns, start=1):
+        accepted_targets = followup_targets if index > 1 and followup_targets else targets
+        target_list = ", ".join(accepted_targets)
         served = _resolved_workspace(turn.trace)
-        if served not in targets:
+        if served not in accepted_targets:
             errors.append(
                 f"turn {index} expected route {target_list}, received {served or 'unknown'}"
             )
@@ -755,11 +813,14 @@ def _grade_security_route_case(
     raw_targets = case.expected.get("targets")
     targets = tuple(str(target) for target in raw_targets) if isinstance(raw_targets, list) else ()
     errors = _grade_route_targets(turns, targets)
-    lowered = text.casefold()
+    lowered = _normalize_phrase_text(text)
     handoff_target = str(case.expected.get("handoff_target") or "auto-security").casefold()
-    handoff_name = str(case.expected.get("handoff_name") or "Portal Security Analyst").casefold()
-    handoff_name = re.sub(r"^[^\w]*", "", handoff_name).strip()
-    target_pattern = "(?:" + "|".join(re.escape(x) for x in (handoff_target, handoff_name)) + ")"
+    handoff_name = str(case.expected.get("handoff_name") or "Portal Security Analyst")
+    target_pattern = (
+        "(?:"
+        + "|".join(re.escape(_normalize_phrase_text(x)) for x in (handoff_target, handoff_name))
+        + ")"
+    )
     guidance = re.search(
         rf"\b(?:select|choose|open)\s+(?:the\s+)?{target_pattern}\b|"
         rf"\bswitch\s+to\s+(?:the\s+)?{target_pattern}\b",
@@ -796,13 +857,13 @@ def _grade_daily_case(
     evidence: dict[str, object],
 ) -> list[str]:
     del payloads, evidence
-    lowered = text.casefold()
-    target = str(case.expected.get("target") or "").casefold()
-    target_name = str(case.expected.get("target_name") or "").casefold()
+    lowered = _normalize_phrase_text(text)
+    target = _normalize_phrase_text(str(case.expected.get("target") or ""))
+    target_name = _normalize_phrase_text(str(case.expected.get("target_name") or ""))
     errors = []
     if target not in lowered and target_name not in lowered:
         errors.append("daily answer did not identify the coding workspace")
-    if re.search(r"```[\s\S]{500,}```", text) or len(text) > 6000:
+    if _inline_code_line_count(text) >= 40:
         errors.append("daily answer attempted to print a large implementation inline")
     if not any(word in lowered for word in ("open", "switch", "workspace", "carry", "request")):
         errors.append("daily answer did not give a useful handoff to the coding workspace")
@@ -1045,9 +1106,7 @@ def _grade_rag_case(
         errors.append("knowledge-base follow-up did not complete both turns")
     if not re.search(r"\b(?:source|document|passage|citation)\b", turns[0].text, re.IGNORECASE):
         errors.append("first answer did not identify a retrieved source")
-    if not re.search(
-        r"\b\d+\s*(?:days?|weeks?|months?|years?)\b", turns[1].text, re.IGNORECASE
-    ) and not any(
+    if not _RETENTION_PERIOD_RE.search(turns[1].text) and not any(
         phrase in turns[1].text.casefold()
         for phrase in ("no source", "no period", "does not contain")
     ):
@@ -1116,9 +1175,33 @@ def _grade_compliance(text: str, errors: list[str], citations: tuple[str, ...]) 
     negation = r"\b(?:not|cannot|can't|unable)\b"
     if claim and not re.search(negation, lowered[max(0, claim.start() - 24) : claim.start()]):
         errors.append("answer made an unqualified compliance certification")
-    if not any(
-        term in lowered
-        for term in ("evidence shown", "subject to", "cannot determine", "not enough evidence")
+    evidence_qualifiers = (
+        "evidence shown",
+        "subject to",
+        "cannot determine",
+        "can't determine",
+        "unable to determine",
+        "not enough evidence",
+        "depends on evidence",
+        "dependent on evidence",
+        "cannot certify",
+        "can't certify",
+        "unable to certify",
+        "do not certify",
+    )
+    scope_qualifiers = (
+        "does not require",
+        "does not map",
+        "patch-evaluation",
+        "patch evaluation",
+        "verbatim",
+    )
+    refuses_certification = any(
+        phrase in lowered
+        for phrase in ("cannot certify", "can't certify", "unable to certify", "do not certify")
+    )
+    if not any(term in lowered for term in evidence_qualifiers) and not (
+        refuses_certification and any(term in lowered for term in scope_qualifiers)
     ):
         errors.append("answer did not qualify the compliance conclusion against evidence")
 
@@ -1682,6 +1765,12 @@ def _required_tool_error(case: UATCase, turns: list[UATTurn]) -> str | None:
             and span.get("outcome") == "ok"
         )
     missing = [tool for tool in case.expected_tools if tool.casefold() not in successful]
+    raw_alternatives = case.expected.get("required_any_tools")
+    alternatives = (
+        tuple(str(tool) for tool in raw_alternatives) if isinstance(raw_alternatives, list) else ()
+    )
+    if alternatives and not any(tool.casefold() in successful for tool in alternatives):
+        missing.append(f"one of {', '.join(alternatives)}")
     return (
         f"required tools did not complete successfully: {', '.join(missing)}" if missing else None
     )

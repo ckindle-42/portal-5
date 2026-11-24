@@ -22,7 +22,7 @@ from tests.qat import artifacts, runner
 from tests.qat import config as cq
 from tests.qat import uat_behavioral as uat
 from tests.qat.__main__ import parse_stages
-from tests.qat.config import PersonaDef, discover
+from tests.qat.config import Discovery, OwuiPreset, PersonaDef, discover
 from tests.qat.models import QATScenario, Status
 from tests.qat.owui_client import OWUIClient
 
@@ -234,6 +234,62 @@ def test_route_grader_reads_resolved_route_span() -> None:
     assert uat.grade_case(case, [routed], {})[0] == []
 
 
+def test_route_followup_allows_daily_for_conceptual_question() -> None:
+    discovered = uat.discover_cases(discover())
+    rbac = next(item for item in discovered if item.scenario_id == "s5-route-kubernetes-rbac")
+    assert rbac.expected == {
+        "target": "auto-coding",
+        "followup_targets": ["auto-coding", "auto-daily"],
+    }
+    case = uat.UATCase(
+        "rbac",
+        "rbac",
+        "auto",
+        ("manifest", "follow-up"),
+        "route",
+        {"target": "auto-coding", "followup_targets": ["auto-coding", "auto-daily"]},
+    )
+    turns = [_turn("Manifest", "auto-coding"), _turn("Conceptual explanation", "auto-daily")]
+    assert uat.grade_case(case, turns, {})[0] == []
+    turns[0] = _turn("Manifest", "auto-daily")
+    assert any(
+        "turn 1 expected route auto-coding" in error for error in uat.grade_case(case, turns, {})[0]
+    )
+
+
+def test_daily_redirect_normalizes_unicode_markdown_and_counts_code_lines() -> None:
+    daily = uat.UATCase(
+        "daily",
+        "daily",
+        "auto-daily",
+        ("first", "follow-up"),
+        "daily_redirect",
+        {"target": "auto-coding", "target_name": "Portal Coding"},
+    )
+    outline = (
+        "Please open **auto‑coding** for this implementation; you’re welcome to carry this outline:\n"
+        "- Plan a small, reviewable service.\n- Add migrations and retries.\n- Cover failure paths with tests.\n"
+        "```bash\nprintf 'ready'\n```"
+    )
+    turns = [_turn(outline), _turn("Open that workspace with the service requirements.")]
+    assert uat.grade_case(daily, turns, {})[0] == []
+
+    for line_count, expect_large_code in ((39, False), (40, True)):
+        code = (
+            "```python\n"
+            + "\n".join(f"value_{index} = {index}" for index in range(line_count))
+            + "\n```"
+        )
+        turns = [
+            _turn(f"Open auto-coding for the implementation.\n{code}"),
+            _turn("Use that coding workspace."),
+        ]
+        errors = uat.grade_case(daily, turns, {})[0]
+        assert (
+            "daily answer attempted to print a large implementation inline" in errors
+        ) is expect_large_code
+
+
 def test_text_journey_does_not_require_artifact_payload() -> None:
     case = uat.UATCase("text", "text", "auto", ("prompt",), "route")
     assert uat._grade_payload_types(case, {}) == []
@@ -270,6 +326,22 @@ def test_security_route_checks_allowed_destination_and_manual_handoff() -> None:
     assert uat.grade_case(case, turns, {})[0] == []
     turns[1] = _turn("Follow-up", "auto-coding")
     assert any("expected route" in error for error in uat.grade_case(case, turns, {})[0])
+
+
+def test_security_handoff_strips_markdown_and_leading_emoji() -> None:
+    case = next(
+        item
+        for item in uat.discover_cases(discover())
+        if item.scenario_id == "s5-route-tls-firewall"
+    )
+    turns = [
+        _turn(
+            "Please select the **🔒 Portal Security Analyst** workspace from the list and re‑send your request.",
+            "auto-daily",
+        ),
+        _turn("Check SNI and the firewall path before changing either.", "auto-daily"),
+    ]
+    assert uat.grade_case(case, turns, {})[0] == []
 
 
 def test_persona_cases_only_target_models_returned_by_owui(tmp_path: Path) -> None:
@@ -381,7 +453,17 @@ def test_model_catalog_lists_registered_openwebui_ids(tmp_path: Path) -> None:
     assert client.list_models("token") == {"agentorchestrator", "auto-data"}
 
 
-def test_lookup_trace_matches_persona_base_model_id(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "model_fields",
+    [
+        {"base_model_id": "auto-coding"},
+        {"info": {"base_model_id": "auto-coding"}},
+        {"model": {"base_model_id": "auto-coding"}},
+    ],
+)
+def test_lookup_trace_matches_persona_base_model_id(
+    tmp_path: Path, model_fields: dict[str, object]
+) -> None:
     started = 1_700_000_000.0
     details = {
         "c-persona": {
@@ -397,7 +479,7 @@ def test_lookup_trace_matches_persona_base_model_id(tmp_path: Path) -> None:
             assert request.headers["Authorization"] == "Bearer token"
             return httpx.Response(
                 200,
-                json={"data": [{"id": "agentorchestrator", "base_model_id": "auto-coding"}]},
+                json={"data": [{"id": "agentorchestrator", **model_fields}]},
             )
         if request.url.path == "/v1/trace":
             return httpx.Response(
@@ -636,9 +718,73 @@ def test_sandbox_hunt_and_rag_behavior_graders() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "period",
+    ("a week", "one week", "a month", "a year", "weekly", "monthly", "daily", "older than a week"),
+)
+def test_rag_accepts_written_out_retention_periods(period: str) -> None:
+    rag = uat.UATCase("rag", "rag", "auto-research", ("find", "quote"), "rag_followup")
+    turns = [_turn("Source document: Backup guide"), _turn(f"The source says {period}.")]
+    assert uat.grade_case(rag, turns, {})[0] == []
+
+
+def test_compliance_grader_accepts_corrected_scope_with_refusal_to_certify() -> None:
+    compliance = uat.UATCase(
+        "compliance", "compliance", "auto-compliance", ("compare",), "compliance_multiframe"
+    )
+    response = (
+        "CIP-007-6 R2 Part 2.2 is a 35-day patch-evaluation requirement and does not map to "
+        "privileged access logging; the NERC text is quoted verbatim. GDPR Article 32(1)(a) "
+        "addresses appropriate security measures. I cannot certify compliance without the "
+        "retention policy and supporting evidence."
+    )
+    assert uat.grade_case(compliance, [_turn(response)], {})[0] == []
+
+
 def test_stl_geometry_grader_rejects_empty_data() -> None:
     assert uat.validate_stl_geometry(b"bad data") is not None
     assert uat.validate_stl_geometry(_cube_stl()) is None
+
+
+def test_cad_finalize_satisfies_render_step_but_stl_and_png_remain_required(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    discovery = Discovery(
+        modules_enabled=frozenset(),
+        workspaces={},
+        presets={
+            "auto-coding::cad": OwuiPreset(
+                "auto-coding::cad", "CAD", ("cad_build", "cad_finalize"), True, ""
+            )
+        },
+        personas=(),
+        bench_workspaces={},
+        mcp_fleet=(),
+    )
+    monkeypatch.setattr(
+        uat, "_tool_names", lambda _discovery, _preset: {"cad_build", "cad_finalize"}
+    )
+    cases: list[uat.UATCase] = []
+    uat._tool_cases(discovery, cases)
+    cad = next(case for case in cases if case.scenario_id == "s5-cad-stl-render")
+    assert cad.expected_tools == ("cad_build",)
+    assert cad.expected["required_any_tools"] == ["cad_finalize"]
+    assert cad.artifact_kind == "stl+png"
+
+    turn = _turn(
+        "Both CAD artifacts are ready.",
+        spans=[
+            {"name": "tool.completed", "tool": "cad_build", "outcome": "ok"},
+            {"name": "tool.completed", "tool": "cad_finalize", "outcome": "ok"},
+        ],
+    )
+    assert uat._required_tool_error(cad, [turn]) is None
+    artifacts = {"stl": [_cube_stl()], "png": [_png((80, 120, 160), pattern=True)]}
+    assert uat.grade_case(cad, [turn], artifacts)[0] == []
+    assert (
+        "no CAD render PNG was downloaded"
+        in uat.grade_case(cad, [turn], {"stl": artifacts["stl"]})[0]
+    )
 
 
 def test_stt_transcript_is_marked_for_human_accuracy_review() -> None:
