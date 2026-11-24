@@ -1647,6 +1647,39 @@ def _clip_revised_sections(revision_id: str, repo: Any) -> list[dict[str, Any]]:
     return sections
 
 
+def _compact_inventory_payload(
+    documents: list[dict[str, Any]], kind: str, operator_count: int, regulatory_count: int
+) -> dict[str, Any]:
+    compact_docs = []
+    reg_titles: list[str] = []
+    for d in documents:
+        if not kind and d["kind"] == "regulatory":
+            reg_titles.append(d["title"] or d["logical_id"])
+            continue
+        entry: dict[str, Any] = {
+            "kind": d["kind"],
+            "logical_id": d["logical_id"],
+            "title": d["title"],
+            "section_count": d["section_count"],
+        }
+        for opt in ("document_number", "version", "effective_date", "linked_standards"):
+            if d.get(opt):
+                entry[opt] = d[opt]
+        compact_docs.append(entry)
+    result: dict[str, Any] = {
+        "mode": "inventory",
+        "kind": kind or "all",
+        "count": len(documents),
+        "operator_count": operator_count,
+        "regulatory_count": regulatory_count,
+        "documents": compact_docs,
+        "note": "Compact inventory to fit chat context budget; pass logical_id to compliance_sources() or compliance_read() for full revision details.",
+    }
+    if reg_titles:
+        result["regulatory_titles"] = reg_titles
+    return result
+
+
 def _source_inventory(repo: Any, kind: str) -> dict[str, Any]:
     if kind not in ("", "operator", "regulatory"):
         return {"error": "kind must be 'operator', 'regulatory', or empty"}
@@ -1699,6 +1732,8 @@ def _source_inventory(repo: Any, kind: str) -> dict[str, Any]:
                 "linked_standards": sorted(families_for({"claims": scope_claims})),
             }
         )
+    if len(documents) > 15:
+        return _compact_inventory_payload(documents, kind, operator_count, regulatory_count)
     return {
         "mode": "inventory",
         "kind": kind or "all",
