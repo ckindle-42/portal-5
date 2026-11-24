@@ -1,0 +1,427 @@
+schema_version: 1
+targets:
+  # Web and reverse proxy targets.
+  - id: vulhub-httpd-cve-2021-41773
+    source: vulhub
+    vulhub_path: httpd/CVE-2021-41773
+    cve: CVE-2021-41773
+    technology_family: Web/Reverse-Proxy
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_httpd_41773
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36
+        - Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /robots.txt}
+        - {method: HEAD, path: /favicon.ico}
+    red_sequence:
+      - {stage: recon, request: 'GET /robots.txt', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /icons/.%2e/.%2e/', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /server-status', effect: read_only}
+
+  - id: vulhub-httpd-cve-2021-42013
+    source: vulhub
+    vulhub_path: httpd/CVE-2021-42013
+    cve: CVE-2021-42013
+    technology_family: Web/Reverse-Proxy
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_httpd_42013
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
+        - curl/8.5.0
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /index.html}
+        - {method: GET, path: /assets/site.css}
+    red_sequence:
+      - {stage: recon, request: 'GET /favicon.ico', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /cgi-bin/.%2e/', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /login', effect: read_only}
+
+  - id: vulhub-nginx-cve-2017-7529
+    source: vulhub
+    vulhub_path: nginx/CVE-2017-7529
+    cve: CVE-2017-7529
+    technology_family: Web/Reverse-Proxy
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_nginx_7529
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36
+        - curl/8.5.0
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /health}
+        - {method: HEAD, path: /favicon.ico}
+    red_sequence:
+      - {stage: recon, request: 'GET /robots.txt', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /favicon.ico Range: bytes=0-0,1-1', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /', effect: read_only}
+
+  # Java and enterprise service targets.
+  - id: vulhub-struts2-s2-045
+    source: vulhub
+    vulhub_path: struts2/s2-045
+    cve: CVE-2017-5638
+    technology_family: Java/Enterprise
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_struts2_s2045
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15
+        - Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /showcase.action}
+        - {method: GET, path: /favicon.ico}
+    red_sequence:
+      - {stage: recon, request: 'GET /showcase.action', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /?probe=%25%7B1%2B1%7D', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /login.action', effect: read_only}
+
+  - id: vulhub-struts2-s2-057
+    source: vulhub
+    vulhub_path: struts2/s2-057
+    cve: CVE-2018-11776
+    technology_family: Java/Enterprise
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_struts2_s2057
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36
+        - curl/8.5.0
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /actionChain1.action}
+        - {method: GET, path: /assets/main.css}
+    red_sequence:
+      - {stage: recon, request: 'GET /actionChain1.action', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /%25%7B1%2B1%7D/actionChain1.action', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /login.action', effect: read_only}
+
+  - id: vulhub-spring-cve-2022-22965
+    source: vulhub
+    vulhub_path: spring/CVE-2022-22965
+    cve: CVE-2022-22965
+    technology_family: Java/Enterprise
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_spring_22965
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
+        - Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /actuator/health}
+        - {method: HEAD, path: /favicon.ico}
+    red_sequence:
+      - {stage: recon, request: 'GET /actuator/health', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /?class.module.classLoader=probe', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /', effect: read_only}
+
+  - id: vulhub-tomcat-cve-2017-12615
+    source: vulhub
+    vulhub_path: tomcat/CVE-2017-12615
+    cve: CVE-2017-12615
+    technology_family: Java/Enterprise
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_tomcat_12615
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36
+        - curl/8.5.0
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /docs/}
+        - {method: HEAD, path: /favicon.ico}
+    red_sequence:
+      - {stage: recon, request: 'GET /manager/html', effect: read_only}
+      - {stage: exploit_probe, request: 'OPTIONS /lab-probe.txt', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /lab-probe.txt', effect: read_only}
+
+  # Modern API and web application targets.
+  - id: vulhub-nextjs-cve-2025-29927
+    source: vulhub
+    vulhub_path: next.js/CVE-2025-29927
+    cve: CVE-2025-29927
+    technology_family: API/Modern-Web
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_nextjs_29927
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15
+        - Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /api/health}
+        - {method: GET, path: /robots.txt}
+    red_sequence:
+      - {stage: recon, request: 'GET /robots.txt', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /admin X-Middleware-Subrequest: middleware', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /admin', effect: read_only}
+
+  - id: vulhub-laravel-cve-2021-3129
+    source: vulhub
+    vulhub_path: laravel/CVE-2021-3129
+    cve: CVE-2021-3129
+    technology_family: API/Modern-Web
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_laravel_3129
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36
+        - curl/8.5.0
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /login}
+        - {method: GET, path: /favicon.ico}
+    red_sequence:
+      - {stage: recon, request: 'GET /_ignition/health-check', effect: read_only}
+      - {stage: exploit_probe, request: 'OPTIONS /_ignition/execute-solution', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /login', effect: read_only}
+
+  - id: owasp-juice-shop
+    source: awesome-vulnerable-apps
+    source_catalog_url: https://github.com/vavkamil/awesome-vulnerable-apps
+    repo_url: https://github.com/juice-shop/juice-shop
+    container_image: bkimminich/juice-shop
+    cve: null
+    technology_family: API/Modern-Web
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_juice_shop
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15
+        - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: "/rest/products/search?q=apple"}
+        - {method: GET, path: /assets/public/images/logo.png}
+    red_sequence:
+      - {stage: recon, request: 'GET /rest/products/search?q=apple', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /rest/products/search?q=%27%20OR%201%3D1', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /api/Challenges', effect: read_only}
+
+  # Database, search, and cache targets.
+  - id: vulhub-redis-cve-2022-0543
+    source: vulhub
+    vulhub_path: redis/CVE-2022-0543
+    cve: CVE-2022-0543
+    technology_family: Database/Search/Cache
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [redis:log]
+    index_name: hb_lab_redis_0543
+    benign_profile:
+      protocol: redis
+      user_agents: [redis-cli/7.0, application/health-check]
+      requests:
+        - {operation: PING}
+        - {operation: INFO server}
+        - {operation: DBSIZE}
+    red_sequence:
+      - {stage: recon, request: 'Redis INFO server', effect: read_only}
+      - {stage: exploit_probe, request: "Redis EVAL return redis.call('PING') 0", effect: read_only}
+      - {stage: post_probe_indicator, request: 'Redis PING', effect: read_only}
+
+  - id: vulhub-mysql-cve-2012-2122
+    source: vulhub
+    vulhub_path: mysql/CVE-2012-2122
+    cve: CVE-2012-2122
+    technology_family: Database/Search/Cache
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [syslog]
+    index_name: hb_lab_mysql_2122
+    benign_profile:
+      protocol: mysql
+      user_agents: [mysql-client/8.0, application/health-check]
+      requests:
+        - {operation: SELECT 1}
+        - {operation: SHOW DATABASES}
+        - {operation: SELECT VERSION()}
+    red_sequence:
+      - {stage: recon, request: 'MySQL server greeting', effect: read_only}
+      - {stage: exploit_probe, request: 'MySQL one invalid-password authentication attempt', effect: read_only}
+      - {stage: post_probe_indicator, request: 'MySQL SELECT 1 using supplied lab credentials', effect: read_only}
+
+  - id: vulhub-elasticsearch-cve-2015-1427
+    source: vulhub
+    vulhub_path: elasticsearch/CVE-2015-1427
+    cve: CVE-2015-1427
+    technology_family: Database/Search/Cache
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [syslog]
+    index_name: hb_lab_elasticsearch_1427
+    benign_profile:
+      user_agents: [Mozilla/5.0 Chrome/128.0, application/search-client/1.0]
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /_cluster/health}
+        - {method: GET, path: "/_nodes?filter_path=nodes.*.version"}
+    red_sequence:
+      - {stage: recon, request: 'GET /_cluster/health', effect: read_only}
+      - {stage: exploit_probe, request: 'OPTIONS /_search/template', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /_search?q=match_all&size=0', effect: read_only}
+
+  - id: vulhub-mongo-express-cve-2019-10758
+    source: vulhub
+    vulhub_path: mongo-express/CVE-2019-10758
+    cve: CVE-2019-10758
+    technology_family: Database/Search/Cache
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_mongoexpress_10758
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
+        - curl/8.5.0
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /db/admin/}
+        - {method: GET, path: /favicon.ico}
+    red_sequence:
+      - {stage: recon, request: 'GET /', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /checkValid', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /db/admin/', effect: read_only}
+
+  # CI/CD, DevOps, and collaboration targets.
+  - id: vulhub-jenkins-cve-2018-1000861
+    source: vulhub
+    vulhub_path: jenkins/CVE-2018-1000861
+    cve: CVE-2018-1000861
+    technology_family: CI-CD/DevOps/Collab
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_jenkins_0861
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36
+        - Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /login}
+        - {method: GET, path: /api/json}
+    red_sequence:
+      - {stage: recon, request: 'GET /api/json', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /securityRealm/user/admin/search/index?q=probe', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /login', effect: read_only}
+
+  - id: vulhub-grafana-cve-2021-43798
+    source: vulhub
+    vulhub_path: grafana/CVE-2021-43798
+    cve: CVE-2021-43798
+    technology_family: CI-CD/DevOps/Collab
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_grafana_43798
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15
+        - curl/8.5.0
+      requests:
+        - {method: GET, path: /login}
+        - {method: GET, path: /api/health}
+        - {method: GET, path: /public/build/manifest.json}
+    red_sequence:
+      - {stage: recon, request: 'GET /api/health', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /public/plugins/alertlist/..%2f', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /login', effect: read_only}
+
+  - id: vulhub-confluence-cve-2022-26134
+    source: vulhub
+    vulhub_path: confluence/CVE-2022-26134
+    cve: CVE-2022-26134
+    technology_family: CI-CD/DevOps/Collab
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [access_combined, syslog]
+    index_name: hb_lab_confluence_26134
+    benign_profile:
+      user_agents:
+        - Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0 Safari/537.36
+        - Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
+      requests:
+        - {method: GET, path: /}
+        - {method: GET, path: /login.action}
+        - {method: GET, path: /favicon.ico}
+    red_sequence:
+      - {stage: recon, request: 'GET /login.action', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /%24%7B1%2B1%7D', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /', effect: read_only}
+
+  - id: vulhub-nexus-cve-2019-7238
+    source: vulhub
+    vulhub_path: nexus/CVE-2019-7238
+    cve: CVE-2019-7238
+    technology_family: CI-CD/DevOps/Collab
+    mitre_techniques: [T1190]
+    canonical_sourcetypes: [syslog]
+    index_name: hb_lab_nexus_7238
+    benign_profile:
+      user_agents: [Mozilla/5.0 Chrome/128.0, curl/8.5.0]
+      requests:
+        - {method: GET, path: /service/rest/v1/status}
+        - {method: GET, path: /service/rest/v1/repositories}
+        - {method: GET, path: /}
+    red_sequence:
+      - {stage: recon, request: 'GET /service/rest/v1/status', effect: read_only}
+      - {stage: exploit_probe, request: 'GET /service/extdirect', effect: read_only}
+      - {stage: post_probe_indicator, request: 'GET /service/rest/v1/repositories', effect: read_only}
+
+  # Cloud IAM references require an operator-approved isolated AWS project.
+  - id: vulnerable-cloud-lab-aws-overprivileged-role
+    source: vulnerable-cloud-lab
+    repo_url: https://github.com/anpa1200/vulnerable-cloud-lab/tree/main/terraform/aws/main.tf
+    source_path: terraform/aws/main.tf
+    cve: null
+    technology_family: Cloud/LocalStack IAM
+    runtime_scope: isolated_aws_account
+    activation: manual_only
+    mitre_techniques: [T1526, T1078.004]
+    canonical_sourcetypes: [aws:cloudtrail]
+    index_name: hb_lab_aws_iam_role
+    benign_profile:
+      protocol: aws_api
+      user_agents: [AWS-CLI/2, aws-sdk-python/boto3]
+      requests:
+        - {method: AWS_READ, path: sts:GetCallerIdentity}
+        - {method: AWS_READ, path: iam:ListRoles}
+        - {method: AWS_READ, path: iam:GetRole}
+    red_sequence:
+      - {stage: recon, request: 'AWS STS GetCallerIdentity', effect: read_only}
+      - {stage: exploit_probe, request: 'AWS IAM GetRole for the lab role', effect: read_only}
+      - {stage: post_probe_indicator, request: 'AWS IAM SimulatePrincipalPolicy read-only simulation', effect: read_only}
+
+  - id: vulnerable-cloud-lab-aws-public-bucket
+    source: vulnerable-cloud-lab
+    repo_url: https://github.com/anpa1200/vulnerable-cloud-lab/tree/main/terraform/aws/main.tf
+    source_path: terraform/aws/main.tf
+    cve: null
+    technology_family: Cloud/LocalStack IAM
+    runtime_scope: isolated_aws_account
+    activation: manual_only
+    mitre_techniques: [T1530, T1526]
+    canonical_sourcetypes: [aws:cloudtrail]
+    index_name: hb_lab_aws_public_bucket
+    benign_profile:
+      protocol: aws_api
+      user_agents: [AWS-CLI/2, aws-sdk-python/boto3]
+      requests:
+        - {method: AWS_READ, path: s3:ListBuckets}
+        - {method: AWS_READ, path: s3:GetBucketLocation}
+        - {method: AWS_READ, path: s3:GetBucketAcl}
+    red_sequence:
+      - {stage: recon, request: 'AWS S3 ListBuckets', effect: read_only}
+      - {stage: exploit_probe, request: 'AWS S3 ListObjectsV2 MaxKeys=5 on the lab bucket', effect: read_only}
+      - {stage: post_probe_indicator, request: 'AWS S3 HeadObject metadata only; never download object bodies', effect: read_only}
