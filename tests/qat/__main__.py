@@ -11,16 +11,16 @@ from .config import Settings
 from .models import Status
 from .runner import RunnerOptions, run_selected
 
-ALL_STAGES = {0, 1, 2, 3, 4}
+ALL_STAGES = {0, 1, 2, 3, 4, 5}
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python3 -m tests.qat",
-        description="Portal 5 Release 1.0 live end-to-end QAT suite",
+        description="Portal 5 live end-to-end QAT and human-grade UAT suite",
     )
     parser.add_argument(
-        "--stage", help="stages to run: 0,1,2,3,4 (comma list) or 'all'", default="all"
+        "--stage", help="stages to run: 0,1,2,3,4,5/uat (comma list) or 'all'", default="all"
     )
     parser.add_argument("--phase", action="append", help="restrict to phase (repeatable)")
     parser.add_argument("--scenario", action="append", help="restrict to scenario id (repeatable)")
@@ -59,10 +59,12 @@ def build_parser() -> argparse.ArgumentParser:
 def parse_stages(raw: str) -> set[int]:
     if raw.strip().lower() == "all":
         return ALL_STAGES
-    stages = {int(part) for part in raw.split(",") if part.strip()}
+    stages = {
+        5 if part.strip().lower() == "uat" else int(part) for part in raw.split(",") if part.strip()
+    }
     unknown = stages - ALL_STAGES
     if unknown:
-        raise SystemExit(f"unknown stage(s): {sorted(unknown)}; valid: 0,1,2,3,4")
+        raise SystemExit(f"unknown stage(s): {sorted(unknown)}; valid: 0,1,2,3,4,5,uat")
     return stages
 
 

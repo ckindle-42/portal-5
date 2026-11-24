@@ -13,7 +13,7 @@ from them).
 #    zero network/GPU. This is the first thing to check after any config change.
 uv run python -m tests.qat --dry-run
 
-# 2. Full cascade (stages 0→4) with the inter-phase gate between phases:
+# 2. Full cascade (stages 0→5) with the inter-phase gate between phases:
 uv run python -m tests.qat
 
 # Selectors
@@ -22,6 +22,8 @@ uv run python -m tests.qat --scenario s2-p6-auto-audio::music --api-only
 uv run python -m tests.qat --browser-only          # only the Playwright UI layer
 uv run python -m tests.qat --stage 4 --emit-worksheets   # rubric worksheets for the operator
 uv run python -m tests.qat --stage 4 --ingest-worksheets # validate + freeze filled worksheets
+uv run python -m tests.qat --stage uat                   # human-grade Open WebUI acceptance journeys
+uv run python -m tests.qat --stage 5                     # same as --stage uat
 
 # Re-runs
 uv run python -m tests.qat --append       results/qat/release_1_0_<ts>
@@ -42,6 +44,7 @@ Exit code 1 when any scenario FAILs or the inter-phase gate BLOCKs.
 | 2 | Phased E2E web journeys across all OWUI workspaces (7 phases + compliance smoke) | `scenarios.py` |
 | 3 | Security, Hunt & adversarial: canonical `auto-security::<variant>`, Splunk Hunt (botsv1), MITRE/VulnIntel/ICS/OT/NetForensics MCPs, prompt-injection + refusal-preservation, lab-exec (gated on Stage 0 lab_ready) | `scenarios.py` |
 | 4 | Adaptive deep multi-turn + rubric challenges per workspace contract; operator scores 1–5 via worksheets | `scenarios.py` |
+| 5 | Human-grade OWUI acceptance: auto routing, persona contracts, sandbox, Office artifacts, media fidelity, read-back, memory, hunt, compliance and CAD | `uat_behavioral.py` |
 
 Between phases `gate.py` runs the inter-phase gate: Pipeline `/health` with
 `backends_checked=true`, Ollama + oMLX 0.8.1 health with **residency-checked
@@ -89,6 +92,13 @@ Named `.env` keys only (never `source .env`): `OPENWEBUI_URL`,
 Counts and rosters are discovered at run time from `config/portal.yaml`,
 `imports/openwebui/workspaces/workspaces_all.json`, `config/personas/*.yaml`
 and `config/backends.yaml`. Nothing is hardcoded.
+
+Stage 5 checks successful tool spans, multi-turn behavior, trace routes, and
+artifact contents (Office structure, image variance, video duration and frames,
+WAV duration and RMS, and CAD geometry). The STT fixture has no gold transcript,
+so its row is `WARN` until an operator compares the output with playback. See
+[`docs/USER_VALIDATION_GUIDE.md`](../../docs/USER_VALIDATION_GUIDE.md) for the
+catalog, acceptance criteria, and live-run order.
 
 ## Offline tests
 
