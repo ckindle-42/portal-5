@@ -339,6 +339,67 @@ def test_a_whole_source_under_the_splunk_ceiling_stays_one_window() -> None:
     assert len(executor.calls) == 1  # no needless splitting below the ceiling
 
 
+class _WindowCapExec:
+    """One search returns that window's events in order, cut at maxresultrows."""
+
+    def __init__(self, times: list[float], cap: int = 10_000) -> None:
+        self.times = times
+        self.cap = cap
+        self.calls: list[tuple[float, float, int | None]] = []
+
+    def read(
+        self, query: str, start: float, end: float, *, kind: str, row_cap: int | None = None
+    ) -> Read:
+        del query, kind
+        self.calls.append((start, end, row_cap))
+        chosen = [(index, stamp) for index, stamp in enumerate(self.times) if start <= stamp < end]
+        limit = min(len(chosen), row_cap or 0, self.cap)
+        rows = [
+            {"_time": stamp, "host": "h1", "_raw": f"event-{index}"}
+            for index, stamp in chosen[:limit]
+        ]
+        return Read(rows, False, None)
+
+
+def test_a_bursty_whole_read_bisects_until_every_event_is_read() -> None:
+    """95% of events sit in 5% of the span, so equal slices still fill one page."""
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    total = 20_000
+    span = 20_000.0
+    dense = int(total * 0.95)
+    dense_end = span * 0.05
+    times = [dense_end * index / dense for index in range(dense)]
+    sparse = total - dense
+    times.extend(dense_end + (span - dense_end) * index / sparse for index in range(sparse))
+    facts = SourceFacts("ix", "st", total, 0.0, span, ("h1",), 1, ("s1",), 1)
+    executor = _WindowCapExec(times)
+    read = read_behaviour_source(executor, facts, per_window_events(1))
+
+    assert read.read_mode == "whole"
+    assert len(read.rows) == total
+    assert len({row["_raw"] for row in read.rows}) == total
+    assert len(executor.calls) > 2  # the equal split is two windows; the dense one is re-cut
+
+
+def test_identical_timestamps_stop_bisecting_below_one_second() -> None:
+    from portal.modules.security.core.hunt.notables.behaviours import read_behaviour_source
+
+    stamp = 1_000.0
+    total = 10_001
+    facts = SourceFacts("ix", "st", total, stamp, stamp, ("h1",), 1, ("s1",), 1)
+    executor = _WindowCapExec([stamp] * total)
+    read = read_behaviour_source(executor, facts, per_window_events(1))
+
+    widths = [end - start for start, end, _cap in executor.calls]
+    assert read.read_mode == "whole"
+    assert len(executor.calls) == 3  # one page, then two halves; the half under 1s is not cut again
+    assert min(widths) < 1.0
+    assert min(widths) >= 0.5 - 1e-9
+    assert "capped" in read.notes
+    assert len(read.rows) == 10_000
+
+
 def test_sampled_slices_keep_the_per_read_ceiling_when_the_share_is_larger() -> None:
     from portal.modules.security.core.hunt.notables.behaviours import (
         BEHAVIOUR_EVENTS_PER_WINDOW,

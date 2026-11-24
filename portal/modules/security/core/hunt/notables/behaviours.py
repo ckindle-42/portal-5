@@ -15,7 +15,7 @@ from typing import Any
 import duckdb
 
 from ..engine import _literal_term_segments
-from ..executor import HuntExecutor
+from ..executor import REQUEST_BUDGET_EXHAUSTED, HuntExecutor
 from .cards import SourceCard, card_consumers
 from .parse import parse_row
 from .sample import (
@@ -35,6 +35,7 @@ from .sample import (
     localise_width,
     read_files,
     read_mode,
+    read_windows,
     route_filter,
     source_windows,
 )
@@ -55,6 +56,10 @@ BEHAVIOUR_BURST_SPAN_SECONDS = 4 * 3600  # four-hour burst bucket width matching
 BEHAVIOUR_BURST_SERIES_ROWS = 40_000  # effort budget: per-period tstats rows for burst planning
 BEHAVIOUR_EVENTS_PER_WINDOW = 2500  # effort budget: events read from one slice
 SPLUNK_MAX_RESULT_ROWS = 10_000  # Splunk maxresultrows: one search silently caps here
+_WHOLE_WINDOW_CEILING = SPLUNK_MAX_RESULT_ROWS
+_WHOLE_BISECT_MAX_DEPTH = 12  # effort budget: adaptive whole-read bisection stops at this depth
+_WHOLE_BISECT_MIN_WIDTH = 1.0  # a whole-read window narrower than one second is not split
+_WHOLE_READ_REQUEST_CAP = 256  # effort budget: adaptive whole-read queries for one source
 BEHAVIOUR_TOTAL_EVENTS = 400_000  # effort budget: parsed events across the whole stage
 BEHAVIOUR_ANCHOR_MERGE_SECONDS = 300  # value spans closer than this are one anchor window
 STRUCTURED_FORMATS = frozenset({"json", "xml", "kv", "delimited"})
@@ -757,7 +762,90 @@ def _is_complete_source(facts: SourceFacts, per_window: int) -> bool:
 
 def _whole_window_count(events: int) -> int:
     """Time slices sized so no single whole-read query hits Splunk's maxresultrows ceiling."""
-    return max(1, math.ceil(events / SPLUNK_MAX_RESULT_ROWS))
+    return max(1, math.ceil(events / _WHOLE_WINDOW_CEILING))
+
+
+def _whole_request_cap(executor: HuntExecutor) -> int:
+    """Per-source fan-out bound, also cut by the shared request ceiling when one exists."""
+    counter = getattr(getattr(executor, "budget", None), "remaining_requests", None)
+    if not callable(counter):
+        return _WHOLE_READ_REQUEST_CAP
+    return max(0, min(_WHOLE_READ_REQUEST_CAP, int(counter())))
+
+
+def _whole_blocked(read: RowSet) -> bool:
+    """A failed or budget-stopped page is kept; splitting it would spend another search."""
+    return any(
+        note == REQUEST_BUDGET_EXHAUSTED or note.startswith("read_failed:") for note in read.notes
+    )
+
+
+def _whole_splits(read: RowSet, start: float, end: float, depth: int, slots: int) -> bool:
+    """A full page is worth two halves only while width, depth and request slots allow it."""
+    if len(read.rows) < _WHOLE_WINDOW_CEILING or slots < 2 or _whole_blocked(read):
+        return False
+    if depth >= _WHOLE_BISECT_MAX_DEPTH or (end - start) < _WHOLE_BISECT_MIN_WIDTH:
+        return False
+    mid = start + (end - start) / 2.0
+    return start < mid < end
+
+
+def _absorb_whole(found: RowSet, part: RowSet) -> None:
+    found.rows.extend(part.rows)
+    found.files.extend(part.files)
+    found.notes.extend(part.notes)
+    if not part.query:
+        return
+    found.windows += 1
+    if not found.query:
+        found.query = part.query
+        found.route = part.route
+
+
+def _read_whole_span(
+    executor: HuntExecutor,
+    facts: SourceFacts,
+    start: float,
+    end: float,
+    depth: int,
+    slots: int,
+) -> tuple[list[RowSet], int]:
+    """One half-open window; replace a ceiling-sized page with its two halves."""
+    if slots <= 0 or end <= start:
+        missed = RowSet()
+        missed.notes.append("capped")
+        return [missed], slots
+    read = read_windows(
+        executor,
+        facts,
+        [(start, end)],
+        per_window=_WHOLE_WINDOW_CEILING,
+        kind="behavior_events",
+        max_sources=BEHAVIOUR_SOURCES,
+    )
+    slots -= 1
+    if _whole_splits(read, start, end, depth, slots):
+        mid = start + (end - start) / 2.0
+        left, slots = _read_whole_span(executor, facts, start, mid, depth + 1, slots - 1)
+        right, slots = _read_whole_span(executor, facts, mid, end, depth + 1, slots + 1)
+        return [*left, *right], slots
+    if len(read.rows) >= _WHOLE_WINDOW_CEILING:
+        read.notes.append("capped")
+    return [read], slots
+
+
+def _read_whole_source(executor: HuntExecutor, facts: SourceFacts) -> RowSet:
+    """Equal slices first; any slice that comes back full is bisected until it is not."""
+    found = RowSet()
+    slots = _whole_request_cap(executor)
+    for start, end in source_windows(facts, _whole_window_count(facts.events)):
+        parts, slots = _read_whole_span(executor, facts, start, end, 0, slots)
+        for part in parts:
+            _absorb_whole(found, part)
+    found.rows.sort(
+        key=lambda row: (_row_time(row), str(row.get("host") or ""), str(row.get("_raw") or ""))
+    )
+    return found
 
 
 def anchor_windows(
@@ -994,13 +1082,7 @@ def read_behaviour_source(
     """Whole when it fits, else rung-2 windows, the source's value spans, bursts, uniform."""
     complete = _is_complete_source(facts, per_window)
     if complete:
-        read = read_files(
-            executor,
-            facts,
-            source_windows(facts, _whole_window_count(facts.events)),
-            per_window=facts.events,
-            kind="behavior_events",
-        )
+        read = _read_whole_source(executor, facts)
         read.selection = "full source range within allocated row budget"
         read.read_mode = "whole"
         read.rung = "whole"
