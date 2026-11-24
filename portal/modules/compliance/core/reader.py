@@ -1304,7 +1304,41 @@ def store_answer(
             reader_strings=(payload["answer"],),
         ),
     )
+    _project_conversation_revision(repo, revision.revision_id)
     return answer_id
+
+
+def _project_conversation_revision(repo: Any, revision_id: str) -> None:
+    """Add only unindexed sections from one stored answer to its corpus."""
+    try:
+        import asyncio
+
+        from portal.modules.compliance.core import section_index
+        from portal.modules.compliance.tools.compliance_retrieval import project_sections
+        from portal.platform.retrieval import store as retrieval_store
+
+        plan = section_index.build_plan(repo, jurisdiction="derived")
+        units = [unit for unit in plan.units if unit.revision_id == revision_id]
+        if not units:
+            return
+        table = retrieval_store.text_table(plan.kb_id, create=False, prefix="compliance_")
+        indexed = (
+            set()
+            if table is None
+            else {
+                str(row.get("chunk_id", ""))
+                for row in table.search().select(["chunk_id"]).limit(1_000_000).to_list()
+            }
+        )
+        missing = [unit for unit in units if unit.chunk_id not in indexed]
+        if missing:
+            asyncio.run(project_sections(plan.kb_id, missing, rebuild=table is None))
+    except Exception as exc:  # noqa: BLE001
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Could not immediately project stored compliance revision %s: %s", revision_id, exc
+        )
 
 
 def store_run(
