@@ -255,7 +255,7 @@ def load_presets(presets: list[dict] | None = None) -> dict[str, OwuiPreset]:
         params = entry.get("params") or {}
         out[pid] = OwuiPreset(
             id=pid,
-            name=str(meta.get("name", pid)),
+            name=str(entry.get("name") or meta.get("name") or pid),
             tool_ids=tuple(str(t) for t in meta.get("toolIds") or ()),
             function_calling=params.get("function_calling") == "native",
             system=str(params.get("system", "")),

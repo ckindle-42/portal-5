@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import io
+import json
 import struct
 from pathlib import Path
 
@@ -15,7 +16,7 @@ from pptx import Presentation
 from pptx.oxml.xmlchemy import OxmlElement
 
 from tests.qat import uat_behavioral as uat
-from tests.qat.config import Discovery, OwuiPreset, discover
+from tests.qat.config import PRESETS_JSON, Discovery, OwuiPreset, discover, load_presets
 
 EXPANSION_IDS = {
     "s5-gui-persona-roster",
@@ -220,8 +221,8 @@ def test_data_sql_emits_when_variant_exposed(monkeypatch: pytest.MonkeyPatch) ->
         ),
         (
             "obscura_navigate",
-            {"markers": ["open webui"], "any_markers": ["heading"]},
-            "The snapshot heading reads Open WebUI.",
+            {"markers": ["example domain"], "any_markers": ["heading"]},
+            "The snapshot heading reads Example Domain.",
             "The page loaded successfully.",
         ),
         (
@@ -462,6 +463,124 @@ def test_seeded_personas_excludes_role_and_unexposed_variant() -> None:
     assert "techwriter" not in seeded
     # variant=data is not an exposed preset, so its personas are conservatively excluded.
     assert "databasearchitect" not in seeded
+
+
+# --------------------------------------------------------------- browser-harness fixes
+
+
+class _FakeUI:
+    def __init__(self, roster: set[str]) -> None:
+        self._roster = roster
+
+    def workspace_roster(self) -> set[str]:
+        return self._roster
+
+
+def _span_turn(text: str, tools: tuple[str, ...]) -> uat.UATTurn:
+    spans = [{"name": "tool.completed", "tool": tool, "outcome": "ok"} for tool in tools]
+    return uat.UATTurn("prompt", text, {"spans": spans}, tools, ())
+
+
+def _journey(scenario_id: str) -> uat.UATCase:
+    return next(c for c in uat.discover_cases(discover()) if c.scenario_id == scenario_id)
+
+
+def test_load_presets_reads_top_level_display_name() -> None:
+    presets = load_presets(
+        [
+            {"id": "auto", "name": "🤖 Portal Auto Router", "meta": {}, "params": {}},
+            {"id": "meta-only", "meta": {"name": "Meta Name"}, "params": {}},
+            {"id": "bare", "meta": {}, "params": {}},
+        ]
+    )
+    assert presets["auto"].name == "🤖 Portal Auto Router"
+    assert presets["meta-only"].name == "Meta Name"
+    assert presets["bare"].name == "bare"
+
+
+def test_roster_missing_accepts_display_name_only_roster() -> None:
+    discovery = discover()
+    # The live virtualized selector renders the configured display names, not raw slugs.
+    # Read them from the preset bundle directly so the check is independent of load_presets.
+    raw = json.loads(PRESETS_JSON.read_text(encoding="utf-8"))
+    roster = {str(entry.get("name") or entry["id"]) for entry in raw}
+    for spec in uat._seeded_personas(discovery, uat.PERSONA_DIR):
+        roster.add(str(spec.get("name") or spec.get("slug")))
+    state = type("S", (), {"discovery": discovery})()
+    assert uat._roster_missing(state, _FakeUI(roster)) == []
+    assert "auto-coding" in uat._roster_missing(state, _FakeUI(set()))
+
+
+def test_obscura_journey_targets_public_example_domain() -> None:
+    case = _journey("s5-browser-web-research-obscura")
+    joined = " ".join(case.prompts).casefold()
+    assert "https://example.com" in joined
+    assert "host.docker.internal" not in joined
+    assert "browser_navigate" in joined and "browser_snapshot" in joined
+    assert "example domain" in {str(m).casefold() for m in case.expected["markers"]}
+
+
+def test_web_research_scopes_exact_tools_per_turn() -> None:
+    case = _journey("s5-browser-web-research")
+    per_turn = case.expected["tools_per_turn"]
+    assert per_turn == [["web_search", "news_search"], ["web_fetch", "kb_search_all"]]
+    assert {tool for group in per_turn for tool in group} == set(case.expected_tools)
+    for prompt, group in zip(case.prompts, per_turn, strict=True):
+        for tool in group:
+            assert tool in prompt
+
+
+def test_required_tool_error_enforces_tools_per_turn() -> None:
+    case = uat.UATCase(
+        "wr",
+        "wr",
+        "auto-research",
+        ("a", "b"),
+        "web_research",
+        {"tools_per_turn": [["web_search", "news_search"], ["web_fetch", "kb_search_all"]]},
+        expected_tools=("kb_search_all", "news_search", "web_fetch", "web_search"),
+    )
+    good = [
+        _span_turn("t1", ("web_search", "news_search")),
+        _span_turn("t2", ("web_fetch", "kb_search_all")),
+    ]
+    assert uat._required_tool_error(case, good) is None
+    dropped = [
+        _span_turn("t1", ("web_search",)),
+        _span_turn("t2", ("web_fetch", "kb_search_all")),
+    ]
+    error = uat._required_tool_error(case, dropped)
+    assert error and "turn 1:news_search" in error
+    # A tool completed in the wrong turn does not satisfy its scoped turn.
+    swapped = [
+        _span_turn("t1", ("web_search", "web_fetch")),
+        _span_turn("t2", ("news_search", "kb_search_all")),
+    ]
+    swapped_error = uat._required_tool_error(case, swapped)
+    assert swapped_error
+    assert "turn 1:news_search" in swapped_error and "turn 2:web_fetch" in swapped_error
+
+
+def test_compliance_policy_accepts_requirement_alias() -> None:
+    case = _journey("s5-compliance-policy-conversation")
+    assert case.timeout_s == 900.0
+    assert set(case.expected["required_any_tools"]) == {
+        "nerc_cip_requirement",
+        "compliance_requirement",
+    }
+    assert "nerc_cip_requirement" not in case.expected_tools
+    for alias in ("nerc_cip_requirement", "compliance_requirement"):
+        turns = [
+            _span_turn("t1", ("compliance_sources", "compliance_read")),
+            _span_turn("t2", (alias, "compliance_search", "compliance_links")),
+        ]
+        assert uat._required_tool_error(case, turns) is None
+    neither = [
+        _span_turn("t1", ("compliance_sources", "compliance_read")),
+        _span_turn("t2", ("compliance_search", "compliance_links")),
+    ]
+    error = uat._required_tool_error(case, neither)
+    assert error and "one of" in error
 
 
 # --------------------------------------------------------------- complexity budget
