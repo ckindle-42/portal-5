@@ -311,6 +311,29 @@ def _resolve_request_sampling_values(
     return values
 
 
+def _merge_stop_sequences(*values: Any) -> list[str]:
+    """Merge string and list stop values in order, without duplicates."""
+    merged: list[str] = []
+    for value in values:
+        candidates = [value] if isinstance(value, str) else value if isinstance(value, list) else []
+        for candidate in candidates:
+            if isinstance(candidate, str) and candidate not in merged:
+                merged.append(candidate)
+    return merged
+
+
+def _inject_stop_sequences(
+    body: dict[str, Any], ws_cfg_local: dict[str, Any], engine_options: dict[str, Any] | None = None
+) -> None:
+    options = body.get("options")
+    option_stop = options.get("stop") if isinstance(options, dict) else None
+    stops = _merge_stop_sequences(body.get("stop"), option_stop, ws_cfg_local.get("stop"))
+    if stops:
+        body["stop"] = stops
+        if engine_options is not None:
+            engine_options["stop"] = stops
+
+
 def _apply_bite_thinking_budget(body: dict[str, Any], ws_cfg: dict[str, Any]) -> None:
     if "portal_bite_tools" not in body:
         return
@@ -444,6 +467,7 @@ def _inject_ollama_options(body: dict[str, Any], workspace_id: str = "") -> dict
     body = dict(body)
     body["options"] = dict(body.get("options") or {})
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
+    _inject_stop_sequences(body, ws_cfg_local, body["options"])
 
     # context cap
     ctx_limit = ws_cfg_local.get("context_limit")
@@ -552,6 +576,7 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
+    _inject_stop_sequences(body, ws_cfg_local)
 
     _apply_omlx_thinking_budget(body, ws_cfg_local)
 

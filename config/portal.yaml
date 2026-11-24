@@ -1891,11 +1891,15 @@ workspaces:
     model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
     context_limit: 8192
     keep_alive: 10m
-    temperature: 0.7
+    temperature: 0.4
     top_p: 0.8
     top_k: 20
     min_p: 0.05
-    repeat_penalty: 1.05
+    repeat_penalty: 1.12
+    stop: ["</tool_response>", "</工具使用记录>"]
+    sampling_override:
+      reason: VulnLLM-R-7B-4bit on oMLX at card temperature 0.7 / repeat_penalty 1.05 looped 1605x on </工具使用记录> and drifted to 11.5k CJK chars in live OWUI tool/continuity chats (8256448b, b9af13ab); 0.4 / 1.12 + stop sequences prevent post-tool degeneration
+      evidence: pending
     # think:false on the group default. It's a no-op for the base (VulnLLM-R is
     # Qwen2.5, not a thinking model) and for uncensored/blueteam/redteam-deep/
     # purpleteam-exec (Llama / gemma4). It DOES take effect on the Qwen3.5/3.6
@@ -1930,7 +1934,7 @@ workspaces:
     engine: true
     engine_reason: security engine (merge scope excludes security; unchanged)
     enable_web_search: true
-    owui_system_prompt: You are a security expert. Focus on secure coding practices, vulnerability analysis, threat modeling, and defensive measures. Cite CVEs and security frameworks when relevant. For any web lookups, CVE searches, or current threat intelligence, always use the web_search tool — never write code to fetch data from APIs.
+    owui_system_prompt: You are a security expert. Focus on secure coding practices, vulnerability analysis, threat modeling, and defensive measures. Cite CVEs and security frameworks when relevant. For any web lookups, CVE searches, or current threat intelligence, always use the web_search tool — never write code to fetch data from APIs. Always respond in the same language as the user's message.
     variants:
       uncensored:
         name: 🔓 Portal Security (Uncensored)
