@@ -21,9 +21,11 @@ from urllib.parse import urlsplit
 
 import yaml
 
+from .artifacts import raw_tool_error_leak
+from .browser_ui import BrowserUI, PlaywrightUnavailable
 from .config import PERSONA_DIR, Discovery, Settings, workspace_tools_for
 from .models import QATResult, QATScenario, Status, classify_defect
-from .owui_client import OWUIClient
+from .owui_client import OWUIClient, artifact_urls
 
 UAT_PHASE = "human_grade"
 GENERATED_DOCX = "uat:upload-generated-docx"
@@ -1612,9 +1614,334 @@ def run_case(settings: Settings, scenario: QATScenario, state: Any, options: Any
         return QATResult(
             scenario.scenario_id, Status.SKIP, "UAT case not present in current discovery"
         )
+    if not getattr(options, "api_only", False):
+        return _run_browser_case(settings, scenario, case, state, options)
     if case.cross_session:
         return _run_memory_case(settings, scenario, case, options)
     return _run_chat_case(settings, scenario, case, options)
+
+
+def _run_browser_case(
+    settings: Settings, scenario: QATScenario, case: UATCase, state: Any, options: Any
+) -> QATResult:
+    client = OWUIClient(settings)
+    run_dir = getattr(state, "run_dir", None) or (settings.repo_root / "results" / "qat_browser")
+    ui = BrowserUI(settings, run_dir / "screenshots")
+    try:
+        ui.start()
+    except PlaywrightUnavailable as exc:
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            f"browser GUI driver unavailable: {exc}",
+            defect_class=classify_defect(infra_hop_failed=True),
+            evidence={"driver": "browser_gui"},
+        )
+    try:
+        token = client.signin()
+        ui.login()
+        if case.cross_session:
+            return _run_browser_memory(ui, client, token, settings, scenario, case, state, options)
+        return _run_browser_chat(ui, client, token, settings, scenario, case, state, options)
+    except Exception as exc:
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            f"{type(exc).__name__}: {exc}",
+            defect_class=classify_defect(infra_hop_failed=True),
+            evidence={"driver": "browser_gui"},
+        )
+    finally:
+        ui.stop()
+
+
+def _run_browser_chat(
+    ui: BrowserUI,
+    client: OWUIClient,
+    token: str,
+    settings: Settings,
+    scenario: QATScenario,
+    case: UATCase,
+    state: Any,
+    options: Any,
+) -> QATResult:
+    ui.new_chat()
+    ui.select_model(case.model_slug, _preset_display_name(state, case))
+    gui_tools = ui.inspect_and_manage_tools(case.expected_tools)
+    deadline = time.monotonic() + case.timeout_s
+    turns, error, chat_id = _run_browser_sequence(
+        ui, client, token, settings, scenario, case, deadline
+    )
+    extra = _browser_evidence(ui, scenario)
+    extra["gui_tools"] = gui_tools
+    if error is None:
+        gui_errors = _gui_transparency_errors(case, extra)
+        if gui_errors:
+            error = _status_result(scenario, "; ".join(gui_errors), chat_id, turns)
+    if error:
+        error.chat_id = chat_id
+        error.evidence = {**(error.evidence or {}), **extra}
+        if chat_id:
+            return _archive_chat(client, token, chat_id, scenario, options, error)
+        return error
+    return _finalize_turns(client, token, chat_id, scenario, case, options, turns, extra)
+
+
+def _run_browser_sequence(
+    ui: BrowserUI,
+    client: OWUIClient,
+    token: str,
+    settings: Settings,
+    scenario: QATScenario,
+    case: UATCase,
+    deadline: float,
+    memory_key: str = "",
+) -> tuple[list[UATTurn], QATResult | None, str]:
+    from . import runner
+
+    transcript: list[UATTurn] = []
+    chat_id = ""
+    for index, template in enumerate(case.prompts, start=1):
+        prompt = template.replace("{{memory_key}}", memory_key)
+        with tempfile.TemporaryDirectory(prefix="uat-browser-upload-") as tmp:
+            upload_path, error = _browser_turn_upload(
+                client, token, settings, case, index, transcript, Path(tmp), deadline
+            )
+            if error:
+                return transcript, _status_result(scenario, error, chat_id, transcript), chat_id
+            started_at = time.time()
+            text = ui.send_turn(
+                prompt, upload_path=upload_path, max_wait_s=max(0.0, deadline - time.monotonic())
+            )
+        chat_id = ui.current_chat_id() or chat_id
+        trace = client.lookup_trace(
+            model_slug=case.model_slug, turn_started_at=started_at, deadline=deadline, token=token
+        )
+        served = runner._served_engine_model(trace, "")
+        failure = runner._primary_model_failure(scenario, trace, served, chat_id)
+        if failure:
+            return transcript, failure, chat_id
+        urls = _browser_artifact_urls(ui, text)
+        leak = raw_tool_error_leak(text)
+        if leak:
+            leaked = UATTurn(prompt, text, trace, (), urls)
+            return (
+                transcript,
+                _status_result(
+                    scenario, f"raw tool error leaked: {leak}", chat_id, [*transcript, leaked]
+                ),
+                chat_id,
+            )
+        transcript.append(UATTurn(prompt, text, trace, _tool_names_from_calls((), trace), urls))
+    tool_error = _required_tool_error(case, transcript)
+    if tool_error:
+        return transcript, _status_result(scenario, tool_error, chat_id, transcript), chat_id
+    return transcript, None, chat_id
+
+
+def _browser_turn_upload(
+    client: OWUIClient,
+    token: str,
+    settings: Settings,
+    case: UATCase,
+    index: int,
+    turns: list[UATTurn],
+    tmp_dir: Path,
+    deadline: float,
+) -> tuple[Path | None, str | None]:
+    if index == 1 and case.attachment:
+        path = Path(case.attachment)
+        if not path.is_absolute():
+            path = settings.repo_root / path
+        if not path.is_file():
+            return None, f"attachment not found: {path}"
+        return path, None
+    if index != case.generated_upload_turn:
+        return None, None
+    suffix = str(case.expected.get("upload_kind") or "docx").lower()
+    url = next(
+        (
+            url
+            for turn in turns
+            for url in turn.artifact_urls
+            if urlsplit(url).path.lower().endswith(f".{suffix}")
+        ),
+        "",
+    )
+    if not url:
+        return None, f"generated {suffix.upper()} was not surfaced before the read-back turn"
+    data = client.download_artifact(token, url)
+    if not data:
+        return None, f"generated {suffix.upper()} download returned no bytes"
+    filename = "uat-generated-note.docx" if suffix == "docx" else f"uat-generated-{suffix}.{suffix}"
+    path = tmp_dir / filename
+    path.write_bytes(data)
+    return path, None
+
+
+def _browser_evidence(ui: BrowserUI, scenario: QATScenario) -> dict[str, object]:
+    shot = ui.screenshot(scenario.scenario_id)
+    users, assistants = ui.visible_turn_count()
+    return {
+        "driver": "browser_gui",
+        "screenshot": str(shot),
+        "visible_turns": {"user": users, "assistant": assistants},
+        "browser_errors": ui.result_errors(),
+    }
+
+
+def _gui_transparency_errors(case: UATCase, extra: dict[str, object]) -> list[str]:
+    errors: list[str] = []
+    browser_errors = extra.get("browser_errors")
+    page_errors = browser_errors.get("page_errors") if isinstance(browser_errors, dict) else []
+    if page_errors:
+        errors.append(f"browser page errors: {'; '.join(str(e) for e in page_errors)}")
+    visible = extra.get("visible_turns")
+    users = int(visible.get("user", 0)) if isinstance(visible, dict) else 0
+    assistants = int(visible.get("assistant", 0)) if isinstance(visible, dict) else 0
+    if users < len(case.prompts):
+        errors.append(f"GUI rendered {users}/{len(case.prompts)} user prompts (orphaned replies)")
+    if assistants < len(case.prompts):
+        errors.append(f"GUI rendered {assistants}/{len(case.prompts)} assistant responses")
+    return errors
+
+
+def _preset_display_name(state: Any, case: UATCase) -> str:
+    discovery = getattr(state, "discovery", None)
+    presets = getattr(discovery, "presets", {}) or {}
+    preset = presets.get(case.model_slug)
+    if preset is None and "::" in case.model_slug:
+        preset = presets.get(case.model_slug.split("::", 1)[0])
+    if preset is not None:
+        return str(getattr(preset, "name", "") or "")
+    personas = getattr(discovery, "personas", ()) or ()
+    persona = next((p for p in personas if getattr(p, "slug", "") == case.model_slug), None)
+    return str(getattr(persona, "name", "") or "") if persona else ""
+
+
+def _browser_artifact_urls(ui: BrowserUI, text: str) -> tuple[str, ...]:
+    dom = ui.last_artifact_links()
+    return tuple(dict.fromkeys([*dom, *artifact_urls({"content": text})]))
+
+
+def _run_browser_memory(
+    ui: BrowserUI,
+    client: OWUIClient,
+    token: str,
+    settings: Settings,
+    scenario: QATScenario,
+    case: UATCase,
+    state: Any,
+    options: Any,
+) -> QATResult:
+    from . import runner
+
+    memory_key = f"QATUAT-{uuid.uuid4().hex[:10]}"
+    prompts = [prompt.replace("{{memory_key}}", memory_key) for prompt in case.prompts]
+    display = _preset_display_name(state, case)
+    chats: list[str] = []
+    records: list[UATTurn] = []
+    shots: list[str] = []
+    for index, prompt in enumerate(prompts, start=1):
+        ui.new_chat()
+        ui.select_model(case.model_slug, display)
+        session_case = replace(
+            case,
+            prompts=(prompt,),
+            cross_session=False,
+            expected_tools=("remember",) if index == 1 else ("recall",),
+        )
+        session_scenario = QATScenario(
+            scenario.scenario_id,
+            scenario.title,
+            scenario.stage,
+            scenario.phase,
+            scenario.tier,
+            scenario.model_slug,
+            prompts=(prompt,),
+            tools=case.tool_ids,
+            expected_tools=session_case.expected_tools,
+        )
+        turns, error, chat_id = _run_browser_sequence(
+            ui,
+            client,
+            token,
+            settings,
+            session_scenario,
+            session_case,
+            time.monotonic() + case.timeout_s / 2,
+            memory_key,
+        )
+        shots.append(str(ui.screenshot(f"{scenario.scenario_id}-chat{index}")))
+        if chat_id:
+            chats.append(chat_id)
+        if error:
+            for opened in chats:
+                runner._finalize_chat(client, token, opened, scenario, Status.FAIL, options)
+            error.evidence = {
+                **(error.evidence or {}),
+                "driver": "browser_gui",
+                "screenshots": shots,
+                "browser_errors": ui.result_errors(),
+            }
+            return error
+        records.extend(turns)
+    return _finish_browser_memory(
+        ui, client, token, scenario, case, options, chats, records, shots, memory_key
+    )
+
+
+def _finish_browser_memory(
+    ui: BrowserUI,
+    client: OWUIClient,
+    token: str,
+    scenario: QATScenario,
+    case: UATCase,
+    options: Any,
+    chats: list[str],
+    records: list[UATTurn],
+    shots: list[str],
+    memory_key: str,
+) -> QATResult:
+    from . import runner
+
+    errors, evidence = grade_case(case, records, {})
+    evidence["chat_ids"] = chats
+    evidence["driver"] = "browser_gui"
+    evidence["screenshot"] = shots[-1] if shots else ""
+    evidence["screenshots"] = shots
+    users, assistants = ui.visible_turn_count()
+    evidence["visible_turns"] = {"user": users, "assistant": assistants}
+    evidence["browser_errors"] = ui.result_errors()
+    if len(set(chats)) != len(case.prompts):
+        errors.append("memory round-trip did not use a distinct OWUI chat for each session")
+    recalled = records[-1].text.casefold()
+    if memory_key.casefold() not in recalled or "cobalt" not in recalled:
+        errors.append("new chat did not recall both facts saved in the previous chat")
+    if ui.result_errors()["page_errors"]:
+        errors.append("browser page errors during memory round-trip")
+    for chat_id in chats:
+        runner._finalize_chat(
+            client, token, chat_id, scenario, Status.PASS if not errors else Status.FAIL, options
+        )
+    if errors:
+        return _stamp_served(
+            QATResult(
+                scenario.scenario_id,
+                Status.FAIL,
+                "; ".join(errors),
+                defect_class=classify_defect(model_output_miss=True),
+                evidence=evidence,
+            ),
+            records,
+        )
+    return QATResult(
+        scenario.scenario_id,
+        Status.PASS,
+        "memory persisted across distinct OWUI chats",
+        chat_id=chats[-1],
+        evidence=evidence,
+    )
 
 
 def _run_chat_case(
@@ -1631,39 +1958,7 @@ def _run_chat_case(
         if error:
             error.chat_id = chat_id
             return _archive_chat(client, token, chat_id, scenario, options, error)
-        payloads, download_error = _download_payloads(client, token, turns)
-        if download_error:
-            return _archive_chat(
-                client,
-                token,
-                chat_id,
-                scenario,
-                options,
-                _status_result(scenario, download_error, chat_id, turns),
-            )
-        errors = _grade_payload_types(case, payloads)
-        quality_errors, evidence = grade_case(case, turns, payloads)
-        errors.extend(quality_errors)
-        if errors:
-            result = _graded_failure(scenario, errors, chat_id, turns, evidence)
-            return _archive_chat(client, token, chat_id, scenario, options, result)
-        status = Status.WARN if case.grader == "stt_accuracy" else Status.PASS
-        result_detail = "human-grade conversation and content checks passed"
-        if case.grader == "stt_accuracy":
-            result_detail = (
-                "speaker and transcript checks passed; exact word accuracy needs operator review"
-            )
-        result = QATResult(
-            scenario.scenario_id,
-            status,
-            result_detail,
-            chat_id=chat_id,
-            served_model=str(turns[-1].trace.get("model") or ""),
-            backend=str(turns[-1].trace.get("backend") or ""),
-            artifacts=tuple(url for turn in turns for url in turn.artifact_urls),
-            evidence=evidence,
-        )
-        return _archive_chat(client, token, chat_id, scenario, options, result)
+        return _finalize_turns(client, token, chat_id, scenario, case, options, turns)
     except Exception as exc:
         return QATResult(
             scenario.scenario_id,
@@ -1671,6 +1966,53 @@ def _run_chat_case(
             f"{type(exc).__name__}: {exc}",
             defect_class=classify_defect(infra_hop_failed=True),
         )
+
+
+def _finalize_turns(
+    client: OWUIClient,
+    token: str,
+    chat_id: str,
+    scenario: QATScenario,
+    case: UATCase,
+    options: Any,
+    turns: list[UATTurn],
+    extra_evidence: dict[str, object] | None = None,
+) -> QATResult:
+    """Download artifacts, run every grader, and archive — shared by both drivers."""
+    payloads, download_error = _download_payloads(client, token, turns)
+    if download_error:
+        return _archive_chat(
+            client,
+            token,
+            chat_id,
+            scenario,
+            options,
+            _status_result(scenario, download_error, chat_id, turns),
+        )
+    errors = _grade_payload_types(case, payloads)
+    quality_errors, evidence = grade_case(case, turns, payloads)
+    evidence.update(extra_evidence or {})
+    errors.extend(quality_errors)
+    if errors:
+        result = _graded_failure(scenario, errors, chat_id, turns, evidence)
+        return _archive_chat(client, token, chat_id, scenario, options, result)
+    status = Status.WARN if case.grader == "stt_accuracy" else Status.PASS
+    result_detail = "human-grade conversation and content checks passed"
+    if case.grader == "stt_accuracy":
+        result_detail = (
+            "speaker and transcript checks passed; exact word accuracy needs operator review"
+        )
+    result = QATResult(
+        scenario.scenario_id,
+        status,
+        result_detail,
+        chat_id=chat_id,
+        served_model=str(turns[-1].trace.get("model") or ""),
+        backend=str(turns[-1].trace.get("backend") or ""),
+        artifacts=tuple(url for turn in turns for url in turn.artifact_urls),
+        evidence=evidence,
+    )
+    return _archive_chat(client, token, chat_id, scenario, options, result)
 
 
 def _archive_chat(
