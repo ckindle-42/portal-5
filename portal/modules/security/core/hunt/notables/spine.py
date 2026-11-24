@@ -350,7 +350,9 @@ def _scan_tokens(raw: str) -> Iterable[tuple[str, str]]:
 
 
 def entities_for(
-    event: SpineEvent, field_kinds: Mapping[tuple[str, str], str] | None = None
+    event: SpineEvent,
+    field_kinds: Mapping[tuple[str, str], str] | None = None,
+    roles: Mapping[tuple[str, str], str] | None = None,
 ) -> list[EntityHit]:
     """Every entity one event carries, deduplicated in first-seen order."""
     found: dict[tuple[str, str], EntityHit] = {}
@@ -375,6 +377,20 @@ def entities_for(
         hit = classify(name, value)
         if hit is not None:
             found.setdefault((hit.kind, hit.value), hit)
+    if not found:
+        for name, value in event.fields.items():
+            role = (roles or {}).get((event.source_id, name))
+            token = _clean(value)
+            if role not in {"actor", "from", "to", "object"} or not token:
+                continue
+            if is_sentinel_value(token):
+                continue
+            kind = "object" if role == "object" else ADDRESS
+            identity = f"{name}={token}" if role == "object" else token
+            found.setdefault((kind, identity), EntityHit(kind, identity, ""))
+        host = _clean(event.host)
+        if host and not is_sentinel_value(host):
+            found.setdefault(("device", host), EntityHit("device", host, ""))
     return list(found.values())
 
 
@@ -667,7 +683,7 @@ def build_spine(
     )
     without_entity = 0
     for event in events:
-        found = entities_for(event, overrides)
+        found = entities_for(event, overrides, roles)
         hits[event.event_id] = found
         per_source[event.source_id]["events"] += 1
         if not found:
@@ -790,7 +806,7 @@ def _card_for(cards: Sequence[Any], raw: str) -> tuple[Mapping[str, str], str]:
 def _roles_of(cards: Iterable[Any]) -> dict[tuple[str, str], str]:
     found: dict[tuple[str, str], str] = {}
     for card in cards:
-        for role in ("actor", "to", "object"):
+        for role in ("actor", "from", "to", "object"):
             for name in card.roles.get(role, ()):
                 found.setdefault((card.source_id, name), role)
     return found

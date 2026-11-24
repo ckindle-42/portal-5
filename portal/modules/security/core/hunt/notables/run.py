@@ -21,6 +21,7 @@ from ..judge import JudgeClient
 from .behaviours import (
     BEHAVIOURS_CHECKPOINT_FILE,
     Behaviour,
+    behaviour_source_ids,
     collect_behaviours,
     load_behaviour_peaks,
     load_behaviours,
@@ -34,7 +35,6 @@ from .cards import (
     SourceCard,
     answer_cards,
     assemble_cards,
-    card_consumers,
     is_alert_event,
     prepare_cards,
 )
@@ -527,7 +527,7 @@ def _completed_behaviours_resume(
     out: Path,
 ) -> tuple[list[Behaviour], dict[str, Any]] | None:
     cards = load_cards(out)
-    expected = sorted({card.source_id for card in cards if "behaviours" in card_consumers(card)})
+    expected = behaviour_source_ids(cards)
     inventory = load_inventory(out / INVENTORY_FILE)
     checkpoint = read_json(out / BEHAVIOURS_CHECKPOINT_FILE)
     progress = read_json(out / "progress.json")
