@@ -7,7 +7,12 @@ match the format contract. No file is trusted by extension alone.
 from __future__ import annotations
 
 import io
+import math
+import shutil
+import subprocess
+import tempfile
 import zipfile
+from pathlib import Path
 
 PNG_SIG = b"\x89PNG\r\n\x1a\n"
 PDF_SIG = b"%PDF-"
@@ -35,6 +40,49 @@ def validate_png(data: bytes) -> str | None:
 def validate_mp4(data: bytes) -> str | None:
     if len(data) < 12 or data[4:8] != b"ftyp":
         return "missing ftyp box at offset 4"
+    return None
+
+
+def validate_mp4_duration(data: bytes, min_duration_s: float) -> str | None:
+    """Check an MP4 duration with ffprobe when it is installed."""
+    ffprobe = shutil.which("ffprobe")
+    if ffprobe is None:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "artifact.mp4"
+        path.write_bytes(data)
+        try:
+            result = subprocess.run(
+                [
+                    ffprobe,
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
+                    str(path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return f"ffprobe failed while reading MP4 duration: {exc}"
+    if result.returncode != 0:
+        detail = result.stderr.strip() or f"exit status {result.returncode}"
+        return f"ffprobe could not read MP4 duration: {detail}"
+    try:
+        duration = float(result.stdout.strip())
+    except ValueError:
+        return "ffprobe returned no MP4 duration"
+    if not math.isfinite(duration):
+        return "ffprobe returned no finite MP4 duration"
+    if duration < min_duration_s:
+        return f"MP4 duration {duration:.2f}s is below required {min_duration_s:.2f}s"
     return None
 
 

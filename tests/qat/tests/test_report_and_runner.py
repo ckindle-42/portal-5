@@ -10,6 +10,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from tests.qat import artifacts as art
 from tests.qat import preflight as pf
 from tests.qat import report as rp
 from tests.qat import runner as rn
@@ -203,6 +204,7 @@ class FakeOutcome:
 
 
 VALID_WAV = b"RIFF\x24\x00\x00\x00WAVEfmt " + b"\x00" * 16
+VALID_MP4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 16
 
 
 class FakeOWUI:
@@ -247,7 +249,11 @@ class FakeOWUI:
         return FakeOutcome(
             text="leak JSONDecodeError happened" if mode == "leak" else "the answer",
             leak_marker="JSONDecodeError" if mode == "leak" else None,
-            artifact_urls=() if mode == "missing" else ("/files/a.wav",),
+            artifact_urls=()
+            if mode == "missing"
+            else ("/files/a.mp4",)
+            if mode == "short_mp4"
+            else ("/files/a.wav",),
             trace={
                 "workspace": workspace,
                 "model": rn.primary_model_for(workspace),
@@ -256,6 +262,8 @@ class FakeOWUI:
         )
 
     def download_artifact(self, token: str, url: str) -> bytes:
+        if type(self).mode == "short_mp4":
+            return VALID_MP4
         return VALID_WAV if type(self).mode == "valid" else b"not-a-wav"
 
     def rename_chat(self, token: str, chat_id: str, title: str) -> None:
@@ -322,6 +330,31 @@ class TestChatExecution:
         result = rn._execute_one(settings, scenario, state, _chat_opts())
         assert result.status is Status.FAIL
         assert "validation" in result.detail
+        assert result.defect_class is DefectClass.PRODUCT_BUG
+
+    def test_short_mp4_fails_the_requested_duration(self, fake_owui, tmp_path: Path, monkeypatch):
+        from types import SimpleNamespace
+
+        FakeOWUI.mode = "short_mp4"
+        monkeypatch.setattr(art.shutil, "which", lambda _name: "/usr/bin/ffprobe")
+        monkeypatch.setattr(
+            art.subprocess,
+            "run",
+            lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="1.0\n", stderr=""),
+        )
+        settings = make_settings(tmp_path)
+        scenario = _scn(
+            "s2-video",
+            model="auto-audio::video",
+            artifact_kind="mp4",
+            artifact_min_duration_s=3.0,
+        )
+        state = rn.RunState(settings=settings, run_dir=tmp_path, discovery=make_discovery())
+
+        result = rn._execute_one(settings, scenario, state, _chat_opts())
+
+        assert result.status is Status.FAIL
+        assert "MP4 duration 1.00s is below required 3.00s" in result.detail
         assert result.defect_class is DefectClass.PRODUCT_BUG
 
     def test_missing_artifact_fails(self, fake_owui, tmp_path: Path) -> None:

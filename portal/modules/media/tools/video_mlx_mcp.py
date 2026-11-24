@@ -310,6 +310,7 @@ async def _generate(
         "engine": engine,
         "seed": seed,
         "frames": frames,
+        "duration_seconds": frames / fps,
     }
 
 
@@ -324,16 +325,15 @@ async def video_start(
     fps: int = 24,
     image_url: str | None = None,
     quality: str = VIDEO_MLX_QUALITY,
+    duration_seconds: float | None = None,
 ) -> dict[str, Any]:
-    """Start an async video job (text-to-video, or image-to-video via image_url);
-    poll video_status(job_id) until 'done' or 'error'.
-
-    quality: 'fast' = distilled sampler, 'hq' = two-stage pass (LTX models only).
-    """
+    """Start a video job; duration_seconds requests seconds (default 4s, max 6s) and overrides frames."""
     if not prompt:
         return {"success": False, "error": "prompt is required"}
     if quality not in ("fast", "hq"):
         return {"success": False, "error": f"quality must be 'fast' or 'hq', not {quality!r}"}
+    if duration_seconds is not None:
+        frames = min(145, max(25, int(round(duration_seconds * fps)) + 1))
     resolved = _model_key(model)
     model_key = _media_model_key(resolved, width, height)
     if not _JOBS.is_busy:

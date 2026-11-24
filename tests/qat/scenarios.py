@@ -669,6 +669,7 @@ def _phase_media_heavy(_s: Settings, d: Discovery) -> list[QATScenario]:
                 "auto-audio" if pid in {"auto-audio-stt", "auto-audio-tts"} else pid
             ].function_calling,
             artifact_kind=kind,
+            artifact_min_duration_s=3.0 if pid == "auto-audio::video" else None,
             expected=_media_expected(pid, kind),
             expected_tools=("transcribe_with_speakers",) if pid == "auto-audio-stt" else (),
             rubric=_rubric(

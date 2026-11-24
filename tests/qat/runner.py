@@ -939,6 +939,10 @@ def _validate_artifacts(
         error = artifacts.validate_artifact(kind, data)
         if error is not None:
             return f"artifact {url} failed {kind} validation: {error}"
+        if kind == "mp4" and scenario.artifact_min_duration_s is not None:
+            error = artifacts.validate_mp4_duration(data, scenario.artifact_min_duration_s)
+            if error is not None:
+                return f"artifact {url} failed mp4 duration validation: {error}"
     return None
 
 
