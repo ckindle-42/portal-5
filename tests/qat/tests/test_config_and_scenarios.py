@@ -367,6 +367,8 @@ class TestRegistry:
         assert kinds["s2-p6-auto-audio::image"] == "png"
         assert kinds["s2-p6-auto-audio::video"] == "mp4"
         assert kinds["s2-p6-auto-audio::music"] == "audio"
+        video = next(s for s in registry if s.scenario_id == "s2-p6-auto-audio::video")
+        assert video.artifact_min_duration_s == 3.0
 
     def test_rubric_between_one_and_five(self) -> None:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())

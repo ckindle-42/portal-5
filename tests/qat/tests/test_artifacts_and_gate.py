@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
+import subprocess
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -51,6 +54,18 @@ class TestArtifactValidators:
         assert art.validate_mp4(MP4) is None
         assert art.validate_mp4(b"\x00\x00\x00\x18XXXpmp42") is not None
         assert art.validate_mp4(b"ftyp") is not None
+
+    def test_mp4_minimum_duration_rejects_one_second_clip(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(shutil, "which", lambda _name: "/usr/bin/ffprobe")
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="1.0\n", stderr=""),
+        )
+        error = art.validate_mp4_duration(MP4, min_duration_s=3.0)
+        assert error is not None and "1.00s" in error and "3.00s" in error
 
     def test_wav_mp3_audio(self) -> None:
         assert art.validate_wav(WAV) is None

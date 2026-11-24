@@ -69,6 +69,7 @@ class QATScenario:
     expected_tools: tuple[str, ...] = ()
     timeout_s: float = 180.0
     attachment: str = ""
+    artifact_min_duration_s: float | None = None
 
     def cascade_key(self) -> tuple[int, str, str]:
         return (self.tier, self.model_slug, self.scenario_id)

@@ -319,10 +319,6 @@ def register_voice_profile(name: str, ref_audio_path: str, ref_text: str) -> dic
     src = Path(ref_audio_path)
     if not src.exists():
         return {"error": f"Reference audio not found: {ref_audio_path}"}
-    if not ref_text.strip():
-        return {
-            "error": "reference_text is required — it is the transcript of the clip and improves fidelity."
-        }
     try:
         audio, sr = _read_audio_any(src)
     except Exception as e:

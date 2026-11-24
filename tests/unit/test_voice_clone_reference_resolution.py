@@ -102,14 +102,16 @@ def test_empty_reference_picks_latest_audio_not_sidecar(uploads: Path) -> None:
     assert hit is not None and hit.suffix.lower() in tts_mcp._AUDIO_EXTS
 
 
-def test_clone_voice_registers_the_audio_file_not_the_sidecar(
-    uploads: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("reference_text", [None, "", "These are the exact words in the clip."])
+def test_clone_voice_registers_audio_and_caller_reference_text(
+    uploads: Path, monkeypatch: pytest.MonkeyPatch, reference_text: str | None
 ) -> None:
     wav = _upload_with_sidecar(uploads)
     captured: dict[str, object] = {}
 
     async def fake_register(name: str, ref: Path | None, raw: str, text: str) -> dict:
         captured["ref"] = ref
+        captured["reference_text"] = text
         return {"status": "success", "profile": name}
 
     async def fake_speak(text: str, voice: str) -> dict:
@@ -118,11 +120,14 @@ def test_clone_voice_registers_the_audio_file_not_the_sidecar(
 
     monkeypatch.setattr(tts_mcp, "_post_register", fake_register)
     monkeypatch.setattr(tts_mcp, "_speech_speak", fake_speak)
-    out = asyncio.run(tts_mcp.clone_voice(reference_audio=UUID, text="say hi"))
+    kwargs = {} if reference_text is None else {"reference_text": reference_text}
+    out = asyncio.run(tts_mcp.clone_voice(reference_audio=UUID, text="say hi", **kwargs))
     assert out.get("status") == "success"
     ref = captured["ref"]
     assert isinstance(ref, Path)
     assert ref.stem == wav.stem and ref.suffix.lower() in tts_mcp._AUDIO_EXTS
+    assert captured["reference_text"] == (reference_text or "")
+    assert captured["reference_text"] != "one-off clone reference"
 
 
 def test_host_rebases_container_workspace_path(uploads: Path) -> None:
@@ -142,3 +147,20 @@ def test_register_voice_profile_rejects_json_sidecar(uploads: Path) -> None:
     sidecar = _write(uploads, SIDECAR, b'{"text":"hello"}')
     out = speech.register_voice_profile("qat-json-ref", str(sidecar), "hello")
     assert "error" in out and "JSON" in out["error"]
+
+
+def test_register_voice_profile_accepts_empty_reference_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import numpy as np
+    import soundfile as sf
+
+    source = tmp_path / "reference.wav"
+    sf.write(source, np.zeros(5 * 16000, dtype=np.float32), 16000)
+    profile = tmp_path / "profiles" / "qat-empty-ref"
+    monkeypatch.setattr(speech, "_profile_dir", lambda _name: profile)
+
+    out = speech.register_voice_profile("qat-empty-ref", str(source), "")
+
+    assert out["status"] == "success"
+    assert (profile / "reference.txt").read_text(encoding="utf-8") == ""

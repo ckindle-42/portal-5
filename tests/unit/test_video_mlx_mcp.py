@@ -113,6 +113,7 @@ async def test_generate_dispatches_per_engine_and_publishes(monkeypatch, tmp_pat
     ltx = await video_mcp._generate("waves", "ltx-2.5-q4", 97, 704, 480, 42, 24)
     assert ltx["success"] is True and ltx["engine"] == "ltx"
     assert ltx["artifact_path"].endswith("ltx_deadbeef.mp4")
+    assert ltx["duration_seconds"] == pytest.approx(97 / 24)
 
     wan = await video_mcp._generate("waves", "wan2.2-5b", 97, 704, 480, 42, 24)
     assert wan["success"] is True and wan["engine"] == "wan"
@@ -167,6 +168,37 @@ class TestVideoStartLifecycle:
         assert done["status"] == "done"
         assert done["artifact_path"] == str(tmp_path / "v.mp4")
         assert done["download_url"] == "http://x/v"
+
+    @pytest.mark.asyncio
+    async def test_duration_seconds_overrides_frames_and_status_reports_duration(self, monkeypatch):
+        generated: list[tuple[int, int]] = []
+
+        async def fake_admit(_key: str) -> None:
+            return None
+
+        async def fake_gen(
+            _prompt: str,
+            _model: str,
+            frames: int,
+            _width: int,
+            _height: int,
+            _seed: int,
+            fps: int,
+            **_kwargs: Any,
+        ) -> dict[str, Any]:
+            generated.append((frames, fps))
+            return {"success": True, "frames": frames, "duration_seconds": frames / fps}
+
+        monkeypatch.setattr(video_mcp, "admit", fake_admit)
+        monkeypatch.setattr(video_mcp, "_generate", fake_gen)
+
+        start = await video_mcp.video_start(
+            prompt="ocean waves", frames=4, duration_seconds=4.0, fps=24
+        )
+        done = await video_mcp.video_status(start["job_id"], wait_s=2.0)
+
+        assert generated == [(97, 24)]
+        assert done["duration_seconds"] == pytest.approx(97 / 24)
 
     @pytest.mark.asyncio
     async def test_start_rejects_unknown_quality_without_admitting(self, monkeypatch):

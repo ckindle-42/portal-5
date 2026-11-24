@@ -236,16 +236,10 @@ async def speak(text: str, voice: str = "af_heart") -> dict[str, Any]:
 
 
 @mcp.tool(meta={"portal5/timeout_s": int(HTTP_TIMEOUT)})
-async def clone_voice(reference_audio: str = "", text: str = "") -> dict[str, Any]:
-    """
-    Speak text in a voice cloned from a reference clip (one-off, not persisted).
-    For a recurring trainer voice, use register_voice once, then speak(voice="trainer:<name>").
-
-    Args:
-        reference_audio: The uploaded reference clip — an OWUI file id, its filename,
-            or a path. Leave empty to use the most recently uploaded audio.
-        text: Text to speak in the cloned voice.
-    """
+async def clone_voice(
+    reference_audio: str = "", text: str = "", reference_text: str = ""
+) -> dict[str, Any]:
+    """Clone and speak a reference voice; blank reference_text allows transcript-free cloning."""
     if not text.strip():
         return {"error": "text is required"}
     ref = _resolve_reference(reference_audio)
@@ -256,7 +250,7 @@ async def clone_voice(reference_audio: str = "", text: str = "") -> dict[str, An
         return await _speech_speak(text, f"clone:{reference_audio}")
 
     ephemeral = f"oneoff-{secrets.token_hex(4)}"
-    reg = await _post_register(ephemeral, ref, "", "one-off clone reference")
+    reg = await _post_register(ephemeral, ref, "", reference_text)
     if reg.get("status") != "success":
         return reg
     try:
