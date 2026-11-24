@@ -782,34 +782,70 @@ def create_excel(
         return {"success": False, "error": str(e)}
 
 
+def _docx_to_pdf(src: Path, out_path: Path) -> None:
+    """Pure-Python docx→PDF via python-docx + PyMuPDF Story (no LibreOffice needed)."""
+    from xml.sax.saxutils import escape
+
+    import pymupdf
+    from docx import Document as _Document
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    parts: list[str] = []
+    for block in _Document(str(src)).iter_inner_content():
+        if isinstance(block, Paragraph):
+            text = block.text.strip()
+            if not text:
+                continue
+            style = block.style.name if block.style else ""
+            if style.startswith("Heading"):
+                level = min(int(next((c for c in style if c.isdigit()), "1")), 6)
+                parts.append(f"<h{level}>{escape(text)}</h{level}>")
+            elif style == "Title":
+                parts.append(f"<h1>{escape(text)}</h1>")
+            else:
+                parts.append(f"<p>{escape(text)}</p>")
+        elif isinstance(block, Table):
+            rows = "".join(
+                "<tr>" + "".join(f"<td>{escape(cell.text)}</td>" for cell in row.cells) + "</tr>"
+                for row in block.rows
+            )
+            parts.append(f"<table>{rows}</table>")
+    story: Any = pymupdf.Story(html="<html><body>" + "".join(parts) + "</body></html>")  # type: ignore[no-untyped-call]
+    writer: Any = pymupdf.DocumentWriter(str(out_path))  # type: ignore[no-untyped-call]
+    mediabox = pymupdf.paper_rect("a4")
+    where = mediabox + (36, 36, -36, -36)
+    more = True
+    while more:
+        dev = writer.begin_page(mediabox)
+        more, _ = story.place(where)
+        story.draw(dev)
+        writer.end_page()
+    writer.close()
+
+
 @mcp.tool()
 def convert_document(
     source_path: str,
     target_format: str,
 ) -> dict[str, Any]:
-    """Copy a document to a new format name.
+    """Convert a document to another format ('pdf', 'docx', 'pptx', 'xlsx').
 
-    Note: True format conversion (e.g., .docx to .pdf) requires LibreOffice
-    installed on the host. Without LibreOffice, this tool copies the file with
-    the new extension, which is only useful for same-family formats.
-
-    For PDF export, use LibreOffice on the host:
-      libreoffice --headless --convert-to pdf <file>
-
-    Args:
-        source_path:   Path to the source document
-        target_format: Target extension: 'pdf', 'docx', 'pptx', or 'xlsx'
+    source_path accepts a full path, a bare filename, or an Open WebUI download
+    URL (/api/v1/files/<id>/content/<name>); bare names resolve against the
+    output directory. LibreOffice is preferred when installed; docx→pdf falls
+    back to a pure-Python render (python-docx + PyMuPDF) without it. Other
+    cross-format conversions require LibreOffice.
     """
     import shutil
     import subprocess
-    from pathlib import Path as _Path
 
     _allowed_target_formats = frozenset({"pdf", "docx", "pptx", "xlsx"})
 
-    src = _Path(source_path).resolve()
-    allowed_root = _Path(OUTPUT_DIR).resolve()
-    if not str(src).startswith(str(allowed_root) + os.sep):
-        return {"error": "source_path must be a file within the output directory"}
+    try:
+        src = _resolve_input_path(source_path)
+    except PermissionError as e:  # N-23: a refusal is the tool's structured error, not a 500
+        return {"error": str(e)}
     if not src.exists():
         return {"error": f"Source file not found: {source_path}"}
 
@@ -857,7 +893,13 @@ def convert_document(
         frozenset({"pptx", "ppt"}),
         frozenset({"xlsx", "xls"}),
     }
-    src_ext = src.suffix.lstrip(".")
+    src_ext = src.suffix.lstrip(".").lower()
+    if src_ext == "docx" and target_format == "pdf":
+        try:
+            _docx_to_pdf(src, out_path)
+            return {**_published(out_path, "Converted document"), "method": "pymupdf"}
+        except Exception:
+            logger.exception("Pure-Python docx→pdf fallback failed")
     is_same_family = any({src_ext, target_format} <= fam for fam in same_family)
 
     if not is_same_family:
@@ -880,10 +922,10 @@ def convert_document(
 
 @mcp.tool()
 def export_pdf(source_path: str) -> dict[str, Any]:
-    """Export a generated Office document to PDF using host LibreOffice.
+    """Export a generated Office document to PDF (LibreOffice when installed,
+    pure-Python docx→pdf fallback otherwise).
 
-    Returns a clear error when LibreOffice is unavailable; it never renames or
-    copies Office bytes into a misleading .pdf file.
+    Never renames or copies Office bytes into a misleading .pdf file.
     """
     return convert_document(source_path, "pdf")
 

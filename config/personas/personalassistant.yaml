@@ -3,7 +3,9 @@ slug: personalassistant
 category: general
 workspace_model: auto-daily
 preferred_models:
-  - gemma4:26b-a4b-it-qat-ctx8k
+  # ctx8k overflowed on turn 1 once auto-daily injects memory + tools + prompt
+  # (~8-10k tokens); ctx32k is the deployed ollama-general build.
+  - gemma4:26b-a4b-it-qat-ctx32k
   - huihui_ai/Qwen3.6-abliterated:27b
   - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
 module: general

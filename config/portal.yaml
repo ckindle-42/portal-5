@@ -1936,6 +1936,7 @@ workspaces:
     # truncating before the phase content. `pentest` overrides think:true (35B,
     # a genuine read→enumerate→execute loop) with more context — see there.
     think: false
+    system_prompt_append: "\n\nCVE REPORTING RULE: When summarizing a CVE, quote the description/summary returned by lookup_cve/triage_cve verbatim — never invent affected software, vendors, or protocols the lookup did not return."
     tools:
     - web_search
     - web_fetch

@@ -81,7 +81,11 @@ def _resolve_input(path_str: str) -> Path:
     Only bare filenames are accepted — no absolute paths, no directory components.
     The resolved path must live under the workspace root (realpath check).
     """
-    from portal.platform.mcp_host.workspace import get_uploads_dir, get_workspace_root
+    from portal.platform.mcp_host.workspace import (
+        get_uploads_dir,
+        get_workspace_root,
+        resolve_upload_path,
+    )
 
     # Strip any directory component the caller may have supplied and reject traversal.
     name = Path(path_str).name
@@ -97,6 +101,11 @@ def _resolve_input(path_str: str) -> Path:
             continue
         if cand.is_file():
             return cand
+    # OWUI stores uploads as <id>_<name>: the shared resolver matches that form
+    # and id-only /api/v1/files/<id>/content URLs the exact-name lookup misses.
+    found = resolve_upload_path(path_str)
+    if found is not None:
+        return found
     raise FileNotFoundError(f"Input not found: {name}")
 
 
@@ -376,7 +385,10 @@ async def convert_cad(input_path: str, to_format: str) -> dict[str, Any]:
     to_format = to_format.lower().lstrip(".")
     if to_format not in {"stl", "3mf", "obj", "ply"}:
         return {"error": f"Unsupported target {to_format!r}. Supported: stl, 3mf, obj, ply"}
-    src = _resolve_input(input_path)
+    try:
+        src = _resolve_input(input_path)
+    except (ValueError, FileNotFoundError) as e:
+        return {"error": str(e)}
 
     if src.suffix.lower() in {".step", ".stp"}:
         if not cad_capabilities()["step_read"]:
