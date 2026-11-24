@@ -1897,6 +1897,9 @@ workspaces:
     min_p: 0.05
     repeat_penalty: 1.12
     stop: ["</tool_response>", "</工具使用记录>"]
+    sampling_override:
+      reason: VulnLLM-R-7B-4bit on oMLX at card temperature 0.7 / repeat_penalty 1.05 looped 1605x on </工具使用记录> and drifted to 11.5k CJK chars in live OWUI tool/continuity chats (8256448b, b9af13ab); 0.4 / 1.12 + stop sequences prevent post-tool degeneration
+      evidence: pending
     # think:false on the group default. It's a no-op for the base (VulnLLM-R is
     # Qwen2.5, not a thinking model) and for uncensored/blueteam/redteam-deep/
     # purpleteam-exec (Llama / gemma4). It DOES take effect on the Qwen3.5/3.6
