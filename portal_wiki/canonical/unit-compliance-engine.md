@@ -84,10 +84,6 @@ sources:
 - type: code
   path: portal/modules/compliance/core/revision_compare.py
 - type: code
-  path: portal/modules/compliance/core/slice_executor.py
-- type: code
-  path: portal/modules/compliance/core/impact.py
-- type: code
   path: portal/modules/compliance/core/boundary.py
 - type: code
   path: portal/modules/compliance/core/assessment.py
@@ -107,8 +103,6 @@ sources:
   path: portal/modules/compliance/core/assessment_runs.py
 - type: code
   path: portal/modules/compliance/core/traceability.py
-- type: code
-  path: portal/modules/compliance/core/impact.py
 - type: code
   path: portal/modules/compliance/core/change_plan.py
 - type: code
@@ -383,8 +377,12 @@ a pre-analyzed problem.
 - `core/planner.py` — a question maps to an operation plan (the twelve §4
   compositions), executed step by step, each recording its evidence; the plan
   is the trace.
-- `tools/compliance_analyze` now assesses **live** through this pipeline; the
-  pre-V6 cached `claims` SELECT is deleted.
+- The coverage-engine MCP tools (`compliance_gaps`, `compliance_analyze`,
+  `compliance_scenario`, `compliance_impact`, `compliance_prospective`,
+  `compliance_change_impact`, `compliance_kb_search`, `compliance_bundle`)
+  were retired per WINDOW_AND_SEAT_V1 §P8.5 and purged with their exclusive
+  helpers (`core/impact.py`, `core/slice_executor.py`); this assessment
+  pipeline remains the single authority for the reading path.
 - `core/runtime_config.py` — the council seat roster (config or the D0-M
   defaults) and the org-graph commitment loader.
 - `scripts/compliance_graph_fidelity.py` — fidelity without gold labels:
@@ -408,7 +406,7 @@ projection (`CoverageCell`, `operations.Determination`, `AtomResult`,
 `RequirementResult`) derives from one `AssessmentResult` and exposes its
 `assessment_id`.
 
-Dependency direction: gaps / analyze / scenario / draft-revisions →
+Dependency direction: draft-revisions / the reading path →
 `assessment_source` (pinned governing bundle, `CorpusSnapshot`, full-text
 `CandidateSet`) → `assessment.assess_part` → `obligation_alignment.align_part`
 (categorical SAME/DIFFERENT/UNKNOWN quorum over the full candidate set) →

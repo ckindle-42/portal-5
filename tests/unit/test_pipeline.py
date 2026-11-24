@@ -852,7 +852,7 @@ class TestExplicitRequiredToolSelection:
             "nerc_cip_requirement",
             "web_search",
             "browser_navigate",
-            "compliance_gaps",
+            "compliance_coverage",
             "compliance_mappings",
         }
         assert (

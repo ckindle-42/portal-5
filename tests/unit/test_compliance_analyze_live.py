@@ -1,8 +1,7 @@
-"""P7 — compliance_analyze runs the shared service; the in-memory job dict is gone.
+"""The assessment runtime config the reading path seats on: roster + commitments.
 
-Hermetic: the durable run repository is a tmp_path SQLite store, both exercised
-cases are short-circuited by the applicability/U02 pre-gate, so no retrieval or
-model call happens.
+Hermetic: no retrieval or model call. (The retired compliance_analyze tool this
+file was named for is purged; these checks cover the live runtime_config.)
 """
 
 from __future__ import annotations
