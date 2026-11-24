@@ -208,11 +208,13 @@ class BrowserUI:
         option = self._find_model_option(model_slug, display_name)
         if option is None:
             raise RuntimeError(f"model selector has no option for {model_slug!r}")
+        chosen_lines = (option.inner_text() or "").strip().splitlines()
+        chosen_text = chosen_lines[0].strip() if chosen_lines else ""
         option.click()
         page.wait_for_timeout(400)
         label = page.locator(MODEL_SELECTOR_BUTTON).first.inner_text() or ""
-        wanted = [model_slug, display_name] if display_name else [model_slug]
-        if not any(w and w.casefold() in label.casefold() for w in wanted):
+        wanted = [w for w in (model_slug, display_name, chosen_text) if w]
+        if not any(w.casefold() in label.casefold() for w in wanted):
             raise RuntimeError(f"model selector label {label!r} does not reflect {model_slug!r}")
 
     def _find_model_option(self, model_slug: str, display_name: str):
