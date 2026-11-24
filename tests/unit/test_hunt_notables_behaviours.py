@@ -1080,3 +1080,193 @@ def test_behaviours_stage_keeps_event_reads_after_inventory_sub_budget(tmp_path,
     assert (out / run.STORE_FILE).is_file()
     assert (out / "entities.duckdb").is_file()
     assert budget.exhausted is None
+
+    behavior_requests = search.behaviour_requests
+    budget.clear_stage_deadline()
+    _resumed, resumed_receipt = run.behaviours_stage(out=out, search=search, resume=True)
+    assert resumed_receipt["coverage_complete"] is True
+    assert search.behaviour_requests == behavior_requests
+    inventory_requests = search.inventory_requests
+    _again, no_op_receipt = run.behaviours_stage(out=out, search=search, resume=True)
+    assert no_op_receipt["coverage_complete"] is True
+    assert search.inventory_requests == inventory_requests
+    assert search.behaviour_requests == behavior_requests
+
+
+def test_inventory_resume_only_requeries_pending_field_specs():
+    import time
+    from dataclasses import replace
+
+    from portal.modules.security.core.hunt.executor import (
+        DEFAULT_BUDGETS,
+        HuntBudget,
+        HuntSubBudgetExceededError,
+        Read,
+    )
+    from portal.modules.security.core.hunt.notables import inventory
+    from portal.modules.security.core.hunt.notables.parse import FieldStat
+
+    card = replace(
+        _card(),
+        fields=(
+            FieldStat("user", 1, 1, ("alice",), 1),
+            FieldStat("image", 1, 1, ("cmd.exe",), 1),
+        ),
+    )
+
+    class InventoryExecutor:
+        def __init__(self, stop_image=False):
+            self.budget = HuntBudget(dict(DEFAULT_BUDGETS))
+            self.field_queries = []
+            self.stop_image = stop_image
+
+        def read(self, query, *_args, **_kwargs):
+            if "min(_time) as first" in query:
+                field = "image" if "by image | eventstats" in query else "user"
+                if "by user, image" in query:
+                    return Read(
+                        [{"user": "alice", "image": "cmd.exe", "count": 1, "first": 10, "last": 10}]
+                    )
+                self.field_queries.append(field)
+                if field == "image" and self.stop_image:
+                    self.budget.sub_deadline = time.monotonic() - 1
+                    raise HuntSubBudgetExceededError("inventory cutoff")
+                return Read(
+                    [
+                        {
+                            field: "cmd.exe" if field == "image" else "alice",
+                            "count": 1,
+                            "first": 10,
+                            "last": 10,
+                            "hosts": 1,
+                        }
+                    ]
+                )
+            if "count as sampled" in query:
+                return Read([{"sampled": 1, "p0": 1, "p1": 1, "p2": 1}])
+            if query.startswith("| tstats count where"):
+                return Read([{"user": "alice", "image": "cmd.exe", "count": 1}])
+            if query.startswith("search index="):
+                return Read([{"_raw": "event"}])
+            return Read([])
+
+    first_executor = InventoryExecutor(stop_image=True)
+    with first_executor.budget.capped_deadline(30):
+        first = inventory.collect_inventory(first_executor, [card], "ix", 0, 60)
+
+    assert first["coverage_complete"] is False
+    assert [item["field"] for item in first["unprobed_fields"]] == ["image"]
+    assert first_executor.field_queries == ["user", "image"]
+
+    resumed_executor = InventoryExecutor()
+    resumed = inventory.collect_inventory(resumed_executor, [card], "ix", 0, 60, prior=first)
+    full_executor = InventoryExecutor()
+    full = inventory.collect_inventory(full_executor, [card], "ix", 0, 60)
+
+    assert resumed["coverage_complete"] is True
+    assert resumed_executor.field_queries == ["image"]
+    assert full_executor.field_queries == ["user", "image"]
+    for key in ("fields", "joints", "flows"):
+        assert resumed[key] == full[key]
+
+
+def test_behaviours_resume_skips_completed_sources_and_replaces_unfinished(tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    from portal.modules.security.core.hunt.executor import DEFAULT_BUDGETS, HuntBudget, HuntExecutor
+    from portal.modules.security.core.hunt.notables import behaviours, run
+    from portal.modules.security.core.hunt.notables.sample import RowSet
+
+    cards = [_card(), replace(_card(), sourcetype="st2")]
+    facts = {
+        card.source_id: SourceFacts("ix", card.sourcetype, 1, 0.0, 60.0, ("h1",), 1, ("s1",), 1)
+        for card in cards
+    }
+    monkeypatch.setattr(behaviours, "_localise_sources", lambda *_args: ({}, {}))
+    monkeypatch.setattr(behaviours, "_burst_windows_by_source", lambda *_args: {})
+    reads = {card.source_id: 0 for card in cards}
+
+    def source_read(_executor, source_facts, _per_window, **_kwargs):
+        source_id = f"{source_facts.index}:{source_facts.sourcetype}"
+        reads[source_id] += 1
+        rows = [
+            {
+                "_time": 10,
+                "host": "h1",
+                "_raw": '{"user":"alice","image":"cmd.exe","path":"/tmp/x"}',
+            },
+            {"_time": 11, "host": "h1", "_raw": "unstructured line"},
+        ]
+        notes = (
+            ["request_budget_exhausted"] if source_id == "ix:st2" and reads[source_id] == 1 else []
+        )
+        return RowSet(rows=rows, windows=1, notes=notes)
+
+    monkeypatch.setattr(behaviours, "read_behaviour_source", source_read)
+    executor = HuntExecutor(object(), HuntBudget(dict(DEFAULT_BUDGETS)))
+    out = tmp_path / "resume"
+    out.mkdir()
+    partial, first = behaviours.collect_behaviours(
+        executor, cards, facts, out / "behaviours.duckdb"
+    )
+
+    assert partial
+    assert first["coverage_complete"] is False
+    assert first["completed_sources"] == ["ix:st"]
+    assert first["unfinished_sources"] == ["ix:st2"]
+
+    resumed, second = behaviours.collect_behaviours(
+        executor, cards, facts, out / "behaviours.duckdb", resume=True
+    )
+    assert second["coverage_complete"] is True
+    assert second["unfinished_sources"] == []
+    assert reads == {"ix:st": 1, "ix:st2": 2}
+
+    one_pass_out = tmp_path / "one-pass"
+    one_pass_out.mkdir()
+    one_pass, _receipt = behaviours.collect_behaviours(
+        executor, cards, facts, one_pass_out / "behaviours.duckdb"
+    )
+    assert resumed == one_pass
+
+    monkeypatch.setattr(run, "load_cards", lambda _out: cards)
+    resumed_spine = run.spine_from_store(out)
+    one_pass_spine = run.spine_from_store(one_pass_out)
+    assert (
+        resumed_spine["events"],
+        resumed_spine["entities"],
+        resumed_spine["episodes"],
+        resumed_spine["links"],
+    ) == (
+        one_pass_spine["events"],
+        one_pass_spine["entities"],
+        one_pass_spine["episodes"],
+        one_pass_spine["links"],
+    )
+
+    import duckdb
+
+    def table_rows(path, table):
+        con = duckdb.connect(str(path), read_only=True)
+        try:
+            columns = con.execute(f"PRAGMA table_info('{table}')").fetchall()
+            order = ", ".join(str(index + 1) for index in range(len(columns)))
+            return con.execute(f"SELECT * FROM {table} ORDER BY {order}").fetchall()
+        finally:
+            con.close()
+
+    for table in (
+        "events",
+        "behaviour_all",
+        "behaviours",
+        "misfits",
+        "misfit_stats",
+        "source_stats",
+    ):
+        assert table_rows(out / "behaviours.duckdb", table) == table_rows(
+            one_pass_out / "behaviours.duckdb", table
+        )
+    for table in ("entities", "episodes", "episode_links", "event_index"):
+        assert table_rows(out / "entities.duckdb", table) == table_rows(
+            one_pass_out / "entities.duckdb", table
+        )

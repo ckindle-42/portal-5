@@ -40,6 +40,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--start", type=float, default=0.0, help="earliest epoch seconds")
     parser.add_argument("--end", type=float, default=None, help="latest epoch seconds")
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="continue an incomplete behaviours stage in the existing --out directory",
+    )
+    parser.add_argument(
         "--generators",
         default=None,
         help="comma-separated generators (default adds similar_to_known when --knowledge-store is set)",
@@ -189,6 +194,8 @@ def _print_behaviours(behaviours: list[Behaviour], receipt: dict[str, Any]) -> N
         f"behaviours: events_read={receipt.get('events_read', 0)} "
         f"existed={receipt.get('behaviours_existed', 0)} "
         f"kept={receipt.get('behaviours_kept', 0)} "
+        f"coverage_complete={receipt.get('coverage_complete')} "
+        f"unfinished_sources={receipt.get('unfinished_sources', [])} "
         f"misfit_lines={receipt.get('misfit_lines', 0)} "
         f"misfit_shapes={receipt.get('misfit_shapes', 0)} "
         f"wall={receipt.get('seconds')}s peak={receipt.get('peak_memory_mb')}MB "
@@ -331,33 +338,59 @@ def _prepare_ledger(out: Path, stage: str) -> None:
         (out / "ledger.jsonl").touch(exist_ok=True)
 
 
+def _prepare_cli_run(args: argparse.Namespace, out: Path) -> bool:
+    if args.resume and args.stage != "behaviours":
+        print("--resume requires --stage behaviours", file=sys.stderr)
+        return False
+    if not args.resume:
+        _prepare_ledger(out, args.stage)
+    return True
+
+
+def _stages_for(stage: str) -> tuple[str, ...]:
+    return STAGES if stage == "all" else (stage,)
+
+
+def _run_cards_if_requested(
+    stages: tuple[str, ...],
+    target: tuple[Any, str] | None,
+    args: argparse.Namespace,
+    out: Path,
+    end: float,
+    search: Search,
+) -> None:
+    if "cards" not in stages:
+        return
+    assert target is not None
+    client, model = target
+    receipt = cards_stage(
+        index=args.index,
+        out=out,
+        start=args.start,
+        end=end,
+        client=client,
+        model=model,
+        search=search,
+    )
+    _print_cards(receipt)
+
+
 def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
     args = _parser().parse_args(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    if not _prepare_cli_run(args, out):
+        return 2
     end = args.end if args.end is not None else time.time() + 1.0
-    stages = STAGES if args.stage == "all" else (args.stage,)
+    stages = _stages_for(args.stage)
     target = model_from_env()
     code = _model_preflight(stages, target)
     if code is not None:
         return code
     search = default_search() if search is None else search
-    _prepare_ledger(out, args.stage)
-    if "cards" in stages:
-        assert target is not None
-        client, model = target
-        receipt = cards_stage(
-            index=args.index,
-            out=out,
-            start=args.start,
-            end=end,
-            client=client,
-            model=model,
-            search=search,
-        )
-        _print_cards(receipt)
+    _run_cards_if_requested(stages, target, args, out, end, search)
     if "behaviours" in stages:
-        behaviours, receipt = behaviours_stage(out=out, search=search)
+        behaviours, receipt = behaviours_stage(out=out, search=search, resume=args.resume)
         _print_behaviours(behaviours, receipt)
     if "notables" in stages:
         enabled = _enabled_generators(args.generators, args.knowledge_store)
