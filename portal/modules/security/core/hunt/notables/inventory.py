@@ -142,6 +142,16 @@ def _number(value: Any) -> float:
         return 0.0
 
 
+def inventory_scope_matches(
+    document: Mapping[str, Any], index: str, start: float, end: float
+) -> bool:
+    return (
+        str(document.get("index") or "") == index
+        and _number(document.get("start")) == start
+        and _number(document.get("end")) == end
+    )
+
+
 def _summary_complete(value: Any) -> bool:
     """`summary.complete` is a fraction; only a fully built summary may claim a complete list."""
     if isinstance(value, bool):
@@ -241,6 +251,8 @@ def load_inventory(path: Any) -> dict[str, Any]:
     stored = read_json(path)
     document = _empty_document(str(stored.get("index") or ""))
     for key in (
+        "start",
+        "end",
         "searches",
         "probe_queries",
         "probe_failures",
@@ -254,6 +266,13 @@ def load_inventory(path: Any) -> dict[str, Any]:
         "accelerated",
         "model_probes",
         "vocabulary",
+        "vocabulary_names",
+        "field_plan",
+        "planning_complete",
+        "unprobed_fields",
+        "unprobed_joints",
+        "coverage_complete",
+        "budget_exhausted",
     ):
         if key in stored:
             document[key] = stored[key]
@@ -373,6 +392,54 @@ def _choice(
         card.part_value,
         parse_only,
     )
+
+
+def _choice_document(choice: FieldChoice) -> dict[str, Any]:
+    return {
+        "card_id": choice.card_id,
+        "field": choice.field,
+        "role": choice.role,
+        "distinct": choice.distinct,
+        "parse_only": choice.parse_only,
+    }
+
+
+def _restore_choices(
+    specs: Sequence[Mapping[str, Any]], cards_by_id: Mapping[str, SourceCard]
+) -> list[FieldChoice]:
+    choices = []
+    for spec in specs:
+        card = cards_by_id.get(str(spec.get("card_id") or ""))
+        if card is None:
+            continue
+        choices.append(
+            _choice(
+                card,
+                str(spec.get("role") or "object"),
+                str(spec.get("field") or ""),
+                int(_number(spec.get("distinct"))),
+                parse_only=bool(spec.get("parse_only")),
+            )
+        )
+    return choices
+
+
+def _pending_field(prober: _Prober, choice: FieldChoice) -> dict[str, Any]:
+    record = _field_record(
+        choice,
+        "pending",
+        (),
+        searched_window=(prober.start, prober.end),
+        parse_only=choice.parse_only,
+    )
+    record["reason"] = "inventory_budget_exhausted"
+    return record
+
+
+def _sub_budget_expired(prober: _Prober) -> bool:
+    budget = getattr(prober.executor, "budget", None)
+    expired = getattr(budget, "sub_budget_expired", None)
+    return bool(callable(expired) and expired())
 
 
 class _Prober:
@@ -833,6 +900,9 @@ def _enumerate_fields(
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for choice in choices:
+        if _sub_budget_expired(prober):
+            records.append(_pending_field(prober, choice))
+            continue
         card = cards_by_id[choice.card_id]
         if choice.parse_only:
             records.append(
@@ -849,9 +919,15 @@ def _enumerate_fields(
         model, route_name, rows, problem, seconds = _datamodel_values(
             prober, index, card, (choice.field,)
         )
+        if _sub_budget_expired(prober) and model is None:
+            records.append(_pending_field(prober, choice))
+            continue
         if model is not None:
             value_field = f"{model.name}.{choice.field}"
             status, values, share = _values(rows, (value_field,), "accelerated", problem)
+            if problem == "inventory_budget_exhausted":
+                records.append(_pending_field(prober, choice))
+                continue
             if status == "capped":
                 tail, tail_seconds = _tail_values(
                     prober, index, card, choice, "accelerated", route_name, model.name
@@ -875,6 +951,9 @@ def _enumerate_fields(
             )
             continue
         mechanism, name, reason = _mechanism(prober, card, (choice.field,))
+        if _sub_budget_expired(prober):
+            records.append(_pending_field(prober, choice))
+            continue
         if not mechanism:
             records.append(
                 _field_record(
@@ -898,6 +977,9 @@ def _enumerate_fields(
             INVENTORY_MAX_VALUES + 1,
             card,
         )
+        if problem == "inventory_budget_exhausted":
+            records.append(_pending_field(prober, choice))
+            continue
         status, values, share = _values(rows, (choice.field,), mechanism, problem)
         if status == "capped":
             tail, tail_seconds = _tail_values(prober, index, card, choice, mechanism, name)
@@ -982,8 +1064,18 @@ def _enumerate_joints(
     joints: list[dict[str, Any]] = []
     window = (prober.start, prober.end)
     for card, picked in planned:
+        if _sub_budget_expired(prober):
+            record = _joint_record(card, picked, "pending", "", "", 0, 0.0, (), window)
+            record["reason"] = "inventory_budget_exhausted"
+            joints.append(record)
+            continue
         names = [str(record["field"]) for record in picked]
         mechanism, name, reason = _mechanism(prober, card, names)
+        if _sub_budget_expired(prober):
+            record = _joint_record(card, picked, "pending", "", "", 0, 0.0, (), window)
+            record["reason"] = "inventory_budget_exhausted"
+            joints.append(record)
+            continue
         if not mechanism:
             joints.append(
                 _joint_record(card, picked, f"unavailable:{reason}", "", "", 0, 0.0, (), window)
@@ -1004,6 +1096,11 @@ def _enumerate_joints(
             INVENTORY_MAX_VALUES + 1,
             card,
         )
+        if problem == "inventory_budget_exhausted":
+            record = _joint_record(card, picked, "pending", mechanism, name, 0, seconds, (), window)
+            record["reason"] = "inventory_budget_exhausted"
+            joints.append(record)
+            continue
         status, values, share = _values(rows, names, mechanism, problem)
         joints.append(
             _joint_record(
@@ -1229,6 +1326,105 @@ def _flows(
     return flows, dict(sorted(skips.items()))
 
 
+def _restore_probe_state(
+    prober: _Prober, prior: Mapping[str, Any], cards_by_id: Mapping[str, SourceCard]
+) -> bool:
+    specs = prior.get("field_plan")
+    if not prior.get("planning_complete") or not isinstance(specs, list):
+        return False
+    prober._vocabulary = tuple(str(name) for name in prior.get("vocabulary_names") or ())
+    prober._accelerated = tuple(
+        AcceleratedModel(
+            str(item.get("model") or ""),
+            _number(item.get("earliest")),
+            _number(item.get("latest")),
+        )
+        for item in prior.get("accelerated") or ()
+        if isinstance(item, Mapping) and item.get("model")
+    )
+    for item in prior.get("names") or ():
+        if not isinstance(item, Mapping):
+            continue
+        card = cards_by_id.get(str(item.get("card_id") or ""))
+        if card is None:
+            continue
+        prober._sources[(card.index, card.sourcetype)] = SourcePaths(
+            str(item.get("tstats_name") or ""),
+            str(item.get("search_name") or ""),
+            int(_number(item.get("tstats_events"))),
+            tuple(str(name) for name in item.get("observed") or ()),
+            bool(item.get("failed")),
+        )
+    return True
+
+
+def _merge_field_records(
+    choices: Sequence[FieldChoice],
+    previous: Sequence[Mapping[str, Any]],
+    fresh: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    keyed: dict[tuple[str, str, str], Mapping[str, Any]] = {}
+    for item in (*previous, *fresh):
+        key = (str(item.get("source_id")), str(item.get("card_id")), str(item.get("field")))
+        if item.get("status") == "pending":
+            continue
+        keyed[key] = item
+    new = {
+        (str(item.get("source_id")), str(item.get("card_id")), str(item.get("field"))): item
+        for item in fresh
+    }
+    return [
+        dict(
+            keyed.get((choice.source_id, choice.card_id, choice.field))
+            or new[(choice.source_id, choice.card_id, choice.field)]
+        )
+        for choice in choices
+    ]
+
+
+def _joint_signature(item: Mapping[str, Any]) -> tuple[str, tuple[tuple[str, str], ...]]:
+    return (
+        str(item.get("card_id") or ""),
+        tuple(
+            (str(field.get("role") or ""), str(field.get("field") or ""))
+            for field in item.get("fields") or ()
+            if isinstance(field, Mapping)
+        ),
+    )
+
+
+def _merge_joint_records(
+    prober: _Prober,
+    index: str,
+    planned: Sequence[tuple[SourceCard, list[Mapping[str, Any]]]],
+    previous: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    prior = {
+        _joint_signature(item): item
+        for item in previous
+        if isinstance(item, Mapping) and item.get("status") != "pending"
+    }
+    missing = [
+        (card, picked)
+        for card, picked in planned
+        if (card.card_id, tuple((str(item["role"]), str(item["field"])) for item in picked))
+        not in prior
+    ]
+    new = _enumerate_joints(prober, index, missing)
+    fresh = {_joint_signature(item): item for item in new}
+    return [
+        dict(
+            prior.get(
+                (card.card_id, tuple((str(item["role"]), str(item["field"])) for item in picked))
+            )
+            or fresh[
+                (card.card_id, tuple((str(item["role"]), str(item["field"])) for item in picked))
+            ]
+        )
+        for card, picked in planned
+    ]
+
+
 def _single_field_joints(
     records: Sequence[Mapping[str, Any]], jointed: set[str]
 ) -> list[dict[str, Any]]:
@@ -1285,6 +1481,7 @@ def _name_documents(
         card = cards_by_id[choice.card_id]
         paths = prober.source(card)
         found[choice.source_id] = {
+            "card_id": choice.card_id,
             "source_id": choice.source_id,
             "card_name": card.sourcetype,
             "tstats_name": paths.tstats_name,
@@ -1303,39 +1500,107 @@ def collect_inventory(
     index: str,
     start: float,
     end: float,
+    *,
+    prior: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Enumerate selected fields over the whole index and store value lists plus joints."""
+    """Enumerate selected fields, resuming only field specs the prior pass did not finish."""
     began = time.monotonic()
+    previous = prior or {}
+    if previous and not inventory_scope_matches(previous, index, start, end):
+        previous = {}
     prober = _Prober(executor, index, start, end, _span(cards, start, end))
-    vocabulary = prober.vocabulary()
-    known = {
-        card.card_id: prober.present(card, vocabulary)
-        for card in _probe_order(cards)[:INVENTORY_MAX_PRESENCE_PROBES]
-    }
-    choices = select_fields(cards, known, vocabulary)
     cards_by_id = {card.card_id: card for card in cards}
-    fields = _enumerate_fields(prober, index, choices, cards_by_id)
+    restored = _restore_probe_state(prober, previous, cards_by_id)
+    if restored:
+        choices = _restore_choices(previous.get("field_plan") or (), cards_by_id)
+        vocabulary = prober._vocabulary or ()
+        planning_complete = True
+    else:
+        vocabulary = prober.vocabulary()
+        known = {
+            card.card_id: prober.present(card, vocabulary)
+            for card in _probe_order(cards)[:INVENTORY_MAX_PRESENCE_PROBES]
+        }
+        choices = select_fields(cards, known, vocabulary)
+        planning_complete = not any(
+            item.endswith("inventory_budget_exhausted") for item in prober.failures
+        )
+    previous_fields = [item for item in previous.get("fields") or () if isinstance(item, Mapping)]
+    previous_by_key = {
+        (str(item.get("source_id")), str(item.get("card_id")), str(item.get("field"))): item
+        for item in previous_fields
+    }
+    remaining = [
+        choice
+        for choice in choices
+        if previous_by_key.get((choice.source_id, choice.card_id, choice.field), {}).get("status")
+        == "pending"
+        or (choice.source_id, choice.card_id, choice.field) not in previous_by_key
+    ]
+    fresh_fields = _enumerate_fields(prober, index, remaining, cards_by_id)
+    fields = _merge_field_records(choices, previous_fields, fresh_fields)
     planned = _joint_plan(fields, cards_by_id)
-    joints = _enumerate_joints(prober, index, planned)
+    joints = _merge_joint_records(
+        prober,
+        index,
+        planned,
+        [item for item in previous.get("joints") or () if isinstance(item, Mapping)],
+    )
     jointed = {str(item["card_id"]) for item in joints if item.get("status") == "complete"}
     joints.extend(_single_field_joints(fields, jointed))
     accelerated = prober.accelerated()
     flows, flow_skips = _flows(fields, _single_hosts(cards), prober, index)
+    names = (
+        list(previous.get("names") or ())
+        if restored
+        else _name_documents(choices, cards_by_id, prober)
+    )
+    unprobed_fields = [
+        {key: item.get(key) for key in ("source_id", "card_id", "field")}
+        for item in fields
+        if item.get("status") == "pending"
+    ]
+    unprobed_joints = [
+        {
+            "source_id": item.get("source_id"),
+            "card_id": item.get("card_id"),
+            "fields": item.get("fields"),
+        }
+        for item in joints
+        if item.get("status") == "pending"
+    ]
+    budget_exhausted = _sub_budget_expired(prober)
+    searches = int(previous.get("searches") or 0) + prober.queries - prober.probe_queries
+    probe_queries = int(previous.get("probe_queries") or 0) + prober.probe_queries
+    failures = list(previous.get("probe_failures") or ()) + prober.failures
     document = _empty_document(index)
     document.update(
         {
-            "searches": prober.queries - prober.probe_queries,
-            "probe_queries": prober.probe_queries,
-            "model_probes": prober.model_probes,
-            "probe_failures": prober.failures[:16],
-            "seconds": round(time.monotonic() - began, 3),
+            "index": index,
+            "start": start,
+            "end": end,
+            "searches": searches,
+            "probe_queries": probe_queries,
+            "model_probes": int(previous.get("model_probes") or 0) + prober.model_probes,
+            "probe_failures": failures[:16],
+            "seconds": round(float(previous.get("seconds") or 0.0) + time.monotonic() - began, 3),
             "fields_selected": sum(1 for choice in choices if not choice.parse_only),
             "fields": fields,
             "joints": joints,
             "flows": flows,
             "flow_skips": flow_skips,
-            "names": _name_documents(choices, cards_by_id, prober),
+            "names": names,
             "vocabulary": len(vocabulary),
+            "vocabulary_names": list(vocabulary),
+            "field_plan": [_choice_document(choice) for choice in choices],
+            "planning_complete": planning_complete,
+            "unprobed_fields": unprobed_fields,
+            "unprobed_joints": unprobed_joints,
+            "budget_exhausted": budget_exhausted,
+            "coverage_complete": planning_complete
+            and not unprobed_fields
+            and not unprobed_joints
+            and not budget_exhausted,
             "accelerated": [
                 {"model": model.name, "earliest": model.earliest, "latest": model.latest}
                 for model in accelerated
@@ -1381,6 +1646,9 @@ def inventory_summary(document: Mapping[str, Any]) -> dict[str, Any]:
             for item in document.get("flows") or ()
             if isinstance(item, Mapping) and item.get("host_proven")
         ),
+        "coverage_complete": bool(document.get("coverage_complete")),
+        "unprobed_fields": list(document.get("unprobed_fields") or ()),
+        "unprobed_joints": list(document.get("unprobed_joints") or ()),
         "accelerated": [
             str(item.get("model") or "")
             for item in document.get("accelerated") or ()

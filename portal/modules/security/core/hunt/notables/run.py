@@ -19,6 +19,7 @@ from ..engine import Search
 from ..executor import ROW_CAP, HuntExecutor, Read, executor_for
 from ..judge import JudgeClient
 from .behaviours import (
+    BEHAVIOURS_CHECKPOINT_FILE,
     Behaviour,
     collect_behaviours,
     load_behaviour_peaks,
@@ -33,6 +34,7 @@ from .cards import (
     SourceCard,
     answer_cards,
     assemble_cards,
+    card_consumers,
     is_alert_event,
     prepare_cards,
 )
@@ -42,6 +44,7 @@ from .inventory import (
     INVENTORY_FILE,
     apply_inventory,
     collect_inventory,
+    inventory_scope_matches,
     inventory_summary,
     load_inventory,
 )
@@ -520,11 +523,40 @@ def _inventory_sub_budget_seconds(executor: HuntExecutor) -> float:
     )
 
 
-def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dict[str, Any]]:
+def _completed_behaviours_resume(
+    out: Path,
+) -> tuple[list[Behaviour], dict[str, Any]] | None:
+    cards = load_cards(out)
+    expected = sorted({card.source_id for card in cards if "behaviours" in card_consumers(card)})
+    inventory = load_inventory(out / INVENTORY_FILE)
+    checkpoint = read_json(out / BEHAVIOURS_CHECKPOINT_FILE)
+    progress = read_json(out / "progress.json")
+    stages = progress.get("stages")
+    receipt = stages.get("behaviours") if isinstance(stages, Mapping) else None
+    if (
+        inventory.get("coverage_complete")
+        and checkpoint.get("coverage_complete")
+        and checkpoint.get("expected_sources") == expected
+        and isinstance(receipt, Mapping)
+        and receipt.get("coverage_complete")
+        and (out / STORE_FILE).is_file()
+    ):
+        return load_behaviours(out / STORE_FILE), dict(receipt)
+    return None
+
+
+def behaviours_stage(
+    *, out: Path, search: Search, resume: bool = False
+) -> tuple[list[Behaviour], dict[str, Any]]:
     """Count distinct behaviours for every activity source on DuckDB, declaring coverage."""
+    if resume:
+        completed = _completed_behaviours_resume(out)
+        if completed is not None:
+            return completed
     cards = load_cards(out)
     began = time.monotonic()
     sources = read_json(out / SOURCES_FILE)
+    prior_inventory = load_inventory(out / INVENTORY_FILE) if resume else None
     configure_ledger(search, out, "behaviours")
     executor = executor_for(search)
     executor.budget.restart_clock()  # cards is model-bound: its wall time is not a read cost
@@ -534,23 +566,39 @@ def behaviours_stage(*, out: Path, search: Search) -> tuple[list[Behaviour], dic
         "requests_spent": executor.budget.queries,
     }
     before = executor.stats()
-    inventory_budget_seconds = _inventory_sub_budget_seconds(executor)
-    with executor.budget.capped_deadline(inventory_budget_seconds):
-        inventory = collect_inventory(
-            executor,
-            cards,
-            str(sources.get("index") or ""),
-            float(sources.get("start") or 0.0),
-            float(sources.get("end") or 0.0),
-        )
-        inventory_budget_exhausted = executor.budget.sub_budget_expired()
+    index = str(sources.get("index") or "")
+    start = float(sources.get("start") or 0.0)
+    end = float(sources.get("end") or 0.0)
+    inventory_reusable = bool(
+        resume
+        and prior_inventory
+        and prior_inventory.get("coverage_complete")
+        and inventory_scope_matches(prior_inventory, index, start, end)
+    )
+    if inventory_reusable:
+        assert prior_inventory is not None
+        inventory = prior_inventory
+        inventory_budget_seconds = 0.0
+        inventory_budget_exhausted = False
+    else:
+        inventory_budget_seconds = _inventory_sub_budget_seconds(executor)
+        with executor.budget.capped_deadline(inventory_budget_seconds):
+            inventory = collect_inventory(executor, cards, index, start, end, prior=prior_inventory)
+            inventory_budget_exhausted = executor.budget.sub_budget_expired()
+    inventory["budget_exhausted"] = inventory_budget_exhausted
+    inventory["coverage_complete"] = (
+        bool(inventory.get("coverage_complete")) and not inventory_budget_exhausted
+    )
     write_json(out / INVENTORY_FILE, inventory)
     behaves, receipt = collect_behaviours(
-        executor, cards, facts_by_source(cards), out / STORE_FILE, inventory
+        executor, cards, facts_by_source(cards), out / STORE_FILE, inventory, resume=resume
     )
     receipt["inventory"] = inventory_summary(inventory)
     receipt["inventory"]["budget_seconds"] = round(inventory_budget_seconds, 3)
     receipt["inventory"]["budget_exhausted"] = inventory_budget_exhausted
+    receipt["coverage_complete"] = bool(inventory["coverage_complete"]) and bool(
+        receipt.get("coverage_complete")
+    )
     receipt["clock"] = clock
     receipt["spine"] = spine_from_store(out, receipts=receipt.get("receipts") or ())
     receipt["searches"] = _search_cost(executor, before)

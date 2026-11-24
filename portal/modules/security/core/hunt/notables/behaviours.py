@@ -18,6 +18,7 @@ from ..engine import _literal_term_segments
 from ..executor import REQUEST_BUDGET_EXHAUSTED, HuntExecutor
 from .cards import SourceCard, card_consumers
 from .parse import parse_row
+from .receipt import read_json, write_json
 from .sample import (
     BEHAVIOUR_SOURCES,
     EMPTY_WINDOW,
@@ -77,6 +78,7 @@ MISFIT_SHAPE_CAP = 4_000  # effort budget: distinct misfit shapes tracked per so
 MISFIT_SHAPES_PER_SOURCE = 500  # effort budget: rarest misfit shapes stored per source
 SHAPE_TOKENS = 40  # effort budget: tokens one misfit shape describes
 SHAPE_CHARS = 200  # effort budget: characters kept on one misfit shape
+BEHAVIOURS_CHECKPOINT_FILE = "behaviours_checkpoint.json"
 
 
 @dataclass(frozen=True)
@@ -1504,12 +1506,211 @@ def _files_omitted(rows: Sequence[Mapping[str, Any]]) -> int:
     )
 
 
+def _read_behaviour_batch(
+    executor: HuntExecutor,
+    scheduled: Sequence[tuple[str, list[SourceCard], SourceFacts, float]],
+    per_window: int,
+    value_spans: Mapping[str, Sequence[tuple[float, float]]],
+) -> tuple[
+    dict[str, Localisation], dict[str, Any], dict[str, list[tuple[float, float]]], list[RowSet]
+]:
+    anchors, localisation = _localise_sources(executor, scheduled, per_window)
+    burst_plan = {} if anchors else _burst_windows_by_source(executor, scheduled, per_window)
+    concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
+    with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
+        futures = [
+            pool.submit(
+                read_behaviour_source,
+                executor,
+                facts,
+                per_window,
+                burst_windows=burst_plan.get(facts.sourcetype, ()),
+                anchors=_localisation_of(anchors, source_id).windows,
+                accel_window=_localisation_of(anchors, source_id).accel_window,
+                coverage=_localisation_of(anchors, source_id).coverage,
+                value_spans=value_spans.get(source_id, ()),
+            )
+            for source_id, _group, facts, _started in scheduled
+        ]
+        reads = [future.result() for future in futures]
+    return anchors, localisation, burst_plan, reads
+
+
+def _source_incomplete(
+    read: RowSet, receipts: Sequence[Mapping[str, Any]], files: Sequence[Mapping[str, Any]]
+) -> bool:
+    reasons = [*read.notes]
+    reasons.extend(str(item.get("reason") or "") for item in files)
+    for item in receipts:
+        reasons.extend(str(reason) for reason in item.get("notes") or ())
+    return any(
+        reason == REQUEST_BUDGET_EXHAUSTED
+        or reason == "capped"
+        or reason.startswith("read_failed:")
+        or "budget_exhausted" in reason
+        or "deadline_exceeded" in reason
+        for reason in reasons
+    )
+
+
+def _save_behaviour_checkpoint(
+    path: Path,
+    expected: Sequence[str],
+    completed: set[str],
+    results: Mapping[str, Mapping[str, Any]],
+    localisation: Mapping[str, Any],
+) -> dict[str, Any]:
+    unfinished = sorted(set(expected) - completed)
+    document = {
+        "expected_sources": sorted(expected),
+        "completed_sources": sorted(completed),
+        "unfinished_sources": unfinished,
+        "coverage_complete": not unfinished,
+        "source_results": {source: dict(value) for source, value in results.items()},
+        "localisation": dict(localisation),
+    }
+    write_json(path, document)
+    return document
+
+
+def _store_source_result(
+    con: duckdb.DuckDBPyConnection,
+    source_id: str,
+    group: Sequence[SourceCard],
+    facts: SourceFacts,
+    per_window: int,
+    executor: HuntExecutor,
+    started: float,
+    read: RowSet,
+    burst_windows: Sequence[tuple[float, float]],
+    anchors: Sequence[LocalWindow],
+    value_spans: Sequence[tuple[float, float]],
+) -> tuple[dict[str, Any], bool]:
+    con.execute("DELETE FROM events WHERE source_id=?", [source_id])
+    con.execute("DELETE FROM misfits WHERE source_id=?", [source_id])
+    con.execute("DELETE FROM misfit_stats WHERE source_id=?", [source_id])
+    found, total, overrides, misfits, stats, files = _key_source(
+        con,
+        group,
+        facts,
+        per_window,
+        executor,
+        started,
+        read,
+        burst_windows=burst_windows,
+        anchors=anchors,
+        value_spans=value_spans,
+    )
+    _insert_misfits(con, source_id, misfits, stats)
+    con.commit()
+    return {
+        "receipts": found,
+        "total": total,
+        "overrides": overrides,
+        "misfit_stats": stats,
+        "files": files,
+    }, _source_incomplete(read, found, files)
+
+
+def _restore_probe_results(
+    results: Mapping[str, Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], list[dict[str, Any]], int]:
+    receipts = [
+        dict(item)
+        for result in results.values()
+        for item in result.get("receipts") or ()
+        if isinstance(item, Mapping)
+    ]
+    overrides = {
+        str(card_id): dict(value)
+        for result in results.values()
+        for card_id, value in (result.get("overrides") or {}).items()
+        if isinstance(value, Mapping)
+    }
+    misfits = [
+        {"source_id": source_id, **dict(result.get("misfit_stats") or {})}
+        for source_id, result in sorted(results.items())
+    ]
+    total = sum(int(result.get("total") or 0) for result in results.values())
+    return receipts, overrides, misfits, total
+
+
+def _prepare_behaviour_store(path: Path, resume: bool) -> duckdb.DuckDBPyConnection:
+    if not resume:
+        path.unlink(missing_ok=True)
+    con = duckdb.connect(str(path))
+    con.execute(f"CREATE TABLE IF NOT EXISTS events ({_COLUMNS})")
+    con.execute(f"CREATE TABLE IF NOT EXISTS misfits ({_MISFIT_COLUMNS})")
+    con.execute(f"CREATE TABLE IF NOT EXISTS misfit_stats ({_MISFIT_STATS_COLUMNS})")
+    for table in ("behaviour_all", "behaviours", "source_stats"):
+        con.execute(f"DROP TABLE IF EXISTS {table}")
+    return con
+
+
+def _merge_localisation(previous: Mapping[str, Any], current: Mapping[str, Any]) -> dict[str, Any]:
+    indexes: dict[str, dict[str, Any]] = {}
+    for item in (*previous.get("indexes", ()), *current.get("indexes", ())):
+        if isinstance(item, Mapping):
+            indexes[str(item.get("source") or "")] = dict(item)
+    values = list(indexes.values())
+    return {
+        "windows": sum(int(item.get("windows") or 0) for item in values),
+        "events": sum(int(item.get("events") or 0) for item in values),
+        "indexes": values,
+        "notes": [*previous.get("notes", ()), *current.get("notes", ())],
+    }
+
+
+def _process_behaviour_sources(
+    con: duckdb.DuckDBPyConnection,
+    executor: HuntExecutor,
+    scheduled: Sequence[tuple[str, list[SourceCard], SourceFacts, float]],
+    per_window: int,
+    value_spans: Mapping[str, Sequence[tuple[float, float]]],
+    checkpoint_path: Path,
+    expected: Sequence[str],
+    completed: set[str],
+    results: dict[str, dict[str, Any]],
+    prior_localisation: Mapping[str, Any],
+) -> dict[str, Any]:
+    _save_behaviour_checkpoint(checkpoint_path, expected, completed, results, prior_localisation)
+    anchors, current_localisation, burst_plan, reads = _read_behaviour_batch(
+        executor, scheduled, per_window, value_spans
+    )
+    localisation = _merge_localisation(prior_localisation, current_localisation)
+    _save_behaviour_checkpoint(checkpoint_path, expected, completed, results, localisation)
+    for (source_id, group, facts, started), read in zip(scheduled, reads, strict=True):
+        located = _localisation_of(anchors, source_id)
+        result, incomplete = _store_source_result(
+            con,
+            source_id,
+            group,
+            facts,
+            per_window,
+            executor,
+            started,
+            read,
+            burst_plan.get(facts.sourcetype, ()),
+            located.windows,
+            value_spans.get(source_id, ()),
+        )
+        results[source_id] = result
+        if incomplete:
+            completed.discard(source_id)
+        else:
+            completed.add(source_id)
+        _save_behaviour_checkpoint(checkpoint_path, expected, completed, results, localisation)
+    return localisation
+
+
 def collect_behaviours(
     executor: HuntExecutor,
     cards: Sequence[SourceCard],
     facts_by_source: Mapping[str, SourceFacts],
     store_path: Path,
     inventory: Mapping[str, Any] | None = None,
+    *,
+    resume: bool = False,
 ) -> tuple[list[Behaviour], dict[str, Any]]:
     """Read each activity source once, key each structure's events, and count on DuckDB."""
     began = time.monotonic()
@@ -1521,68 +1722,59 @@ def collect_behaviours(
         if any("behaviours" in card_consumers(card) for card in group)
     )
     skipped: list[dict[str, Any]] = []
-    receipts: list[dict[str, Any]] = []
-    file_rows: list[dict[str, Any]] = []
-    overrides: dict[str, dict[str, Any]] = {}
     per_window = per_window_events(usable_sources)
+    scheduled_all = sorted(_schedule_sources(grouped, facts_by_source, skipped), key=_read_priority)
+    expected = sorted(item[0] for item in scheduled_all)
     store_path.parent.mkdir(parents=True, exist_ok=True)
-    store_path.unlink(missing_ok=True)
-    con = duckdb.connect(str(store_path))
-    total = 0
-    misfit_receipts: list[dict[str, Any]] = []
+    checkpoint_path = store_path.parent / BEHAVIOURS_CHECKPOINT_FILE
+    checkpoint = read_json(checkpoint_path) if resume else {}
+    if checkpoint and checkpoint.get("expected_sources") != expected:
+        checkpoint = {}
+    if not resume:
+        checkpoint_path.unlink(missing_ok=True)
+    source_results = {
+        str(source): dict(result)
+        for source, result in (checkpoint.get("source_results") or {}).items()
+        if isinstance(result, Mapping)
+    }
+    completed = {str(source) for source in checkpoint.get("completed_sources") or ()}
+    if not store_path.exists():
+        completed.clear()
+        source_results.clear()
+        checkpoint = {}
+    keep_store = resume and store_path.exists() and bool(checkpoint)
+    con = _prepare_behaviour_store(store_path, keep_store)
     value_spans: dict[str, list[tuple[float, float]]] = {
         source_id: anchor_windows(stored_lists, source_id) for source_id in grouped
     }
+    scheduled = [item for item in scheduled_all if item[0] not in completed]
+    completed.intersection_update(expected)
     try:
-        create_events(con)
-        create_misfits(con)
-        scheduled = sorted(_schedule_sources(grouped, facts_by_source, skipped), key=_read_priority)
-        anchors_by_source, localisation = _localise_sources(executor, scheduled, per_window)
-        burst_plan = (
-            {} if anchors_by_source else _burst_windows_by_source(executor, scheduled, per_window)
+        localisation = _process_behaviour_sources(
+            con,
+            executor,
+            scheduled,
+            per_window,
+            value_spans,
+            checkpoint_path,
+            expected,
+            completed,
+            source_results,
+            checkpoint.get("localisation") or {},
         )
-        concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
-        with ThreadPoolExecutor(max_workers=min(len(scheduled) or 1, concurrency)) as pool:
-            futures = []
-            for source_id, _group, facts, _started in scheduled:
-                located = _localisation_of(anchors_by_source, source_id)
-                futures.append(
-                    pool.submit(
-                        read_behaviour_source,
-                        executor,
-                        facts,
-                        per_window,
-                        burst_windows=burst_plan.get(facts.sourcetype, ()),
-                        anchors=located.windows,
-                        accel_window=located.accel_window,
-                        coverage=located.coverage,
-                        value_spans=value_spans.get(source_id, ()),
-                    )
-                )
-            reads = [future.result() for future in futures]
-        for (source_id, group, facts, started), read in zip(scheduled, reads, strict=True):
-            located = _localisation_of(anchors_by_source, source_id)
-            found, count, found_overrides, misfits, misfit_stats, file_lines = _key_source(
-                con,
-                group,
-                facts,
-                per_window,
-                executor,
-                started,
-                read,
-                burst_windows=burst_plan.get(facts.sourcetype, ()),
-                anchors=located.windows,
-                value_spans=value_spans.get(source_id, ()),
-            )
-            receipts.extend(found)
-            file_rows.extend(file_lines)
-            overrides.update(found_overrides)
-            total += count
-            _insert_misfits(con, source_id, misfits, misfit_stats)
-            misfit_receipts.append({"source_id": source_id, **misfit_stats})
         behaviours, existed = aggregate_events(con)
     finally:
         con.close()
+    receipts, overrides, misfit_receipts, total = _restore_probe_results(source_results)
+    file_rows = [
+        dict(item)
+        for result in source_results.values()
+        for item in result.get("files") or ()
+        if isinstance(item, Mapping)
+    ]
+    final_checkpoint = _save_behaviour_checkpoint(
+        checkpoint_path, expected, completed, source_results, localisation
+    )
     receipt = _behaviour_receipt(
         behaviours,
         receipts,
@@ -1597,6 +1789,9 @@ def collect_behaviours(
         localisation,
         file_rows,
     )
+    receipt["completed_sources"] = final_checkpoint["completed_sources"]
+    receipt["unfinished_sources"] = final_checkpoint["unfinished_sources"]
+    receipt["coverage_complete"] = final_checkpoint["coverage_complete"]
     return behaviours, receipt
 
 
