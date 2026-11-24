@@ -231,6 +231,7 @@ def compliance_requirement(
     valid_at: str = "",
     known_at: str = "",
     max_chars: int = 6000,
+    include_dual_document: bool = False,
 ) -> dict[str, Any]:
     """Resolve governing requirements by validity interval and return atoms.
 
@@ -338,17 +339,15 @@ def compliance_requirement(
                         "truncation": truncation,
                     }
                 )
-            # DATA_TRUTH DD3c: the atoms travel with the dual-document payload
-            # for the addressed requirement — the register's atom clauses plus
-            # the standard's normative text and the operator's document set
-            try:
-                from portal.modules.compliance.core import dual_document
+            if include_dual_document:
+                try:
+                    from portal.modules.compliance.core import dual_document
 
-                response["dual_document"] = dual_document.build(
-                    repo, requirement_ref=requirement, **_payload_pricing()
-                )
-            except Exception as e:  # noqa: BLE001 - the atoms stand alone
-                response["dual_document"] = {"resolved": False, "error": str(e)}
+                    response["dual_document"] = dual_document.build(
+                        repo, requirement_ref=requirement, **_payload_pricing()
+                    )
+                except Exception as e:  # noqa: BLE001 - the atoms stand alone
+                    response["dual_document"] = {"resolved": False, "error": str(e)}
             return response
         return {
             "requirement": requirement,
@@ -370,13 +369,23 @@ def compliance_requirement(
 
 
 @mcp.tool()
-def nerc_cip_requirement(req_id: str, valid_at: str = "", known_at: str = "") -> dict[str, Any]:
+def nerc_cip_requirement(
+    req_id: str,
+    valid_at: str = "",
+    known_at: str = "",
+    include_dual_document: bool = False,
+) -> dict[str, Any]:
     """Compatibility wrapper for :func:`compliance_requirement`.
 
     When omitted, ``valid_at`` defaults explicitly to today's calendar date
     and the response records that default.
     """
-    result = compliance_requirement(req_id, valid_at=valid_at, known_at=known_at)
+    result = compliance_requirement(
+        req_id,
+        valid_at=valid_at,
+        known_at=known_at,
+        include_dual_document=include_dual_document,
+    )
     if result.get("found") and result.get("granularity") == "exact" and len(result["parts"]) == 1:
         part = result["parts"][0]
         return {
@@ -1650,30 +1659,30 @@ def _clip_revised_sections(revision_id: str, repo: Any) -> list[dict[str, Any]]:
 def _compact_inventory_payload(
     documents: list[dict[str, Any]], kind: str, operator_count: int, regulatory_count: int
 ) -> dict[str, Any]:
-    compact_docs = []
+    compact_lines: list[str] = []
     reg_titles: list[str] = []
     for d in documents:
         if not kind and d["kind"] == "regulatory":
             reg_titles.append(d["title"] or d["logical_id"])
             continue
-        entry: dict[str, Any] = {
-            "kind": d["kind"],
-            "logical_id": d["logical_id"],
-            "title": d["title"],
-            "section_count": d["section_count"],
-        }
-        for opt in ("document_number", "version", "effective_date", "linked_standards"):
-            if d.get(opt):
-                entry[opt] = d[opt]
-        compact_docs.append(entry)
+        parts = [d["logical_id"]]
+        doc_no = " ".join(x for x in (d.get("document_number"), d.get("version")) if x)
+        if doc_no:
+            parts.append(doc_no)
+        if d.get("effective_date"):
+            parts.append(f"eff {d['effective_date']}")
+        parts.append(f"{d['section_count']}s")
+        if d.get("linked_standards"):
+            parts.append(",".join(d["linked_standards"]))
+        compact_lines.append(" | ".join(parts))
     result: dict[str, Any] = {
         "mode": "inventory",
         "kind": kind or "all",
         "count": len(documents),
         "operator_count": operator_count,
         "regulatory_count": regulatory_count,
-        "documents": compact_docs,
-        "note": "Compact inventory to fit chat context budget; pass logical_id to compliance_sources() or compliance_read() for full revision details.",
+        "documents": compact_lines,
+        "note": "Compact inventory (logical_id | doc_no ver | eff date | sections | standards) to fit chat budget; pass logical_id to compliance_read() or compliance_sources() for full details.",
     }
     if reg_titles:
         result["regulatory_titles"] = reg_titles
