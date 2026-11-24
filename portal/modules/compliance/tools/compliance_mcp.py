@@ -2242,8 +2242,20 @@ def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) ->
                 "detail": "no section, address, glossary term or document with that id",
             }
         units: list[dict[str, Any]] = []
+        remaining_sections: list[dict[str, Any]] = []
+        remaining_chars = max(500, int(max_chars))
         for section_id, entry in sorted(resolved.items(), key=lambda kv: kv[1].get("ordinal", 0)):
-            text, note = _clip(entry.get("text", ""), max_chars)
+            if units and remaining_chars <= 0:
+                remaining_sections.append(
+                    {
+                        "section_id": section_id,
+                        "heading_lineage": entry.get("heading_lineage") or entry.get("path", ""),
+                        "title": entry.get("title", ""),
+                    }
+                )
+                continue
+            text, note = _clip(entry.get("text", ""), remaining_chars)
+            remaining_chars = max(0, remaining_chars - len(text))
             units.append(
                 {
                     **_provenance(entry),
@@ -2253,6 +2265,13 @@ def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) ->
                 }
             )
         payload: dict[str, Any] = {"ref": ref, "resolved": True, "units": units}
+        if remaining_sections:
+            payload["remaining_sections"] = remaining_sections
+            payload["truncation"] = {
+                "max_chars": max_chars,
+                "omitted_units": len(remaining_sections),
+                "note": "Call compliance_read(ref=<section_id>) for any listed remaining section.",
+            }
         if neighbors and units:
             payload["neighbors"] = _neighbors(repo, list(resolved.values())[0], max_chars)
         parsed = reading_assembly.parse_ref(ref)
