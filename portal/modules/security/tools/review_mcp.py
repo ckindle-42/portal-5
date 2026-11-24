@@ -233,10 +233,12 @@ def hunt_sources(
         )
 
     def run() -> dict[str, Any]:
-        rows = _hunt_search().iter_post(
-            "| tstats count min(_time) as first max(_time) as last where index=* by index",
-            0,
-            time.time(),
+        rows = list(
+            _hunt_search().iter_post(
+                "| tstats count min(_time) as first max(_time) as last where index=* by index",
+                0,
+                time.time(),
+            )
         )
         return r2_hunt_jobs.indexes_view(rows, n, offset, _hunt_result_byte_limit())
 
