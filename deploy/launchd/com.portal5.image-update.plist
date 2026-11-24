@@ -9,7 +9,7 @@
     <array>
         <string>/bin/bash</string>
         <string>-lc</string>
-        <string>cd __PORTAL_ROOT__ &amp;&amp; . scripts/lib/host_dotenv.sh &amp;&amp; portal_export_dotenv_keys .env PUSHOVER_API_TOKEN PUSHOVER_USER_KEY GITHUB_TOKEN &amp;&amp; exec .venv/bin/python scripts/image_security_update.py</string>
+        <string>cd __PORTAL_ROOT__ &amp;&amp; . scripts/lib/host_dotenv.sh &amp;&amp; portal_export_dotenv_keys .env PUSHOVER_API_TOKEN PUSHOVER_USER_KEY GITHUB_TOKEN &amp;&amp; exec .venv/bin/python scripts/image_security_update.py --bump</string>
     </array>
     <!-- PUSHOVER_* (_pushover) and GITHUB_TOKEN (check_images). Compose reads
          deploy/portal-5/.env itself; this job does not source it. -->
