@@ -36,11 +36,11 @@ CHANNEL_WORKSPACE_MAP: dict[str, tuple[str, str | None]] = {
     "redteam": ("auto-security", "redteam"),
     "blueteam": ("auto-security", "blueteam"),
     "images": ("auto-vision", None),  # was "auto-images" (invalid)
-    "video": ("auto-video", None),
+    "video": ("auto-audio", "video"),
     "vision": ("auto-vision", None),
     "creative": ("auto-general-uncensored", "creative"),
     "documents": ("auto-documents", None),
-    "music": ("auto-music", None),
+    "music": ("auto-audio", "music"),
     "research": ("auto-research", None),
     "reasoning": ("auto-reasoning", None),
     "data": ("auto-research", "data"),

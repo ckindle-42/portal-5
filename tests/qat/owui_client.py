@@ -368,8 +368,9 @@ class OWUIClient:
 
     def download_artifact(self, token: str, url: str) -> bytes:
         parsed = urlsplit(url)
-        if parsed.path.startswith("/api/v1/files/"):
-            target = f"{self.settings.owui_url.rstrip('/')}{parsed.path}"
+        if "/api/v1/files/" in parsed.path:
+            clean_path = parsed.path[parsed.path.index("/api/v1/files/") :]
+            target = f"{self.settings.owui_url.rstrip('/')}{clean_path}"
             if parsed.query:
                 target = f"{target}?{parsed.query}"
             headers = self._headers(token)

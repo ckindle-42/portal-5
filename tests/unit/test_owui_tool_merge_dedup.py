@@ -149,6 +149,19 @@ def test_helper_skips_nameless_schemas() -> None:
     assert _names(merged) == ["recall"]
 
 
+def test_helper_drops_owui_builtin_tools_and_keeps_external_tools() -> None:
+    offered = [_schema("remember"), _schema("recall")]
+    client = [
+        _schema("create_automation"),
+        _schema("search_calendar_events"),
+        _schema("query_knowledge_bases"),
+        _schema("write_note"),
+        _schema("custom_siem_query"),
+    ]
+    merged = merge_client_tools(offered, client, REGISTERED)
+    assert _names(merged) == ["remember", "recall", "custom_siem_query"]
+
+
 # ── streaming path ───────────────────────────────────────────────────────────
 
 

@@ -12,6 +12,54 @@ from portal.platform.inference.tool_registry import MCP_SERVERS
 
 logger = logging.getLogger(__name__)
 
+# Open WebUI v0.13.4+ attaches ~38 native builtin tool schemas (automations, calendar,
+# notes, chats, OWUI memory/KB) to persona chats by default. When the Pipeline manages a
+# workspace's toolset (drop_portal_mirrors=True), merging these unsolicited schemas adds
+# ~10,000+ tokens on turn 1 (overflowing 8k/16k workspaces) and shadows Portal's own
+# memory/RAG MCP tools. Keep genuinely external custom client tools intact.
+_OWUI_BUILTIN_TOOLS: frozenset[str] = frozenset(
+    {
+        "add_memory",
+        "ask_user",
+        "calculate_timestamp",
+        "create_automation",
+        "create_calendar_event",
+        "create_skill",
+        "create_tasks",
+        "create_tool",
+        "delete_automation",
+        "delete_calendar_event",
+        "delete_memory",
+        "display_file",
+        "get_current_timestamp",
+        "grep_knowledge_files",
+        "list_automations",
+        "list_knowledge_bases",
+        "list_memory_paths",
+        "query_knowledge_bases",
+        "query_knowledge_files",
+        "read_memory_path",
+        "replace_memory_content",
+        "replace_note_content",
+        "search_calendar_events",
+        "search_chats",
+        "search_knowledge_bases",
+        "search_knowledge_files",
+        "search_memories",
+        "search_notes",
+        "search_users",
+        "toggle_automation",
+        "update_automation",
+        "update_calendar_event",
+        "update_memory",
+        "update_task",
+        "view_chat",
+        "view_knowledge_file",
+        "view_note",
+        "write_note",
+    }
+)
+
 
 @lru_cache(maxsize=1)
 def _portal_mirror_prefixes() -> tuple[str, ...]:
@@ -56,6 +104,7 @@ def merge_client_tools(
     registered = set(registered_names)
     prefixes = _portal_mirror_prefixes() if drop_portal_mirrors else ()
     dropped = 0
+    dropped_builtins = 0
     for ct in client_tools:
         ct_name = ct.get("function", {}).get("name", "")
         if not ct_name or ct_name in seen_names:
@@ -63,8 +112,13 @@ def merge_client_tools(
         if prefixes and _is_portal_mirror(ct_name, prefixes, registered, seen_names):
             dropped += 1
             continue
+        if drop_portal_mirrors and ct_name in _OWUI_BUILTIN_TOOLS:
+            dropped_builtins += 1
+            continue
         tools_array.append(ct)
         seen_names.add(ct_name)
     if dropped:
         logger.info("Tool-merge: dropped %d OWUI portal_* mirror schema(s)", dropped)
+    if dropped_builtins:
+        logger.info("Tool-merge: dropped %d OWUI builtin tool schema(s)", dropped_builtins)
     return tools_array

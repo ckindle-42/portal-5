@@ -57,6 +57,7 @@ hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M
 hf.co/mradermacher/Qwen3.5-9B-Claude-4.6-HighIQ-THINKING-HERETIC-UNCENSORED-GGUF:Q4_K_M
 hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M
 hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k
+hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx32k
 hf.co/mradermacher/gemma-4-26B-A4B-it-uncensored-heretic-GGUF:gemma-4-26B-A4B-it-uncensored-heretic.Q4_K_M.gguf
 hf.co/openbmb/MiniCPM5-1B-GGUF:Q4_K_M
 hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M
