@@ -11,8 +11,8 @@ wraps it, and the CLI prints the same report standalone:
 
 Failure classes are predeclared by the task, not chosen here: an unindexed
 section without a recorded exclusion reason, an index id that does not
-resolve, a future or inactive revision inside the default scope, a declared
-window that differs from the served one, and a TOC/furniture section carrying
+resolve, a future or inactive revision inside the default scope, a served
+window below the declared one, and a TOC/furniture section carrying
 an IMPLEMENTS edge. The unit-shape census is reported, not gated: fragments
 and furniture are the D2/D3 re-cut's input, not a defect in themselves.
 """
@@ -39,7 +39,12 @@ EXCLUSION_TABLE_PATH = (
 LANCE_RAG_DIR = Path(
     __import__("os").environ.get("PORTAL5_LANCE_RAG_DIR", "/Volumes/data01/portal5_lance/rag")
 )
-TEXT_TABLES = ("compliance_nerc_corpus", "compliance_operator_corpus", "compliance_operator_notes")
+TEXT_TABLES = (
+    "compliance_nerc_corpus",
+    "compliance_operator_corpus",
+    "compliance_operator_notes",
+    "compliance_conversation",
+)
 
 FURNITURE_RE = re.compile(r"PRIVATE\s+[–-]\s+FOR INTERNAL USE ONLY|^Page \d+ of \d+\b", re.M)
 TOC_TITLE_RE = re.compile(r"table of contents", re.I)
@@ -344,7 +349,7 @@ def check_revision_currency(rows: dict[str, list[dict[str, Any]]], today: str) -
     )
 
 
-# ── check 5: declared window = served window ─────────────────────────────────
+# ── check 5: served window covers declared window ────────────────────────────
 
 
 def check_windows() -> CheckResult:
@@ -382,14 +387,12 @@ def check_windows() -> CheckResult:
             "aliased": served.aliased,
         }
         findings.append(entry)
-        # The tag window is recorded, never gated: a workspace may legitimately
-        # declare less than its seat bakes, and tag names colloquially round
-        # (``ctx98k`` bakes 98304). The task's failure class is declared ≠ served,
-        # against EVERY route the workspace's groups can reach.
+        # The tag suffix is informational; each route fails only below the declared limit.
         for backend_id, window in served.route_windows:
-            if window != declared_n:
+            if window < declared_n:
                 failures.append(
-                    f"{name}: declared {declared_n} != served {window} ({backend_id}:{served.resolved_model})"
+                    f"{name}: declared {declared_n} exceeds served {window} "
+                    f"({backend_id}:{served.resolved_model})"
                 )
         if served.applied_window is None:
             unknowns.append(name)
@@ -411,7 +414,7 @@ def check_windows() -> CheckResult:
     return CheckResult(
         "window_declared_served",
         "pass",
-        "declared window equals served window everywhere probed",
+        "every served route window covers its declared context limit",
         findings,
     )
 

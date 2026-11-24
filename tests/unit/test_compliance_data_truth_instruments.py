@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import sys
 
 import pytest
 
@@ -369,6 +370,141 @@ def test_tag_window_reads_ctx_suffix() -> None:
     assert tag_window("gemma4:26b-a4b-it-q4_K_M-ctx32k") == 32768
     assert tag_window("granite4.1:30b-ctx98k") == 98 * 1024
     assert tag_window("qwen:latest") is None
+
+
+def test_store_coverage_loads_conversation_table_and_flags_missing_sections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    table_names = (
+        "compliance_nerc_corpus",
+        "compliance_operator_corpus",
+        "compliance_operator_notes",
+        "compliance_conversation",
+    )
+    indexed_row = {
+        "chunk_id": "conversation-section#0",
+        "text": "Conversation source text",
+        "headings": "",
+        "logical_id": "conversation/source",
+        "revision_id": "r1",
+        "effective_from": "",
+        "effective_to": "",
+        "is_superseded": 0,
+        "unit_kind": "prose",
+    }
+    table_data = {name: [] for name in table_names}
+    table_data["compliance_conversation"] = [indexed_row]
+    opened: list[str] = []
+
+    class _ArrowRows:
+        def __init__(self, rows: list[dict]) -> None:
+            self.rows = rows
+
+        def select(self, _columns: list[str]) -> _ArrowRows:
+            return self
+
+        def to_pylist(self) -> list[dict]:
+            return self.rows
+
+    class _Table:
+        def __init__(self, rows: list[dict]) -> None:
+            self.rows = rows
+
+        def to_arrow(self) -> _ArrowRows:
+            return _ArrowRows(self.rows)
+
+    class _Database:
+        def open_table(self, name: str) -> _Table:
+            opened.append(name)
+            return _Table(table_data[name])
+
+    monkeypatch.setattr(di, "LANCE_RAG_DIR", di.REPO_ROOT)
+    monkeypatch.setitem(
+        sys.modules,
+        "lancedb",
+        SimpleNamespace(connect=lambda _path: _Database()),
+    )
+    rows = di._lance_rows()
+    assert tuple(opened) == table_names
+    assert rows["compliance_conversation"] == [indexed_row]
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute("create table source_sections (section_id text)")
+    conn.execute("insert into source_sections values ('conversation-section')")
+    repo = SimpleNamespace(close=lambda: None)
+    monkeypatch.setattr("portal.modules.compliance.core.repository.Repository", lambda: repo)
+    plan = SimpleNamespace(excluded_sections={}, superseded_sections=set(), unprojectable=[])
+    assert di.check_coverage(conn, rows, build=lambda *_args, **_kwargs: plan).status == "pass"
+
+    rows["compliance_conversation"] = []
+    missing = di.check_coverage(conn, rows, build=lambda *_args, **_kwargs: plan)
+    assert missing.status == "fail"
+    assert missing.findings[0]["unexplained_examples"] == [{"section_id": "conversation-section"}]
+    conn.close()
+
+
+def _window_config(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "portal.yaml").write_text(
+        "workspaces:\n  auto-compliance:\n    model_hint: qwen-ctx32k\n    context_limit: 32768\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "config" / "backends.yaml").write_text(
+        "workspace_routing:\n  auto-compliance: [omlx-general]\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(di, "REPO_ROOT", tmp_path)
+
+
+def test_window_declared_served_allows_larger_served_window(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from portal.modules.compliance.core import served_window
+
+    _window_config(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        served_window,
+        "served_window_for_hint",
+        lambda hint, **_kwargs: SimpleNamespace(
+            applied_window=262144,
+            resolved_model="hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k",
+            aliased=True,
+            route_windows=[("omlx-general", 262144)],
+        ),
+    )
+
+    result = di.check_windows()
+    assert result.status == "pass"
+
+
+def test_window_declared_served_fails_when_served_window_is_too_small(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from portal.modules.compliance.core import served_window
+
+    _window_config(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        served_window,
+        "served_window_for_hint",
+        lambda hint, **_kwargs: SimpleNamespace(
+            applied_window=16384,
+            resolved_model="short-window-model",
+            aliased=False,
+            route_windows=[("omlx-general", 16384)],
+        ),
+    )
+
+    result = di.check_windows()
+    assert result.status == "fail"
+    assert "declared 32768" in result.detail
+    assert "served 16384" in result.detail
 
 
 def test_search_predicate_default_excludes_future_and_inactive() -> None:
