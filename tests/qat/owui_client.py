@@ -105,13 +105,18 @@ class OWUIClient:
         }
         if not model_ids:
             raise RuntimeError("OWUI model catalog contains no model IDs")
-        self._base_model_ids = {
-            str(row.get("id") or row.get("model")): str(row.get("base_model_id"))
-            for row in rows
-            if isinstance(row, dict)
-            and (row.get("id") or row.get("model"))
-            and row.get("base_model_id")
-        }
+        self._base_model_ids = {}
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            model_id = row.get("id") or row.get("model")
+            base_model_id = row.get("base_model_id")
+            for key in ("info", "model"):
+                nested = row.get(key)
+                if not base_model_id and isinstance(nested, dict):
+                    base_model_id = nested.get("base_model_id")
+            if model_id and base_model_id:
+                self._base_model_ids[str(model_id)] = str(base_model_id)
         return model_ids
 
     def _headers(self, token: str) -> dict[str, str]:
