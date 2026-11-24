@@ -396,8 +396,6 @@ async def render_openscad(code: str, resolution: int = 1024) -> dict[str, Any]:
 @mcp.tool()
 async def convert_cad(input_path: str, to_format: str) -> dict[str, Any]:
     """Convert a model between mesh formats. STEP read is best-effort."""
-    import trimesh
-
     to_format = to_format.lower().lstrip(".")
     if to_format not in {"stl", "3mf", "obj", "ply"}:
         return {"error": f"Unsupported target {to_format!r}. Supported: stl, 3mf, obj, ply"}
@@ -405,6 +403,8 @@ async def convert_cad(input_path: str, to_format: str) -> dict[str, Any]:
         src = _resolve_input(input_path)
     except (ValueError, FileNotFoundError) as e:
         return {"error": str(e)}
+
+    import trimesh
 
     if src.suffix.lower() in {".step", ".stp"}:
         if not cad_capabilities()["step_read"]:
