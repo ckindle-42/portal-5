@@ -728,19 +728,25 @@ def _web_research_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 "Research: web + news search, fetch, and KB cross-check",
                 research,
                 (
-                    "Use web_search to find authoritative sources on what HTTP status code "
-                    "429 means and which RFC defines it. Also use news_search for recent "
-                    "news about API rate limiting. List the sources you found with URLs.",
-                    "Use web_fetch to read one authoritative source you found (prefer the "
-                    "RFC or MDN page), and kb_search_all for internal guidance on rate "
-                    "limiting. Quote what the fetched page says about 429, cite its URL, "
-                    "and state whether the KB had relevant guidance. Do not invent content.",
+                    "Call web_search to find authoritative sources on what HTTP status code "
+                    "429 means and which RFC defines it, then call news_search for recent "
+                    "news about API rate limiting. You must call both web_search and "
+                    "news_search in this turn. List the sources you found with URLs.",
+                    "Call web_fetch to read one authoritative source you found (prefer the "
+                    "RFC or MDN page), then call kb_search_all for internal guidance on rate "
+                    "limiting. You must call both web_fetch and kb_search_all in this turn. "
+                    "Quote what the fetched page says about 429, cite its URL, and state "
+                    "whether the KB had relevant guidance. Do not invent content.",
                 ),
                 "web_research",
                 {
                     "markers": ["429"],
                     "any_markers": ["too many requests", "rate limit", "6585"],
                     "citation": True,
+                    "tools_per_turn": [
+                        ["web_search", "news_search"],
+                        ["web_fetch", "kb_search_all"],
+                    ],
                 },
                 expected_tools=tuple(sorted(needed)),
                 timeout_s=900.0,
@@ -757,7 +763,7 @@ def _web_research_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 "Obscura: navigate + snapshot heading proof",
                 obscura,
                 (
-                    "Use browser_navigate to open http://host.docker.internal:8080 and then "
+                    "Use browser_navigate to open https://example.com and then "
                     "browser_snapshot to capture the page. Quote the main heading exactly "
                     "as the snapshot returned it.",
                     "Use browser_snapshot again on the same page and confirm whether the "
@@ -765,8 +771,8 @@ def _web_research_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 ),
                 "obscura_navigate",
                 {
-                    "markers": ["open webui"],
-                    "any_markers": ["heading", "snapshot", "sign in", "title"],
+                    "markers": ["example domain"],
+                    "any_markers": ["heading", "snapshot", "title"],
                 },
                 expected_tools=("browser_navigate", "browser_snapshot"),
                 timeout_s=600.0,
@@ -1106,11 +1112,13 @@ def _compliance_policy_case(discovery: Discovery, cases: list[UATCase]) -> None:
     needed = {
         "compliance_sources",
         "compliance_read",
-        "nerc_cip_requirement",
         "compliance_search",
         "compliance_links",
     }
-    if not compliance or not needed <= _tool_names(discovery, compliance):
+    # nerc_cip_requirement and compliance_requirement are aliases of one register function.
+    governing = ("compliance_requirement", "nerc_cip_requirement")
+    tools = _tool_names(discovery, compliance) if compliance else set()
+    if not compliance or not needed <= tools or not set(governing) & tools:
         return
     cases.append(
         _case(
@@ -1124,12 +1132,14 @@ def _compliance_policy_case(discovery: Discovery, cases: list[UATCase]) -> None:
                 "on the Security Patch Management Policy/Procedure (OT-POL-007 / "
                 "OT-PROC-007) and summarize what it actually requires, quoting key clauses.",
                 "Compare that procedure against NERC CIP-007-6 R2 Parts 2.1 through 2.4: "
-                "use nerc_cip_requirement for each part and compliance_search / "
-                "compliance_links to connect them. Where is the procedure too loose or "
-                "missing concrete requirements? Quote both sides verbatim, name the weakest "
-                "part, do not certify compliance, and scope absence claims to the corpus.",
+                "use nerc_cip_requirement (or its alias compliance_requirement) for each part "
+                "and compliance_search / compliance_links to connect them. Where is the "
+                "procedure too loose or missing concrete requirements? Quote both sides "
+                "verbatim, name the weakest part, do not certify compliance, and scope "
+                "absence claims to the corpus.",
             ),
             "compliance_policy_gap",
+            expected={"required_any_tools": list(governing)},
             expected_tools=tuple(sorted(needed)),
             timeout_s=900.0,
         )
@@ -3040,20 +3050,37 @@ def _run_sequence(
     return transcript, None
 
 
+def _successful_tools(turn: UATTurn) -> set[str]:
+    spans = turn.trace.get("spans") or turn.trace.get("tool_spans") or []
+    if not isinstance(spans, list):
+        return set()
+    return {
+        str(span.get("tool") or "").casefold()
+        for span in spans
+        if isinstance(span, dict)
+        and span.get("name") == "tool.completed"
+        and span.get("outcome") == "ok"
+    }
+
+
 def _required_tool_error(case: UATCase, turns: list[UATTurn]) -> str | None:
-    successful: set[str] = set()
-    for turn in turns:
-        spans = turn.trace.get("spans") or turn.trace.get("tool_spans") or []
-        if not isinstance(spans, list):
-            continue
-        successful.update(
-            str(span.get("tool") or "").casefold()
-            for span in spans
-            if isinstance(span, dict)
-            and span.get("name") == "tool.completed"
-            and span.get("outcome") == "ok"
-        )
-    missing = [tool for tool in case.expected_tools if tool.casefold() not in successful]
+    by_turn = [_successful_tools(turn) for turn in turns]
+    successful = {tool for names in by_turn for tool in names}
+    raw_per_turn = case.expected.get("tools_per_turn")
+    per_turn = (
+        [[str(t) for t in group] for group in raw_per_turn if isinstance(group, (list, tuple))]
+        if isinstance(raw_per_turn, list)
+        else []
+    )
+    scoped = {tool.casefold() for group in per_turn for tool in group}
+    missing = [
+        tool
+        for tool in case.expected_tools
+        if tool.casefold() not in successful and tool.casefold() not in scoped
+    ]
+    for index, group in enumerate(per_turn):
+        done = by_turn[index] if index < len(by_turn) else set()
+        missing.extend(f"turn {index + 1}:{tool}" for tool in group if tool.casefold() not in done)
     raw_alternatives = case.expected.get("required_any_tools")
     alternatives = (
         tuple(str(tool) for tool in raw_alternatives) if isinstance(raw_alternatives, list) else ()
