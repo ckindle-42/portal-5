@@ -152,13 +152,22 @@ def test_register_voice_profile_rejects_json_sidecar(uploads: Path) -> None:
 def test_register_voice_profile_accepts_empty_reference_text(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import sys
+    import types
+
     import numpy as np
-    import soundfile as sf
 
     source = tmp_path / "reference.wav"
-    sf.write(source, np.zeros(5 * 16000, dtype=np.float32), 16000)
+    source.write_bytes(b"RIFF")
     profile = tmp_path / "profiles" / "qat-empty-ref"
     monkeypatch.setattr(speech, "_profile_dir", lambda _name: profile)
+    monkeypatch.setattr(
+        speech,
+        "_read_audio_any",
+        lambda _src: (np.zeros(5 * 16000, dtype=np.float32), 16000),
+    )
+    fake_sf = types.SimpleNamespace(write=lambda path, _audio, _sr: Path(path).write_bytes(b"RIFF"))
+    monkeypatch.setitem(sys.modules, "soundfile", fake_sf)
 
     out = speech.register_voice_profile("qat-empty-ref", str(source), "")
 
