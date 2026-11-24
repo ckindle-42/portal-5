@@ -85,6 +85,26 @@ class OWUIClient:
             raise RuntimeError(f"OWUI signin failed: HTTP {r.status_code}")
         return str(r.json().get("token", ""))
 
+    def list_models(self, token: str) -> set[str]:
+        with self._client(30.0) as client:
+            response = client.get(
+                f"{self.settings.owui_url}/api/models", headers=self._headers(token)
+            )
+        if not response.is_success:
+            raise RuntimeError(f"OWUI model catalog failed: HTTP {response.status_code}")
+        body = response.json()
+        rows = body.get("data") or body.get("models") or [] if isinstance(body, dict) else body
+        if not isinstance(rows, list):
+            raise RuntimeError("OWUI model catalog response is not a list")
+        model_ids = {
+            str(row.get("id") or row.get("model") or "")
+            for row in rows
+            if isinstance(row, dict) and (row.get("id") or row.get("model"))
+        }
+        if not model_ids:
+            raise RuntimeError("OWUI model catalog contains no model IDs")
+        return model_ids
+
     def _headers(self, token: str) -> dict[str, str]:
         return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 

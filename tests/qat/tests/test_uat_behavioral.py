@@ -6,6 +6,7 @@ import io
 import math
 import struct
 import wave
+from dataclasses import replace
 from pathlib import Path
 
 import httpx
@@ -15,9 +16,10 @@ from PIL import Image
 from pptx import Presentation
 from pptx.oxml.xmlchemy import OxmlElement
 
+from tests.qat import artifacts
 from tests.qat import uat_behavioral as uat
 from tests.qat.__main__ import parse_stages
-from tests.qat.config import discover
+from tests.qat.config import PersonaDef, discover
 from tests.qat.owui_client import OWUIClient
 
 from .test_config_and_scenarios import make_settings
@@ -203,6 +205,171 @@ def test_route_and_lane_behavior_graders() -> None:
     assert uat.grade_case(daily, [_turn("Here is code"), _turn("```\n" + "x\n" * 40 + "```")], {})[
         0
     ]
+
+    large_code = (
+        "```python\n"
+        + "\n".join(f"step_{index:03d} = process(input_{index:03d})" for index in range(600))
+        + "\n```"
+    )
+    errors = uat.grade_case(
+        daily, [_turn(large_code), _turn("Open auto-coding for the implementation.")], {}
+    )[0]
+    assert "daily answer attempted to print a large implementation inline" in errors
+
+
+def test_route_grader_reads_resolved_route_span() -> None:
+    case = uat.UATCase("r", "r", "auto", ("prompt",), "route", {"target": "auto-coding"})
+    routed = _turn(
+        "The role answer", spans=[{"name": "route.resolved", "workspace": "auto-coding"}]
+    )
+    assert uat.grade_case(case, [routed], {})[0] == []
+
+
+def test_text_journey_does_not_require_artifact_payload() -> None:
+    case = uat.UATCase("text", "text", "auto", ("prompt",), "route")
+    assert uat._grade_payload_types(case, {}) == []
+
+
+def test_security_route_checks_allowed_destination_and_manual_handoff() -> None:
+    discovery = discover()
+    case = next(
+        item
+        for item in uat.discover_cases(discovery)
+        if item.scenario_id == "s5-route-tls-firewall"
+    )
+    allowed = case.expected["targets"]
+    assert case.grader == "route_security_handoff"
+    assert isinstance(allowed, list) and "auto-daily" in allowed
+    assert set(allowed) <= set(discovery.presets)
+
+    turns = [
+        _turn(
+            "For security analysis, select the auto-security workspace, Portal Security Analyst.",
+            "auto-daily",
+        ),
+        _turn("Check SNI and the firewall path before changing either.", "auto-daily"),
+    ]
+    assert uat.grade_case(case, turns, {})[0] == []
+    turns[0] = _turn("Check the certificate chain and subnet route.", "auto-daily")
+    assert any("select auto-security" in error for error in uat.grade_case(case, turns, {})[0])
+    turns[0] = _turn(
+        "Select a safe diagnostic and mention the auto-security workspace separately.",
+        "auto-daily",
+    )
+    assert any("select auto-security" in error for error in uat.grade_case(case, turns, {})[0])
+    turns[0] = _turn("Select the auto-security workspace for security analysis.", "auto-security")
+    assert uat.grade_case(case, turns, {})[0] == []
+    turns[1] = _turn("Follow-up", "auto-coding")
+    assert any("expected route" in error for error in uat.grade_case(case, turns, {})[0])
+
+
+def test_persona_cases_only_target_models_returned_by_owui(tmp_path: Path) -> None:
+    discovery = discover()
+    persona_dir = tmp_path / "personas"
+    persona_dir.mkdir()
+    registered = PersonaDef("registered_persona", "Registered", "auto-research", "data", "")
+    unavailable = PersonaDef("unavailable_persona", "Unavailable", "auto-research", "data", "")
+    configured = replace(discovery, personas=(registered, unavailable))
+    for persona in (registered, unavailable):
+        (persona_dir / f"{persona.slug}.yaml").write_text(
+            "slug: "
+            + persona.slug
+            + "\n"
+            + "name: "
+            + persona.name
+            + "\n"
+            + "workspace_model: auto-research\n"
+            + "system_prompt: Handle class imbalance carefully.\n",
+            encoding="utf-8",
+        )
+
+    cases = uat.discover_cases(
+        configured, persona_dir=persona_dir, available_models={"registered_persona"}
+    )
+    persona_cases = [case for case in cases if case.scenario_id.startswith("s5-persona-")]
+    assert [case.model_slug for case in persona_cases] == ["registered_persona"]
+
+
+def test_output_hygiene_rejects_cjk_markup_and_repeated_lines() -> None:
+    prompt = "Explain the database migration plan."
+    assert uat.check_output_hygiene(prompt, "A concise English response.") == []
+    assert any("CJK" in error for error in uat.check_output_hygiene(prompt, "你" * 11))
+    assert not any("CJK" in error for error in uat.check_output_hygiene(prompt, "你" * 10))
+    assert not any("CJK" in error for error in uat.check_output_hygiene("翻译这个句子", "你" * 11))
+    for leaked_tag in (
+        "</tool_response>",
+        "<tool_call>",
+        "</tool_call>",
+        "</工具使用记录>",
+    ):
+        assert uat.check_output_hygiene(prompt, f"Leaked payload {leaked_tag}")
+    assert any(
+        "repetition" in error
+        for error in uat.check_output_hygiene(prompt, "\n".join(["Repeated output line"] * 5))
+    )
+    assert not any(
+        "repetition" in error
+        for error in uat.check_output_hygiene(prompt, "\n".join(["Repeated output line"] * 4))
+    )
+
+    clarity = uat.UATCase("c", "c", "persona", (prompt,), "clarification")
+    response = "Which database and migration window are you using? " + "你" * 11
+    assert any("CJK" in error for error in uat.grade_case(clarity, [_turn(response)], {})[0])
+
+
+def test_raw_http_error_inside_fenced_code_is_not_a_leak() -> None:
+    code = "Example handler:\n```python\nexcept httpx.HTTPStatusError as exc:\n    print(exc)\n```"
+    assert artifacts.raw_tool_error_leak(code) is None
+    assert artifacts.raw_tool_error_leak("The request failed with httpx.HTTPStatusError")
+
+
+def test_tts_followup_uploads_the_generated_wav_even_when_docx_is_stale() -> None:
+    class AttachmentClient:
+        downloaded: list[str] = []
+        uploaded: list[tuple[str, bytes]] = []
+
+        def download_artifact(self, token: str, url: str) -> bytes:
+            self.downloaded.append(url)
+            return b"RIFF wav bytes"
+
+        def upload_attachment_bytes(
+            self, token: str, filename: str, data: bytes, deadline: float
+        ) -> dict[str, str]:
+            self.uploaded.append((filename, data))
+            return {"type": "file", "id": "generated-wav"}
+
+    client = AttachmentClient()
+    case = uat.UATCase(
+        "tts",
+        "tts",
+        "auto-audio::music",
+        ("speak", "transcribe"),
+        "tts_quality",
+        expected={"upload_kind": "wav"},
+        generated_upload_turn=2,
+    )
+    stale_docx = "http://owui/api/v1/files/12345678/content/old.docx"
+    generated_wav = "http://owui/api/v1/files/87654321/content/generated.wav"
+    turns = [uat.UATTurn("speak", "audio ready", {}, (), (stale_docx, generated_wav))]
+
+    files, error = uat._turn_files(client, "token", case, 2, turns, 60.0)
+    assert error is None
+    assert client.downloaded == [generated_wav]
+    assert client.uploaded == [("uat-generated-wav.wav", b"RIFF wav bytes")]
+    assert files == [{"type": "file", "id": "generated-wav"}]
+
+
+def test_model_catalog_lists_registered_openwebui_ids(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/models"
+        assert request.headers["Authorization"] == "Bearer token"
+        return httpx.Response(
+            200,
+            json={"data": [{"id": "agentorchestrator"}, {"id": "auto-data"}]},
+        )
+
+    client = OWUIClient(make_settings(tmp_path), httpx.MockTransport(handler))
+    assert client.list_models("token") == {"agentorchestrator", "auto-data"}
 
 
 def test_persona_contract_graders() -> None:

@@ -51,6 +51,28 @@ def _served_engine_model(trace: dict[str, object], fallback: str) -> str:
     return str(trace.get("model") or fallback)
 
 
+def _output_hygiene_result(
+    scenario: QATScenario,
+    prompt: str,
+    response: str,
+    chat_id: str = "",
+    served_model: str = "",
+    backend: str = "",
+) -> QATResult | None:
+    errors = uat_behavioral.check_output_hygiene(prompt, response)
+    if not errors:
+        return None
+    return QATResult(
+        scenario.scenario_id,
+        Status.FAIL,
+        "; ".join(errors),
+        chat_id=chat_id,
+        served_model=served_model,
+        backend=backend,
+        defect_class=classify_defect(model_output_miss=True),
+    )
+
+
 def _discovery_attempt(span: dict[str, object], serving_backend: str) -> bool:
     # A failed probe of a backend that did not serve is candidate discovery, not fallback.
     return (
@@ -163,7 +185,9 @@ def default_run_dir(settings: Settings, now: datetime | None = None) -> Path:
     return settings.repo_root / DEFAULT_OUTPUT_REL / f"release_1_0_{stamp}"
 
 
-def build_plan(settings: Settings) -> tuple[Discovery, list[QATScenario]]:
+def build_plan(
+    settings: Settings, available_models: set[str] | None = None
+) -> tuple[Discovery, list[QATScenario]]:
     discovery = discover()
     plan: list[QATScenario] = _stage0_scenarios()
     plan.append(
@@ -179,7 +203,7 @@ def build_plan(settings: Settings) -> tuple[Discovery, list[QATScenario]]:
         )
     )
     plan.extend(scn.build_registry(settings, discovery))
-    plan.extend(uat_behavioral.build_registry(discovery))
+    plan.extend(uat_behavioral.build_registry(discovery, available_models))
     return discovery, sorted(plan, key=lambda s: s.cascade_key())
 
 
@@ -240,7 +264,11 @@ def print_plan(discovery: Discovery, scenarios: list[QATScenario]) -> None:
 
 
 def run_selected(settings: Settings, opts: RunnerOptions) -> RunState:
-    discovery, plan = build_plan(settings)
+    available_models = None
+    if not opts.dry_run and 5 in opts.stages:
+        client = OWUIClient(settings)
+        available_models = client.list_models(client.signin())
+    discovery, plan = build_plan(settings, available_models)
     selected = [s for s in plan if _want(s, opts)]
     run_dir = opts.output_dir or default_run_dir(settings)
     state = RunState(settings=settings, run_dir=run_dir, discovery=discovery, scenarios=selected)
@@ -555,6 +583,15 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             backend=str(trace.get("backend") or ""),
             defect_class=classify_defect(tool_misbehaved=True),
         )
+    hygiene_failure = _output_hygiene_result(
+        scenario,
+        scenario.prompts[0],
+        answer,
+        served_model=served_model,
+        backend=str(trace.get("backend") or ""),
+    )
+    if hygiene_failure:
+        return hygiene_failure
     if not answer.strip():
         return QATResult(
             scenario.scenario_id,
@@ -871,6 +908,11 @@ def _run_chat_turns(
         )
         if primary_failure:
             return None, primary_failure, all_spans, all_calls
+        hygiene_failure = _output_hygiene_result(
+            scenario, prompt, outcome.text, chat_id, outcome.served_model
+        )
+        if hygiene_failure:
+            return None, hygiene_failure, all_spans, all_calls
         if outcome.leak_marker:
             return (
                 None,
@@ -999,12 +1041,19 @@ def _run_browser(settings: Settings, scenario: QATScenario, state: RunState) -> 
                 if pid not in roster and preset.name not in roster
             ]
         failed = bool(errs["page_errors"]) or not roster or not text.strip() or bool(missing)
+        hygiene_errors = uat_behavioral.check_output_hygiene(scenario.prompts[0], text)
+        failed = failed or bool(hygiene_errors)
         return QATResult(
             scenario.scenario_id,
             Status.FAIL if failed else Status.PASS,
             f"roster={len(roster)} overlays_dismissed={dismissed} "
             f"details_toggle={toggled} shot={shot.name} missing_roster={len(missing)}",
-            evidence={"errors": errs, "roster": sorted(roster), "missing_roster": missing},
+            evidence={
+                "errors": errs,
+                "roster": sorted(roster),
+                "missing_roster": missing,
+                "output_hygiene": hygiene_errors,
+            },
             defect_class=classify_defect(browser_error=failed) if failed else None,
         )
     finally:

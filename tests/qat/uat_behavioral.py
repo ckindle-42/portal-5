@@ -55,9 +55,11 @@ class UATTurn:
     artifact_urls: tuple[str, ...]
 
 
-def build_registry(discovery: Discovery) -> list[QATScenario]:
+def build_registry(
+    discovery: Discovery, available_models: set[str] | None = None
+) -> list[QATScenario]:
     """Create live UAT cases from the current workspace and persona discovery."""
-    cases = discover_cases(discovery)
+    cases = discover_cases(discovery, available_models=available_models)
     return [
         QATScenario(
             scenario_id=case.scenario_id,
@@ -81,10 +83,14 @@ def build_registry(discovery: Discovery) -> list[QATScenario]:
     ]
 
 
-def discover_cases(discovery: Discovery, persona_dir: Path = PERSONA_DIR) -> tuple[UATCase, ...]:
+def discover_cases(
+    discovery: Discovery,
+    persona_dir: Path = PERSONA_DIR,
+    available_models: set[str] | None = None,
+) -> tuple[UATCase, ...]:
     cases: list[UATCase] = []
     _routing_cases(discovery, cases)
-    _persona_cases(discovery, persona_dir, cases)
+    _persona_cases(discovery, persona_dir, cases, available_models)
     _tool_cases(discovery, cases)
     return tuple(cases)
 
@@ -114,6 +120,18 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
             )
         )
     if security:
+        destinations = tuple(
+            dict.fromkeys(
+                preset
+                for preset in (
+                    _workspace_preset(discovery, "general", ("daily",)),
+                    _workspace_preset(discovery, "reasoning"),
+                    security,
+                )
+                if preset
+            )
+        )
+        security_workspace = discovery.workspaces.get(security)
         cases.append(
             _case(
                 discovery,
@@ -127,8 +145,12 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                     "The certificate chain is valid from a host in another subnet. What evidence "
                     "would distinguish an SNI mismatch from a firewall rule issue?",
                 ),
-                "route",
-                {"target": security},
+                "route_security_handoff",
+                {
+                    "targets": list(destinations),
+                    "handoff_target": security,
+                    "handoff_name": security_workspace.name if security_workspace else security,
+                },
             )
         )
     if math:
@@ -170,8 +192,15 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
         )
 
 
-def _persona_cases(discovery: Discovery, persona_dir: Path, cases: list[UATCase]) -> None:
+def _persona_cases(
+    discovery: Discovery,
+    persona_dir: Path,
+    cases: list[UATCase],
+    available_models: set[str] | None = None,
+) -> None:
     prompts = _persona_prompts(persona_dir, {persona.slug for persona in discovery.personas})
+    if available_models is not None:
+        prompts = {slug: prompt for slug, prompt in prompts.items() if slug in available_models}
     specs = (
         (
             "clarify",
@@ -629,11 +658,13 @@ def grade_case(
         return [transcript_error], evidence
     text = all_text if all_text is not None else "\n".join(turn.text for turn in turns)
     handler = _CASE_GRADERS.get(case.grader)
-    errors = (
+    errors = [error for turn in turns for error in check_output_hygiene(turn.prompt, turn.text)]
+    behavior_errors = (
         handler(case, turns, payloads, text, evidence)
         if handler
         else [f"no grader registered for {case.grader}"]
     )
+    errors.extend(behavior_errors)
     evidence["quality_checks"] = len(errors)
     evidence["artifact_types"] = sorted(payloads)
     return errors, evidence
@@ -642,6 +673,35 @@ def grade_case(
 GradeHandler = Callable[
     [UATCase, list[UATTurn], dict[str, list[bytes]], str, dict[str, object]], list[str]
 ]
+
+
+_CJK_RE = re.compile(
+    r"[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff]"
+)
+_OUTPUT_TAGS = ("</tool_response>", "<tool_call>", "</tool_call>", "</工具使用记录>")
+
+
+def check_output_hygiene(prompt: str, response: str) -> list[str]:
+    errors = []
+    if not _CJK_RE.search(prompt):
+        cjk_count = len(_CJK_RE.findall(response))
+        if cjk_count > 10:
+            errors.append(
+                f"unexpected CJK drift: {cjk_count} characters in an English-prompt response"
+            )
+    lowered = response.casefold()
+    if any(tag.casefold() in lowered for tag in _OUTPUT_TAGS):
+        errors.append("raw tool/XML tag leaked into assistant response")
+    repeats: dict[str, int] = {}
+    for line in response.splitlines():
+        value = line.strip()
+        if len(value) < 12:
+            continue
+        repeats[value] = repeats.get(value, 0) + 1
+        if repeats[value] >= 5:
+            errors.append("degenerate line repetition loop in assistant response")
+            break
+    return errors
 
 
 def _grade_route_case(
@@ -653,11 +713,58 @@ def _grade_route_case(
 ) -> list[str]:
     del payloads, text, evidence
     target = str(case.expected.get("target") or "")
+    return _grade_route_targets(turns, (target,))
+
+
+def _resolved_workspace(trace: dict[str, object]) -> str:
+    workspace = str(trace.get("workspace") or "")
+    if workspace:
+        return workspace
+    spans = trace.get("spans") or trace.get("tool_spans") or []
+    if isinstance(spans, list):
+        for span in spans:
+            if isinstance(span, dict) and span.get("name") == "route.resolved":
+                return str(span.get("workspace") or "")
+    return ""
+
+
+def _grade_route_targets(turns: list[UATTurn], targets: tuple[str, ...]) -> list[str]:
     errors = []
+    target_list = ", ".join(targets)
     for index, turn in enumerate(turns, start=1):
-        served = str(turn.trace.get("workspace") or turn.trace.get("model_slug") or "")
-        if served != target:
-            errors.append(f"turn {index} expected route {target}, received {served or 'unknown'}")
+        served = _resolved_workspace(turn.trace)
+        if served not in targets:
+            errors.append(
+                f"turn {index} expected route {target_list}, received {served or 'unknown'}"
+            )
+    return errors
+
+
+def _grade_security_route_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del payloads, evidence
+    raw_targets = case.expected.get("targets")
+    targets = tuple(str(target) for target in raw_targets) if isinstance(raw_targets, list) else ()
+    errors = _grade_route_targets(turns, targets)
+    lowered = text.casefold()
+    handoff_target = str(case.expected.get("handoff_target") or "auto-security").casefold()
+    handoff_name = str(case.expected.get("handoff_name") or "Portal Security Analyst").casefold()
+    handoff_name = re.sub(r"^[^\w]*", "", handoff_name).strip()
+    target_pattern = "(?:" + "|".join(re.escape(x) for x in (handoff_target, handoff_name)) + ")"
+    guidance = re.search(
+        rf"\b(?:select|choose|open)\s+(?:the\s+)?{target_pattern}\b|"
+        rf"\bswitch\s+to\s+(?:the\s+)?{target_pattern}\b",
+        lowered,
+    )
+    if not guidance:
+        errors.append(
+            "security route did not guide the user to select auto-security / Portal Security Analyst"
+        )
     return errors
 
 
@@ -957,6 +1064,7 @@ def _grade_cad_case(
 
 _CASE_GRADERS: dict[str, GradeHandler] = {
     "route": _grade_route_case,
+    "route_security_handoff": _grade_security_route_case,
     "route_math": _grade_math_case,
     "daily_redirect": _grade_daily_case,
     **dict.fromkeys(
@@ -1340,6 +1448,8 @@ def _first(payloads: dict[str, list[bytes]], kind: str) -> bytes | None:
 def _grade_payload_types(case: UATCase, payloads: dict[str, list[bytes]]) -> list[str]:
     from .artifacts import validate_artifact
 
+    if not case.artifact_kind:
+        return []
     errors = []
     for kind in case.artifact_kind.split("+"):
         data = _first(payloads, kind)
@@ -1557,11 +1667,12 @@ def _turn_files(
         "",
     )
     if not url:
-        return None, "generated DOCX was not surfaced before the read-back turn"
+        return None, f"generated {suffix.upper()} was not surfaced before the read-back turn"
     data = client.download_artifact(token, url)
     if not data:
-        return None, "generated DOCX download returned no bytes"
-    return [client.upload_attachment_bytes(token, "uat-generated-note.docx", data, deadline)], None
+        return None, f"generated {suffix.upper()} download returned no bytes"
+    filename = "uat-generated-note.docx" if suffix == "docx" else f"uat-generated-{suffix}.{suffix}"
+    return [client.upload_attachment_bytes(token, filename, data, deadline)], None
 
 
 def _download_payloads(

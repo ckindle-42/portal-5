@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import math
+import re
 import shutil
 import subprocess
 import tempfile
@@ -203,8 +204,8 @@ def validate_artifact(kind: str, data: bytes) -> str | None:
 
 def raw_tool_error_leak(text: str) -> str | None:
     """First leak marker found in model-visible text, or None."""
-    lowered = text.lower()
+    visible = re.sub(r"```.*?(?:```|\Z)", "", text, flags=re.DOTALL).lower()
     for marker in _LEAK_MARKERS:
-        if marker.lower() in lowered:
+        if marker.lower() in visible:
             return marker
     return None
