@@ -486,7 +486,7 @@ def _advanced_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 daily,
                 (
                     "Use remember to store this run's project code {{memory_key}} and preferred color cobalt. Confirm when saved.",
-                    "Use recall to retrieve the project code and preferred color I stored in my previous conversation. Give both values exactly.",
+                    "Use recall to retrieve the project code and preferred color I stored in my previous conversation. Do not rely on automatically injected memory; call recall in this chat before answering. Give both values exactly.",
                 ),
                 "cross_session_memory",
                 expected_tools=("remember", "recall"),
@@ -1188,6 +1188,10 @@ def _grade_compliance(text: str, errors: list[str], citations: tuple[str, ...]) 
         "can't certify",
         "unable to certify",
         "do not certify",
+        "not certifying",
+        "am not certifying",
+        "remains unproven",
+        "is unproven",
     )
     scope_qualifiers = (
         "does not require",
@@ -1198,7 +1202,14 @@ def _grade_compliance(text: str, errors: list[str], citations: tuple[str, ...]) 
     )
     refuses_certification = any(
         phrase in lowered
-        for phrase in ("cannot certify", "can't certify", "unable to certify", "do not certify")
+        for phrase in (
+            "cannot certify",
+            "can't certify",
+            "unable to certify",
+            "do not certify",
+            "not certifying",
+            "am not certifying",
+        )
     )
     if not any(term in lowered for term in evidence_qualifiers) and not (
         refuses_certification and any(term in lowered for term in scope_qualifiers)
@@ -1233,7 +1244,8 @@ def validate_docx_content(
     headings = [
         p.text.strip()
         for p in document.paragraphs
-        if p.style is not None and p.style.name.startswith("Heading")
+        if p.style is not None
+        and (p.style.name.startswith("Heading") or p.style.name in ("Title", "Subtitle"))
     ]
     content = " ".join(
         [p.text for p in document.paragraphs]
@@ -1848,7 +1860,13 @@ def _run_memory_case(
             )
             chats.append(chat_id)
             session_prompts = (prompt,)
-            session_case = replace(case, prompts=session_prompts, cross_session=False)
+            session_tools = ("remember",) if index == 1 else ("recall",)
+            session_case = replace(
+                case,
+                prompts=session_prompts,
+                cross_session=False,
+                expected_tools=session_tools,
+            )
             session_scenario = QATScenario(
                 scenario.scenario_id,
                 scenario.title,
@@ -1858,7 +1876,7 @@ def _run_memory_case(
                 scenario.model_slug,
                 prompts=session_prompts,
                 tools=case.tool_ids,
-                expected_tools=("remember",) if index == 1 else ("recall",),
+                expected_tools=session_case.expected_tools,
             )
             turn_records, error = _run_sequence(
                 client,
