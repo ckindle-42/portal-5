@@ -10,16 +10,20 @@ from dataclasses import replace
 from pathlib import Path
 
 import httpx
+import pytest
 from docx import Document
 from openpyxl import Workbook
 from PIL import Image
 from pptx import Presentation
 from pptx.oxml.xmlchemy import OxmlElement
 
-from tests.qat import artifacts
+from portal.platform.inference.model_addressing import alias_targets_for_model
+from tests.qat import artifacts, runner
+from tests.qat import config as cq
 from tests.qat import uat_behavioral as uat
 from tests.qat.__main__ import parse_stages
 from tests.qat.config import PersonaDef, discover
+from tests.qat.models import QATScenario, Status
 from tests.qat.owui_client import OWUIClient
 
 from .test_config_and_scenarios import make_settings
@@ -594,3 +598,142 @@ def test_stt_transcript_is_marked_for_human_accuracy_review() -> None:
     assert evidence["operator_review_required"]
     alternate = "SPEAKER_00: Hello. SPEAKER_01: Good morning."
     assert uat.grade_case(case, [_turn(alternate)], {"docx": [b"docx"]})[0] == []
+
+
+def _trace_client(tmp_path: Path, summaries: list[dict], details: dict[str, dict]) -> OWUIClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/v1/trace":
+            return httpx.Response(200, json={"data": summaries})
+        correlation_id = request.url.path.rsplit("/", 1)[-1]
+        detail = details.get(correlation_id)
+        if detail is None:
+            return httpx.Response(404, json={})
+        return httpx.Response(200, json=detail)
+
+    return OWUIClient(make_settings(tmp_path), httpx.MockTransport(handler))
+
+
+def test_lookup_trace_matches_auto_requested_and_persona(tmp_path: Path) -> None:
+    started = 1_700_000_000.0
+    summaries = [
+        {
+            "correlation_id": "c-auto",
+            "workspace": "auto-coding",
+            "requested": "auto",
+            "persona": "",
+            "started_at": started,
+        },
+        {
+            "correlation_id": "c-persona",
+            "workspace": "auto-daily",
+            "requested": "auto-daily",
+            "persona": "agentorchestrator",
+            "started_at": started,
+        },
+    ]
+    details = {
+        "c-auto": {"correlation_id": "c-auto", "workspace": "auto-coding", "model": "coding-model"},
+        "c-persona": {
+            "correlation_id": "c-persona",
+            "workspace": "auto-daily",
+            "model": "daily-model",
+            "persona": "agentorchestrator",
+        },
+    }
+    client = _trace_client(tmp_path, summaries, details)
+    auto = client.lookup_trace(model_slug="auto", turn_started_at=started)
+    persona = client.lookup_trace(model_slug="agentorchestrator", turn_started_at=started)
+    assert auto.get("model") == "coding-model"
+    assert persona.get("model") == "daily-model"
+
+
+def test_lookup_trace_falls_back_when_correlation_id_is_missing(tmp_path: Path) -> None:
+    started = 1_700_000_000.0
+    summaries = [
+        {
+            "correlation_id": "c-auto",
+            "workspace": "auto-coding",
+            "requested": "auto",
+            "started_at": started,
+        }
+    ]
+    details = {"c-auto": {"correlation_id": "c-auto", "model": "coding-model"}}
+    client = _trace_client(tmp_path, summaries, details)
+    found = client.lookup_trace(
+        correlation_id="missing-id", model_slug="auto", turn_started_at=started
+    )
+    assert found.get("model") == "coding-model"
+    stale = client.lookup_trace(
+        correlation_id="missing-id", model_slug="auto", turn_started_at=started + 30.0
+    )
+    assert stale == {}
+
+
+def _scenario(scenario_id: str, stage: int, model_slug: str) -> QATScenario:
+    return QATScenario(scenario_id, scenario_id, stage, "phase", 1, model_slug)
+
+
+@pytest.mark.parametrize("stage", [2, 4, 5])
+def test_primary_model_failure_rejects_unverified_serving_model(stage: int) -> None:
+    scenario = _scenario(f"s{stage}-auto", stage, "auto")
+    missing = runner._primary_model_failure(scenario, {}, "")
+    blank = runner._primary_model_failure(
+        scenario, {"workspace": "auto-coding", "model": "", "backend": "omlx-general"}, ""
+    )
+    assert missing is not None and blank is not None
+    assert missing.status is Status.FAIL and blank.status is Status.FAIL
+    assert missing.detail == "missing pipeline trace or served_model; cannot verify serving model"
+    assert blank.detail == missing.detail
+
+
+def test_primary_model_failure_checks_routed_workspace_for_auto_and_persona() -> None:
+    expected = cq.primary_model_for("auto-coding")
+    assert expected
+    aliases = alias_targets_for_model(expected)
+    served = sorted(aliases)[0] if aliases else expected
+    trace = {
+        "workspace": "auto-coding",
+        "requested": "auto",
+        "model": served,
+        "backend": "omlx-general",
+        "spans": [],
+    }
+    assert runner._primary_model_failure(_scenario("s5-route", 5, "auto"), trace, served) is None
+    persona_trace = {**trace, "persona": "agentorchestrator", "requested": "agentorchestrator"}
+    assert (
+        runner._primary_model_failure(
+            _scenario("s5-persona", 5, "agentorchestrator"), persona_trace, served
+        )
+        is None
+    )
+    wrong = {**trace, "model": f"{expected}-not-served"}
+    missed = runner._primary_model_failure(
+        _scenario("s5-route", 5, "auto"), wrong, str(wrong["model"])
+    )
+    assert missed is not None and missed.status is Status.FAIL
+    assert "served model differs from primary" in missed.detail
+    fallback = {**trace, "fallback": True}
+    fell_back = runner._primary_model_failure(_scenario("s5-route", 5, "auto"), fallback, served)
+    assert fell_back is not None and fell_back.status is Status.FAIL
+    assert "trace fallback=true" in fell_back.detail
+
+
+def test_failed_stage5_rows_record_served_model_and_backend() -> None:
+    scenario = _scenario("s5-documents-office-content", 5, "auto-documents")
+    turns = [
+        uat.UATTurn("first", "ok", {"model": "earlier", "backend": "earlier-b"}, (), ()),
+        uat.UATTurn(
+            "second",
+            "bad",
+            {"model": "coding-primary", "backend": "omlx-general"},
+            (),
+            ("http://localhost/a.docx",),
+        ),
+    ]
+    status = uat._status_result(scenario, "required tools did not complete", "chat-9", turns)
+    graded = uat._graded_failure(scenario, ["content mismatch"], "chat-9", turns, {"grade": "fail"})
+    assert status.status is Status.FAIL and graded.status is Status.FAIL
+    assert status.served_model == "coding-primary" and status.backend == "omlx-general"
+    assert graded.served_model == "coding-primary" and graded.backend == "omlx-general"
+    assert graded.artifacts == ("http://localhost/a.docx",)
+    assert graded.evidence == {"grade": "fail"}

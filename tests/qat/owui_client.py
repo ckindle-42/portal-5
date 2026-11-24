@@ -428,19 +428,7 @@ class OWUIClient:
             summaries = body.get("data", []) if isinstance(body, dict) else body
             if not isinstance(summaries, list):
                 return {}
-            if correlation_id:
-                summary = next(
-                    (row for row in summaries if row.get("correlation_id") == correlation_id), None
-                )
-                candidates = [summary] if summary else []
-            else:
-                candidates = [
-                    row
-                    for row in summaries
-                    if row.get("workspace") == model_slug
-                    and _started_at(row.get("started_at")) >= turn_started_at - 5.0
-                ]
-                candidates.sort(key=lambda row: _started_at(row.get("started_at")), reverse=True)
+            candidates = _trace_candidates(summaries, correlation_id, model_slug, turn_started_at)
             for summary in candidates:
                 if not isinstance(summary, dict):
                     continue
@@ -538,6 +526,30 @@ def _remaining(deadline: float | None) -> float | None:
 def _same_origin(url: str, base_url: str) -> bool:
     target, base = urlsplit(url), urlsplit(base_url)
     return (target.scheme, target.hostname, target.port) == (base.scheme, base.hostname, base.port)
+
+
+def _trace_row_matches(row: dict[str, object], model_slug: str, turn_started_at: float) -> bool:
+    if not model_slug:
+        return False
+    identity = {row.get("workspace"), row.get("requested"), row.get("persona")}
+    return model_slug in identity and _started_at(row.get("started_at")) >= turn_started_at - 5.0
+
+
+def _trace_candidates(
+    summaries: list[object],
+    correlation_id: str | None,
+    model_slug: str,
+    turn_started_at: float,
+) -> list[dict[str, object]]:
+    """Correlation id, else the newest workspace/requested/persona slug since the turn."""
+    rows = [row for row in summaries if isinstance(row, dict)]
+    if correlation_id:
+        matched = next((row for row in rows if row.get("correlation_id") == correlation_id), None)
+        if matched is not None:
+            return [matched]
+    candidates = [row for row in rows if _trace_row_matches(row, model_slug, turn_started_at)]
+    candidates.sort(key=lambda row: _started_at(row.get("started_at")), reverse=True)
+    return candidates
 
 
 def _started_at(value: object) -> float:
