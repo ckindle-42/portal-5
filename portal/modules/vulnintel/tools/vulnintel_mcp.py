@@ -380,6 +380,11 @@ def triage_cve(cve_id: str, depth: str = "standard") -> dict[str, Any]:
             "cvss": cve.get("cvss"),
             "description": cve.get("description", "")[:300],
         }
+        if not out["description"]:
+            # Numbers without a description are where the model invents a product.
+            out["description_note"] = (
+                "NVD returned no description — do not guess the affected product; report the lookup gap."
+            )
         if depth == "deep":
             # SSVC-style qualitative decision (CISA Deployer-ish, explainable)
             if in_kev:
