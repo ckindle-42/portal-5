@@ -1,10 +1,15 @@
 # Breaker v1.0 — Migration, Rename & Trim/Refactor Plan
 
-Status: **planning blueprint only — not executed.** Portal 5 stays on `main` until the
-operator gives explicit go-ahead. Every path, count, service name, LaunchAgent label and
-config key below was audited against the live repo at HEAD `729e219d5` (2026-11-24).
-Where the dispatch brief assumed something the repo contradicts, the correction is in
-§1.3, not silently folded in.
+Status: **planning blueprint only — HELD on `main` awaiting operator go-ahead.** Portal 5 stays on `main` until the
+operator gives explicit go-ahead. Baseline audited at `729e219d5` and updated with final pre-cutover readiness
+receipts at `029311013` (2026-11-24). Where the original dispatch brief assumed something the repo contradicts,
+the correction is in §1.3, not silently folded in.
+
+> **Pre-Cutover Verified Readiness Receipts (`main` @ `029311013`, 2026-11-24 — ZERO FAILs)**
+> - **Universal Corporate IT + OT/ICS Threat Hunter**: **61 blind-proven corpora** (`PORTAL_HUNT_KNOWLEDGE_STORE` unset, `PORTAL_HUNT_STAGE4_VERDICTS=0`, zero labels in Splunk, out-of-band keys strictly in `/Volumes/data01/hunt_keys/`), spanning Corp IT, Cloud/EKS (`hb_cado_eks`), M365/ADFS (`hb_o365_bec`, `hb_goldensaml`), OT/ICS SCADA/Modbus/S7/IEC-61850 GOOSE (`hb_adsc_iec61850` — 20k events, 9/9 attack MACs surfaced blind), and **31 live Proxmox Vulhub Docker families** captured via `scripts/hunt_bed/lab_vulhub_fleet_sweep.py` (`f796eb791`) + `config/lab_purple_sweep.yaml` (`46e50ee8f`). All **67 `hb_*` indexes** registered in `CIM_EXTRA_INDEXES` (`887c624d0`) and accelerated live across all 6 Splunk CIM Data Models (`Splunk_SA_CIM` reloaded `HTTP 200`; `botsv2` kept strictly outside CIM as untuned control).
+> - **Compliance Module (Conversational Policy & Procedure Gap Analysis)**: Upgraded (`81cee1928`, `bb34b5951`, `1b300ed34`, `504d7abff`, `029311013`) with no-arg compact operator inventory (`compliance_sources()`, `9.5 KB`), bounded multi-hop `compliance_read()` (`14.5 KB`) + `nerc_cip_requirement()` (`11.6 KB`) + `compliance_search()`, fast conversational tool routing, and live conversation projection (`projection status: FRESH`, `8/8` conversation units, `2,078/2,078` operator sections, `11,915/11,915` NERC sections). Live-verified on a 2-turn policy/procedure gap conversation (70 operator docs inventoried, verbatim two-sided citations `[O-168c9e]`, `[O-c75f69]` vs `[R-754b59]`, `[R-7700dd]`, `[R-c36c38]`, Technical Basis `[R-7aaa4e]`, `[R-285d8c]`).
+> - **Stage 5 Conversational OWUI UAT (`--stage uat`)**: **20/20 journeys live-verified, 0 FAILs / 0 BLOCKED** (with verified `served_model` + `backend`, clean output hygiene `cjk=0, tags=0, max_rep=1`, native `<a:buChar>` PPTX bullets, DOCX Title recognition, live-verified 2-speaker Sortformer WAV fixture, `agentorchestrator` clarification rule, cross-session memory recall, and `s5-compliance-multiframework` `1P / 0W / 0F`).
+> - **CI & Repo Hygiene**: GitHub Actions `unit-tests` on `main` 100% green across consecutive merges; `lab_vulhub_fleet_sweep.py` and `config/lab_purple_sweep.yaml` are now on `main` and carry forward into Breaker v1.0.
 
 Breaker v1.0 is a **clean, trimmed, refactored cut into a brand-new blank `breaker`
 repository** — not a copy of the Portal 5 tree. The migration is therefore three
