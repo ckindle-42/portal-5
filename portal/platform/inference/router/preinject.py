@@ -22,6 +22,7 @@ from portal.platform.inference.router.routing import (
     _route_with_llm,
     detect_harmful_intent,
     detect_router_handoff,
+    detect_specialist_intent,
 )
 from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
@@ -266,6 +267,10 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
         _router_layer_total.labels(layer="router_handoff_gate", workspace=handoff).inc()
         _append_handoff_note(messages, handoff)
         return handoff
+    if detected := detect_specialist_intent(messages):
+        logger.info("Auto-routing (deterministic intent): detected workspace '%s'", detected)
+        _router_layer_total.labels(layer="deterministic_intent", workspace=detected).inc()
+        return detected
     # LLM router first — semantic intent, ~100ms, falls back on timeout/low confidence
     detected = await _route_with_llm(messages)
     if detected:

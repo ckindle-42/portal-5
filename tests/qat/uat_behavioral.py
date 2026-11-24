@@ -167,7 +167,7 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                     "approximation to three places.",
                 ),
                 "route_math",
-                {"target": math},
+                {"targets": [math.split("::", 1)[0], math]},
             )
         )
     daily = _workspace_preset(discovery, "general", ("daily",))
@@ -712,8 +712,12 @@ def _grade_route_case(
     evidence: dict[str, object],
 ) -> list[str]:
     del payloads, text, evidence
-    target = str(case.expected.get("target") or "")
-    return _grade_route_targets(turns, (target,))
+    raw_targets = case.expected.get("targets")
+    if isinstance(raw_targets, list):
+        targets = tuple(str(target) for target in raw_targets)
+    else:
+        targets = (str(case.expected.get("target") or ""),)
+    return _grade_route_targets(turns, targets)
 
 
 def _resolved_workspace(trace: dict[str, object]) -> str:

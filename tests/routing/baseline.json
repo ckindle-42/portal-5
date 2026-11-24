@@ -110,8 +110,8 @@
     "variant": null
   },
   "fold_security_uncensored": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "routing_examples[0]": {
@@ -265,8 +265,8 @@
     "variant": null
   },
   "routing_examples[37]": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-reasoning",
+    "served_model": "hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k",
     "variant": null
   },
   "routing_examples[38]": {
@@ -420,8 +420,8 @@
     "variant": "laguna"
   },
   "rr_variant_security_base": {
-    "base": null,
-    "served_model": null,
+    "base": "auto-daily",
+    "served_model": "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
     "variant": null
   },
   "rr_variant_security_redteam": {
