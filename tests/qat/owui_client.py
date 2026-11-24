@@ -214,6 +214,22 @@ class OWUIClient:
                 headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
                 files={"file": (path.name, stream, content_type)},
             )
+        return self._uploaded_file_id(response)
+
+    def upload_attachment_bytes(
+        self, token: str, filename: str, data: bytes, deadline: float | None = None
+    ) -> dict[str, str]:
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        with self._client(_remaining(deadline)) as client:
+            response = client.post(
+                f"{self.settings.owui_url}/api/v1/files/",
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                files={"file": (filename, data, content_type)},
+            )
+        return self._uploaded_file_id(response)
+
+    @staticmethod
+    def _uploaded_file_id(response: httpx.Response) -> dict[str, str]:
         if not response.is_success:
             raise RuntimeError(f"OWUI file upload failed: HTTP {response.status_code}")
         body = response.json()

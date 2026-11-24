@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from . import artifacts, gate, hardening, preflight
+from . import artifacts, gate, hardening, preflight, uat_behavioral
 from . import scenarios as scn
 from .browser_ui import BrowserUI, PlaywrightUnavailable
 from .config import Discovery, Settings, discover, primary_model_for
@@ -179,6 +179,7 @@ def build_plan(settings: Settings) -> tuple[Discovery, list[QATScenario]]:
         )
     )
     plan.extend(scn.build_registry(settings, discovery))
+    plan.extend(uat_behavioral.build_registry(discovery))
     return discovery, sorted(plan, key=lambda s: s.cascade_key())
 
 
@@ -335,11 +336,17 @@ def _block_remaining(selected: list[QATScenario], first: QATScenario, state: Run
 
 
 def _uses_gpu(scenario: QATScenario) -> bool:
-    return scenario.stage >= 2 and scenario.kind in {"chat", "browser", "pipeline", "adversarial"}
+    return scenario.stage >= 2 and scenario.kind in {
+        "chat",
+        "browser",
+        "pipeline",
+        "adversarial",
+        "uat",
+    }
 
 
 def _gpu_primary(scenario: QATScenario) -> str | None:
-    if not scenario.enabled or scenario.kind not in {"chat", "pipeline"}:
+    if not scenario.enabled or scenario.kind not in {"chat", "pipeline", "uat"}:
         return None
     return primary_model_for(scenario.model_slug) or scenario.model_slug
 
@@ -392,6 +399,8 @@ def _execute_one(
         return _run_pipeline_chat(settings, scenario)
     if scenario.kind == "tts":
         return _run_tts(settings, scenario, state)
+    if scenario.kind == "uat":
+        return uat_behavioral.run_case(settings, scenario, state, opts)
     if scenario.browser:
         return _run_browser(settings, scenario, state)
     return _run_chat(settings, scenario, state, opts)
