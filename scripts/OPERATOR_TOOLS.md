@@ -86,6 +86,8 @@ uv run python scripts/dflash_ab.py [--keep-on]
                                     # --keep-on and the pass bar was met
 uv run python scripts/gate_c_calculator.py <task-dir-or-receipt>...
                                     # read-only Gate C floor from arm receipts + pre-written pass_criteria; prints the value to set
+uv run python scripts/bench_security_qat.py [--seats auto-security,auto-security::uncensored,auto-security::purpleteam-deep] [--out <json>]
+                                    # production-path QAT security benchmark: the Inkling security seats through OWUI /api/chat/completions (same auth as wfe_production_smoke), agy-script prompts and graders, every row traced — a row whose served engine/model is not the seat's intended oMLX checkpoint FAILs
 python3 scripts/uat_engines.py                     # one shot per enabled engine and variant, plus engines-and-roles checks (JSON under ${PORTAL_DATA_ROOT}/uat/; --dry-run, --only ID)
 python3 scripts/uat_swap.py --dry-run              # swap-sequence UAT: engine ping-pong, size ladder, the 2026-10-22 order, a concurrent pair, and a pinned seat under a long request (JSON under ${PORTAL_DATA_ROOT}/uat/; --sequence, --pinned-seat, --wait-for-quiet)
 python3 scripts/check_model_bindings.py             # live gate: every model_pin/model_hint/alias/promptfoo-provider resolves to an installed Ollama tag
