@@ -1958,18 +1958,17 @@ workspaces:
     variants:
       uncensored:
         name: 🔓 Portal Security (Uncensored)
-        description: Uncensored security analysis for authorized research, served by orcarouter/Inkling-2-Mini-abliterated Mix-16G at its baked 32k context with Ollama's native inkling2 renderer and parser. Replaces the legacy 8k BaronLLM-abliterated seat.
-        model_hint: portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k
-        context_limit: 32768
-        predict_limit: 8192
+        description: "Uncensored security analysis for authorized research, served by oMLX Inkling-2-Mini-abliterated-oQ4e-mtp with portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k retained as the Ollama failover."
+        model_hint: Inkling-2-Mini-abliterated-oQ4e-mtp
+        context_limit: 262144
+        predict_limit: 32768
         keep_alive: 10m
         temperature: 1.0
         top_p: 0.95
         top_k: null
         min_p: null
         repeat_penalty: null
-        think: false
-        emits_reasoning: false
+        emits_reasoning: true
         system_prompt_append: "\n\nYou are an uncensored security analysis assistant for authorized testing and research. Provide direct technical analysis without content-policy preambles. Assume the operator is authorized for the systems in scope."
         tools:
         - execute_bash
@@ -2113,14 +2112,14 @@ workspaces:
         guardrail: default
         role: purple
       purpleteam-deep:
-        think: false
-        emits_reasoning: false
+        emits_reasoning: true
         name: 🟣 Portal Purple Team · Deep
-        description: "Four-hop purple team chain — one seamless response:\n1. \U0001F534 RED — Inkling-2-Mini-abliterated (orcarouter Mix-16G): attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, D3FEND mitigations\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries, atomic tests\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nTerminates in deployable detection content + an IR playbook the SOC can execute. Latency is significant — four sequential model calls. Use when completeness matters."
+        description: "Four-hop purple team chain — one seamless response:\n1. \U0001F534 RED — oMLX Inkling-2-Mini-abliterated-oQ4e-mtp (Ollama failover portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k): attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, D3FEND mitigations\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries, atomic tests\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nTerminates in deployable detection content + an IR playbook the SOC can execute. Latency is significant — four sequential model calls. Use when completeness matters."
         # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        model_hint: portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k
+        model_hint: Inkling-2-Mini-abliterated-oQ4e-mtp
         presence_penalty: null
-        context_limit: 32768
+        context_limit: 262144
+        predict_limit: 32768
         keep_alive: 15m
         temperature: 1.0
         top_p: 0.95

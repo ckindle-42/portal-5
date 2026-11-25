@@ -150,7 +150,6 @@ def test_resolve_preset_tools_no_persona() -> None:
 def test_security_inkling_seats_preserve_card_and_fallback_contract() -> None:
     """The approved Inkling seats resolve on their intended engines and card."""
     from portal.platform.inference.cluster_backends import BackendRegistry
-    from portal.platform.inference.model_cards import card_entry
 
     backend_data = yaml.safe_load((REPO / "config" / "backends.yaml").read_text())
     backends = {backend["id"]: backend for backend in backend_data["backends"]}
@@ -162,6 +161,11 @@ def test_security_inkling_seats_preserve_card_and_fallback_contract() -> None:
     }
     assert models["omlx-security"]["Inkling-2-Mini-oQ4e-mtp"]["supports_tools"] is True
     assert models["omlx-security"]["Inkling-2-Mini-oQ4e-mtp"]["keep_reason"]
+    abliterated_hint = "Inkling-2-Mini-abliterated-oQ4e-mtp"
+    gguf_fallback = "portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"
+    for group in ("omlx-security", "omlx-general"):
+        assert models[group][abliterated_hint]["supports_tools"] is True
+        assert models[group][abliterated_hint]["keep_reason"]
     assert (
         models["ollama-security"]["portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"][
             "supports_tools"
@@ -180,6 +184,8 @@ def test_security_inkling_seats_preserve_card_and_fallback_contract() -> None:
     base_hint = "Inkling-2-Mini-oQ4e-mtp"
     assert registry_backends["omlx-security"].resolve_model(base_hint) == base_hint
     assert registry_backends["ollama-security"].resolve_model(base_hint) == "inkling-2-mini:ctx256k"
+    for group in ("ollama-security", "ollama-general"):
+        assert registry_backends[group].resolve_model(abliterated_hint) == gguf_fallback
     assert "inkling-2-mini:ctx256k" not in backends["omlx-general"].get("aliases", {})
 
     portal = yaml.safe_load((REPO / "config" / "portal.yaml").read_text())
@@ -197,26 +203,44 @@ def test_security_inkling_seats_preserve_card_and_fallback_contract() -> None:
         "stop",
         "sampling_override",
     }.intersection(workspace)
-    variants = workspace["variants"]
+
+
+def test_abliterated_inkling_security_variants_follow_default_reasoning_contract() -> None:
+    """The abliterated seats use Inkling's default reasoning contract."""
+    from portal.platform.inference.model_cards import card_entry
+
+    portal = yaml.safe_load((REPO / "config" / "portal.yaml").read_text())
+    variants = portal["workspaces"]["auto-security"]["variants"]
+    abliterated_hint = "Inkling-2-Mini-abliterated-oQ4e-mtp"
+    gguf_fallback = "portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"
     inherited_base_variants = {"blueteam-orchestrated", "blueteam-council"}
+    inkling_reasoning_variants = {"uncensored", "purpleteam-deep"}
     assert all(
         variant.get("think") is (name == "pentest")
         for name, variant in variants.items()
-        if name not in inherited_base_variants
+        if name not in inherited_base_variants | inkling_reasoning_variants
     )
     assert all(
         variant.get("emits_reasoning") is False
         for name, variant in variants.items()
-        if name not in ({"pentest"} | inherited_base_variants)
+        if name not in ({"pentest"} | inherited_base_variants | inkling_reasoning_variants)
     )
     uncensored = variants["uncensored"]
-    assert uncensored["model_hint"] == (
-        "portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"
-    )
-    assert uncensored["context_limit"] == 32768
+    assert uncensored["model_hint"] == abliterated_hint
+    assert uncensored["context_limit"] == 262144
+    assert uncensored["predict_limit"] == 32768
+    assert "think" not in uncensored
+    assert uncensored["emits_reasoning"] is True
+    assert abliterated_hint in uncensored["description"]
+    assert gguf_fallback in uncensored["description"]
     deep = variants["purpleteam-deep"]
-    assert deep["model_hint"] == uncensored["model_hint"]
-    assert deep["context_limit"] == 32768
+    assert deep["model_hint"] == abliterated_hint
+    assert deep["context_limit"] == 262144
+    assert deep["predict_limit"] == 32768
+    assert "think" not in deep
+    assert deep["emits_reasoning"] is True
+    assert abliterated_hint in deep["description"]
+    assert gguf_fallback in deep["description"]
     assert [hop["model"] for hop in deep["chain"]] == [
         "granite4.1:8b-ctx8k",
         "qwen3-coder:30b-a3b-q4_K_M",

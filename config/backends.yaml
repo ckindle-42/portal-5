@@ -326,6 +326,8 @@ backends:
     supports_tools: false
   - id: gemma4:12b-it-q4_K_M-ctx16k
     supports_tools: false
+  aliases:
+    Inkling-2-Mini-abliterated-oQ4e-mtp: portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: coding
@@ -506,6 +508,7 @@ backends:
     supports_tools: false
   aliases:
     Inkling-2-Mini-oQ4e-mtp: inkling-2-mini:ctx256k
+    Inkling-2-Mini-abliterated-oQ4e-mtp: portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k
   type: ollama
   url: ${OLLAMA_URL:-http://host.docker.internal:11434}
 - group: reasoning
@@ -841,6 +844,9 @@ backends:
   - id: Inkling-2-Mini-oQ4e-mtp
     supports_tools: true
     keep_reason: "Ollama fallback inkling-2-mini:ctx256k is registered in ollama-general (same family) but deliberately NOT aliased here, so bench-inkling-2-mini-ollama stays Ollama-pinned for the head-to-head; HY's seat check is alias-based, so this exemption stays."
+  - id: Inkling-2-Mini-abliterated-oQ4e-mtp
+    supports_tools: true
+    keep_reason: "Matching abliterated GGUF fallback is registered in ollama-general and reached by its alias; this checkpoint must retain its uncensored identity on failover."
   # P5-FANOUT-001 lane-alignment audit (2026-09-25): granite4.1:30b-ctx96k is
   # deliberately NOT aliased here — the granite-4.1-30b-4bit conversion
   # returned EMPTY output on an 85k-token needle probe (400 correctly at 132k,
@@ -1007,6 +1013,9 @@ backends:
   - id: Inkling-2-Mini-oQ4e-mtp
     supports_tools: true
     keep_reason: "Ollama fallback inkling-2-mini:ctx256k is registered in ollama-security (same family); no omlx-general alias is added, so bench-inkling-2-mini-ollama stays Ollama-pinned."
+  - id: Inkling-2-Mini-abliterated-oQ4e-mtp
+    supports_tools: true
+    keep_reason: "Matching abliterated GGUF fallback is registered in ollama-security and reached by its alias; this checkpoint must retain its uncensored identity on failover."
   - id: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
     supports_tools: true
   # P5-FANOUT-001: redteam-deep/purpleteam-exec conversion — behavioral A/B vs
