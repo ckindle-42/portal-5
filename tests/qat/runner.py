@@ -395,6 +395,7 @@ def _stage0_scenarios() -> list[QATScenario]:
             "exposure-gap",
             "lab-ready",
             "sweep-freshness",
+            "load-guard",
         )
     ]
 
@@ -607,6 +608,11 @@ def _requirement_met(state: RunState, requirement: str) -> bool:
     return row is not None and row.status is Status.PASS
 
 
+def _run_load_guard(settings: Settings) -> QATResult:
+    with httpx.Client(timeout=30.0) as client:
+        return preflight.load_guard_probe(settings, client)
+
+
 PREFLIGHT_FNS = {
     "p0-execute-preflight": lambda s: preflight.run_preflight_script(s),
     "p0-retired-aliases": lambda s: preflight.retired_alias_guard(s.repo_root, discover()),
@@ -615,6 +621,7 @@ PREFLIGHT_FNS = {
     "p0-exposure-gap": lambda s: preflight.exposure_audit(s, discover()),
     "p0-lab-ready": lambda s: preflight.run_lab_ready(s),
     "p0-sweep-freshness": lambda s: preflight.sweep_freshness(s),
+    "p0-load-guard": _run_load_guard,
 }
 
 

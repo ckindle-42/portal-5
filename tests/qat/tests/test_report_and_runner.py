@@ -152,6 +152,12 @@ class TestPlanAndOrder:
         assert not rn._want(media_api, opts)
         assert not rn._want(other_stage, opts)
 
+    def test_every_preflight_executor_has_a_stage0_scenario(self) -> None:
+        """A wired executor without a plan scenario never runs (the load-guard
+        probe sat dead this way); the plan and the executor map must match."""
+        planned = {s.scenario_id for s in rn._stage0_scenarios()}
+        assert planned == set(rn.PREFLIGHT_FNS)
+
 
 class TestPreflightInterpreter:
     def test_preflight_subprocesses_use_current_interpreter(
