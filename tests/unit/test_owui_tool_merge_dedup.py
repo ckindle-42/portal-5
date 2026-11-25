@@ -513,9 +513,9 @@ _SYSTEM_PROMPT = (
 def test_uncensored_window_headroom_with_realistic_owui_payload() -> None:
     ws = "auto-general-uncensored"
     hint = WORKSPACES[ws]["model_hint"]
-    # 2026-11-24: seat moved 8k -> 32k on the ctx32k twin; the dedup below
-    # keeps the realistic OWUI payload far inside the 24576 prompt budget.
-    assert WORKSPACES[ws]["context_limit"] == 32768
+    # 2026-11-25: seat window matches the oMLX Inkling ceiling (262144).
+    # The dedup keeps the realistic OWUI payload far inside that prompt budget.
+    assert WORKSPACES[ws]["context_limit"] == 262144
     assert WORKSPACES[ws]["tools"] == WORKSPACE_TOOLS
 
     workspace_schemas = [_schema(name, *_WORKSPACE_SCHEMAS[name]) for name in WORKSPACE_TOOLS]
@@ -529,10 +529,10 @@ def test_uncensored_window_headroom_with_realistic_owui_payload() -> None:
     assert _names(merged) == WORKSPACE_TOOLS
     body = {"model": hint, "messages": messages, "tools": merged}
     estimated = estimate_tokens(body, "ollama")
-    assert estimated < 4000  # comfortably under the 24576 prompt budget
+    assert estimated < 4000  # comfortably under the 196608 prompt budget
     report = fit_prompt(body, workspace_id=ws, model=hint, engine="ollama")
-    assert report.limit == 32768 and report.budget == 24576
-    assert not report.fitted and report.estimated_after <= 24576
+    assert report.limit == 262144 and report.budget == 196608
+    assert not report.fitted and report.estimated_after <= 196608
 
     # The pre-fix name-only merge doubles the schema payload — the bug that
     # overflowed this seat's old 8k window (the live refusal; budget 6144).

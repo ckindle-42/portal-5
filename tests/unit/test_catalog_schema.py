@@ -248,3 +248,61 @@ def test_abliterated_inkling_security_variants_follow_default_reasoning_contract
     ]
     assert card_entry(uncensored["model_hint"])[0] == "inkling-2-mini"
     assert f"### `{uncensored['model_hint']}`" in (REPO / "config" / "MODEL_CATALOG.md").read_text()
+
+
+def test_general_uncensored_seats_inkling_abliterated_with_general_failover() -> None:
+    """The base uncensored general seat is the oMLX abliterated checkpoint.
+
+    Variants keep their own hints. Failover is the existing general-group alias.
+    """
+    from portal.platform.inference.cluster_backends import BackendRegistry
+    from portal.platform.inference.model_cards import card_entry
+
+    hint = "Inkling-2-Mini-abliterated-oQ4e-mtp"
+    gguf = "portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"
+    huihui = "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k"
+    portal = yaml.safe_load((REPO / "config" / "portal.yaml").read_text())
+    seat = portal["workspaces"]["auto-general-uncensored"]
+    assert seat["model_hint"] == hint
+    assert seat["reasoning_effort"] == "low"
+    assert seat["context_limit"] == 262144
+    assert seat["predict_limit"] == 32768
+    assert (seat["temperature"], seat["top_p"]) == (1.0, 0.95)
+    assert seat["emits_reasoning"] is True
+    assert "think" not in seat
+    assert not {
+        "top_k",
+        "min_p",
+        "presence_penalty",
+        "repeat_penalty",
+        "think_profiles",
+    }.intersection(seat)
+    assert seat["tools"] == [
+        "execute_bash",
+        "execute_python",
+        "read_word_document",
+        "read_pdf",
+        "remember",
+        "recall",
+    ]
+    assert "CBRN" in seat["system_prompt_append"]
+    assert hint in seat["description"] and gguf in seat["description"]
+    assert card_entry(hint)[0] == "inkling-2-mini"
+    variants = {
+        "throwaway": "portal5/hauhaucs-qwen36-35b:q4_K_M-ctx256k",
+        "throwaway-gemma4-heretic": "portal5/gemma4-26b-heretic:q4_K_M-ctx256k",
+        "throwaway-ornith15": "portal5/ornith15-35b:q4_K_M-ctx256k",
+        "creative": "fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k",
+    }
+    assert {name: cfg["model_hint"] for name, cfg in seat["variants"].items()} == variants
+    assert all(cfg.get("emits_reasoning") is False for cfg in seat["variants"].values())
+    assert all(cfg.get("think") is False for cfg in seat["variants"].values())
+    backends = yaml.safe_load((REPO / "config" / "backends.yaml").read_text())
+    by_id = {backend["id"]: backend for backend in backends["backends"]}
+    assert huihui in {model["id"] for model in by_id["ollama-general"]["models"]}
+    assert by_id["ollama-general"]["aliases"][hint] == gguf
+    assert backends["workspace_routing"]["auto-general-uncensored"] == ["general"]
+    registry = BackendRegistry(str(REPO / "config" / "backends.yaml"))
+    resolved = {backend.id: backend for backend in registry.list_backends()}
+    assert resolved["omlx-general"].resolve_model(hint) == hint
+    assert resolved["ollama-general"].resolve_model(hint) == gguf

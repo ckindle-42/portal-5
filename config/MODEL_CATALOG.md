@@ -25,11 +25,11 @@ this file is not parsed at runtime survives as operator guidance.
 
 ### `huihui_ai/Qwen3.6-abliterated:27b`
 
-`huihui_ai/Qwen3.6-abliterated:27b` is a dense 27B Q4 abliterated model (~16-17GB), registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true` in each. `config/portal.yaml` binds it as the `bench-huihui-qwen36-27b` `model_hint`, benched head-to-head against the stock `qwen3.6:27b-q4_K_M` with PROMOTE_POLICY=confirm, and the `auto-general-uncensored` workspace routes the `:27b-ctx8k` variant. The general-group entry gives it AUTO routing; the creative-group entry gives the bench workspace creative routing. No standalone creative/music production workspace is currently wired to the base id.
+`huihui_ai/Qwen3.6-abliterated:27b` is a dense 27B Q4 abliterated model (~16-17GB), registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true` in each. `config/portal.yaml` binds it as the `bench-huihui-qwen36-27b` `model_hint`, benched head-to-head against the stock `qwen3.6:27b-q4_K_M` with PROMOTE_POLICY=confirm. The `:27b-ctx8k` tag was an earlier `auto-general-uncensored` hint; that seat moved to `Inkling-2-Mini-abliterated-oQ4e-mtp` on 2026-11-25. The general-group entry gives it AUTO routing; the creative-group entry gives the bench workspace creative routing. No standalone creative/music production workspace is currently wired to the base id.
 
 ## Why
 
-The dual `general`/`creative` registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` shows the `bench-huihui-qwen36-27b` binding plus the `auto-general-uncensored` use of the derived tag. The older reference to a creative/music bench target was corrected to the actual `bench-huihui-qwen36-27b` id the config carries, keeping the body aligned with the registry.
+The dual `general`/`creative` registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` shows the `bench-huihui-qwen36-27b` binding. The older reference to a creative/music bench target was corrected to the actual `bench-huihui-qwen36-27b` id the config carries, keeping the body aligned with the registry.
 
 ---
 
@@ -283,7 +283,7 @@ Both the `general` and `vision` group registrations in `config/backends.yaml` as
 
 ### `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k`
 
-`hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k` is the 8K-context derived tag (baked `PARAMETER num_ctx 8192` via apply-params). PROMOTED 2026-09-07 (fleet closeout): it is the `auto-general-uncensored` workspace `model_hint` on lane-instrument data — refusal-preservation 1.0 / 0% over-refusal vs the prior incumbent `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` at 0.75 / 33%, at 4.3x throughput (55.6 vs 12.9 t/s), with the cross-domain judgment tradeoff (exact 0.87 vs 0.90) recorded (`refusal_preservation_probe_20260907T025849Z.json`, `judgment_probe_v6_20260907T034934Z.json`). `config/backends.yaml` registers it in `general` with `supports_tools: false`, matching the base tag.
+`hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k` is the 8K-context derived tag (baked `PARAMETER num_ctx 8192` via apply-params). PROMOTED 2026-09-07 (fleet closeout) as the `auto-general-uncensored` workspace `model_hint` on lane-instrument data — refusal-preservation 1.0 / 0% over-refusal vs the prior incumbent `huihui_ai/Qwen3.6-abliterated:27b-ctx8k` at 0.75 / 33%, at 4.3x throughput (55.6 vs 12.9 t/s), with the cross-domain judgment tradeoff (exact 0.87 vs 0.90) recorded (`refusal_preservation_probe_20260907T025849Z.json`, `judgment_probe_v6_20260907T034934Z.json`). That seat left this tag on 2026-11-24 (ctx32k twin) and left the family on 2026-11-25 (`Inkling-2-Mini-abliterated-oQ4e-mtp`). `config/backends.yaml` keeps the tag registered in `general`.
 
 ## Why
 
@@ -293,11 +293,11 @@ The doc body asserted the vanch007→mradermacher rehost; `config/portal.yaml`'s
 
 ### `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k`
 
-`hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k` is the 32K-context derived tag (baked `PARAMETER num_ctx 32768`, same weights as the ctx8k tag — 0 extra bytes), minted 2026-11-24 when `auto-general-uncensored` moved off the ctx8k seat: the lane's six tools overflowed the 8k window. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`; `config/portal.yaml` makes it the `auto-general-uncensored` `model_hint` with `context_limit: 32768`. Refusal-preservation provenance stays with the ctx8k twin's promotion (2026-09-07 fleet closeout) — same weights, a bigger window.
+`hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k` is the 32K-context derived tag (baked `PARAMETER num_ctx 32768`, same weights as the ctx8k tag — 0 extra bytes), minted 2026-11-24 when `auto-general-uncensored` moved off the ctx8k seat: the lane's six tools overflowed the 8k window. `config/backends.yaml` keeps it registered in the `general` group with `supports_tools: true`. As of 2026-11-25 it is no longer that seat's `model_hint`; the seat is `Inkling-2-Mini-abliterated-oQ4e-mtp` and this tag stays so the Huihui weights remain addressable. Refusal-preservation provenance stays with the ctx8k twin's promotion (2026-09-07 fleet closeout).
 
 ## Why
 
-The window-only upgrade keeps the seated model and its measured refusal behavior while giving the tool loop room; registration beside the ctx8k twin in `general` is what keeps the hint resolvable inside the workspace's `[general]` routing path.
+The tag stays registered beside the ctx8k twin in `general` so the Huihui weights remain resolvable. `auto-general-uncensored` no longer hints it.
 
 ---
 
@@ -1264,11 +1264,11 @@ The `creative` group grants `supports_tools: true` while the `general` group kee
 
 ### `huihui_ai/Qwen3.6-abliterated:27b`
 
-`huihui_ai/Qwen3.6-abliterated:27b` is a dense 27B Q4 abliterated model (~16-17GB), registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true` in each. `config/portal.yaml` binds it as the `bench-huihui-qwen36-27b` `model_hint`, benched head-to-head against the stock `qwen3.6:27b-q4_K_M` with PROMOTE_POLICY=confirm, and the `auto-general-uncensored` workspace routes the `:27b-ctx8k` variant. The general-group entry gives it AUTO routing; the creative-group entry gives the bench workspace creative routing. No standalone creative/music production workspace is currently wired to the base id.
+`huihui_ai/Qwen3.6-abliterated:27b` is a dense 27B Q4 abliterated model (~16-17GB), registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true` in each. `config/portal.yaml` binds it as the `bench-huihui-qwen36-27b` `model_hint`, benched head-to-head against the stock `qwen3.6:27b-q4_K_M` with PROMOTE_POLICY=confirm. The `:27b-ctx8k` tag was an earlier `auto-general-uncensored` hint; that seat moved to `Inkling-2-Mini-abliterated-oQ4e-mtp` on 2026-11-25. The general-group entry gives it AUTO routing; the creative-group entry gives the bench workspace creative routing. No standalone creative/music production workspace is currently wired to the base id.
 
 ## Why
 
-The dual `general`/`creative` registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` shows the `bench-huihui-qwen36-27b` binding plus the `auto-general-uncensored` use of the derived tag. The older reference to a creative/music bench target was corrected to the actual `bench-huihui-qwen36-27b` id the config carries, keeping the body aligned with the registry.
+The dual `general`/`creative` registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` shows the `bench-huihui-qwen36-27b` binding. The older reference to a creative/music bench target was corrected to the actual `bench-huihui-qwen36-27b` id the config carries, keeping the body aligned with the registry.
 
 ---
 
@@ -1713,11 +1713,11 @@ The compliance lane's incumbent (granite-4.1-8b) hallucinates regulations, so a 
 
 ### `huihui_ai/Qwen3.6-abliterated:27b-ctx8k`
 
-`huihui_ai/Qwen3.6-abliterated:27b-ctx8k` is the 8K-context derived tag of the Qwen3.6-abliterated 27B model, registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true`. `config/portal.yaml` routes the `auto-general-uncensored` workspace to this tag with an 8192 context limit, giving the uncensored generalist lane its promptable model. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:27b` entry; this tag exists to enforce the general-uncensored lane's context cap as a distinct model id.
+`huihui_ai/Qwen3.6-abliterated:27b-ctx8k` is the 8K-context derived tag of the Qwen3.6-abliterated 27B model, registered in `config/backends.yaml` under both the `general` and `creative` groups with `supports_tools: true`. It was an earlier `auto-general-uncensored` hint (8192 context); that seat is now `Inkling-2-Mini-abliterated-oQ4e-mtp`. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:27b` entry.
 
 ## Why
 
-The `auto-general-uncensored` routing in `config/portal.yaml` is the decisive binding — that provisional uncensored generalist lane is the only consumer of this tag — and `config/backends.yaml` confirms the dual-group `supports_tools: true`. The num_ctx mechanism is preserved because it explains why the 8K variant exists apart from the base id and why the base id itself carries no direct production routing.
+`config/backends.yaml` confirms the dual-group `supports_tools: true`. The tag is no longer the `auto-general-uncensored` hint. The num_ctx mechanism is preserved because it explains why the 8K variant exists apart from the base id.
 
 ---
 
@@ -2747,8 +2747,10 @@ This oMLX checkpoint is the oQ4e/MTP build of `orcarouter/Inkling-2-Mini-abliter
 from its BF16 expert layout into the base Inkling layout before quantization. It includes the
 bundled DSpark draft and uses the Inkling 2 Mini card/template: 1M trained context, default high
 reasoning effort, no `enable_thinking` switch, and reasoning output by default. The configured
-oMLX serving ceiling is 262144 tokens; both production security variants use `context_limit: 262144`,
-`predict_limit: 32768`, omit `think`, and set `emits_reasoning: true`. `config/backends.yaml`
+oMLX serving ceiling is 262144 tokens. `auto-security::uncensored`, `auto-security::purpleteam-deep`,
+and `auto-general-uncensored` use `context_limit: 262144`, `predict_limit: 32768`,
+`reasoning_effort: low`, card sampling (`temperature: 1.0`, `top_p: 0.95`), omit `think`, and set
+`emits_reasoning: true`. `config/backends.yaml`
 registers it in `omlx-general` and `omlx-security`, with matching Ollama aliases to
 `portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k` in `ollama-general` and
 `ollama-security`.
@@ -2756,7 +2758,8 @@ registers it in `omlx-general` and `omlx-security`, with matching Ollama aliases
 ## Why
 
 The card's trained window exceeds the deployed oMLX maximum; the seat limits match the actual
-serving ceiling and the base Inkling output budget while preserving the template's default reasoning.
+serving ceiling and the base Inkling output budget. `reasoning_effort: low` overrides the template
+default (high) on the three production seats above.
 
 ---
 
