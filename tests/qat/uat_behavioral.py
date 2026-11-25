@@ -1085,7 +1085,7 @@ def _security_toolbelt_cases(discovery: Discovery, cases: list[UATCase]) -> None
             )
         )
     security = _workspace_preset(discovery, "security")
-    cve_tools = {"lookup_cve", "get_epss", "check_kev", "triage_cve"}
+    cve_tools = {"lookup_cve", "get_epss", "check_kev", "triage_cve", "classify_vulnerability"}
     if security and cve_tools <= _tool_names(discovery, security):
         cases.append(
             _case(
@@ -1097,9 +1097,9 @@ def _security_toolbelt_cases(discovery: Discovery, cases: list[UATCase]) -> None
                     "Use lookup_cve, get_epss and check_kev for CVE-2021-44228, then "
                     "triage_cve. Report the CVSS severity, EPSS probability and percentile, "
                     "and KEV status.",
-                    "Based on those CVE-2021-44228 triage results, explain why this "
-                    "vulnerability requires emergency patching and list 3 concrete "
-                    "remediation steps.",
+                    "Use classify_vulnerability on CVE-2021-44228, then, based on those "
+                    "triage results, explain why this vulnerability requires emergency "
+                    "patching and list 3 concrete remediation steps.",
                 ),
                 "security_cve_triage",
                 {
