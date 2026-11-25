@@ -56,13 +56,8 @@ DEFAULT_PAIRS: list[Pair] = [
         ),
     ),
     Pair(
-        "uncensored35b-32k-vs-toolsspecialist-32k",
-        Seat(
-            "auto-general-uncensored",
-            "ollama",
-            "hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k",
-            32768,
-        ),
+        "uncensored-inkling-vs-toolsspecialist-32k",
+        Seat("auto-general-uncensored", "omlx", "Inkling-2-Mini-abliterated-oQ4e-mtp", 131072),
         Seat("tools-specialist", "omlx", "unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit", 32768),
     ),
     Pair(
