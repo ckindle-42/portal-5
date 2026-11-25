@@ -9,6 +9,7 @@ infra and adversarial scenarios through the OWUI client.
 from __future__ import annotations
 
 import json
+import subprocess
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -339,6 +340,7 @@ class RunState:
     results: list[QATResult] = field(default_factory=list)
     stages: list[StageSummary] = field(default_factory=list)
     gate: GateReport | None = None
+    provenance: dict[str, object] = field(default_factory=dict)
 
     def result_map(self) -> dict[str, QATResult]:
         return {r.scenario_id: r for r in self.results}
@@ -445,21 +447,58 @@ def run_selected(settings: Settings, opts: RunnerOptions) -> RunState:
         print_plan(discovery, selected)
         return state
     run_dir.mkdir(parents=True, exist_ok=True)
+    previous, resume_meta = _load_previous(opts)
+    state.provenance = run_provenance(settings.repo_root, opts, len(previous), resume_meta)
+    (run_dir / "run_meta.json").write_text(
+        json.dumps(state.provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     if opts.ingest_worksheets or opts.emit_worksheets:
         if opts.ingest_worksheets:
             _ingest_worksheets(run_dir, selected)
         if opts.emit_worksheets:
             _emit_worksheets(run_dir, selected)
         return state
-    previous = _load_previous(opts)
     _execute(settings, selected, state, opts, previous)
     return state
 
 
-def _load_previous(opts: RunnerOptions) -> dict[str, QATResult]:
-    """--append keeps all rows; --rerun-failed keeps only non-failed rows."""
+def _git_sha(repo_root: Path) -> str:
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def run_provenance(
+    repo_root: Path, opts: RunnerOptions, stitched_rows: int, resume_sha: str
+) -> dict[str, object]:
+    """Identity of this run: code state and resume lineage, so a stitched
+    report cannot mix SHAs silently."""
+    return {
+        "created_at": datetime.now(tz=UTC).isoformat(timespec="seconds"),
+        "git_sha": _git_sha(repo_root),
+        "resume_dir": str(opts.resume_dir) if opts.resume_dir else "",
+        "resume_mode": opts.resume_mode,
+        "stitched_rows": stitched_rows,
+        "resume_sha": resume_sha,
+    }
+
+
+def _load_previous(opts: RunnerOptions) -> tuple[dict[str, QATResult], str]:
+    """--append keeps all rows; --rerun-failed keeps only non-failed rows.
+
+    Second return: the resumed run's recorded git sha, "" when its run dir
+    predates provenance records.
+    """
     if opts.resume_dir is None or not opts.resume_mode:
-        return {}
+        return {}, ""
     path = opts.resume_dir / "results.jsonl"
     if not path.is_file():
         raise FileNotFoundError(f"no results.jsonl under {opts.resume_dir}")
@@ -474,7 +513,14 @@ def _load_previous(opts: RunnerOptions) -> dict[str, QATResult]:
         failed = row.status in (Status.FAIL, Status.BLOCKED)
         if opts.resume_mode == "append" or (opts.resume_mode == "rerun-failed" and not failed):
             rows[row.scenario_id] = row
-    return rows
+    resume_sha = ""
+    meta_path = opts.resume_dir / "run_meta.json"
+    if meta_path.is_file():
+        try:
+            resume_sha = str(json.loads(meta_path.read_text(encoding="utf-8")).get("git_sha") or "")
+        except ValueError:
+            resume_sha = ""
+    return rows, resume_sha
 
 
 def _execute(

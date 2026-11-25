@@ -522,12 +522,65 @@ class TestCascade:
             _res("fix-me", Status.FAIL, detail="old"),
         ]
         rp.write_results_jsonl(run_dir, rows)
-        append = rn._load_previous(_chat_opts(resume_dir=run_dir, resume_mode="append"))
+        append, sha = rn._load_previous(_chat_opts(resume_dir=run_dir, resume_mode="append"))
         assert set(append) == {"keep-pass", "keep-warn", "fix-me"}
-        rerun = rn._load_previous(_chat_opts(resume_dir=run_dir, resume_mode="rerun-failed"))
+        assert sha == ""  # dir predates provenance records
+        rerun, _ = rn._load_previous(_chat_opts(resume_dir=run_dir, resume_mode="rerun-failed"))
         assert set(rerun) == {"keep-pass", "keep-warn"}
         with pytest.raises(FileNotFoundError):
             rn._load_previous(_chat_opts(resume_dir=tmp_path / "nope", resume_mode="append"))
+
+    def test_resume_sha_read_from_run_meta(self, tmp_path: Path) -> None:
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        rp.write_results_jsonl(run_dir, [_res("keep-pass", Status.PASS)])
+        (run_dir / "run_meta.json").write_text(
+            json.dumps({"git_sha": "abc1234", "resume_mode": ""}) + "\n", encoding="utf-8"
+        )
+        _, sha = rn._load_previous(_chat_opts(resume_dir=run_dir, resume_mode="rerun-failed"))
+        assert sha == "abc1234"
+
+    def test_provenance_marks_stitched_rows_in_the_report(self, tmp_path: Path) -> None:
+        """A stitched report must say which code graded which rows — without
+        this, --rerun-failed mixes SHAs silently."""
+        discovery = make_discovery()
+        scenarios = [_scn("keep-pass", model="auto")]
+        results = [_res("keep-pass", Status.PASS)]
+        provenance = {
+            "created_at": "2026-11-25T00:00:00+00:00",
+            "git_sha": "newsha",
+            "resume_dir": "/results/qat/old",
+            "resume_mode": "rerun-failed",
+            "stitched_rows": 1,
+            "resume_sha": "oldsha",
+        }
+        path = rp.write_markdown(tmp_path, discovery, scenarios, results, provenance)
+        text = path.read_text(encoding="utf-8")
+        assert "## Run provenance" in text
+        assert "newsha" in text
+        assert "stitched rows: 1 of 1 from /results/qat/old (rerun-failed)" in text
+        assert "oldsha" in text
+
+    def test_unknown_resume_sha_is_reported_as_unknown(self, tmp_path: Path) -> None:
+        discovery = make_discovery()
+        scenarios = [_scn("keep-pass", model="auto")]
+        results = [_res("keep-pass", Status.PASS)]
+        provenance = {
+            "created_at": "",
+            "git_sha": "",
+            "resume_dir": "/results/qat/old",
+            "resume_mode": "append",
+            "stitched_rows": 1,
+            "resume_sha": "",
+        }
+        path = rp.write_markdown(tmp_path, discovery, scenarios, results, provenance)
+        text = path.read_text(encoding="utf-8")
+        assert "unknown (no git metadata)" in text
+        assert "unknown (predates provenance records)" in text
+
+    def test_report_without_provenance_has_no_provenance_section(self, tmp_path: Path) -> None:
+        path = rp.write_markdown(tmp_path, make_discovery(), [_scn("s", model="auto")], [])
+        assert "## Run provenance" not in path.read_text(encoding="utf-8")
 
 
 class TestWorksheets:

@@ -44,6 +44,7 @@ def write_markdown(
     discovery: Discovery,
     scenarios: list[QATScenario],
     results: list[QATResult],
+    provenance: dict[str, object] | None = None,
 ) -> Path:
     by_id = {r.scenario_id: r for r in results}
     counts = Counter(r.status.value for r in results)
@@ -60,6 +61,24 @@ def write_markdown(
         f" / {counts['SKIP']} SKIP / {counts['BLOCKED']} BLOCKED**"
         f" over {len(results)} scenarios.",
         "",
+    ]
+    if provenance:
+        sha = str(provenance.get("git_sha") or "")
+        lines += [
+            "## Run provenance",
+            "",
+            f"- this run's git sha: {sha or 'unknown (no git metadata)'}",
+            f"- created: {provenance.get('created_at', '')}",
+        ]
+        resume_dir = str(provenance.get("resume_dir") or "")
+        if resume_dir:
+            resume_sha = str(provenance.get("resume_sha") or "")
+            lines.append(
+                f"- stitched rows: {provenance.get('stitched_rows', 0)} of {len(results)} "
+                f"from {resume_dir} ({provenance.get('resume_mode')}), graded by that run — "
+                f"its git sha: {resume_sha or 'unknown (predates provenance records)'}"
+            )
+    lines += [
         "## Acceptance matrix (capability by capability)",
         "",
         "| Capability | Scenario | Model | Status | Detail |",
@@ -183,10 +202,11 @@ def write_reports(
     scenarios: list[QATScenario],
     results: list[QATResult],
     shots_dir: Path | None = None,
+    provenance: dict[str, object] | None = None,
 ) -> dict[str, Path]:
     run_dir.mkdir(parents=True, exist_ok=True)
     return {
         "jsonl": write_results_jsonl(run_dir, results),
-        "markdown": write_markdown(run_dir, discovery, scenarios, results),
+        "markdown": write_markdown(run_dir, discovery, scenarios, results, provenance),
         "html": write_review_html(run_dir, scenarios, results, shots_dir),
     }

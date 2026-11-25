@@ -106,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         state.scenarios,
         state.results,
         shots_dir=state.run_dir / "screenshots",
+        provenance=state.provenance,
     )
     counts = {status.value: 0 for status in Status}
     for row in state.results:
