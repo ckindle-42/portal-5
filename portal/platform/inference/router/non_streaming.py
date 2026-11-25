@@ -86,6 +86,7 @@ from portal.platform.inference.router.trace import (
 )
 from portal.platform.inference.router.trace import capture as trace_capture
 from portal.platform.inference.router.trace import note as trace_note
+from portal.platform.inference.router.trace import span as trace_span
 from portal.platform.inference.router.truncation import take_notice as take_truncation_notice
 from portal.platform.inference.router.validation import (
     _inject_ollama_options,
@@ -1707,6 +1708,13 @@ async def _try_non_streaming(
                 target_model,
                 type(exc).__name__,
                 detail[:300],
+            )
+            trace_span(
+                "backend.failed",
+                backend=backend.id,
+                model=target_model,
+                status_code=status,
+                error=detail[:200],
             )
             return None
 

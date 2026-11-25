@@ -15,6 +15,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import httpx
+
 from .config import Discovery, Settings, discover
 from .models import QATResult, Status
 
@@ -23,6 +25,8 @@ ROUTING_SCRIPT = "scripts/routing_regression.py"
 LAB_SCRIPT = "scripts/lab_ready.py"
 TRACE_SECTIONS = ("host", "containers", "pins", "engines", "platform")
 SUBPROCESS_TIMEOUT_S = 900
+GIB = 1024**3
+LOAD_GUARD_CEILING_METRIC = "portal5_load_guard_ceiling_bytes"
 
 
 def run_cmd(cmd: list[str], cwd: Path, timeout_s: int = SUBPROCESS_TIMEOUT_S) -> tuple[int, str]:
@@ -191,6 +195,51 @@ def sweep_freshness(settings: Settings) -> QATResult:
     return QATResult("p0-sweep-freshness", Status.PASS, f"{newest.name} ({age_days}d old)")
 
 
+def load_guard_probe(settings: Settings, client: httpx.Client) -> QATResult:
+    """The live pipeline's LoadGuard must report a measured oMLX ceiling, not run blind.
+
+    SKIPs when the pipeline is unreachable (offline runs stay green); WARNs when
+    the guard is live but its ``portal5_load_guard_ceiling_bytes`` gauge is
+    absent or zero — the 2026-11-24 blind-guard signature.
+    """
+    try:
+        r = client.get(f"{settings.pipeline_url}/metrics", headers=settings.auth_headers())
+    except Exception as exc:
+        return QATResult("p0-load-guard", Status.SKIP, f"pipeline not reachable: {exc}")
+    if r.status_code != 200:
+        return QATResult("p0-load-guard", Status.WARN, f"/metrics returned HTTP {r.status_code}")
+    ceiling = _prometheus_value(r.text, LOAD_GUARD_CEILING_METRIC)
+    if ceiling is None:
+        return QATResult(
+            "p0-load-guard",
+            Status.WARN,
+            f"{LOAD_GUARD_CEILING_METRIC} absent — guard not reporting or no oMLX read yet",
+        )
+    if ceiling <= 0:
+        return QATResult(
+            "p0-load-guard", Status.WARN, "guard ceiling reads 0 — oMLX status unreadable"
+        )
+    return QATResult(
+        "p0-load-guard",
+        Status.PASS,
+        f"LoadGuard active, oMLX ceiling {ceiling / GIB:.1f} GiB",
+        evidence={LOAD_GUARD_CEILING_METRIC: ceiling},
+    )
+
+
+def _prometheus_value(text: str, name: str) -> float | None:
+    """The last sample of an unlabeled Prometheus gauge, or None when absent."""
+    value: float | None = None
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and parts[0] == name:
+            try:
+                value = float(parts[1])
+            except ValueError:
+                continue
+    return value
+
+
 def run_stage0(settings: Settings) -> list[QATResult]:
     """Order matters: repo-truth first, then CLIs, then freshness."""
     discovery = discover()
@@ -203,4 +252,6 @@ def run_stage0(settings: Settings) -> list[QATResult]:
         run_lab_ready(settings),
         sweep_freshness(settings),
     ]
+    with httpx.Client(timeout=30.0) as client:
+        results.append(load_guard_probe(settings, client))
     return results
