@@ -268,7 +268,9 @@ class TestToolLoopCaps:
             get_workspace_dict(config)["auto-coding"],
             config.workspaces["auto-coding"].variants["cad"],
         )
-        assert merged.get("max_tool_hops") is None
+        # 2026-11-24: capped at 10 (still deeper than base auto-coding's 6) to stop
+        # runaway 15+ cad_build/generate_part loops after cad_finalize delivery.
+        assert merged.get("max_tool_hops") == 10
         assert merged.get("max_tool_calls") is None
 
     def test_auto_coding_bigfix_inherits_the_coding_cap(self) -> None:
