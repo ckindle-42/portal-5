@@ -602,6 +602,13 @@ Respond ONLY with a JSON object: {{"workspace": "<workspace_id>", "confidence": 
 The workspace must be one of the valid IDs listed above."""
 
 
+# Math-turn signals for the reasoning base — Layer 1's post-classification
+# pass promotes a math turn the router model labelled "auto-reasoning" to
+# "auto-reasoning::math" (s5-route-math-integral dropped the variant, 2026-11-24).
+_REASONING_VARIANT_SIGNALS: dict[str, dict[str, int]] = {
+    "math": _MATH_ROUTING_KEYWORDS,
+}
+
 # Per-base variant-signal table used by Layer 1's post-classification pass to
 # recover the variant once the LLM has picked a base workspace id.
 # Keyed by the base ids the GLOBAL router can actually return. auto-security is
@@ -609,6 +616,7 @@ The workspace must be one of the valid IDs listed above."""
 # selection inside the security workspace), not a global routing input.
 _VARIANT_INFERENCE_TABLE: dict[str, dict[str, dict[str, int]]] = {
     "auto-coding": _CODING_VARIANT_SIGNALS,
+    "auto-reasoning": _REASONING_VARIANT_SIGNALS,
 }
 # Minimum score for a variant signal set to "win" and get attached — below
 # this, the message just doesn't say enough to justify picking a specific
@@ -710,8 +718,22 @@ def detect_router_handoff(messages: list[dict[str, Any]]) -> str | None:
     return lane
 
 
+def _reasoning_math_lane() -> str:
+    """``auto-reasoning::math`` when that variant is declared and enabled, else the base."""
+    from portal.platform.inference.config import load_portal_config
+
+    spec = load_portal_config().workspaces.get("auto-reasoning")
+    if spec is not None and "math" in spec.variants:
+        return _without_disabled_variant("auto-reasoning::math")
+    return "auto-reasoning"
+
+
 def detect_specialist_intent(messages: list[dict[str, Any]]) -> str | None:
-    """Route unmistakable Kubernetes code and calculus turns deterministically."""
+    """Route unmistakable Kubernetes code and calculus turns deterministically.
+
+    Calculus turns promote to ``auto-reasoning::math`` (when that variant is
+    declared and its module enabled) instead of dropping the variant.
+    """
     text = _last_user_text(messages, 2000).lower()
     if not text:
         return None
@@ -721,7 +743,7 @@ def detect_specialist_intent(messages: list[dict[str, Any]]) -> str | None:
     ):
         return "auto-coding"
     if any(term in text for term in _MATH_ROUTING_KEYWORDS):
-        return "auto-reasoning"
+        return _reasoning_math_lane()
     return None
 
 
