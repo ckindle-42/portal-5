@@ -71,4 +71,4 @@ async def test_math_followup_stays_on_reasoning_even_if_layer_one_misclassifies(
         },
     ]
 
-    assert await preinject._resolve_auto_routing("auto", messages) == "auto-reasoning"
+    assert await preinject._resolve_auto_routing("auto", messages) == "auto-reasoning::math"
