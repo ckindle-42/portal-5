@@ -218,6 +218,7 @@ def protect_hot_seat(
 
     - ``protect_s <= 0`` (policy disabled — the default), fewer than two
       candidates, or the workspace is pinned (``::model=`` synthetic id);
+    - the effective head serves the exact hint as an oMLX model id;
     - the *effective* head (the first candidate that serves the workspace's
       model hint — what the dispatchers will actually use) is not on the hot
       engine, or its model is the hot one or already resident there (serving
@@ -242,6 +243,8 @@ def protect_hot_seat(
     if head_index is None:
         return list(candidates)
     head = candidates[head_index]
+    if head.type == "omlx" and model_hint in head.models:
+        return list(candidates)
     head_key = engine_key(head.url)
     hot = active.hot_model(head_key, protect_s, now=now)
     if hot is None:

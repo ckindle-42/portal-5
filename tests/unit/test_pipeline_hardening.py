@@ -775,6 +775,73 @@ async def test_no_fallback_on_malformed_request(monkeypatch) -> None:
 
 
 @pytest.mark.anyio
+async def test_auto_security_omlx_stream_error_falls_back_through_ollama_alias(monkeypatch) -> None:
+    from fastapi.responses import JSONResponse
+
+    from portal.platform.inference.cluster_backends import Backend
+
+    hint = "Inkling-2-Mini-abliterated-oQ4e-mtp"
+    gguf = "portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"
+    omlx = Backend(
+        id="omlx-security",
+        type="omlx",
+        url="http://omlx",
+        group="security",
+        models=[hint],
+        priority=10,
+    )
+    ollama = Backend(
+        id="ollama-security",
+        type="ollama",
+        url="http://ollama",
+        group="security",
+        models=[gguf],
+        aliases={hint: gguf},
+    )
+    calls: list[tuple[str, str | None]] = []
+
+    async def failed_stream(*_args, **_kwargs):
+        yield b'data: {"error": "Backend returned HTTP 503: unavailable", "status": 503}\n\n'
+
+    async def no_room(*_args, **_kwargs):
+        return None
+
+    async def fallback(backend, _body, *_args, **_kwargs):
+        resolved = backend.resolve_model(hint)
+        calls.append((backend.id, resolved))
+        return JSONResponse(
+            {"choices": [{"message": {"role": "assistant", "content": "rescued"}}]},
+            headers={"x-portal-route": f"auto-security;{backend.id};{resolved}"},
+        )
+
+    monkeypatch.setattr(st, "_select_stream_fn", lambda *_args, **_kwargs: failed_stream())
+    monkeypatch.setattr(st, "make_room_for_omlx", no_room)
+    monkeypatch.setattr(st, "_try_non_streaming", fallback)
+    chunks = await _drain(
+        st._stream_with_fallback(
+            omlx,
+            {"messages": [], "model": "auto-security", "stream": True},
+            "auto-security",
+            hint,
+            "auto-security",
+            [],
+            0.0,
+            False,
+            [],
+            False,
+            "",
+            "",
+            [ollama],
+            MagicMock(),
+            {},
+        )
+    )
+
+    assert calls == [("ollama-security", gguf)]
+    assert _content(chunks) == "rescued"
+
+
+@pytest.mark.anyio
 async def test_fallback_on_omlx_capacity_400(monkeypatch) -> None:
     """A streamed oMLX prefill_memory_guard rejection (400) must fall back to
     the next candidate, unlike a genuinely malformed request — mirrors
