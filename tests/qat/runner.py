@@ -268,7 +268,8 @@ def _primary_model_failure(
     if matched and not fallback and inversion is None and infra is None:
         return None
     if infra is not None:
-        detail = f"{infra}; served {actual or 'unknown'} on {backend}"
+        served = f"served {actual or 'unknown'} on {backend}"
+        detail = f"{infra}; {served}" if matched else f"{infra}; expected {expected}, {served}"
     else:
         reason = _fallback_reason(trace, hard_spans, matched=matched, inversion=inversion)
         detail = (
