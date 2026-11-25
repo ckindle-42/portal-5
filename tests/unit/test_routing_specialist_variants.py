@@ -72,3 +72,12 @@ def test_layer2_general_reasoning_still_routes_to_base() -> None:
 def test_kubernetes_prompts_still_route_to_auto_coding() -> None:
     for text in _KUBERNETES_PROMPTS:
         assert detect_specialist_intent(_user_messages(text)) == "auto-coding", text
+
+
+_CORPUS_INTEGRAL = "solve this integral: ∫ x² e^x dx"
+
+
+def test_baseline_gate_records_math_seat_for_corpus_integral() -> None:
+    from scripts.routing_regression import deterministic_then_keywords
+
+    assert deterministic_then_keywords(_user_messages(_CORPUS_INTEGRAL)) == "auto-reasoning::math"
