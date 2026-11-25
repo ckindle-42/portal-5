@@ -20,7 +20,6 @@ from portal.platform.inference.router import non_streaming as ns
 from portal.platform.inference.router import streaming
 from portal.platform.inference.router.client_tools import merge_client_tools
 from portal.platform.inference.router.context_budget import (
-    ContextOverflowError,
     estimate_tokens,
     fit_prompt,
 )
@@ -511,10 +510,12 @@ _SYSTEM_PROMPT = (
 )
 
 
-def test_uncensored_ctx8k_headroom_with_realistic_owui_payload() -> None:
+def test_uncensored_window_headroom_with_realistic_owui_payload() -> None:
     ws = "auto-general-uncensored"
     hint = WORKSPACES[ws]["model_hint"]
-    assert WORKSPACES[ws]["context_limit"] == 8192
+    # 2026-11-24: seat moved 8k -> 32k on the ctx32k twin; the dedup below
+    # keeps the realistic OWUI payload far inside the 24576 prompt budget.
+    assert WORKSPACES[ws]["context_limit"] == 32768
     assert WORKSPACES[ws]["tools"] == WORKSPACE_TOOLS
 
     workspace_schemas = [_schema(name, *_WORKSPACE_SCHEMAS[name]) for name in WORKSPACE_TOOLS]
@@ -528,13 +529,15 @@ def test_uncensored_ctx8k_headroom_with_realistic_owui_payload() -> None:
     assert _names(merged) == WORKSPACE_TOOLS
     body = {"model": hint, "messages": messages, "tools": merged}
     estimated = estimate_tokens(body, "ollama")
-    assert estimated < 4000  # comfortably under the 6144 prompt budget
+    assert estimated < 4000  # comfortably under the 24576 prompt budget
     report = fit_prompt(body, workspace_id=ws, model=hint, engine="ollama")
-    assert report.limit == 8192 and report.budget == 6144
-    assert not report.fitted and report.estimated_after <= 6144
+    assert report.limit == 32768 and report.budget == 24576
+    assert not report.fitted and report.estimated_after <= 24576
 
-    # The pre-fix name-only merge reproduces the live refusal.
+    # The pre-fix name-only merge doubles the schema payload — the bug that
+    # overflowed this seat's old 8k window (the live refusal; budget 6144).
+    # At the 32k window the doubled payload fits, so the pinned regression is
+    # the doubling itself: the legacy estimate exceeds the old 8k budget the
+    # refusal was measured at, and the deduped payload stays under it.
     legacy = {"model": hint, "messages": messages, "tools": workspace_schemas + mirrors}
     assert estimate_tokens(legacy, "ollama") > 6144
-    with pytest.raises(ContextOverflowError):
-        fit_prompt(legacy, workspace_id=ws, model=hint, engine="ollama")

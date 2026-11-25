@@ -11,7 +11,7 @@ source: prompts.chat
 # accepted posture, not pinned.
 workspace_model: auto
 preferred_models:
-  - huihui_ai/qwen3.5-abliterated:9b-ctx8k
+  - huihui_ai/qwen3.5-abliterated:9b-ctx64k
   - huihui_ai/qwen3.5-abliterated:9b
   - huihui_ai/qwen3.5-abliterated:9b-ctx64k
 module: general

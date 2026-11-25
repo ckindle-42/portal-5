@@ -5,7 +5,7 @@ category: writing
 workspace_model: auto-general-uncensored
 variant: creative
 preferred_models:
-  - fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k
+  - fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k
   - hermes3:8b
 module: media
 # Gives access to hermes3:8b (narrative coherence) alongside dolphin (uncensored)

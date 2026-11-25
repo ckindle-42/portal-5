@@ -1405,13 +1405,91 @@ def compliance_search(
         repo.close()
 
 
+def _match_document_alias(repo: Any, ref: str) -> dict[str, Any]:
+    """Case-insensitive doc_no / title / filename-stem fallback for a document ref.
+
+    Live Stage 5 runs showed the seat trying a document's ``doc_no``
+    ("OT-POL-007") and its PDF filename before finding the exact
+    ``logical_id``, wasting three tool hops. A unique match resolves the
+    document's sections directly (the payload echoes the ``logical_id`` so
+    the next call can use it); an ambiguous match lists the candidates.
+    Only active (governing) revisions are considered.
+    """
+    from portal.modules.compliance.core.section_index import (
+        _governing_revisions,
+        resolve_sections,
+        sections_in_scope,
+    )
+
+    wanted = str(ref).strip().casefold()
+    if not wanted:
+        return {}
+    ref_stem = Path(wanted).stem
+    jurisdictions = ("internal", "operator_note", "US")
+    active = set().union(
+        *(_governing_revisions(repo, jurisdiction) for jurisdiction in jurisdictions)
+    )
+    rows = repo._conn.execute(
+        """SELECT d.logical_id, d.title, r.revision_id, r.document_number
+           FROM source_documents d
+           JOIN document_revisions r ON r.logical_id = d.logical_id
+           WHERE d.jurisdiction IN (?,?,?)
+           ORDER BY d.logical_id, r.revision_id""",
+        jurisdictions,
+    ).fetchall()
+    matches: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if str(row["revision_id"]) not in active:
+            continue
+        logical_id = str(row["logical_id"])
+        candidates = (
+            ("document_number", str(row["document_number"] or "")),
+            ("title", str(row["title"] or "")),
+            ("filename", Path(logical_id).stem),
+        )
+        matched_by = ""
+        for field, value in candidates:
+            if not value:
+                continue
+            if value.casefold() == wanted or (field == "filename" and value.casefold() == ref_stem):
+                matched_by = field
+                break
+        if not matched_by or logical_id in matches:
+            continue
+        matches[logical_id] = {
+            "logical_id": logical_id,
+            "document_number": row["document_number"],
+            "title": row["title"],
+            "matched_by": matched_by,
+        }
+    if not matches:
+        return {}
+    if len(matches) == 1:
+        descriptor = next(iter(matches.values()))
+        ids = sections_in_scope(repo, logical_id=str(descriptor["logical_id"]))
+        return {
+            "document_match": {
+                "logical_id": descriptor["logical_id"],
+                "matched_by": descriptor["matched_by"],
+                "note": "matched case-insensitively; pass this logical_id next time",
+            },
+            "sections": resolve_sections(repo, ids[:200]),
+        }
+    return {"available_matches": sorted(matches.values(), key=lambda m: str(m["logical_id"]))}
+
+
 @mcp.tool()
 def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) -> dict[str, Any]:
     """Verbatim text of any addressable unit, from either side.
 
     ``ref`` is a ``section_id``, a regulatory address (``CIP-007-6 R2 Part
-    2.2``), a glossary term, or a document ``logical_id``. With ``neighbors``
-    the unit's parent heading and its siblings in reading order come too.
+    2.2``), a glossary term, or a document ``logical_id``. When no exact id
+    matches, the ref is tried case-insensitively against each active
+    document's ``doc_no``, title and filename stem — a unique hit reads the
+    document directly (with the ``logical_id`` echoed for the next call);
+    an ambiguous hit returns ``available_matches`` instead of failing flat.
+    With ``neighbors`` the unit's parent heading and its siblings in
+    reading order come too.
 
     Per-call ceiling ``max_chars`` defaults to 6,000 — the same bound the
     nested reader's dispatch applies — and every clip is STATED in the unit's
@@ -1424,6 +1502,26 @@ def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) ->
         resolved = section_index.resolve_sections(repo, [ref])
         if not resolved:
             resolved = _resolve_by_address(repo, ref)
+        document_match: dict[str, Any] | None = None
+        if not resolved:
+            alias = _match_document_alias(repo, ref)
+            if alias.get("available_matches"):
+                return {
+                    "ref": ref,
+                    "resolved": False,
+                    "detail": "no section, address, glossary term or document with that id; "
+                    "the ref matched several documents case-insensitively",
+                    "available_matches": alias["available_matches"],
+                }
+            document_match = alias.get("document_match")
+            resolved = alias.get("sections") or {}
+            if not resolved and document_match:
+                return {
+                    "ref": ref,
+                    "resolved": False,
+                    "detail": "the matched document has no captured sections in the store",
+                    **document_match,
+                }
         if not resolved:
             return {
                 "ref": ref,
@@ -1454,6 +1552,8 @@ def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) ->
                 }
             )
         payload: dict[str, Any] = {"ref": ref, "resolved": True, "units": units}
+        if document_match:
+            payload["document_match"] = document_match
         if remaining_sections:
             payload["remaining_sections"] = remaining_sections
             payload["truncation"] = {

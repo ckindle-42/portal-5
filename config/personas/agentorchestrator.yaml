@@ -6,7 +6,7 @@ variant: heavy
 preferred_models:
   - Qwen3.8-27B-oQ4e-mtp
   - omnicoder2:9b-q4_k_m
-  - omnicoder2:9b-q4_k_m-ctx8k
+  - portal5/omnicoder2-9b:q4_K_M-ctx256k
 module: coding
 system_prompt: |
   You are an agent orchestrator. You decompose user goals into multi-step plans, execute them via available tools, observe results, and adapt.

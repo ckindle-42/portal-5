@@ -100,6 +100,10 @@ backends:
     supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
     supports_tools: true
+  # 2026-11-24: ctx32k twin (same weights, 0 extra bytes) — the persona roster's
+  # upgraded preferred_models entry.
+  - id: huihui_ai/Qwen3.6-abliterated:27b-ctx32k
+    supports_tools: true
   - id: huihui_ai/qwen3.5-abliterated:9b
     supports_tools: true
   - id: huihui_ai/qwen3.5-abliterated:9b-ctx64k
@@ -132,6 +136,10 @@ backends:
     supports_tools: false
   - id: lfm2.5:8b-ctx8k
     supports_tools: true
+  # 2026-11-24: ctx16k twin of the tag above (same weights, 0 extra bytes) —
+  # auto-audio::music's upgraded hint.
+  - id: lfm2.5:8b-ctx16k
+    supports_tools: true
   - id: mistral-small3.2:24b
     supports_tools: true
   # Same weights (digest 5a408ab55df5) under the explicit tag the compliance
@@ -147,6 +155,10 @@ backends:
   # 2026-09-07 fleet closeout: auto-general-uncensored promotion (refusal 1.0 vs 0.75 incumbent).
   # The tag exists (Ollama names are case-insensitive: installed as :q4_K_M-ctx8k).
   - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k
+    supports_tools: true
+  # 2026-11-24: ctx32k twin of the tag above (same weights, 0 extra bytes) —
+  # auto-general-uncensored's upgraded hint; 8k starved the six-tool loop.
+  - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k
     supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm
   # V13 candidate intake (2026-07-08) — bench-only, PROMOTE_POLICY=confirm
@@ -193,6 +205,10 @@ backends:
     supports_tools: true
   # 2026-09-07 fleet closeout: auto-research promotion (research probe 0.9/0.8 vs 0.3/0.4)
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
+    supports_tools: true
+  # 2026-11-24: ctx32k twin of the tag above (same weights, 0 extra bytes) —
+  # auto-research's upgraded hint; 15 research tools + web results crowded 16k.
+  - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx32k
     supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
     supports_tools: true
@@ -389,6 +405,10 @@ backends:
     supports_tools: true
   - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx16k
     supports_tools: true
+  # 2026-11-24: ctx32k twin (same weights, 0 extra bytes) — registered beside the
+  # ctx16k tag's coding-group entry, as in ollama-general.
+  - id: hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx32k
+    supports_tools: true
   - id: glm-4.7-flash:Q4_K_M
     supports_tools: true
   - id: glm-4.7-flash:Q4_K_M-ctx64k
@@ -458,6 +478,10 @@ backends:
   - id: huihui_ai/gemma-4-abliterated:E2b-qat
     supports_tools: true
   - id: lfm2.5:8b-ctx8k
+    supports_tools: true
+  # 2026-11-24: ctx16k twin (same weights, 0 extra bytes), registered here as in
+  # ollama-general.
+  - id: lfm2.5:8b-ctx16k
     supports_tools: true
   - id: granite4.1:8b-ctx16k
     supports_tools: true
@@ -541,6 +565,9 @@ backends:
     supports_tools: true
   - id: qwen3-vl:32b-ctx8k
     supports_tools: true
+  # 2026-11-24: ctx16k twin (same weights, 0 extra bytes) — auto-vision's upgraded hint.
+  - id: qwen3-vl:32b-ctx16k
+    supports_tools: true
   - id: gemma4:26b-a4b-it-q4_K_M
     supports_tools: true
   - id: gemma4:e4b-it-qat
@@ -548,6 +575,9 @@ backends:
   - id: gemma4:e4b-it-qat-ctx8k
     supports_tools: true
   - id: gemma4:12b-it-qat-ctx8k
+    supports_tools: true
+  # 2026-11-24: ctx16k twin (same weights, 0 extra bytes) — auto-audio's upgraded hint.
+  - id: gemma4:12b-it-qat-ctx16k
     supports_tools: true
   - id: gemma4:26b-a4b-it-qat-ctx8k
     supports_tools: true
@@ -557,6 +587,10 @@ backends:
     supports_tools: true
     keep_reason: "QAT selected as auto-documents build, and for the bench and 64k overflow seats 2026-11-06; auto-daily::gemma-fast retains Gate C evidence. Plain remains for the 128k seats and vision fallbacks (A/Bs pending)."
   - id: gemma4:31b-it-qat-ctx8k
+    supports_tools: true
+  # 2026-11-24: ctx16k twin (same weights, 0 extra bytes) — auto-vision::gemma_vision's
+  # upgraded hint.
+  - id: gemma4:31b-it-qat-ctx16k
     supports_tools: true
   - id: hf.co/douyamv/Gemma-4-31B-JANG_4M-CRACK-GGUF:gemma-4-31b-jang-crack-Q4_K_M.gguf
     supports_tools: true
@@ -582,6 +616,10 @@ backends:
   - id: huihui_ai/Qwen3.6-abliterated:27b
     supports_tools: true
   - id: huihui_ai/Qwen3.6-abliterated:27b-ctx8k
+    supports_tools: true
+  # 2026-11-24: ctx32k twin (same weights, 0 extra bytes) — the persona roster's
+  # upgraded preferred_models entry.
+  - id: huihui_ai/Qwen3.6-abliterated:27b-ctx32k
     supports_tools: true
   - id: hf.co/gaston-parravicini/LFM2.5-8B-A1B-Uncensored-Gaston-GGUF:q4_K_M-ctx8k
     supports_tools: true
@@ -677,6 +715,8 @@ backends:
     # was screened against, paired so the family has a documented Ollama fallback.
     huihui_ai/Qwen3.6-abliterated:27b: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
     huihui_ai/Qwen3.6-abliterated:27b-ctx8k: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+    # 2026-11-24: persona-roster ctx32k twin of the ctx8k alias above.
+    huihui_ai/Qwen3.6-abliterated:27b-ctx32k: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
@@ -927,6 +967,10 @@ backends:
     # Tier-2 deep lane — auto-reasoning?variant=deep. Same MTP checkpoint the
     # omlx-coding group serves; aliased here so the reasoning group resolves it.
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
+    # 2026-11-24: auto-compliance moved to the ctx96k tag; the same MTP checkpoint
+    # serves it, so the reasoning group resolves the hint on oMLX (it already
+    # resolves via the omlx-general alias block).
+    hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: Qwen3.8-27B-oQ4e-mtp
     hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
