@@ -198,11 +198,16 @@ def test_security_inkling_seats_preserve_card_and_fallback_contract() -> None:
         "sampling_override",
     }.intersection(workspace)
     variants = workspace["variants"]
-    assert all(variant.get("think") is (name == "pentest") for name, variant in variants.items())
+    inherited_base_variants = {"blueteam-orchestrated", "blueteam-council"}
+    assert all(
+        variant.get("think") is (name == "pentest")
+        for name, variant in variants.items()
+        if name not in inherited_base_variants
+    )
     assert all(
         variant.get("emits_reasoning") is False
         for name, variant in variants.items()
-        if name != "pentest"
+        if name not in ({"pentest"} | inherited_base_variants)
     )
     uncensored = variants["uncensored"]
     assert uncensored["model_hint"] == (

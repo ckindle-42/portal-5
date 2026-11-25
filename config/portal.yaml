@@ -2182,13 +2182,7 @@ workspaces:
         guardrail: default
         role: purple
       blueteam-orchestrated:
-        think: false
-        emits_reasoning: false
-        # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        repeat_penalty: 1.05
-        top_k: 20
-        top_p: 0.8
-        temperature: 0.7
+        # Inherits base auto-security (Inkling-2-Mini-oQ4e-mtp) sampling; CLI trio below sets per-role models.
         name: 🔵 Portal Blue Team · Orchestrated Discovery
         description: 'BUILD_PROGRAM_SEC_BLUE_ORCHESTRATION_V2. Purpose-built three-section
           discovery pipeline (portal.modules.security.core.blue_orchestrate.run_blue_orchestration):
@@ -2229,13 +2223,7 @@ workspaces:
         guardrail: default
         role: blue
       blueteam-council:
-        think: false
-        emits_reasoning: false
-        # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        repeat_penalty: 1.05
-        top_k: 20
-        top_p: 0.8
-        temperature: 0.7
+        # Inherits base auto-security (Inkling-2-Mini-oQ4e-mtp) sampling; CLI council roster below sets per-role models.
         name: 🔵 Portal Blue Team · Council of Agreement
         description: 'GATE-D ablation Part II-A (TASK-SEC-GATED-ABLATION-TO-COUNCIL-V1).
           The routed next build after the full 89-scenario 1-vs-2-vs-3-section ablation
