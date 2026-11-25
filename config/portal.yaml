@@ -1922,6 +1922,11 @@ workspaces:
     name: 🔒 Portal Security Analyst
     description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, and hardening. Inkling-2-Mini-oQ4e-mtp replaced VulnLLM-R-7B on 2026-11-24 after the live QAT security benchmark passed 8/8 prompts in 116.9s: 4/4 parallel CVE tools in 25.8s, 22 MITRE IDs in 21.1s, clean ORCHID-9 continuity, authorized JNDI+Sigma without hedging, and preserved refusal behavior.'
     model_hint: Inkling-2-Mini-oQ4e-mtp
+    # Benchmark conformance: the 2026-11-24 QAT security benchmark (8/8 prompts,
+    # 116.9s) ran this seat at reasoning_effort low; the Inkling template's default
+    # is high (0.9), a config that was never measured. Injected for oMLX as
+    # chat_template_kwargs.reasoning_effort (no enable_thinking switch on Inkling).
+    reasoning_effort: low
     predict_limit: 32768
     keep_alive: 10m
     temperature: 1.0
@@ -1960,6 +1965,12 @@ workspaces:
         name: 🔓 Portal Security (Uncensored)
         description: "Uncensored security analysis for authorized research, served by oMLX Inkling-2-Mini-abliterated-oQ4e-mtp with portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k retained as the Ollama failover."
         model_hint: Inkling-2-Mini-abliterated-oQ4e-mtp
+        # Benchmarked as the Ollama GGUF with think:false (7/8), but the Inkling
+        # template has no enable_thinking switch, so think is inert on oMLX. effort
+        # low is the nearest measured knob: this model also ran think:low in the same
+        # bench (slower: s3-canonical 181.4s vs 103.8s), and the base seat passed 8/8
+        # at low. Matches the base seat; card sets no other requirement.
+        reasoning_effort: low
         context_limit: 262144
         predict_limit: 32768
         keep_alive: 10m
@@ -2118,6 +2129,9 @@ workspaces:
         # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         model_hint: Inkling-2-Mini-abliterated-oQ4e-mtp
         presence_penalty: null
+        # Same seat as ::uncensored: effort low matches the base seat and is the
+        # nearest measured knob (think:false is inert on the Inkling oMLX template).
+        reasoning_effort: low
         context_limit: 262144
         predict_limit: 32768
         keep_alive: 15m
