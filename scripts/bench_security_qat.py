@@ -64,6 +64,16 @@ SEATS: dict[str, dict[str, str]] = {
 }
 
 
+# How a user reaches each seat in Open WebUI. purpleteam-deep has no OWUI preset (it is
+# not user-selectable), so its turns go to the Pipeline directly and are labelled so.
+OWUI_ID: dict[str, str | None] = {
+    "auto-security": "auto-security",
+    "auto-security::uncensored": "securityuncensored",
+    "auto-security::purpleteam-deep": None,
+}
+EXPECTED_EFFORT = "low"
+
+
 def env(name: str) -> str:
     if os.environ.get(name):
         return os.environ[name]
@@ -83,6 +93,29 @@ def http(url: str, body: dict | None = None, headers: dict | None = None, timeou
         return json.load(r)
 
 
+def stream_chat(url: str, body: dict, key: str) -> str:
+    """Streamed chat completion, the way an OWUI user's turn runs (the Pipeline gives
+    non-streaming requests a one-hop tool loop; streaming gets the workspace cap)."""
+    req = urllib.request.Request(
+        url,
+        data=json.dumps({**body, "stream": True}).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
+    )
+    parts: list[str] = []
+    with urllib.request.urlopen(req, timeout=900) as r:  # noqa: S310
+        for raw in r:
+            line = raw.decode("utf-8", "ignore").strip()
+            if not line.startswith("data: ") or line == "data: [DONE]":
+                continue
+            try:
+                chunk = json.loads(line[6:])
+            except ValueError:
+                continue
+            delta = (chunk.get("choices") or [{}])[0].get("delta") or {}
+            parts.append(delta.get("content") or "")
+    return "".join(parts)
+
+
 def owui(path: str, body: dict):
     return http(f"{OWUI}{path}", body, {"Authorization": f"Bearer {env('OWUI_API_KEY')}"}, 900)
 
@@ -92,8 +125,9 @@ def pipe(path: str):
 
 
 def newest_trace(ws: str, since: float) -> dict | None:
-    for t in pipe("/v1/trace?limit=6")["data"]:
-        if t["workspace"] == ws and t["started_at"] >= since - 1:
+    for t in pipe("/v1/trace?limit=10")["data"]:
+        names = {t.get("workspace"), t.get("requested"), t.get("persona"), t.get("model")}
+        if (ws in names or OWUI_ID.get(ws) in names) and t["started_at"] >= since - 1:
             return pipe(f"/v1/trace/{t['correlation_id']}")
     return None
 
@@ -234,6 +268,7 @@ class TaskSpec:
     description: str
     prompts: list[str]  # one OWUI turn per prompt; history accumulates across them
     grade: Callable[[list[Turn]], list[str]]
+    needs_tools: frozenset[str] = frozenset()
 
 
 TASKS: list[TaskSpec] = [
@@ -251,6 +286,7 @@ TASKS: list[TaskSpec] = [
             "severity and the affected product."
         ],
         grade_s4_tools,
+        frozenset({"lookup_cve"}),
     ),
     TaskSpec(
         "s4_continuity",
@@ -283,6 +319,7 @@ TASKS: list[TaskSpec] = [
             "requires emergency patching and list 3 concrete remediation steps.",
         ],
         grade_s5_toolbelt_cve,
+        frozenset({"lookup_cve", "get_epss", "check_kev", "triage_cve"}),
     ),
     TaskSpec(
         "purple_jndi_sigma",
@@ -308,11 +345,17 @@ def trace_failures(seat_id: str, trace: dict[str, Any] | None) -> list[str]:
     intended = SEATS[seat_id]
     if trace is None:
         return ["no Pipeline /v1/trace record matched the OWUI turn"]
+    if trace.get("outcome") == "safety_refusal":
+        return []  # the guard refused before any model call: no engine to verify
     reasons = []
     if trace.get("workspace") != seat_id:
         reasons.append(f"trace resolved {trace.get('workspace')!r}, not {seat_id!r}")
-    if trace.get("outcome") != "complete":
-        reasons.append(f"trace outcome is {trace.get('outcome')!r}, not 'complete'")
+    if trace.get("outcome") not in ("complete", "ok"):  # streaming / non-streaming success
+        reasons.append(f"trace outcome is {trace.get('outcome')!r}, not a success")
+    applied = trace.get("options_applied") or {}
+    effort = applied.get("reasoning_effort") if isinstance(applied, dict) else None
+    if effort != EXPECTED_EFFORT:
+        reasons.append(f"reasoning_effort reached the engine as {effort!r}, seat declares 'low'")
     backend, model = str(trace.get("backend") or ""), str(trace.get("model") or "")
     if (backend, model) != (intended["backend"], intended["model"]):
         reasons.append(
@@ -327,10 +370,22 @@ def send_turn(seat_id: str, history: list[dict[str, str]], prompt: str) -> Turn:
     messages = [*history, {"role": "user", "content": prompt}]
     t0 = time.time()
     try:
-        out = owui("/api/chat/completions", {"model": seat_id, "messages": messages})
+        owui_id = OWUI_ID.get(seat_id)
+        if owui_id:
+            answer = stream_chat(
+                f"{OWUI}/api/chat/completions",
+                {"model": owui_id, "messages": messages},
+                env("OWUI_API_KEY"),
+            )
+        else:
+            answer = stream_chat(
+                f"{PIPE}/v1/chat/completions",
+                {"model": seat_id, "messages": messages},
+                env("PIPELINE_API_KEY"),
+            )
     except Exception as exc:  # noqa: BLE001 — a transport failure is a FAIL receipt
         return Turn(failures=[f"OWUI turn failed: {exc}"], wall_s=round(time.time() - t0, 1))
-    msg = (out.get("choices") or [{}])[0].get("message", {})
+    time.sleep(1.0)  # let the Pipeline finalise the trace record
     trace = newest_trace(seat_id, t0)
     called = [
         str(s.get("tool"))
@@ -338,7 +393,7 @@ def send_turn(seat_id: str, history: list[dict[str, str]], prompt: str) -> Turn:
         if s.get("name") == "tool.requested"
     ]
     return Turn(
-        answer=str(msg.get("content") or ""),
+        answer=answer,
         called=called,
         served=f"{trace.get('backend')}/{trace.get('model')}" if trace else "-",
         wall_s=round(time.time() - t0, 1),
@@ -346,7 +401,31 @@ def send_turn(seat_id: str, history: list[dict[str, str]], prompt: str) -> Turn:
     )
 
 
+def seat_tools(seat_id: str) -> set[str]:
+    import yaml  # noqa: PLC0415
+
+    ws = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
+    base, _, variant = seat_id.partition("::")
+    cfg = ws[base]
+    if variant:
+        cfg = {**cfg, **(cfg.get("variants") or {}).get(variant, {})}
+    return set(cfg.get("tools") or [])
+
+
 def run_task(seat_id: str, spec: TaskSpec) -> dict[str, Any]:
+    missing = spec.needs_tools - seat_tools(seat_id)
+    if missing:
+        print(f"  [{spec.id}] N/A — seat does not expose {sorted(missing)}", flush=True)
+        return {
+            "task": spec.id,
+            "description": spec.description,
+            "pass": None,
+            "na": f"seat lacks {sorted(missing)}",
+            "wall_s": 0,
+            "served": [],
+            "reasons": [],
+            "turns": [],
+        }
     history: list[dict[str, str]] = []
     turns: list[Turn] = []
     for prompt in spec.prompts:
@@ -390,7 +469,8 @@ def run_seat(seat_id: str) -> dict[str, Any]:
         f"\n==================== {seat_id} -> {intended['backend']}/{intended['model']} ====================",
         flush=True,
     )
-    rows = [run_task(seat_id, spec) for spec in TASKS]
+    reps = int(os.environ.get("BENCH_REPS", "1"))
+    rows = [dict(run_task(seat_id, spec), rep=r) for spec in TASKS for r in range(1, reps + 1)]
     passed = sum(1 for r in rows if r["pass"])
     print(f"== {seat_id}: {passed}/{len(rows)} tasks passed ==", flush=True)
     return {"seat": seat_id, "intended": intended, "tasks": rows}
@@ -407,7 +487,7 @@ def main() -> int:
         ap.error(f"unknown seat(s): {', '.join(unknown)} (known: {', '.join(SEATS)})")
     results = [run_seat(seat_id) for seat_id in seats]
     all_rows = [row for seat in results for row in seat["tasks"]]
-    failed = [row for row in all_rows if not row["pass"]]
+    failed = [row for row in all_rows if row["pass"] is False]
     if args.out:
         args.out.write_text(json.dumps(results, indent=2) + "\n")
         print(f"\nSaved full rows to {args.out}", flush=True)

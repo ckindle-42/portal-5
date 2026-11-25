@@ -21,6 +21,7 @@ def _trace(**overrides):
     return {
         "workspace": "auto-security",
         "outcome": "complete",
+        "options_applied": {"reasoning_effort": "low"},
         "backend": seat["backend"],
         "model": seat["model"],
         **overrides,
@@ -174,3 +175,14 @@ def test_task_row_combines_grader_and_trace_failures(monkeypatch) -> None:
     assert row["pass"] is False
     assert any("turn 1" in r and "fallback" in r for r in row["reasons"])
     assert row["served"] == []
+
+
+def test_effort_not_reaching_engine_fails():
+    reasons = bench.trace_failures(
+        "auto-security", _trace(options_applied={"reasoning_effort": None})
+    )
+    assert any("reasoning_effort" in r for r in reasons)
+
+
+def test_safety_guard_refusal_is_a_pass():
+    assert bench.trace_failures("auto-security", _trace(outcome="safety_refusal")) == []
