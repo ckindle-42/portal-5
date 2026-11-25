@@ -36,6 +36,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from scripts import prodpath
+
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 OWUI = "http://localhost:8080"
@@ -52,13 +54,7 @@ MEMORY_SWEEP_QUERY = f"smoke test code word {SMOKE_CODE_WORD}"
 
 
 def env(name: str) -> str:
-    if os.environ.get(name):
-        return os.environ[name]
-    for line in (REPO / ".env").read_text().splitlines():
-        k, _, v = line.strip().partition("=")
-        if k == name:
-            return v.strip().strip("'\"")
-    return ""
+    return prodpath.env(name)
 
 
 @dataclass
@@ -161,14 +157,6 @@ def http(url: str, body: dict | None = None, headers: dict | None = None, timeou
         return json.load(r)
 
 
-def owui(path: str, body: dict | None = None, timeout: int = 900):
-    return http(f"{OWUI}{path}", body, {"Authorization": f"Bearer {env('OWUI_API_KEY')}"}, timeout)
-
-
-def pipe(path: str):
-    return http(f"{PIPE}{path}", None, {"Authorization": f"Bearer {env('PIPELINE_API_KEY')}"}, 30)
-
-
 def upload(path: Path) -> str:
     """Upload a fixture through OWUI the way a user does; the file id."""
     boundary = "----smoke" + str(time.time_ns())
@@ -266,54 +254,24 @@ class Result:
     accepted: bool = False
 
 
-def newest_trace(ws: str, since: float) -> dict | None:
-    for t in pipe("/v1/trace?limit=6")["data"]:
-        if t["workspace"] == ws and t["started_at"] >= since - 1:
-            return pipe(f"/v1/trace/{t['correlation_id']}")
-    return None
-
-
-def _content_delta(raw: bytes) -> bool:
-    line = raw.decode("utf-8", "replace").strip()
-    if not line.startswith("data:"):
-        return False
-    try:
-        obj = json.loads(line[5:].strip())
-    except ValueError:
-        return False
-    choices = obj.get("choices") or []
-    return bool(((choices[0].get("delta") or {}) if choices else {}).get("content"))
-
-
 def stream_turn(
     ws: str, prompt: str, *, exec_audit: bool = False
-) -> tuple[list[bytes], float | None, float]:
-    """One streamed OWUI turn: raw SSE lines, TTFT and wall seconds."""
-    body = json.dumps(
-        {
-            "model": ws,
-            "messages": [{"role": "user", "content": prompt}],
-            "stream": True,
-            "stream_options": {"include_usage": True},
-            **({"exec_audit": True} if exec_audit else {}),
-        }
-    ).encode()
-    req = urllib.request.Request(
-        f"{OWUI}/api/chat/completions",
-        data=body,
-        method="POST",
-        headers={
-            "Authorization": f"Bearer {env('OWUI_API_KEY')}",
-            "Content-Type": "application/json",
-        },
+) -> tuple[list[bytes | str], float | None, float, prodpath.TurnReceipt]:
+    """One shared streamed turn: raw SSE lines, measured usage, trace and timing."""
+    target = prodpath.configured_target(ws)
+    receipt = prodpath.stream_chat(
+        target,
+        [{"role": "user", "content": prompt}],
+        owui_url=OWUI,
+        pipeline_url=PIPE,
+        owui_key=env("OWUI_API_KEY"),
+        pipeline_key=env("PIPELINE_API_KEY"),
+        timeout=900,
+        body_extra={"exec_audit": True} if exec_audit else None,
     )
-    started, first, lines = time.monotonic(), None, []
-    with urllib.request.urlopen(req, timeout=900) as resp:  # noqa: S310
-        for raw in resp:
-            lines.append(raw)
-            if first is None and _content_delta(raw):
-                first = time.monotonic()
-    return lines, (first - started if first else None), time.monotonic() - started
+    if receipt.status != 200:
+        raise RuntimeError(f"OWUI turn returned HTTP {receipt.status}: {receipt.error}")
+    return receipt.raw_lines, receipt.first_token_s, receipt.wall_s, receipt
 
 
 def suite_case(case_id: str) -> tuple[dict, str]:
@@ -331,13 +289,10 @@ def suite_case(case_id: str) -> tuple[dict, str]:
 
 def trace_reasons(trace: dict | None, ws: str, required: list[str], audit: list[dict]) -> list[str]:
     """What the trace must prove: served identity, completion, and the dispatched tools."""
+    target = prodpath.configured_target(ws)
+    reasons = prodpath.trace_failures(target, trace)
     if trace is None:
-        return ["no Pipeline /v1/trace record matched the OWUI turn"]
-    reasons = []
-    if trace.get("workspace") != ws:
-        reasons.append(f"trace resolved {trace.get('workspace')!r}, not {ws!r}")
-    if trace.get("outcome") != "complete":
-        reasons.append(f"trace outcome is {trace.get('outcome')!r}, not 'complete'")
+        return reasons
     if not trace.get("backend") or not trace.get("model"):
         reasons.append("trace does not name the served backend and model")
     requested = [
@@ -354,6 +309,25 @@ def trace_reasons(trace: dict | None, ws: str, required: list[str], audit: list[
     return reasons
 
 
+def preflight_workspaces(workspaces: list[str]) -> bool:
+    try:
+        targets = [prodpath.configured_target(ws) for ws in dict.fromkeys(workspaces)]
+    except ValueError as exc:
+        print(f"preflight setup failed: {exc}", file=sys.stderr)
+        return False
+    results = prodpath.preflight(
+        targets,
+        owui_url=OWUI,
+        pipeline_url=PIPE,
+        owui_key=env("OWUI_API_KEY"),
+        pipeline_key=env("PIPELINE_API_KEY"),
+    )
+    if not all(result.ok for result in results):
+        print("preflight failed; no WFE smoke rows were run", file=sys.stderr)
+        return False
+    return True
+
+
 def run_wfe_case(case_id: str, ws: str) -> int:
     """One graded real-use case through OWUI, with its trace as the receipt."""
     from tests.wfe import runner
@@ -365,16 +339,15 @@ def run_wfe_case(case_id: str, ws: str) -> int:
     if not prompt:
         print(f"FAIL: case {case_id!r} has no single-turn instruction")
         return 2
-    started = time.time()
     try:
-        lines, ttft, total = stream_turn(ws, prompt, exec_audit=True)
+        lines, ttft, total, receipt = stream_turn(ws, prompt, exec_audit=True)
     except Exception as exc:  # noqa: BLE001 — a transport failure is a FAIL receipt
         print(f"FAIL: the OWUI turn failed: {exc}")
         return 1
     msg, finish, economics = runner._read_stream("v1", lines)
     calls = runner._audited_calls(msg)
     answer = str(msg.get("content") or "")
-    trace = newest_trace(ws, started)
+    trace = receipt.trace
     result = apply_checkers(
         task, CheckContext(final_text=answer, tool_calls=calls, finish_reason=finish, task=task)
     )
@@ -393,7 +366,7 @@ def run_wfe_case(case_id: str, ws: str) -> int:
     print(f"trace: {trace}" if trace else "trace: none")
     print(
         f"timing: ttft={ttft or 0:.2f}s total={total:.2f}s "
-        f"completion_tokens={economics.completion_tokens}"
+        f"prompt_tokens={receipt.prompt_tokens} completion_tokens={economics.completion_tokens}"
     )
     print("-- verdict --")
     print("PASS" if not reasons else "FAIL")
@@ -411,15 +384,14 @@ def run_owui_bench(case_id: str, ws: str, runs: int) -> int:
     required = list(task.get("requires_tools") or [])
     rows, failures = [], []
     for run in range(1, runs + 1):
-        started = time.time()
         try:
-            lines, ttft, total = stream_turn(ws, prompt)
+            lines, ttft, total, receipt = stream_turn(ws, prompt)
         except Exception as exc:  # noqa: BLE001 — a failed run is a FAIL, not a crash
             failures.append(f"run {run}: OWUI turn failed: {exc}")
             continue
         msg, _, economics = runner._read_stream("v1", lines)
         answer = str(msg.get("content") or "").strip()
-        trace = newest_trace(ws, started)
+        trace = receipt.trace
         reasons = trace_reasons(trace, ws, required, [])
         if not answer:
             reasons.append("run rendered an empty answer")
@@ -429,7 +401,7 @@ def run_owui_bench(case_id: str, ws: str, runs: int) -> int:
         decode = economics.answer_tps
         if decode is None and economics.completion_tokens and total > (ttft or 0):
             decode = economics.completion_tokens / (total - (ttft or 0))
-        rows.append((run, ttft, total, decode, economics.prompt_tokens, trace))
+        rows.append((run, ttft, total, decode, receipt.prompt_tokens, trace))
     print(f"== OWUI route bench: {case_id} x{runs} on {ws} ==")
     print(
         f"{'run':>3}  {'ttft_s':>7}  {'total_s':>8}  {'decode_tps':>10}  {'prompt':>7}  trace / served"
@@ -459,22 +431,31 @@ def run_case(ws: str, case: Case) -> Result:
     if case.skip:
         r.note = f"skipped: {case.skip}"
         return r
-    t0 = time.time()
-    try:
-        out = owui(
-            "/api/chat/completions",
-            {"model": ws, "messages": [{"role": "user", "content": case.prompt}], "stream": False},
-        )
-    except Exception as e:  # noqa: BLE001
-        r.note = f"request failed: {e}"
+    target = prodpath.configured_target(ws)
+    receipt = prodpath.stream_chat(
+        target,
+        [{"role": "user", "content": case.prompt}],
+        owui_url=OWUI,
+        pipeline_url=PIPE,
+        owui_key=env("OWUI_API_KEY"),
+        pipeline_key=env("PIPELINE_API_KEY"),
+        timeout=900,
+    )
+    if receipt.status != 200 or receipt.error:
+        r.note = f"request failed: HTTP {receipt.status}: {receipt.error or 'no response'}"
         return r
-    r.seconds = round(time.time() - t0, 1)
-    msg = (out.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+    r.seconds = round(receipt.wall_s, 1)
+    msg = receipt.text
     r.answer = msg
     if case.tool == "remember":
         r.memory_id = _memory_id_from_tool_result_text(msg)
-    r.tokens = (out.get("usage") or {}).get("prompt_tokens", 0)
-    trace = newest_trace(ws, t0)
+    r.tokens = receipt.prompt_tokens
+    trace = receipt.trace
+    failures = prodpath.trace_failures(target, trace)
+    if failures:
+        r.note = "; ".join(failures)
+    if r.tokens <= 0:
+        r.note = "; ".join(filter(None, [r.note, "no measured prompt_tokens"]))
     spans = (trace or {}).get("spans", [])
     called = [s["tool"] for s in spans if s["name"] == "tool.requested"]
     done = {s["tool"]: s.get("outcome") for s in spans if s["name"] == "tool.completed"}
@@ -500,29 +481,35 @@ def needs_look(r: Result) -> bool:
     """A row is a finding unless it was skipped or correct by design (empty-KB cases)."""
     if r.note.startswith("skipped"):
         return False
+    if r.note and not r.note.startswith("correct:"):
+        return True
     if r.garbage or r.answer_ok == "NO":
         return True
     return not r.accepted and (not r.called or r.outcome not in ("ok", "complete"))
 
 
 def empty_turn(ws: str) -> tuple[int, int]:
-    import yaml
-
-    ctx = (
-        yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"][ws].get(
-            "context_limit"
+    _, config = prodpath.workspace_config(ws)
+    ctx = int(config.get("context_limit") or 0)
+    target = prodpath.configured_target(ws)
+    receipt = prodpath.stream_chat(
+        target,
+        [{"role": "user", "content": "Reply with the single word: ready"}],
+        owui_url=OWUI,
+        pipeline_url=PIPE,
+        owui_key=env("OWUI_API_KEY"),
+        pipeline_key=env("PIPELINE_API_KEY"),
+        timeout=900,
+    )
+    if receipt.status != 200 or receipt.error or receipt.prompt_tokens <= 0:
+        raise RuntimeError(
+            f"empty turn failed for {ws}: HTTP {receipt.status}, "
+            f"prompt_tokens={receipt.prompt_tokens}, {receipt.error}"
         )
-        or 0
-    )
-    out = owui(
-        "/api/chat/completions",
-        {
-            "model": ws,
-            "messages": [{"role": "user", "content": "Reply with the single word: ready"}],
-            "stream": False,
-        },
-    )
-    return (out.get("usage") or {}).get("prompt_tokens", 0), ctx
+    failures = prodpath.trace_failures(target, receipt.trace)
+    if failures:
+        raise RuntimeError(f"empty turn trace failed for {ws}: {'; '.join(failures)}")
+    return receipt.prompt_tokens, ctx
 
 
 def _forget_memory(memory_id: str) -> bool:
@@ -598,6 +585,8 @@ def _wfe_mode(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int | N
     except KeyError as exc:
         print(exc)
         return 2
+    if not preflight_workspaces([a.wfe_workspace]):
+        return 1
     failed = 0
     if a.wfe_case:
         failed |= run_wfe_case(case, a.wfe_workspace)
@@ -606,9 +595,83 @@ def _wfe_mode(a: argparse.Namespace, parser: argparse.ArgumentParser) -> int | N
     return 1 if failed else 0
 
 
-def main() -> int:
-    import yaml
+def _run_workspace_smokes(
+    workspaces: list[str], tools: str | None
+) -> tuple[list[Result], dict[str, tuple[int, int]]]:
+    by_tool = {case.tool: case for case in CASES}
+    results: list[Result] = []
+    memory_ids: list[str] = []
+    remember_id_missing = False
+    p4: dict[str, tuple[int, int]] = {}
+    with tempfile.TemporaryDirectory() as td:
+        ids = [upload(path) for path in fixtures(Path(td))]
+        try:
+            for workspace in workspaces:
+                p4[workspace] = empty_turn(workspace)
+                _, config = prodpath.workspace_config(workspace)
+                for tool in config.get("tools") or []:
+                    if tools and tool not in tools.split(","):
+                        continue
+                    case = by_tool.get(tool)
+                    if case is None:
+                        results.append(
+                            Result(workspace, tool, note="no smoke prompt for this tool")
+                        )
+                        continue
+                    result = run_case(workspace, case)
+                    results.append(result)
+                    if case.tool == "remember" and result.outcome == "ok":
+                        if result.memory_id:
+                            memory_ids.append(result.memory_id)
+                        else:
+                            remember_id_missing = True
+                    print(
+                        f"{workspace:16s} {tool:22s} called={result.called!s:5s} "
+                        f"outcome={result.outcome:10s} answer={result.answer_ok:4s} "
+                        f"garbage={result.garbage} {result.note}",
+                        flush=True,
+                    )
+        finally:
+            cleanup(ids, memory_ids, remember_id_missing=remember_id_missing)
+    return results, p4
 
+
+def _render_smoke_results(
+    results: list[Result], p4: dict[str, tuple[int, int]], destination: Path | None
+) -> None:
+    lines = [
+        "| workspace | tool | called | outcome | answer | garbage | prompt tokens | s | note |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    for result in results:
+        lines.append(
+            f"| {result.workspace} | {result.tool} | {'yes' if result.called else 'NO'} | "
+            f"{result.outcome} | {result.answer_ok} | {', '.join(result.garbage) or '-'} | "
+            f"{result.tokens} | {result.seconds} | {result.note} |"
+        )
+    p4_lines = [
+        "| workspace | empty-turn prompt tokens | context_limit | share |",
+        "|---|---|---|---|",
+    ]
+    for workspace, (tokens, context) in p4.items():
+        p4_lines.append(
+            f"| {workspace} | {tokens} | {context} | {round(100 * tokens / context) if context else '?'}% |"
+        )
+    text = (
+        "## P-4: prompt tokens of an empty turn\n\n"
+        + "\n".join(p4_lines)
+        + "\n\n## Per tool\n\n"
+        + "\n".join(lines)
+        + "\n"
+    )
+    if destination:
+        destination.write_text(text)
+    print("\n" + text)
+    bad = [result for result in results if needs_look(result)]
+    print(f"{len(bad)} of {len(results)} rows need a look")
+
+
+def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "--workspaces",
@@ -617,71 +680,23 @@ def main() -> int:
     ap.add_argument("--tools", help="comma list; default: every tool the workspace offers")
     ap.add_argument("--md", type=Path)
     ap.add_argument("--wfe-case", help="one WFE suite case id to run, grade and trace")
+    ap.add_argument("--preflight-only", action="store_true", help="check seats without smoke rows")
     ap.add_argument("--wfe-workspace", default="auto-daily")
     ap.add_argument(
         "--bench-runs", type=int, default=0, help="repeat --wfe-case (default gen-python-00)"
     )
     a = ap.parse_args()
+    if a.preflight_only:
+        targets = [a.wfe_workspace] if (a.wfe_case or a.bench_runs) else a.workspaces.split(",")
+        return 0 if preflight_workspaces(targets) else 1
     wfe_code = _wfe_mode(a, ap)
     if wfe_code is not None:
         return wfe_code
-    portal = yaml.safe_load((REPO / "config/portal.yaml").read_text())["workspaces"]
-    by_tool = {c.tool: c for c in CASES}
-    results: list[Result] = []
-    memory_ids: list[str] = []
-    remember_id_missing = False
-    p4: dict[str, tuple[int, int]] = {}
-    with tempfile.TemporaryDirectory() as td:
-        ids = [upload(p) for p in fixtures(Path(td))]
-        try:
-            for ws in a.workspaces.split(","):
-                p4[ws] = empty_turn(ws)
-                for tool in portal[ws].get("tools") or []:
-                    if a.tools and tool not in a.tools.split(","):
-                        continue
-                    case = by_tool.get(tool)
-                    if case is None:
-                        results.append(Result(ws, tool, note="no smoke prompt for this tool"))
-                        continue
-                    res = run_case(ws, case)
-                    results.append(res)
-                    if case.tool == "remember" and res.outcome == "ok":
-                        if res.memory_id:
-                            memory_ids.append(res.memory_id)
-                        else:
-                            remember_id_missing = True
-                    print(
-                        f"{ws:16s} {tool:22s} called={res.called!s:5s} outcome={res.outcome:10s} answer={res.answer_ok:4s} garbage={res.garbage} {res.note}",
-                        flush=True,
-                    )
-        finally:
-            cleanup(ids, memory_ids, remember_id_missing=remember_id_missing)
-    lines = [
-        "| workspace | tool | called | outcome | answer | garbage | prompt tokens | s | note |",
-        "|---|---|---|---|---|---|---|---|---|",
-    ]
-    for r in results:
-        lines.append(
-            f"| {r.workspace} | {r.tool} | {'yes' if r.called else 'NO'} | {r.outcome} | {r.answer_ok} | {', '.join(r.garbage) or '-'} | {r.tokens} | {r.seconds} | {r.note} |"
-        )
-    p4_lines = [
-        "| workspace | empty-turn prompt tokens | context_limit | share |",
-        "|---|---|---|---|",
-    ]
-    for ws, (tok, ctx) in p4.items():
-        p4_lines.append(f"| {ws} | {tok} | {ctx} | {round(100 * tok / ctx) if ctx else '?'}% |")
-    text = (
-        "## P-4: prompt tokens of an empty turn\n\n"
-        + "\n".join(p4_lines)
-        + "\n\n## Per tool\n\n"
-        + "\n".join(lines)
-        + "\n"
-    )
-    if a.md:
-        a.md.write_text(text)
-    print("\n" + text)
-    bad = [r for r in results if needs_look(r)]
-    print(f"{len(bad)} of {len(results)} rows need a look")
+    workspaces = a.workspaces.split(",")
+    if not preflight_workspaces(workspaces):
+        return 1
+    results, p4 = _run_workspace_smokes(workspaces, a.tools)
+    _render_smoke_results(results, p4, a.md)
     return 0
 
 

@@ -35,12 +35,12 @@ import json
 import os
 import re
 import sys
-import time
-import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from scripts import prodpath
 
 REPO = Path(__file__).resolve().parents[1]
 OWUI = "http://localhost:8080"
@@ -66,70 +66,8 @@ SEATS: dict[str, dict[str, str]] = {
 
 # How a user reaches each seat in Open WebUI. purpleteam-deep has no OWUI preset (it is
 # not user-selectable), so its turns go to the Pipeline directly and are labelled so.
-OWUI_ID: dict[str, str | None] = {
-    "auto-security": "auto-security",
-    "auto-security::uncensored": "securityuncensored",
-    "auto-security::purpleteam-deep": None,
-}
+OWUI_ID = prodpath.OWUI_ID
 EXPECTED_EFFORT = "low"
-
-
-def env(name: str) -> str:
-    if os.environ.get(name):
-        return os.environ[name]
-    for line in (REPO / ".env").read_text().splitlines():
-        k, _, v = line.strip().partition("=")
-        if k == name:
-            return v.strip().strip("'\"")
-    return ""
-
-
-def http(url: str, body: dict | None = None, headers: dict | None = None, timeout: int = 900):
-    data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(
-        url, data=data, headers={"Content-Type": "application/json", **(headers or {})}
-    )
-    with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310
-        return json.load(r)
-
-
-def stream_chat(url: str, body: dict, key: str) -> str:
-    """Streamed chat completion, the way an OWUI user's turn runs (the Pipeline gives
-    non-streaming requests a one-hop tool loop; streaming gets the workspace cap)."""
-    req = urllib.request.Request(
-        url,
-        data=json.dumps({**body, "stream": True}).encode(),
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
-    )
-    parts: list[str] = []
-    with urllib.request.urlopen(req, timeout=900) as r:  # noqa: S310
-        for raw in r:
-            line = raw.decode("utf-8", "ignore").strip()
-            if not line.startswith("data: ") or line == "data: [DONE]":
-                continue
-            try:
-                chunk = json.loads(line[6:])
-            except ValueError:
-                continue
-            delta = (chunk.get("choices") or [{}])[0].get("delta") or {}
-            parts.append(delta.get("content") or "")
-    return "".join(parts)
-
-
-def owui(path: str, body: dict):
-    return http(f"{OWUI}{path}", body, {"Authorization": f"Bearer {env('OWUI_API_KEY')}"}, 900)
-
-
-def pipe(path: str):
-    return http(f"{PIPE}{path}", None, {"Authorization": f"Bearer {env('PIPELINE_API_KEY')}"}, 30)
-
-
-def newest_trace(ws: str, since: float) -> dict | None:
-    for t in pipe("/v1/trace?limit=10")["data"]:
-        names = {t.get("workspace"), t.get("requested"), t.get("persona"), t.get("model")}
-        if (ws in names or OWUI_ID.get(ws) in names) and t["started_at"] >= since - 1:
-            return pipe(f"/v1/trace/{t['correlation_id']}")
-    return None
 
 
 # ── Graders: the agy script's checks, verbatim, over production turns ───────────
@@ -259,6 +197,7 @@ class Turn:
     called: list[str] = field(default_factory=list)
     served: str = ""
     wall_s: float = 0.0
+    prompt_tokens: int = 0
     failures: list[str] = field(default_factory=list)
 
 
@@ -343,61 +282,52 @@ TASKS: list[TaskSpec] = [
 def trace_failures(seat_id: str, trace: dict[str, Any] | None) -> list[str]:
     """Why this turn's trace fails the seat check: served identity and completion."""
     intended = SEATS[seat_id]
-    if trace is None:
-        return ["no Pipeline /v1/trace record matched the OWUI turn"]
-    if trace.get("outcome") == "safety_refusal":
-        return []  # the guard refused before any model call: no engine to verify
-    reasons = []
-    if trace.get("workspace") != seat_id:
-        reasons.append(f"trace resolved {trace.get('workspace')!r}, not {seat_id!r}")
-    if trace.get("outcome") not in ("complete", "ok"):  # streaming / non-streaming success
-        reasons.append(f"trace outcome is {trace.get('outcome')!r}, not a success")
+    target = prodpath.SeatTarget(seat_id, intended["backend"], intended["model"])
+    reasons = prodpath.trace_failures(target, trace)
+    if trace is None or trace.get("outcome") == "safety_refusal":
+        return reasons
     applied = trace.get("options_applied") or {}
     effort = applied.get("reasoning_effort") if isinstance(applied, dict) else None
     if effort != EXPECTED_EFFORT:
         reasons.append(f"reasoning_effort reached the engine as {effort!r}, seat declares 'low'")
-    backend, model = str(trace.get("backend") or ""), str(trace.get("model") or "")
-    if (backend, model) != (intended["backend"], intended["model"]):
-        reasons.append(
-            f"served {backend}/{model}, seat intends "
-            f"{intended['backend']}/{intended['model']} (fallback is a FAIL, not a pass)"
-        )
     return reasons
 
 
 def send_turn(seat_id: str, history: list[dict[str, str]], prompt: str) -> Turn:
     """One production turn: OWUI chat completion + the Pipeline trace as its receipt."""
     messages = [*history, {"role": "user", "content": prompt}]
-    t0 = time.time()
-    try:
-        owui_id = OWUI_ID.get(seat_id)
-        if owui_id:
-            answer = stream_chat(
-                f"{OWUI}/api/chat/completions",
-                {"model": owui_id, "messages": messages},
-                env("OWUI_API_KEY"),
-            )
-        else:
-            answer = stream_chat(
-                f"{PIPE}/v1/chat/completions",
-                {"model": seat_id, "messages": messages},
-                env("PIPELINE_API_KEY"),
-            )
-    except Exception as exc:  # noqa: BLE001 — a transport failure is a FAIL receipt
-        return Turn(failures=[f"OWUI turn failed: {exc}"], wall_s=round(time.time() - t0, 1))
-    time.sleep(1.0)  # let the Pipeline finalise the trace record
-    trace = newest_trace(seat_id, t0)
+    intended = SEATS[seat_id]
+    target = prodpath.SeatTarget(seat_id, intended["backend"], intended["model"])
+    receipt = prodpath.stream_chat(
+        target,
+        messages,
+        owui_url=OWUI,
+        pipeline_url=PIPE,
+        owui_key=prodpath.env("OWUI_API_KEY"),
+        pipeline_key=prodpath.env("PIPELINE_API_KEY"),
+        timeout=900,
+    )
+    trace = receipt.trace
     called = [
         str(s.get("tool"))
         for s in (trace or {}).get("spans", [])
         if s.get("name") == "tool.requested"
     ]
     return Turn(
-        answer=answer,
+        answer=receipt.text,
         called=called,
-        served=f"{trace.get('backend')}/{trace.get('model')}" if trace else "-",
-        wall_s=round(time.time() - t0, 1),
-        failures=trace_failures(seat_id, trace),
+        served=f"{receipt.backend}/{receipt.model}" if trace else "-",
+        wall_s=round(receipt.wall_s, 1),
+        prompt_tokens=receipt.prompt_tokens,
+        failures=(
+            trace_failures(seat_id, trace)
+            + (
+                [f"HTTP {receipt.status}: {receipt.error or 'no response'}"]
+                if receipt.status != 200
+                else []
+            )
+            + ([f"stream error: {receipt.error}"] if receipt.error else [])
+        ),
     )
 
 
@@ -480,11 +410,24 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--seats", default=",".join(SEATS), help="comma list of workspace ids")
     ap.add_argument("--out", type=Path, help="write the full rows as JSON here")
+    ap.add_argument(
+        "--preflight-only", action="store_true", help="check selected seats without QAT rows"
+    )
     args = ap.parse_args()
     seats = [s for s in args.seats.split(",") if s]
     unknown = [s for s in seats if s not in SEATS]
     if unknown:
         ap.error(f"unknown seat(s): {', '.join(unknown)} (known: {', '.join(SEATS)})")
+    targets = [
+        prodpath.SeatTarget(seat, SEATS[seat]["backend"], SEATS[seat]["model"]) for seat in seats
+    ]
+    preflight = prodpath.preflight(targets, owui_url=OWUI, pipeline_url=PIPE)
+    if not all(result.ok for result in preflight):
+        print("preflight failed; no QAT rows were run", file=sys.stderr)
+        return 1
+    if args.preflight_only:
+        print(f"preflight passed for {len(preflight)} seat(s)")
+        return 0
     results = [run_seat(seat_id) for seat_id in seats]
     all_rows = [row for seat in results for row in seat["tasks"]]
     failed = [row for row in all_rows if row["pass"] is False]
