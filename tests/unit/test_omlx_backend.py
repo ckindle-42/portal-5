@@ -146,3 +146,50 @@ class TestAutoCodingOmlxShadowRouting:
 
         ordered = _prioritize_hinted_backend(coding_candidates, hint)
         assert ordered[0].id == "omlx-coding"
+
+
+class TestAutoSecurityOmlxRouting:
+    """The security seats use direct oMLX ids and retain their Ollama aliases."""
+
+    _HINTS = {
+        "Inkling-2-Mini-oQ4e-mtp": "inkling-2-mini:ctx256k",
+        "Inkling-2-Mini-abliterated-oQ4e-mtp": (
+            "portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"
+        ),
+    }
+
+    @pytest.fixture
+    def security_registry(self):
+        return BackendRegistry(config_path="config/backends.yaml")
+
+    def test_healthy_omlx_security_backend_is_first_and_both_aliases_resolve(
+        self, security_registry
+    ):
+        candidates = [
+            candidate
+            for candidate in security_registry.get_backend_candidates("auto-security")
+            if candidate.group == "security"
+        ]
+
+        assert [candidate.id for candidate in candidates] == ["omlx-security", "ollama-security"]
+        omlx, ollama = candidates
+        for hint, gguf in self._HINTS.items():
+            assert omlx.resolve_model(hint) == hint
+            assert ollama.resolve_model(hint) == gguf
+
+    def test_unhealthy_omlx_security_backend_leaves_ollama_alias_as_candidate(
+        self, security_registry
+    ):
+        omlx = next(b for b in security_registry.list_backends() if b.id == "omlx-security")
+        omlx.healthy = False
+        security_registry._invalidate_candidate_cache()
+
+        candidates = [
+            candidate
+            for candidate in security_registry.get_backend_candidates("auto-security")
+            if candidate.group == "security"
+        ]
+
+        assert [candidate.id for candidate in candidates] == ["ollama-security"]
+        for hint, gguf in self._HINTS.items():
+            assert candidates[0].resolve_model(hint) == gguf

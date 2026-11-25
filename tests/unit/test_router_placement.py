@@ -164,6 +164,45 @@ class TestProtectHotSeat:
             )
         ) == ["omlx-general", "ollama-general"]
 
+    @pytest.mark.parametrize(
+        ("hint", "gguf"),
+        [
+            ("Inkling-2-Mini-oQ4e-mtp", "inkling-2-mini:ctx256k"),
+            (
+                "Inkling-2-Mini-abliterated-oQ4e-mtp",
+                "portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k",
+            ),
+        ],
+    )
+    def test_direct_omlx_security_hint_stays_primary_when_another_model_is_hot(
+        self, hint: str, gguf: str
+    ) -> None:
+        omlx = Backend(
+            id="omlx-security",
+            type="omlx",
+            url=OMLX_URL,
+            group="security",
+            models=[hint],
+            priority=10,
+        )
+        ollama = Backend(
+            id="ollama-security",
+            type="ollama",
+            url=OLLAMA_URL,
+            group="security",
+            models=[gguf],
+            aliases={hint: gguf},
+        )
+        tracker = HotSeatTracker()
+        tracker.touch(engine_key(OMLX_URL), "other-security-model", now=1_000.0)
+
+        out = protect_hot_seat(
+            [omlx, ollama], "auto-security", hint, 900, tracker=tracker, now=1_001.0
+        )
+
+        assert ollama.resolve_model(hint) == gguf
+        assert _ids(out) == ["omlx-security", "ollama-security"]
+
     def test_effective_head_is_the_first_candidate_that_serves_the_hint(self) -> None:
         """2026-11-20 auto-coding: the group head could not serve the hint at all.
 
