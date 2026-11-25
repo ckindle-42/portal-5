@@ -714,11 +714,13 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
                     defect_class=classify_defect(infra_hop_failed=True),
                 )
             if r.status_code != 200:
+                # 4xx is pre-inference (auth, addressing, request shape) — a
+                # harness/config gap, never a model-quality miss.
                 return QATResult(
                     scenario.scenario_id,
                     Status.FAIL,
                     f"pipeline HTTP {r.status_code}",
-                    defect_class=classify_defect(model_output_miss=True),
+                    defect_class=classify_defect(infra_hop_failed=True),
                 )
             message = r.json().get("choices", [{}])[0].get("message", {})
             content = message.get("content")
@@ -1047,16 +1049,15 @@ def _run_chat_turns(
             deadline=deadline,
         )
         if not response.is_success:
-            infra = response.status_code >= 500
+            # Non-2xx is pre-inference (auth, exposure, request shape): the
+            # harness/config owns it, the model never produced output.
             return (
                 None,
                 QATResult(
                     scenario.scenario_id,
                     Status.FAIL,
                     f"chat completion HTTP {response.status_code}",
-                    defect_class=classify_defect(
-                        infra_hop_failed=infra, model_output_miss=not infra
-                    ),
+                    defect_class=classify_defect(infra_hop_failed=True),
                 ),
                 all_spans,
                 all_calls,

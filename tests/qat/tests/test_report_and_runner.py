@@ -241,6 +241,8 @@ class FakeOWUI:
         deadline: float | None = None,
     ) -> FakeResponse:
         self.sent_images.append(image_png)
+        if type(self).mode == "http404":
+            return FakeResponse(status_code=404)
         return FakeResponse()
 
     def poll_turn(self, token: str, chat_id: str, **kwargs: object) -> FakeOutcome:
@@ -315,6 +317,16 @@ class TestChatExecution:
         client = fake_owui.instances[0]
         assert client.deleted == ["chat-1"]
         assert client.archived == []
+
+    def test_send_turn_4xx_is_infra_not_model_miss(self, fake_owui, tmp_path: Path) -> None:
+        FakeOWUI.mode = "http404"
+        settings = make_settings(tmp_path)
+        scenario = _scn("s2-chat", model="auto-daily")
+        state = rn.RunState(settings=settings, run_dir=tmp_path, discovery=make_discovery())
+        result = rn._execute_one(settings, scenario, state, _chat_opts())
+        assert result.status is Status.FAIL
+        assert "HTTP 404" in result.detail
+        assert result.defect_class is DefectClass.INFRA_ENV_GAP
 
     def test_artifact_validation_pass(self, fake_owui, tmp_path: Path) -> None:
         settings = make_settings(tmp_path)
@@ -737,6 +749,28 @@ class TestPipelineChat:
     ) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(502)
+
+        monkeypatch.setattr(rn.httpx, "Client", _client_factory(httpx.MockTransport(handler)))
+        settings = make_settings(tmp_path)
+        scenario = _scn(
+            "s3-x",
+            stage=3,
+            phase="security_canonical",
+            model="auto-security::blueteam",
+            kind="pipeline",
+        )
+        result = rn._run_pipeline_chat(settings, scenario)
+        assert result.status is Status.FAIL
+        assert result.defect_class is DefectClass.INFRA_ENV_GAP
+
+    def test_pipeline_turn_4xx_is_infra_not_model_miss(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """A 4xx is pre-inference (auth, addressing, request shape): the model
+        never produced output, so it must not count as MODEL_QUALITY_GAP."""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404, json={"error": "no such model"})
 
         monkeypatch.setattr(rn.httpx, "Client", _client_factory(httpx.MockTransport(handler)))
         settings = make_settings(tmp_path)
