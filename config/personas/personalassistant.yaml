@@ -7,7 +7,7 @@ preferred_models:
   # (~8-10k tokens); ctx32k is the deployed ollama-general build.
   - gemma4:26b-a4b-it-qat-ctx32k
   - huihui_ai/Qwen3.6-abliterated:27b
-  - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
+  - huihui_ai/Qwen3.6-abliterated:27b-ctx32k
 module: general
 # Forces an actual remember/recall call rather than narrating an intent to
 # and stopping — memory continuity is this persona's core purpose.

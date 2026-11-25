@@ -4,7 +4,7 @@ delivery: role
 category: vision
 workspace_model: auto-vision
 preferred_models:
-  - qwen3-vl:32b-ctx8k
+  - qwen3-vl:32b-ctx16k
   - qwen3-vl:32b
   - gemma4:26b-a4b-it-q4_K_M
 module: general

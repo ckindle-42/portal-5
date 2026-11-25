@@ -50,7 +50,9 @@ def test_unknown_tag_passes_through():
 
 
 def test_context_limit_declared_and_absent():
-    assert model_addressing.workspace_context_limit("auto-compliance") == 32768
+    # 2026-11-24: auto-compliance moved to the ctx96k tag with a 65536 window
+    # (doubles tool_result_byte_budget to 64 KB).
+    assert model_addressing.workspace_context_limit("auto-compliance") == 65536
     assert model_addressing.workspace_context_limit("no-such-workspace") == 0
 
 

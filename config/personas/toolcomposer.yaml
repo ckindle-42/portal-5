@@ -3,9 +3,9 @@ slug: toolcomposer
 category: coding
 workspace_model: tools-specialist
 preferred_models:
-  - granite4.1:8b-ctx8k
+  - granite4.1:8b-ctx16k
   - huihui_ai/Qwen3.6-abliterated:27b
-  - huihui_ai/Qwen3.6-abliterated:27b-ctx8k
+  - huihui_ai/Qwen3.6-abliterated:27b-ctx32k
 module: general
 # Forces an actual tool call rather than narrating an intent to call one and
 # stopping — this persona's entire purpose is composing tool calls.

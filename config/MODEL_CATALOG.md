@@ -291,6 +291,16 @@ The doc body asserted the vanch007→mradermacher rehost; `config/portal.yaml`'s
 
 ---
 
+### `hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k`
+
+`hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k` is the 32K-context derived tag (baked `PARAMETER num_ctx 32768`, same weights as the ctx8k tag — 0 extra bytes), minted 2026-11-24 when `auto-general-uncensored` moved off the ctx8k seat: the lane's six tools overflowed the 8k window. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`; `config/portal.yaml` makes it the `auto-general-uncensored` `model_hint` with `context_limit: 32768`. Refusal-preservation provenance stays with the ctx8k twin's promotion (2026-09-07 fleet closeout) — same weights, a bigger window.
+
+## Why
+
+The window-only upgrade keeps the seated model and its measured refusal behavior while giving the tool loop room; registration beside the ctx8k twin in `general` is what keeps the hint resolvable inside the workspace's `[general]` routing path.
+
+---
+
 ### `omnicoder2:9b-q4_k_m`
 
 `omnicoder2:9b-q4_k_m` is OmniCoder-2 9B Q4_K_M (~5.7GB, Apache 2.0), a Qwen3.5-9B base SFT on 425K agentic trajectories from Claude Opus 4.6 / GPT-5.4 / Codex / Gemini 3.1 Pro. `config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — 3/3 single-call plus a clean tool-result turn); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` pins it as the `bench-omnicoder2` workspace `model_hint`; the pull registry lists its `ollama_name` from the mradermacher GGUF. The auto-coding uncensored variant instead serves the ctx8k sibling. v2 fixes v1's repetition loops, bloated thinking, and agentic-loop instability.
@@ -538,6 +548,16 @@ Ollama ignores request-time `num_ctx`, so a challenger must arrive at the seat's
 ## Why
 
 The group-split `supports_tools` values are the core config fact: `config/backends.yaml` grants tool use only under `coding` and denies it under `general`, which `config/portal.yaml`'s bench-only binding reinforces. The institutional note that the model card claims function-calling is retained, but the authoritative verdict is the flag pair in the registry, so the body states the split rather than the marketing claim.
+
+---
+
+### `hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx32k`
+
+`hf.co/sjakek/Nex-N2-mini-GGUF:UD-Q4_K_M-ctx32k` is the 32K-context derived tag (baked `PARAMETER num_ctx 32768`, same weights as the ctx16k tag — 0 extra bytes), minted 2026-11-24 when `auto-research` moved off the ctx16k seat: the lane's 15 research tools plus web results were crowding the 16k window. `config/backends.yaml` registers it beside the ctx16k tag with `supports_tools: true` in the `general` and `coding` groups; `config/portal.yaml` makes it the `auto-research` `model_hint` with `context_limit: 32768`.
+
+## Why
+
+The upgrade is a window-only seat change: same weights, same sampling, a bigger baked window so tool results stop evicting prompt context. Registering in the ctx16k tag's own groups keeps hint resolution inside `auto-research`'s `[reasoning, general]` routing path.
 
 ---
 
@@ -1302,6 +1322,16 @@ The `vision` group registration in `config/backends.yaml` supplies the tool flag
 
 ---
 
+### `gemma4:12b-it-qat-ctx16k`
+
+`gemma4:12b-it-qat-ctx16k` is the 16384-token derived tag of `gemma4:12b-it-qat` (same weights as the ctx8k tag — 0 extra bytes), minted 2026-11-24 when `auto-audio` moved off the 8k seat: transcription payloads overflowed the window. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`, the same placement as its parent and ctx8k sibling; `config/portal.yaml` makes it the `auto-audio` `model_hint` with `context_limit: 16384`.
+
+## Why
+
+The `vision` group entry plus the `auto-audio` pin are the two config facts that make the declared window real; the cap mechanism is unchanged from the ctx8k sibling because the completion endpoint discards request-time `options.num_ctx`.
+
+---
+
 ### `gemma4:26b-a4b-it-qat-ctx32k`
 
 `gemma4:26b-a4b-it-qat-ctx32k` is the same Gemma-4-26B-A4B QAT weights and template at a 32768-token window, derived from the ctx16k tag (2026-10-22). `config/backends.yaml` registers it beside the ctx16k tag with `supports_tools: true`. `config/portal.yaml` selects it as the `auto-daily::gemma-fast` variant, the orchestration arm's fast seat, sized to the arm's `fast_context_budget_tokens` (32768).
@@ -1355,6 +1385,16 @@ The audit treats a hot baked tag as a gap even when the workspace pins a complia
 ## Why
 
 The sole config grounding is the `vision` group entry in `config/backends.yaml`; no portal workspace binds this tag directly, so citing the backend file alone is accurate. The distinction from the parent model is exactly why the derived-id mechanism exists, which is what makes the unit's registry-focused framing appropriate.
+
+---
+
+### `gemma4:31b-it-qat-ctx16k`
+
+`gemma4:31b-it-qat-ctx16k` is the 16384-token derived tag of `gemma4:31b-it-qat` (same weights as the ctx8k tag — 0 extra bytes), minted 2026-11-24 when the `auto-vision::gemma_vision` variant moved off the 8k seat. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`, the same placement as its parent and ctx8k sibling; `config/portal.yaml` makes it the `gemma_vision` variant `model_hint` with `context_limit: 16384`.
+
+## Why
+
+The `vision` group entry plus the `gemma_vision` variant pin are the two config facts that carry this tag; the derived-id mechanism is the same one its ctx8k sibling documents — a per-workspace cap that the completion endpoint cannot take at request time.
 
 ---
 
@@ -1681,6 +1721,16 @@ The `auto-general-uncensored` routing in `config/portal.yaml` is the decisive bi
 
 ---
 
+### `huihui_ai/Qwen3.6-abliterated:27b-ctx32k`
+
+`huihui_ai/Qwen3.6-abliterated:27b-ctx32k` is the 32K-context derived tag of the Qwen3.6-abliterated 27B model (same weights as the ctx8k tag — 0 extra bytes), minted 2026-11-24 for the persona roster's migration off `-ctx8k` `preferred_models`. `config/backends.yaml` registers it under the `general` and `creative` groups with `supports_tools: true` beside the ctx8k twin, and the `omlx-coding` alias block maps it onto `Huihui-Qwen3.6-27B-abliterated-MLX-4bit`. No workspace `model_hint` pins it; the production personas that list it in `preferred_models` (dailydriver, gemma_fast, gemma_e4b, documentationarchitect, techwriter, phi4specialist, toolcomposer, personalassistant) are its consumers.
+
+## Why
+
+Registering the twin in the ctx8k tag's groups with the same oMLX alias is what keeps every persona reference resolvable on both engines — an unregistered preferred_model is a silent no-op for hint validation. Full model detail stays in the base `:27b` entry; this section records only the derived-id registration and its consumers.
+
+---
+
 ### `huihui_ai/baronllm-abliterated:latest-ctx8k`
 
 `huihui_ai/baronllm-abliterated:latest-ctx8k` is the 8K-context derived tag of the BaronLLM abliterated fork, and it is the id `config/portal.yaml` routes through the `auto-security` uncensored variant's `model_hint`. `config/backends.yaml` registers it under both the `security` and `creative` groups with `supports_tools: true`. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so the per-workspace context cap is a distinct model id. Full model detail lives in the base `huihui_ai/baronllm-abliterated` entry; this tag exists to satisfy registry parity and the uncensored security lane's context limit.
@@ -1738,6 +1788,16 @@ The `auto-research` routing in `config/portal.yaml` is the decisive binding — 
 ## Why
 
 The ctx8k variant is the tag the music lane actually serves, so the grounding is the two group registrations plus the auto-music model_hint and its matching context_limit. Keeping the parent cross-listing explicit explains why both groups carry the same tool flag. The baked-cap mechanism is stated because the endpoint cannot take the bound at request time.
+
+---
+
+### `lfm2.5:8b-ctx16k`
+
+`lfm2.5:8b-ctx16k` is the 16384-token derived tag of `lfm2.5:8b` (same weights as the ctx8k tag — 0 extra bytes), minted 2026-11-24 when the music lane moved off the 8k seat: the 8-tool music loop plus lyrics overflowed the window. `config/backends.yaml` registers it with `supports_tools: true` in the `general` and `security` groups, mirroring the ctx8k twin; `config/portal.yaml` makes it the `auto-audio::music` variant `model_hint` with `context_limit: 16384`. Base model detail lives in the parent unit.
+
+## Why
+
+The upgrade is a window-only seat change; registering in the ctx8k twin's two groups keeps the hint resolvable inside `auto-audio`'s `[vision, general]` routing path, and the baked-cap mechanism is unchanged — the endpoint cannot take the bound at request time.
 
 ---
 
@@ -1844,6 +1904,16 @@ The ctx8k variant is now the tag the `bench-cad-prior` eval-only reference arm s
 ## Why
 
 This entry exists to record that the vision lane's context is controlled by the derived tag, not by request options, and to bind that fact to the two config files that make it true: the `vision` group entry and the `auto-vision` workspace pin. Without the tag, every vision request would reserve context far beyond the workspace's declared limit and evict other models from memory.
+
+---
+
+### `qwen3-vl:32b-ctx16k`
+
+`qwen3-vl:32b-ctx16k` is the 16384-token derived tag of `qwen3-vl:32b` (same weights as the ctx8k tag — 0 extra bytes), minted 2026-11-24 when `auto-vision` moved off the 8k seat: image turns plus the lane's five vision tools overflowed the window. `config/backends.yaml` registers it under the `vision` group with `supports_tools: true`; `config/portal.yaml` wires it as the `auto-vision` `model_hint` with `context_limit: 16384`, and the vision personas (`chartanalyst`, `codescreenshotreader`, `diagramreader`, `gemma4e4bvision`, `ocrspecialist`, `whiteboardconverter`) list it in `preferred_models`.
+
+## Why
+
+A window-only seat change with the same baked-cap mechanism as its ctx8k sibling; the `vision` group entry plus the `auto-vision` pin are the two config facts that make the declared 16K window real on the serving path.
 
 ---
 
@@ -2458,7 +2528,7 @@ The compliance-reading seat is the §P8.1-bound production seat; moving it to oM
 
 ### `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k`
 
-`hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` bakes a 98304-token context onto the Qwen3.8-27B Q4_K_M GGUF and is the `model_hint` of the `general-deep` workspace. `config/backends.yaml` registers it in the `general` group with `supports_tools: true`; the `omlx-general` group aliases it to `Qwen3.8-27B-oQ4e-mtp`, which serves it (the Ollama tag is only the fallback).
+`hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k` bakes a 98304-token context onto the Qwen3.8-27B Q4_K_M GGUF and is the `model_hint` of the `general-deep` workspace and, since 2026-11-24, of `auto-compliance` (`context_limit: 65536` — half the 98,304-token window doubles the lane's `tool_result_byte_budget` from 32 KB to 64 KB, removing mid-turn truncation on 4-part NERC CIP gap analysis; every calibrated compliance setting — `think: false`, the hop/call caps, all sampling — is unchanged). `config/backends.yaml` registers it in the `general` group with `supports_tools: true`; the `omlx-general` and `omlx-reasoning` alias blocks both map it to `Qwen3.8-27B-oQ4e-mtp`, which serves it (the Ollama tag is only the fallback).
 
 
 ### `qwen3.6:27b-q4_K_M-ctx4k`

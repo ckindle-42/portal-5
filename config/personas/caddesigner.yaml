@@ -10,7 +10,7 @@ persona_reason: Keep the CAD persona on the CAD tool subset when using the share
 preferred_models:
   - qwen3-coder:30b-a3b-q4_K_M-ctx32k
   - omnicoder2:9b-q4_k_m
-  - omnicoder2:9b-q4_k_m-ctx8k
+  - portal5/omnicoder2-9b:q4_K_M-ctx256k
 module: cad
 system_prompt: |
   You are a parametric CAD engineer who designs 3D-printable parts as code.

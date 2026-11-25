@@ -8,7 +8,7 @@ variant: heavy
 preferred_models:
   - Qwen3.8-27B-oQ4e-mtp
   - omnicoder2:9b-q4_k_m
-  - omnicoder2:9b-q4_k_m-ctx8k
+  - portal5/omnicoder2-9b:q4_K_M-ctx256k
 module: coding
 # LSP analysis + full-repo wiki generation benefits from maximum context; the
 # heavy variant (Qwen3.8-27B oQ4e MTP) serves the seat's 131K window.
