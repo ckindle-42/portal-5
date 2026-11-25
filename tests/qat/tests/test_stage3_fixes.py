@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from portal.platform.inference.cluster_backends import Backend
 from tests.qat import config as cq
 from tests.qat import runner, scenarios
 from tests.qat.models import DefectClass, QATScenario, Status
@@ -38,13 +39,22 @@ def _trace(model: str, spans: list[dict], **extra: object) -> dict:
     }
 
 
+def _alias_backend(backend_id: str) -> Backend:
+    # The serving backend's own alias map, the same input Backend.resolve_model reads.
+    return Backend(
+        id=backend_id or "ollama-security",
+        type="ollama",
+        url="http://127.0.0.1:9",
+        group="security",
+        models=[],
+        aliases={"primary-model": "primary-alias"},
+    )
+
+
 @pytest.fixture()
 def primary_hint(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(runner, "primary_model_for", lambda workspace: "primary-model")
-    monkeypatch.setattr(
-        "portal.platform.inference.model_addressing.alias_targets_for_model",
-        lambda hint: {"primary-alias"},
-    )
+    monkeypatch.setattr(runner, "_backend_named", _alias_backend)
 
 
 class TestPrimaryModelDiscovery:
