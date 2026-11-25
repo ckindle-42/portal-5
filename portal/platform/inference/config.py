@@ -207,6 +207,10 @@ class WorkspaceSpec(BaseModel):
     # call happening — a narrow, single-purpose workspace, not a general one.
     tool_choice: str | None = None
     think: bool | None = None
+    # Per-seat reasoning effort for oMLX templates with no enable_thinking switch
+    # (Inkling: reasoning_effort kwarg, template default high). Injected as
+    # chat_template_kwargs.reasoning_effort when the request carries none.
+    reasoning_effort: str | None = None
     emits_reasoning: bool | None = None
     # True → an answer with no tool call in the whole turn is not delivered as is: the pipeline
     # asks once for a grounded answer, then delivers with a notice (router/tool_repeat.py).

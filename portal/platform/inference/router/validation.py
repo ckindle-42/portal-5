@@ -162,7 +162,9 @@ def _note_applied_options(body: dict[str, Any], workspace_id: str) -> None:
                 "num_ctx": options.get("num_ctx"),
                 "think": body.get("think"),
                 "enable_thinking": ctk.get("enable_thinking"),
-                "reasoning_effort": body.get("reasoning_effort"),
+                # Top-level is popped by _apply_reasoning_effort before this note;
+                # the wire truth for oMLX effort tiers is the template kwarg.
+                "reasoning_effort": body.get("reasoning_effort") or ctk.get("reasoning_effort"),
                 "workspace_context_limit": ws_cfg.get("context_limit"),
             }
         )
@@ -586,6 +588,13 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
     if _effort is not None:
         _ctk = dict(body.get("chat_template_kwargs") or {})
         _ctk.setdefault("reasoning_effort", _effort[1])
+        body["chat_template_kwargs"] = _ctk
+    elif ws_cfg_local.get("reasoning_effort"):
+        # Seat-declared effort (e.g. Inkling security seats at benchmarked low):
+        # lowest precedence — an inbound request effort and a caller-supplied
+        # chat_template_kwargs value both win via the branches above / setdefault.
+        _ctk = dict(body.get("chat_template_kwargs") or {})
+        _ctk.setdefault("reasoning_effort", str(ws_cfg_local["reasoning_effort"]))
         body["chat_template_kwargs"] = _ctk
 
     if body.get("stream", True):
