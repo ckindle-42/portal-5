@@ -141,10 +141,14 @@ class TestWorkspaceModelHintUpdated:
         assert ws.get("emits_reasoning") is True
         variants = load_portal_config().workspaces["auto-security"].variants
         inherited_base_variants = {"blueteam-orchestrated", "blueteam-council"}
+        inkling_reasoning_variants = {"uncensored", "purpleteam-deep"}
         assert all(
             variant.get("think") is (name == "pentest")
             for name, variant in variants.items()
-            if name not in inherited_base_variants
+            if name not in inherited_base_variants | inkling_reasoning_variants
+        )
+        assert all(
+            variants[name].get("emits_reasoning") is True for name in inkling_reasoning_variants
         )
         assert {"lookup_cve", "check_kev", "triage_cve"} <= set(ws.get("tools") or [])
 

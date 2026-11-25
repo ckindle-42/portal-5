@@ -2727,17 +2727,36 @@ This local Ollama tag is built from `orcarouter/Inkling-2-Mini-abliterated-GGUF`
 and wraps the native Ollama `inkling2` renderer and parser with a baked 32K context. It is
 registered in `config/backends.yaml` under `ollama-general` and `ollama-security` with
 `supports_tools: true` in each group.
-`config/portal.yaml` uses it for `auto-security::uncensored` and `auto-security::purpleteam-deep`,
-each at `context_limit: 32768` and `think: false`; `settings_audit` resolves the tag to the
-`inkling-2-mini` model-card entry. It replaced the legacy BaronLLM uncensored tag and the Qwen3.5
-deep-chain first hop on 2026-11-24. The seat's QAT benchmark passed 7/8 prompts with `think: false`;
-`s3-canonical` completed in 103.8s versus 181.4s with `think: low`.
+`config/backends.yaml` keeps it registered in both groups and maps it as the Ollama failover for
+`Inkling-2-Mini-abliterated-oQ4e-mtp`; the production hints now point to oMLX. Its baked 32K context
+applies to fallback use only. `settings_audit` resolves the tag to the `inkling-2-mini` model-card
+entry. The earlier Mix-16G seat run passed 7/8 prompts with `think: false`; `s3-canonical`
+completed in 103.8s versus 181.4s with `think: low`.
 
 ## Why
 
 The `portal5/` model id is the registered local tag consumed by both security variants. Naming
 the Mix-16G source and baked context keeps the tag's identity distinct from the official Ollama
 Inkling model that provides the base seat's failover.
+
+---
+
+### `Inkling-2-Mini-abliterated-oQ4e-mtp`
+
+This oMLX checkpoint is the oQ4e/MTP build of `orcarouter/Inkling-2-Mini-abliterated`, repacked
+from its BF16 expert layout into the base Inkling layout before quantization. It includes the
+bundled DSpark draft and uses the Inkling 2 Mini card/template: 1M trained context, default high
+reasoning effort, no `enable_thinking` switch, and reasoning output by default. The configured
+oMLX serving ceiling is 262144 tokens; both production security variants use `context_limit: 262144`,
+`predict_limit: 32768`, omit `think`, and set `emits_reasoning: true`. `config/backends.yaml`
+registers it in `omlx-general` and `omlx-security`, with matching Ollama aliases to
+`portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k` in `ollama-general` and
+`ollama-security`.
+
+## Why
+
+The card's trained window exceeds the deployed oMLX maximum; the seat limits match the actual
+serving ceiling and the base Inkling output budget while preserving the template's default reasoning.
 
 ---
 
