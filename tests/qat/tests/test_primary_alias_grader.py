@@ -185,3 +185,95 @@ class TestEngineInversion:
             runner._primary_model_failure(_scenario("s2-auto-spl", 2, "auto-spl"), trace, hint)
             is None
         )
+
+
+class TestRecoveredFallbackSpans:
+    """The pipeline emits backend.failed AND backend.attempt for the same failed
+    candidate (non_streaming._run_request then the ladder), so the discovery
+    filter must cover both names: a recovered fallback grades PASS whichever
+    redundant span the pipeline emitted."""
+
+    def _hint_and_natives(self) -> tuple[str, list[str]]:
+        hint = TestEngineInversion()._hint()
+        natives = [
+            backend.id
+            for backend in BackendRegistry().list_backends()
+            if backend.type == "omlx" and hint in backend.models
+        ]
+        assert natives, hint
+        return hint, natives
+
+    def test_non_streaming_recovered_fallback_backend_failed_passes(self) -> None:
+        hint, natives = self._hint_and_natives()
+        trace = {
+            "workspace": "auto-spl",
+            "model": hint,
+            "backend": "ollama-general",
+            "outcome": "complete",
+            "spans": [
+                *[
+                    {"name": "backend.failed", "backend": backend_id, "error": "connect timeout"}
+                    for backend_id in natives
+                ],
+                *[
+                    {"name": "backend.attempt", "backend": backend_id, "outcome": "failed"}
+                    for backend_id in natives
+                ],
+                {"name": "backend.selected", "backend": "ollama-general", "model": hint},
+            ],
+        }
+        assert (
+            runner._primary_model_failure(_scenario("s2-auto-spl", 2, "auto-spl"), trace, hint)
+            is None
+        )
+
+    def test_streaming_recovered_fallback_serve_passes(self) -> None:
+        """The x-portal-route fallback shape: backend.failed on the failed
+        candidates plus backend.selected(fallback=True) on the serving backend
+        (streaming.py _record_fallback_route). The redundant backend.failed
+        spans must not turn the recovered serve into an infra FAIL."""
+        hint, natives = self._hint_and_natives()
+        serving = "ollama-general"
+        trace = {
+            "workspace": "auto-spl",
+            "model": hint,
+            "backend": serving,
+            "outcome": "ok",
+            "spans": [
+                *[
+                    {"name": "backend.failed", "backend": backend_id, "error": "HTTP 507"}
+                    for backend_id in natives
+                ],
+                {"name": "backend.selected", "backend": serving, "model": hint, "fallback": True},
+            ],
+        }
+        result = runner._primary_model_failure(_scenario("s2-auto-spl", 2, "auto-spl"), trace, hint)
+        assert result is None
+
+    def test_backend_failed_on_the_serving_backend_still_fails_infra(self) -> None:
+        trace = {
+            "workspace": "auto-daily::fast",
+            "model": runner.primary_model_for("auto-daily::fast"),
+            "backend": "omlx-general",
+            "outcome": "error",
+            "spans": [
+                {"name": "backend.selected", "backend": "omlx-general", "model": "x"},
+                {"name": "backend.failed", "backend": "omlx-general", "error": "HTTP 507"},
+            ],
+        }
+        result = runner._primary_model_failure(_s4(), trace, str(trace["model"]))
+        assert result is not None and result.defect_class is DefectClass.INFRA_ENV_GAP
+        assert "backend.failed on omlx-general" in result.detail
+
+    def test_exhausted_turn_without_serving_backend_keeps_the_cause(self) -> None:
+        """All-candidates-failed traces carry no serving backend meta, so the
+        backend.failed spans still name the cause (streaming.py exhaustion)."""
+        trace = {
+            "workspace": "auto-spl",
+            "model": "",
+            "outcome": "error",
+            "spans": [
+                {"name": "backend.failed", "backend": "omlx-general", "error": "HTTP 507"},
+            ],
+        }
+        assert runner._infra_cause(trace) == "backend.failed on omlx-general: HTTP 507"

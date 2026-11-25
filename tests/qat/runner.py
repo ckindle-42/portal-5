@@ -75,10 +75,17 @@ def _output_hygiene_result(
     )
 
 
+_DISCOVERY_SPAN_NAMES = frozenset({"backend.attempt", "backend.failed"})
+
+
 def _discovery_attempt(span: dict[str, object], serving_backend: str) -> bool:
-    # A failed probe of a backend that did not serve is candidate discovery, not fallback.
+    # A failed probe of a backend that did not serve is candidate discovery, not
+    # fallback. The pipeline emits BOTH backend.failed (non_streaming._run_request)
+    # and backend.attempt (the ladder) spans for the same failed candidate, so the
+    # discovery filter must cover both names or the same live event grades
+    # differently depending on which redundant span survived.
     return (
-        str(span.get("name") or "").casefold() == "backend.attempt"
+        str(span.get("name") or "").casefold() in _DISCOVERY_SPAN_NAMES
         and str(span.get("backend") or "") != serving_backend
     )
 
@@ -176,11 +183,19 @@ def _engine_inversion_detail(
 
 
 def _infra_cause(trace: dict[str, object]) -> str | None:
-    """Turn outcome backend.failed/error, or a backend.failed span, names the cause."""
+    """Turn outcome backend.failed/error, or a backend.failed span, names the cause.
+
+    A backend.failed span on a backend that did not serve the request is a
+    recovered candidate probe, not the serving hop's cause; the trace carries no
+    serving backend only when the turn died, and then every span counts.
+    """
+    serving = str(trace.get("backend") or "")
     for span in _trace_spans(trace):
         if str(span.get("name") or "").casefold() != "backend.failed":
             continue
         where = str(span.get("backend") or "")
+        if serving and where != serving:
+            continue
         detail = next(
             (str(span[key]) for key in ("error", "detail", "message", "reason") if span.get(key)),
             "",
