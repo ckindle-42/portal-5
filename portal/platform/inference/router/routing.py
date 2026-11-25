@@ -747,6 +747,15 @@ def detect_specialist_intent(messages: list[dict[str, Any]]) -> str | None:
     return None
 
 
+def claim_pre_layer(messages: list[dict[str, Any]]) -> tuple[str, str] | None:
+    """(metric layer, workspace) claimed before Layer 1: handoff, then specialist intent."""
+    if handoff := detect_router_handoff(messages):
+        return "router_handoff_gate", handoff
+    if specialist := detect_specialist_intent(messages):
+        return "deterministic_intent", specialist
+    return None
+
+
 def _infer_variant(base: str, message: str) -> str:
     """Score `message` against `base`'s variant-signal sets (if any) and
     return `"<base>::<variant>"` for the highest-scoring variant that clears

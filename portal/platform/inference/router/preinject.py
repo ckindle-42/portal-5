@@ -20,9 +20,8 @@ from portal.platform.inference.router.routing import (
     _HARMFUL_INTENT_LANE,
     _detect_workspace,
     _route_with_llm,
+    claim_pre_layer,
     detect_harmful_intent,
-    detect_router_handoff,
-    detect_specialist_intent,
 )
 from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
@@ -258,19 +257,20 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
     # scored next-best and be answered there. Checked before Layer 1 for the
     # same reason the harmful gate is: the destination must not depend on the
     # classifier's second choice.
-    if handoff := detect_router_handoff(messages):
-        logger.info(
-            "Auto-routing: router-handoff gate fired — routing to '%s'; the "
-            "workspace this resembles is selected explicitly, not auto-routed.",
-            handoff,
-        )
-        _router_layer_total.labels(layer="router_handoff_gate", workspace=handoff).inc()
-        _append_handoff_note(messages, handoff)
-        return handoff
-    if detected := detect_specialist_intent(messages):
-        logger.info("Auto-routing (deterministic intent): detected workspace '%s'", detected)
-        _router_layer_total.labels(layer="deterministic_intent", workspace=detected).inc()
-        return detected
+    if claimed := claim_pre_layer(messages):
+        layer, dest = claimed
+        if layer == "router_handoff_gate":
+            logger.info(
+                "Auto-routing: router-handoff gate fired — routing to '%s'; the "
+                "workspace this resembles is selected explicitly, not auto-routed.",
+                dest,
+            )
+            _router_layer_total.labels(layer=layer, workspace=dest).inc()
+            _append_handoff_note(messages, dest)
+            return dest
+        logger.info("Auto-routing (deterministic intent): detected workspace '%s'", dest)
+        _router_layer_total.labels(layer=layer, workspace=dest).inc()
+        return dest
     # LLM router first — semantic intent, ~100ms, falls back on timeout/low confidence
     detected = await _route_with_llm(messages)
     if detected:

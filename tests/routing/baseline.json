@@ -266,8 +266,8 @@
   },
   "routing_examples[37]": {
     "base": "auto-reasoning",
-    "served_model": "hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k",
-    "variant": null
+    "served_model": "glm-4.7-flash:Q4_K_M-ctx24k",
+    "variant": "math"
   },
   "routing_examples[38]": {
     "base": null,
