@@ -2445,10 +2445,10 @@ workspaces:
     presence_penalty: 0.0
     repeat_penalty: 1.0
     think: true
-    # Card documents an 81,920-token output budget (reasoning included); output stays
-    # capped at 4096 so thinking cannot consume it (set 2026-10-22 at the 8K window,
-    # retained 2026-11-24 when the window moved to 32k).
-    predict_limit: 4096
+    # Card documents an 81,920-token output budget (reasoning included); bumped
+    # 4096 -> 16384 (half the new 32k window) on 2026-11-24 so thinking-mode tool
+    # chains do not truncate mid-thought (satisfies settings_audit reasoning_budget_fit).
+    predict_limit: 16384
     tools:
     - execute_python
     - remember
