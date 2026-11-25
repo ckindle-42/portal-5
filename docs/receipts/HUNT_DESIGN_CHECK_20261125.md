@@ -1,5 +1,15 @@
 # HUNT DESIGN CHECK — 2026-11-25
 
+> **REVIEWER CORRECTION (orchestrator, 2026-11-25): this report's main verdict is SUPERSEDED.**
+> It graded only the committed R3 verdicts (11-21). After R3, `hunt-template-parse` (`332992311`)
+> and `hunt-wide-estate-clock` landed. Solo re-proofs of all four R3 families on main, plus held-out
+> proofs on unseen corpora, then PASSED the OrcaCyber/Deep-Dive-3 acceptance bars, including botsv2
+> `--stage all` EXIT 0. Those results are **deliberately kept out of this repo** so hunter models
+> cannot read results or history. The off-tree receipt is `/Volumes/data01/hunt_proofs/` (source: agy
+> conversation `ebc89673…`). "Cycling product" is therefore wrong. Still open: the santos judge AUC is
+> inverted (0.186 in the off-tree table).
+
+
 Design-level review of the hunt program for the week 2026-11-18 → 2026-11-25. Facts only, no
 fixes, no code changes. Written on `lane/hunt-design-check` at `5d2b44447`.
 
