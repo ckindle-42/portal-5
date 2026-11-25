@@ -39,6 +39,7 @@ class Engines:
         ceiling: float = 40 * GIB,
         omlx_ok: bool = True,
         omlx_active: int = 0,
+        omlx_waiting: int = 0,
         loading_polls: list[bool] | None = None,
         status_loading_polls: list[bool] | None = None,
         admin_loading_polls: list[bool] | None = None,
@@ -70,6 +71,7 @@ class Engines:
         self.ceiling = ceiling
         self.omlx_ok = omlx_ok
         self.omlx_active = omlx_active
+        self.omlx_waiting = omlx_waiting
         self.loading_polls = list(loading_polls or [])
         self.status_loading_polls = list(status_loading_polls or [])
         self.admin_loading_polls = list(admin_loading_polls or [])
@@ -270,7 +272,7 @@ class Engines:
                 200,
                 json={
                     "active_requests": self.omlx_active,
-                    "waiting_requests": 0,
+                    "waiting_requests": self.omlx_waiting,
                     "models_loading": int(loading) + len(self.forced_loading),
                 },
             )
@@ -1065,6 +1067,19 @@ def recorded_guard(e: RecordedOmlx) -> lg.LoadGuard:
         client=lambda: httpx.AsyncClient(transport=e.transport()),
         ollama_url=lambda: OLLAMA_URL,
     )
+
+
+async def test_omlx_engine_busy_reads_active_and_waiting_requests():
+    active = recorded_guard(Engines(omlx_active=1))
+    queued = recorded_guard(Engines(omlx_waiting=1))
+    idle = recorded_guard(Engines())
+    local = recorded_guard(Engines())
+    local._omlx_in_flight = lambda: 1
+
+    assert await active.omlx_engine_busy()
+    assert await queued.omlx_engine_busy()
+    assert not await idle.omlx_engine_busy()
+    assert await local.omlx_engine_busy()
 
 
 def test_the_recorded_080_status_is_the_ceiling_the_guard_budgets():

@@ -1241,6 +1241,19 @@ class LoadGuard:
         tracked = self._omlx_in_flight()
         return int(st.get("active_requests") or 0) + int(st.get("waiting_requests") or 0) > tracked
 
+    async def omlx_engine_busy(self, timeout_s: float = 0.25) -> bool:
+        """Whether pipeline or foreign requests are active or queued on oMLX."""
+        if self._omlx_in_flight() > 0:
+            return True
+        try:
+            async with self._client() as client:
+                foreign_active = await asyncio.wait_for(
+                    self._omlx_foreign_active(client), timeout=max(0.01, timeout_s)
+                )
+            return foreign_active or self._omlx_in_flight() > 0
+        except Exception:
+            return False
+
     async def _free_omlx(
         self,
         client: httpx.AsyncClient,

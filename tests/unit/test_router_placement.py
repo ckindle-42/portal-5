@@ -8,12 +8,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import httpx
 import pytest
 
+from portal.platform.inference import load_guard
 from portal.platform.inference.cluster_backends import Backend, BackendRegistry
+from portal.platform.inference.router import handlers
 from portal.platform.inference.router.placement import (
     HotSeatTracker,
     engine_key,
+    prefer_ollama_for_compliance_council,
+    prefer_resident_ollama_when_omlx_busy,
     protect_hot_seat,
 )
 
@@ -144,14 +149,12 @@ class TestProtectHotSeat:
             )
         ) == ["omlx-coding"]
 
-    def test_promotes_candidate_that_spares_the_hot_engine(self) -> None:
+    def test_alias_hint_stays_on_omlx_when_another_model_was_recently_hot(self) -> None:
         candidates = _coder_fleet()
         out = protect_hot_seat(
             candidates, "auto-coding", CODER_HINT, 900, tracker=_hot_tracker(), now=1_001.0
         )
-        # The Ollama copy serves the hint and does not touch the oMLX engine;
-        # the demoted head stays second and the same-engine sibling third.
-        assert _ids(out) == ["ollama-coding", "omlx-coding", "omlx-general"]
+        assert _ids(out) == _ids(candidates)
 
     def test_hot_seats_own_request_unchanged(self) -> None:
         candidates = [
@@ -247,7 +250,7 @@ class TestProtectHotSeat:
         out = protect_hot_seat(
             candidates, "auto-coding", CODER_HINT, 900, tracker=_hot_tracker(), now=1_001.0
         )
-        assert _ids(out) == ["ollama-general", "omlx-coding", "omlx-general"]
+        assert _ids(out) == ["omlx-coding", "omlx-general", "ollama-general"]
 
     def test_after_the_window_order_is_normal(self) -> None:
         candidates = _coder_fleet()
@@ -317,6 +320,97 @@ class TestProtectHotSeat:
             candidates, "auto-coding", CODER_HINT, 900, tracker=_hot_tracker(), now=1_001.0
         )
         assert candidates == snapshot
+
+
+class TestBusyAwarePlacement:
+    def test_busy_omlx_uses_an_idle_resident_ollama_copy(self) -> None:
+        candidates = _coder_fleet()
+        out = prefer_resident_ollama_when_omlx_busy(
+            candidates,
+            "auto-coding",
+            CODER_HINT,
+            omlx_busy=True,
+            ollama_resident_idle=True,
+        )
+        assert _ids(out) == ["ollama-coding", "omlx-coding", "omlx-general"]
+
+    @pytest.mark.parametrize(
+        ("omlx_busy", "ollama_resident_idle"),
+        [(False, True), (True, False), (False, False)],
+    )
+    def test_busy_rule_keeps_omlx_without_both_conditions(
+        self, omlx_busy: bool, ollama_resident_idle: bool
+    ) -> None:
+        candidates = _coder_fleet()
+        out = prefer_resident_ollama_when_omlx_busy(
+            candidates,
+            "auto-coding",
+            CODER_HINT,
+            omlx_busy=omlx_busy,
+            ollama_resident_idle=ollama_resident_idle,
+        )
+        assert _ids(out) == _ids(candidates)
+
+    def test_deliberate_ollama_first_order_is_preserved(self) -> None:
+        candidates = [
+            _omlx("omlx-general", [CODER_NATIVE], {CODER_HINT: CODER_NATIVE}),
+            _ollama("ollama-general", [CODER_HINT]),
+        ]
+        already_ollama_first = [candidates[1], candidates[0]]
+        out = prefer_resident_ollama_when_omlx_busy(
+            already_ollama_first,
+            "compliance-council-qwen38",
+            CODER_HINT,
+            omlx_busy=True,
+            ollama_resident_idle=True,
+        )
+        assert _ids(out) == _ids(already_ollama_first)
+
+    def test_compliance_council_is_explicitly_ollama_first(self) -> None:
+        candidates = [
+            _omlx("omlx-general", [CODER_NATIVE], {CODER_HINT: CODER_NATIVE}),
+            _ollama("ollama-general", [CODER_HINT]),
+        ]
+        out = prefer_ollama_for_compliance_council(
+            candidates, "compliance-council-qwen38", CODER_HINT
+        )
+        assert _ids(out) == ["ollama-general", "omlx-general"]
+
+    async def test_runtime_rule_checks_status_and_residency_without_loading(
+        self, monkeypatch
+    ) -> None:
+        requests: list[str] = []
+
+        def responder(request: httpx.Request) -> httpx.Response:
+            requests.append(request.url.path)
+            if request.url.path == "/api/status":
+                return httpx.Response(200, json={"active_requests": 1, "waiting_requests": 0})
+            if request.url.path == "/api/ps":
+                return httpx.Response(200, json={"models": [{"name": CODER_HINT}]})
+            return httpx.Response(404)
+
+        transport = httpx.MockTransport(responder)
+        real_client = httpx.AsyncClient
+
+        def client_factory(**kwargs):
+            return real_client(transport=transport, **kwargs)
+
+        monkeypatch.setattr(handlers.httpx, "AsyncClient", client_factory)
+        guard = load_guard.LoadGuard(
+            omlx_url=lambda: OMLX_URL,
+            pinned=lambda: "router",
+            client=lambda: real_client(transport=transport),
+            ollama_url=lambda: OLLAMA_URL,
+        )
+        guard._omlx_in_flight = lambda: 0
+        guard.active = lambda _engine, _model: False
+        monkeypatch.setattr(load_guard, "GUARD", guard)
+
+        candidates = _coder_fleet()
+        out = await handlers._prefer_warm_ollama_if_omlx_busy(candidates, "auto-coding", CODER_HINT)
+
+        assert _ids(out) == ["ollama-coding", "omlx-coding", "omlx-general"]
+        assert requests == ["/api/status", "/api/ps"]
 
 
 def _write_config(tmp_path: Path, extra_defaults: str = "") -> Path:
