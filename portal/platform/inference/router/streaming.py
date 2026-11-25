@@ -3360,5 +3360,11 @@ async def _stream_with_fallback(
             yield _f
         _record_error(workspace_id, "all_backends_failed")
         trace_note(outcome="error")
-        trace_span("backend.failed", backend=backend.id)
+        trace_span(
+            "backend.failed",
+            backend=backend.id,
+            model=target_model,
+            status_code=_error_status,
+            error=_message[:200],
+        )
         finalize_trace()

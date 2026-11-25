@@ -80,6 +80,9 @@ Before grepping, query the wiki: `wiki_search` / `wiki_get_unit` / `wiki_explain
 ### 14 — Native Means arm64
 Anything executed natively on the Mac host (binaries, wheels, `.so`) or in Docker on it (images built/pulled for `linux/arm64`) must be the ARM build; verify with `uname -m` / `platform.machine()` / `file` / `docker image inspect …Architecture`. x86_64 builds under Rosetta or emulation are not acceptable fallbacks — record a known limitation instead.
 
+### 15 — Always Start/Stop/Rebuild Services Through `./launch.sh`
+`./launch.sh up`, `./launch.sh restart`, `./launch.sh rebuild` — NEVER bare `docker compose up/restart`. `launch.sh` propagates the host engine's memory-guard settings (`OMLX_PREFILL_SAFE_ZONE_RATIO`, `OMLX_MEMORY_GUARD_TIER`) into the pipeline container and validates host-engine wiring; bypassing it leaves the LoadGuard blind to oMLX's prefill-safe share and reclaim tier, which invalidates memory behavior and QAT runs (found live 2026-11-24: a bare `docker compose up` left both vars empty → mid-prefill 507 aborts and cross-engine `backend.failed` during sequential QAT swaps).
+
 ## Testing Rules
 
 - `tests/unit/` must pass with no network, no real Ollama/OWUI/Docker; `tmp_path` for I/O; mock `httpx.AsyncClient`.

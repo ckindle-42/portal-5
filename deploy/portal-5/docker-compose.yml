@@ -85,6 +85,14 @@ services:
       # what the CLI reported. Read-only: the pipeline only ever reads gate
       # state, module toggles are written host-side via the CLI/git.
       - ../../portal_wiki/canonical:/app/portal_wiki/canonical:ro
+      # The host engine's memory-guard settings, mounted read-only for the
+      # LoadGuard's container-side fallback (found live 2026-11-24: a bare
+      # `docker compose up` left OMLX_PREFILL_SAFE_ZONE_RATIO and
+      # OMLX_MEMORY_GUARD_TIER empty in the container, so the guard ran blind —
+      # mid-prefill 507 aborts and cross-engine load refusals during sequential
+      # QAT swaps). `./launch.sh up` still exports the live values as env vars,
+      # which win over this file.
+      - ${HOME}/.omlx/settings.json:/host_omlx/settings.json:ro
       - type: tmpfs
         target: /tmp/portal_metrics
         tmpfs:
@@ -103,12 +111,13 @@ services:
       - LOAD_GUARD_MARGIN_GB=${LOAD_GUARD_MARGIN_GB:-2}
       # oMLX's own memory.prefill_safe_zone_ratio, read by `launch.sh up` from the
       # engine's settings so the guard reserves the engine's prefill share rather
-      # than a copy of it. Empty = budget the raw headroom (pre-2026-11-16 behaviour).
-      - OMLX_PREFILL_SAFE_ZONE_RATIO=${OMLX_PREFILL_SAFE_ZONE_RATIO:-}
+      # than a copy of it. The 0.8 default covers a bare `docker compose up`
+      # (2026-11-24: empty meant budgeting raw headroom → mid-prefill 507s).
+      - OMLX_PREFILL_SAFE_ZONE_RATIO=${OMLX_PREFILL_SAFE_ZONE_RATIO:-0.8}
       # The engine's memory-guard tier, likewise read by `launch.sh up`: the guard
       # needs its other-app reclaim share to project the ceiling an Ollama load
-      # leaves behind. Empty = no projection (the previous behaviour).
-      - OMLX_MEMORY_GUARD_TIER=${OMLX_MEMORY_GUARD_TIER:-}
+      # leaves behind. Default balanced (0.25 reclaim) matches the standard tier.
+      - OMLX_MEMORY_GUARD_TIER=${OMLX_MEMORY_GUARD_TIER:-balanced}
       - LOAD_GUARD_CEILING_GB=${LOAD_GUARD_CEILING_GB:-0}
       - LOAD_GUARD_WAIT_S=${LOAD_GUARD_WAIT_S:-120}
       - OLLAMA_KV_CACHE_TYPE=${OLLAMA_KV_CACHE_TYPE:-q8_0}

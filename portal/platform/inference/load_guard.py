@@ -120,17 +120,35 @@ _FREE_SETTLE_EXPECTED_S = 4.6
 #: oMLX 0.8.1's unload is async (HTTP 202): Metal memory is reclaimed over the next
 #: seconds while ``current_model_memory`` still reads flat (release_1_0_final QAT,
 #: 2026-11-22: two spurious 507s within ~1 GiB right after an oMLX turn). A quiet
-#: refusal polls the counter for this window before it refuses.
-_OMLX_SETTLE_S = float(os.environ.get("LOAD_GUARD_OMLX_SETTLE_S", "8"))
+#: refusal polls the counter for this window before it refuses; 12s covers oMLX
+#: 0.8.3's slower async Metal reclaim.
+_OMLX_SETTLE_S = float(os.environ.get("LOAD_GUARD_OMLX_SETTLE_S", "12"))
 _OMLX_SETTLE_STEP_S = float(os.environ.get("LOAD_GUARD_OMLX_SETTLE_STEP_S", "0.5"))
 _CTX_TAG = re.compile(r"(?:^|[-_])ctx(\d+)([km]?)", re.IGNORECASE)
+#: The engine settings file as mounted into portal5-pipeline (docker-compose.yml);
+#: the container-side fallback when the env vars launch.sh exports are absent.
+_CONTAINER_OMLX_SETTINGS = Path("/host_omlx/settings.json")
+
+
+def _omlx_memory(settings: Path | None = None) -> dict[str, Any]:
+    """The engine's ``memory`` settings block: the given path, the host's
+    ``OMLX_SERVER_SETTINGS``, or the container mount — first readable wins."""
+    for path in (settings, OMLX_SERVER_SETTINGS, _CONTAINER_OMLX_SETTINGS):
+        if path is None:
+            continue
+        try:
+            return json.loads(Path(path).read_text()).get("memory") or {}
+        except Exception:
+            continue
+    return {}
 
 
 def _omlx_prefill_zone(settings: Path | None = None) -> float | None:
     """oMLX's ``memory.prefill_safe_zone_ratio`` — the share of its ceiling it will
     prefill inside. Read from the pipeline env (``launch.sh up`` copies it out of the
-    engine's settings) or, on a host run, from the engine's settings file. None when
-    neither is readable: the guard then budgets against the raw headroom."""
+    engine's settings), else the engine's settings file (host path or container
+    mount). None when none is readable: the guard then budgets against the raw
+    headroom."""
     raw = os.environ.get("OMLX_PREFILL_SAFE_ZONE_RATIO", "").strip()
     if raw:
         try:
@@ -142,9 +160,9 @@ def _omlx_prefill_zone(settings: Path | None = None) -> float | None:
                 return value
             logger.warning("load_guard: OMLX_PREFILL_SAFE_ZONE_RATIO=%r is outside (0, 1]", raw)
     try:
-        memory = json.loads((settings or OMLX_SERVER_SETTINGS).read_text()).get("memory") or {}
+        memory = _omlx_memory(settings)
         value = float(memory.get("prefill_safe_zone_ratio") or 0)
-    except Exception:
+    except (TypeError, ValueError):
         return None
     return value if 0 < value <= 1 else None
 
@@ -181,15 +199,40 @@ def _omlx_reclaim_ratio(settings: Path | None = None) -> float | None:
     tier = os.environ.get("OMLX_MEMORY_GUARD_TIER", "").strip().lower()
     if tier:
         return _OMLX_CUSTOM_RECLAIM if tier == "custom" else _OMLX_TIER_RECLAIM.get(tier)
-    try:
-        memory = json.loads((settings or OMLX_SERVER_SETTINGS).read_text()).get("memory") or {}
-        tier = str(memory.get("memory_guard_tier") or "").strip().lower()
-    except Exception:
-        return None
-    return _OMLX_CUSTOM_RECLAIM if tier == "custom" else _OMLX_TIER_RECLAIM.get(tier)
+    memory = _omlx_memory(settings)
+    file_tier = str(memory.get("memory_guard_tier") or "").strip().lower()
+    return _OMLX_CUSTOM_RECLAIM if file_tier == "custom" else _OMLX_TIER_RECLAIM.get(file_tier)
 
 
 _OMLX_RECLAIM_RATIO: float | None = _omlx_reclaim_ratio()
+_startup_summary_done = False
+
+
+def _log_startup_summary() -> None:
+    """One INFO line at first guard construction: the active memory-handoff values,
+    and a loud WARNING when either oMLX share is unreadable (the guard is blind)."""
+    global _startup_summary_done
+    if _startup_summary_done:
+        return
+    _startup_summary_done = True
+    logger.info(
+        "load_guard: active memory handoff prefill_zone=%s reclaim_ratio=%s "
+        "margin_gib=%.1f omlx_settle_s=%.0f",
+        _OMLX_PREFILL_ZONE,
+        _OMLX_RECLAIM_RATIO,
+        _MARGIN / _GIB,
+        _OMLX_SETTLE_S,
+    )
+    if _OMLX_PREFILL_ZONE is None or _OMLX_RECLAIM_RATIO is None:
+        logger.warning(
+            "load_guard: running blind (prefill_zone=%s reclaim_ratio=%s): set "
+            "OMLX_PREFILL_SAFE_ZONE_RATIO / OMLX_MEMORY_GUARD_TIER or mount "
+            "/host_omlx/settings.json",
+            _OMLX_PREFILL_ZONE,
+            _OMLX_RECLAIM_RATIO,
+        )
+
+
 #: Set inside one ``admit`` task when that admission armed a parallel-seat yield.
 _ADMIT_YIELD_PIN: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "admit_yield_pin", default=False
@@ -639,6 +682,7 @@ class LoadGuard:
         self._last_access: dict[tuple[str, str], float] = {}
         self._host_free_reading: float | None = None
         self._host_free_read_at = 0.0
+        _log_startup_summary()
 
     @staticmethod
     def enabled() -> bool:
@@ -1574,6 +1618,13 @@ class LoadGuard:
         unloads.extend(
             {"engine": OLLAMA, "model": name, "status": "requested"} for name in ollama_requested
         )
+        if unloads:
+            logger.info(
+                "load_guard: eviction pass for %s: shortage_gib=%.1f evicted=%s",
+                model or "job reclaim",
+                shortage / _GIB,
+                ";".join(f"{entry['engine']}:{entry['model']}" for entry in unloads),
+            )
         did_free = bool(omlx_freed or omlx_queued or ollama_requested)
         return did_free, omlx_queued, ollama_requested, after, synchronous, unloads
 
@@ -2256,6 +2307,14 @@ class LoadGuard:
                 model, need, available, resident, headroom, pending_ollama, deadline
             )
             if need <= available:
+                logger.info(
+                    "load_guard: cold load admitted engine=ollama model=%s need_gib=%.1f "
+                    "headroom_gib=%.1f waited_s=%.1f",
+                    model,
+                    need / _GIB,
+                    available / _GIB,
+                    _waited_s(deadline),
+                )
                 break
             release, loading_seen, deadline = await self._wait_if_omlx_loading(
                 client, model, deadline, release, held
@@ -2597,6 +2656,14 @@ class LoadGuard:
             available = _omlx_available(self._ollama_available(headroom, resident, 0))
             _record_headroom(available)
             if need <= available:
+                logger.info(
+                    "load_guard: cold load admitted engine=omlx model=%s need_gib=%.1f "
+                    "headroom_gib=%.1f waited_s=%.1f",
+                    model,
+                    need / _GIB,
+                    available / _GIB,
+                    _waited_s(deadline),
+                )
                 return
             progress, omlx_holding, pending_omlx_used = await self._advance_omlx_own_residents(
                 client,
