@@ -59,7 +59,7 @@ workloads:
     home: creative
     discovery: [research]
     arms:
-      incumbent: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:Q4_K_M
+      incumbent: Inkling-2-Mini-abliterated-oQ4e-mtp
       challengers: [huihui_ai/Qwen3.6-abliterated:27b-ctx8k, qwen36-fable-fusion-711:Q4_K_M]
   auto-compliance:
     home: compliance_agentic

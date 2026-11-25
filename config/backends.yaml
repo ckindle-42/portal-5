@@ -158,8 +158,9 @@ backends:
   # The tag exists (Ollama names are case-insensitive: installed as :q4_K_M-ctx8k).
   - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx8k
     supports_tools: true
-  # 2026-11-24: ctx32k twin of the tag above (same weights, 0 extra bytes) —
-  # auto-general-uncensored's upgraded hint; 8k starved the six-tool loop.
+  # 2026-11-24: ctx32k twin of the tag above (same weights, 0 extra bytes).
+  # Kept registered after 2026-11-25: auto-general-uncensored moved to
+  # Inkling-2-Mini-abliterated-oQ4e-mtp; this tag is no longer that seat's hint.
   - id: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k
     supports_tools: true
   # V11 candidate intake (2026-06-30) — bench-only, PROMOTE_POLICY=confirm

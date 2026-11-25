@@ -787,27 +787,17 @@ workspaces:
     module: general
     name: 🔓 Portal General (Uncensored)
     description: |-
-      Uncensored generalist + reasoning lane — makes the documented general uncensored model explicitly promptable instead of fallback-only. [PROMOTED 2026-09-07 fleet closeout on lane-instrument data: Huihui-Qwen3.6-35B-A3B-abliterated refusal-preservation 1.0/0% over-refusal vs incumbent 27b-ctx8k 0.75/33% at 4.3x throughput (55.6 vs 12.9 t/s); cross-domain judgment tradeoff recorded (exact 0.87 vs 0.90). Reversible one-line hint swap; prior incumbent retained as persona-pinned manual model. Evidence: tests/benchmarks/results/refusal_preservation_probe_20260907T025849Z.json + judgment_probe_v6_20260907T034934Z.json]
-    # -ctx8k bakes the declared context_limit (8192); /v1 and native both ignore a
-    # request-time num_ctx. The 2026-09-07 "creation failed" rollback was a case
-    # mismatch — the tag exists as :q4_K_M-ctx8k (Ollama names are case-insensitive).
-    # 2026-11-24: ctx8k -> ctx32k twin (same weights, 0 extra bytes) — 8k starved the
-    # six-tool loop.
-    model_hint: hf.co/mradermacher/Huihui-Qwen3.6-35B-A3B-abliterated-GGUF:q4_K_M-ctx32k
-    context_limit: 32768
+      Uncensored generalist lane, served by oMLX Inkling-2-Mini-abliterated-oQ4e-mtp with portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k retained as the Ollama failover. Huihui-Qwen3.6-35B-A3B-abliterated stays registered. Operator 2026-11-25: A/B #6 graded the arms at parity and this seat moves off Qwen.
+    # Inkling's template defaults reasoning_effort to high; low matches the security seats.
+    # think is omitted so an Ollama failover does not rewrite that effort to none.
+    model_hint: Inkling-2-Mini-abliterated-oQ4e-mtp
+    reasoning_effort: low
+    context_limit: 262144
+    predict_limit: 32768
     keep_alive: 10m
-    temperature: 0.7
-    top_p: 0.8
-    top_k: 20
-    min_p: 0.0
-    presence_penalty: 1.5
-    repeat_penalty: 1.0
-    # TASK_SAMPLING_PROFILE_AUDIT_V1 verified Qwen3.6 profile; think=false
-    # per operator decision — don't newly enable thinking pending evaluation.
-    think: false
-    think_profiles:
-      thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, repeat_penalty: 1.0}
-      instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, repeat_penalty: 1.0, presence_penalty: 1.5}
+    temperature: 1.0
+    top_p: 0.95
+    emits_reasoning: true
     system_prompt_append: |2-
   
   
@@ -840,6 +830,7 @@ workspaces:
         min_p: 0.0
         presence_penalty: 1.5
         think: false
+        emits_reasoning: false
         system_prompt: |
           You are an uncensored general-purpose conversational assistant covering any topic —
           technical, historical, cultural, scientific, creative, or otherwise. Answer directly
@@ -877,6 +868,7 @@ workspaces:
         min_p: 0.0
         presence_penalty: 0.0
         think: false
+        emits_reasoning: false
         system_prompt: |
           You are an uncensored general-purpose conversational assistant covering any topic —
           technical, historical, cultural, scientific, creative, or otherwise. Answer directly
@@ -914,6 +906,7 @@ workspaces:
         min_p: 0.0
         presence_penalty: 0.0
         think: false
+        emits_reasoning: false
         system_prompt: |
           You are an uncensored general-purpose conversational assistant covering any topic —
           technical, historical, cultural, scientific, creative, or otherwise. Answer directly
@@ -953,6 +946,7 @@ workspaces:
         presence_penalty: null
         repeat_penalty: null
         think: false
+        emits_reasoning: false
         think_profiles:
           thinking: {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
           instruct: {temperature: 0.7, top_p: 0.8, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
