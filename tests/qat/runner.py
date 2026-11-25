@@ -17,6 +17,8 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from portal.platform.inference.cluster_backends import Backend, BackendRegistry
+
 from . import artifacts, gate, hardening, preflight, uat_behavioral
 from . import scenarios as scn
 from .browser_ui import BrowserUI, PlaywrightUnavailable
@@ -92,6 +94,135 @@ def _safety_guard_refusal(trace: dict[str, object]) -> bool:
 
 
 _TRACE_EXPECTED_STAGES = frozenset({2, 4, 5})
+_INFRA_OUTCOMES = frozenset({"backend.failed", "error"})
+_BACKEND_DOWN_OUTCOMES = frozenset({"fail", "failed", "error"})
+_REGISTRY: BackendRegistry | None = None
+
+
+def _backend_registry() -> BackendRegistry:
+    global _REGISTRY
+    if _REGISTRY is None:
+        _REGISTRY = BackendRegistry()
+    return _REGISTRY
+
+
+def _backend_named(backend_id: str) -> Backend | None:
+    if not backend_id or backend_id == "unknown":
+        return None
+    for backend in _backend_registry().list_backends():
+        if backend.id == backend_id:
+            return backend
+    return None
+
+
+def _trace_spans(trace: dict[str, object]) -> list[dict[str, object]]:
+    spans = trace.get("spans") or trace.get("tool_spans") or []
+    if not isinstance(spans, list):
+        return []
+    return [span for span in spans if isinstance(span, dict)]
+
+
+def _served_model_is_primary(expected: str, actual: str, backend_id: str) -> bool:
+    """Hint itself, or that hint's alias on the backend that served the request."""
+    if actual == expected:
+        return True
+    backend = _backend_named(backend_id)
+    if backend is None:
+        return False
+    return backend.resolve_model(expected) == actual
+
+
+def _omlx_native_backends(hint: str) -> list[Backend]:
+    if not hint:
+        return []
+    return [
+        backend
+        for backend in _backend_registry().list_backends()
+        if backend.type == "omlx" and hint in backend.models
+    ]
+
+
+def _span_marks_backend_down(span: dict[str, object], backend_id: str) -> bool:
+    if str(span.get("backend") or "") != backend_id:
+        return False
+    name = str(span.get("name") or "").casefold()
+    outcome = str(span.get("outcome") or "").casefold()
+    if name == "backend.failed":
+        return True
+    return name == "backend.attempt" and (
+        outcome in _BACKEND_DOWN_OUTCOMES or outcome.startswith("http_")
+    )
+
+
+def _engine_inversion_detail(
+    expected: str, serving_id: str, trace: dict[str, object]
+) -> str | None:
+    """oMLX-native hint served elsewhere while that oMLX backend did not fail."""
+    spans = _trace_spans(trace)
+    healthy = [
+        backend
+        for backend in _omlx_native_backends(expected)
+        if not any(_span_marks_backend_down(span, backend.id) for span in spans)
+    ]
+    if not healthy:
+        return None
+    serving = _backend_named(serving_id)
+    if serving is not None and serving.type == "omlx":
+        return None
+    intended = healthy[0]
+    served_type = serving.type if serving is not None else "unknown"
+    served_id = serving.id if serving is not None else (serving_id or "unknown")
+    return f"intended engine {intended.type} ({intended.id}), served by {served_type} ({served_id})"
+
+
+def _infra_cause(trace: dict[str, object]) -> str | None:
+    """Turn outcome backend.failed/error, or a backend.failed span, names the cause."""
+    for span in _trace_spans(trace):
+        if str(span.get("name") or "").casefold() != "backend.failed":
+            continue
+        where = str(span.get("backend") or "")
+        detail = next(
+            (str(span[key]) for key in ("error", "detail", "message", "reason") if span.get(key)),
+            "",
+        )
+        head = f"backend.failed on {where}" if where else "backend.failed"
+        return f"{head}: {detail}" if detail else head
+    outcome = str(trace.get("outcome") or "").strip()
+    folded = outcome.casefold()
+    if folded in _INFRA_OUTCOMES or folded.startswith("http_"):
+        return outcome
+    return None
+
+
+def _fallback_reason(
+    trace: dict[str, object],
+    hard_spans: list[dict[str, object]],
+    *,
+    matched: bool,
+    inversion: str | None,
+) -> str:
+    if inversion is not None and matched:
+        reasons = [inversion]
+        if trace.get("fallback") is True:
+            reasons.append("trace fallback=true")
+        return "intended engine mismatch: " + "; ".join(reasons)
+    reasons = [
+        str(
+            span.get("reason")
+            or span.get("error")
+            or span.get("detail")
+            or span.get("message")
+            or span.get("name")
+        )
+        for span in hard_spans
+    ]
+    if trace.get("fallback") is True:
+        reasons.insert(0, "trace fallback=true")
+    if inversion is not None:
+        reasons.insert(0, inversion)
+    if not matched:
+        reasons.append("served model differs from primary")
+    return "; ".join(reason for reason in reasons if reason) or "primary model was not served"
 
 
 def _unverified_model_failure(
@@ -127,30 +258,28 @@ def _primary_model_failure(
     if not expected:
         return None
     actual = str(trace.get("model") or "")
-    from portal.platform.inference.model_addressing import alias_targets_for_model
-
-    accepted = {expected, *alias_targets_for_model(expected)}
     backend = str(trace.get("backend") or "unknown")
     spans = _failed_fallback_spans(trace)
     hard_spans = [span for span in spans if not _discovery_attempt(span, backend)]
     fallback = trace.get("fallback") is True or bool(hard_spans)
-    if actual in accepted and not fallback:
+    matched = _served_model_is_primary(expected, actual, backend)
+    infra = _infra_cause(trace)
+    inversion = _engine_inversion_detail(expected, backend, trace)
+    if matched and not fallback and inversion is None and infra is None:
         return None
-    reasons = [
-        str(
-            span.get("reason")
-            or span.get("error")
-            or span.get("detail")
-            or span.get("message")
-            or span.get("name")
+    if infra is not None:
+        served = f"served {actual or 'unknown'} on {backend}"
+        detail = f"{infra}; {served}" if matched else f"{infra}; expected {expected}, {served}"
+    else:
+        reason = _fallback_reason(trace, hard_spans, matched=matched, inversion=inversion)
+        detail = (
+            reason
+            if inversion is not None and matched
+            else (
+                f"primary model missed: expected {expected}, served {actual or 'unknown'} "
+                f"on {backend} ({reason})"
+            )
         )
-        for span in hard_spans
-    ]
-    if trace.get("fallback") is True:
-        reasons.insert(0, "trace fallback=true")
-    if actual not in accepted:
-        reasons.append("served model differs from primary")
-    reason = "; ".join(reasons) or "primary model was not served"
     mismatch = {
         "workspace": target_workspace,
         "expected": expected,
@@ -161,8 +290,7 @@ def _primary_model_failure(
     return QATResult(
         scenario.scenario_id,
         Status.FAIL,
-        f"primary model missed: expected {expected}, served {actual or 'unknown'} "
-        f"on {backend} ({reason})",
+        detail,
         defect_class=classify_defect(infra_hop_failed=True),
         chat_id=chat_id,
         served_model=served_model,
