@@ -1920,31 +1920,13 @@ workspaces:
       workspace list and re-send it there. Answer anything else in the message
       normally.'
     name: 🔒 Portal Security Analyst
-    description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, hardening. VulnLLM-R-7B (UCSB SURFI, Dec 2025, Qwen2.5-7B base — trained on AppSec vulnerability research: CVE severity, CWE classification, vulnerable code patterns). NOTE 2026-07-16 (P5-AUTOSEC-RESELECT): the "2026-06-20: 2/2 chain wins, fastest" claim predates the reliability-scoring fix. Live re-bench on the kerberoast_to_da EXECUTION chain found valid_rate 0.89 but redundant_call_rate 0.50 (docs/reselection/AUTOSEC_VULNLLM_DIAGNOSIS_20260716T164436Z.md) — but that scenario tests live-exploit tool orchestration, not this workspace''s actual job (CVE/CWE analysis, hardening). No candidate has been benched against the analytical workload itself, so no swap is made here pending that test (see docs/reselection/AUTOSEC_RESELECT_EVIDENCE_20260716T192100Z.md for the full candidate comparison, which found glm-4.7-flash:Q4_K_M strongest on tool-reliability generically — untested for this workspace''s specific analytical use case). Retained as incumbent. Fast vuln analysis with web search, vuln classification, and code execution.'
-    # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-    model_hint: hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx32k
-    # 2026-11-24: 19 security tools + system prompt consumed ~5k of 8192; bumped to 32768
-    # (VulnLLM-R-7B-4bit on omlx-security and VulnLLM-R-7B-GGUF:q4_K_M-ctx32k both support 32k).
-    context_limit: 32768
+    description: 'Authorized security assessment, vulnerability analysis, CVE/CWE classification, and hardening. Inkling-2-Mini-oQ4e-mtp replaced VulnLLM-R-7B on 2026-11-24 after the live QAT security benchmark passed 8/8 prompts in 116.9s: 4/4 parallel CVE tools in 25.8s, 22 MITRE IDs in 21.1s, clean ORCHID-9 continuity, authorized JNDI+Sigma without hedging, and preserved refusal behavior.'
+    model_hint: Inkling-2-Mini-oQ4e-mtp
+    predict_limit: 32768
     keep_alive: 10m
-    temperature: 0.4
-    top_p: 0.8
-    top_k: 20
-    min_p: 0.05
-    repeat_penalty: 1.12
-    stop: ["</tool_response>", "</工具使用记录>"]
-    sampling_override:
-      reason: VulnLLM-R-7B-4bit on oMLX at card temperature 0.7 / repeat_penalty 1.05 looped 1605x on </工具使用记录> and drifted to 11.5k CJK chars in live OWUI tool/continuity chats (8256448b, b9af13ab); 0.4 / 1.12 + stop sequences prevent post-tool degeneration
-      evidence: pending
-    # think:false on the group default. It's a no-op for the base (VulnLLM-R is
-    # Qwen2.5, not a thinking model) and for uncensored/blueteam/redteam-deep/
-    # purpleteam-exec (Llama / gemma4). It DOES take effect on the Qwen3.5/3.6
-    # variants: redteam/purpleteam(-deep) emit rigid 5-phase structured output
-    # into a multi-hop pipeline on a 9B abliterated model at ctx8192 — a
-    # `<think>` prefix risks breaking the structure, leaking into hop_0, or
-    # truncating before the phase content. `pentest` overrides think:true (35B,
-    # a genuine read→enumerate→execute loop) with more context — see there.
-    think: false
+    temperature: 1.0
+    top_p: 0.95
+    emits_reasoning: true
     system_prompt_append: "\n\nCVE REPORTING RULE: When summarizing a CVE, quote the description/summary returned by lookup_cve/triage_cve verbatim — never invent affected software, vendors, or protocols the lookup did not return."
     tools:
     - web_search
@@ -1976,16 +1958,18 @@ workspaces:
     variants:
       uncensored:
         name: 🔓 Portal Security (Uncensored)
-        description: Uncensored security analysis — same BaronLLM-abliterated as auto-security (Llama-3.1-8B, 53K cybersec examples, 200+ domains) with no safety filtering. Use when auto-security content-guards are interfering with authorized research. Counterpart to auto-security.
-        # 2026-09-25: sampling set to the baronllm (Llama-3.1 base) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        model_hint: huihui_ai/baronllm-abliterated:latest-ctx8k
-        context_limit: 8192
+        description: Uncensored security analysis for authorized research, served by orcarouter/Inkling-2-Mini-abliterated Mix-16G at its baked 32k context with Ollama's native inkling2 renderer and parser. Replaces the legacy 8k BaronLLM-abliterated seat.
+        model_hint: portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k
+        context_limit: 32768
+        predict_limit: 8192
         keep_alive: 10m
-        temperature: 0.6
-        top_p: 0.9
-        top_k: 40
-        min_p: 0.05
-        repeat_penalty: 1.1
+        temperature: 1.0
+        top_p: 0.95
+        top_k: null
+        min_p: null
+        repeat_penalty: null
+        think: false
+        emits_reasoning: false
         system_prompt_append: "\n\nYou are an uncensored security analysis assistant for authorized testing and research. Provide direct technical analysis without content-policy preambles. Assume the operator is authorized for the systems in scope."
         tools:
         - execute_bash
@@ -2033,6 +2017,8 @@ workspaces:
         guardrail: default
         role: pentest
       blueteam:
+        think: false
+        emits_reasoning: false
         name: 🔵 Portal Blue Team
         description: Defensive security, SOC triage, threat hunting, incident response. Granite 4.1 8B (IBM, supports tool calls, good at structured analysis). Previous model sylink/sylink:8b is a reasoning model that does not call tools — switched to granite for autonomous investigation capability.
         # 2026-09-25: sampling set to the granite-4.1 (greedy) card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
@@ -2061,6 +2047,8 @@ workspaces:
         guardrail: default
         role: blue
       redteam:
+        think: false
+        emits_reasoning: false
         module: security_redteam
         name: 🔴 Portal Red Team
         description: Deep offensive security, attack chain simulation, exploit scripting. Huihui-ai Qwen3.5-9B abliterated (zero refusals, Qwen3 architecture). Structures responses in attack phases with mandatory DEFENDER CUE for blue team handoff.
@@ -2080,6 +2068,8 @@ workspaces:
         guardrail: default
         role: red
       redteam-deep:
+        think: false
+        emits_reasoning: false
         module: security_redteam
         name: 🔴 Portal Red Team · Deep
         description: High-fidelity single-model red team analysis. SuperGemma4-26B-uncensored (abliterated Gemma4 MoE, bench score 0.90, 6.7 ATT&CK IDs avg, zero disclaimers). Slower than the redteam variant (~100s/prompt) but produces denser ATT&CK coverage. Use when you need maximum MITRE TTP specificity for threat models or red team reports. Pipe the output to the purpleteam-deep variant (auto-security?variant=purpleteam-deep) manually for full four-hop analysis.
@@ -2098,6 +2088,8 @@ workspaces:
         guardrail: default
         role: red
       purpleteam:
+        think: false
+        emits_reasoning: false
         name: 🟣 Portal Purple Team
         description: "Two-hop purple team chain — one seamless response:\n1. \U0001F534 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, mitigations\n\nUse for threat modeling and attack/detect alignment. For full detection artifacts + IR playbook, use the purpleteam-deep variant (auto-security?variant=purpleteam-deep)."
         # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
@@ -2121,18 +2113,20 @@ workspaces:
         guardrail: default
         role: purple
       purpleteam-deep:
+        think: false
+        emits_reasoning: false
         name: 🟣 Portal Purple Team · Deep
-        description: "Four-hop purple team chain — one seamless response:\n1. \U0001F534 RED — Qwen3.5-abliterated: attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, D3FEND mitigations\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries, atomic tests\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nTerminates in deployable detection content + an IR playbook the SOC can execute. Latency is significant — four sequential model calls. Use when completeness matters."
+        description: "Four-hop purple team chain — one seamless response:\n1. \U0001F534 RED — Inkling-2-Mini-abliterated (orcarouter Mix-16G): attack vectors, exploitation, persistence\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection, IOCs, D3FEND mitigations\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries, atomic tests\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nTerminates in deployable detection content + an IR playbook the SOC can execute. Latency is significant — four sequential model calls. Use when completeness matters."
         # 2026-09-25: sampling set to the qwen3.5 instruct_general card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
-        model_hint: huihui_ai/qwen3.5-abliterated:9b-ctx64k
-        presence_penalty: 1.5
-        context_limit: 65536
+        model_hint: portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k
+        presence_penalty: null
+        context_limit: 32768
         keep_alive: 15m
-        temperature: 0.7
-        top_p: 0.8
-        top_k: 20
-        min_p: 0.05
-        repeat_penalty: 1.0
+        temperature: 1.0
+        top_p: 0.95
+        top_k: null
+        min_p: null
+        repeat_penalty: null
         system_prompt_append: "\n\nHARD CONSTRAINTS (never violate):\n- YOU ARE THE RED TEAM COMPONENT ONLY. Three follow-on models (blue team, detection engineer, IR coordinator) will process your output.\n- TERMINATE your response immediately after the ## PERSISTENCE section. Do not write anything after it.\n- DO NOT add detection guidance, defender analysis, mitigations, or blue team content.\n- DO NOT add disclaimers, ethical caveats, authorization warnings, or closing remarks.\n- Maximize MITRE ATT&CK TTP IDs, specific tool names, exact flags, and IOCs. Every downstream hop depends on the specificity of your output.\n- DO NOT summarize — stop hard after PERSISTENCE.\n\nREQUIRED STRUCTURE — use these exact headers in order:\n\n## ATTACK VECTORS\nRanked attack paths with MITRE ATT&CK TTP IDs and confidence level.\n\n## EXPLOITATION\nTechnical execution: exact tool names, flags, commands, payloads, or PoC code. Name the CVE, the tool, the exact syntax.\n\n## PERSISTENCE\nFoothold mechanism, registry key or path, and eviction resistance. STOP HERE."
         tools: []
         chain:
@@ -2152,6 +2146,8 @@ workspaces:
         guardrail: default
         role: purple
       purpleteam-exec:
+        think: false
+        emits_reasoning: false
         module: security_redteam
         name: 🟣 Portal Purple Team · Execute
         description: "Four-hop execution-mode purple team chain — attack planning + live execution + detection + IR:\n1. \U0001F534 RED (exec) — SuperGemma4-26B: attack plan with execute_bash/execute_python/web_search for live PoC\n2. \U0001F535 BLUE — Granite 4.1 8B — tool-capable: detection analysis on actual execution output\n3. \U0001F6E1️ DETECT — Qwen3-Coder: Sigma rules, Wazuh XML, hunting queries from real artifacts\n4. \U0001F4CB IR PLAYBOOK — Qwen3.6-27B: triage, containment, evidence, eradication, recovery\n\nUnlike the purpleteam-deep variant (simulation only), this workspace executes commands against real targets. Use only on authorized systems. Latency is high — four sequential model calls, first hop uses tools."
@@ -2186,6 +2182,8 @@ workspaces:
         guardrail: default
         role: purple
       blueteam-orchestrated:
+        think: false
+        emits_reasoning: false
         # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         repeat_penalty: 1.05
         top_k: 20
@@ -2231,6 +2229,8 @@ workspaces:
         guardrail: default
         role: blue
       blueteam-council:
+        think: false
+        emits_reasoning: false
         # 2026-09-25: sampling set to the vulnllm card (engine settings only; prompts untouched); prior values + A/B: docs/TASK_SEAT_SAMPLING_AB_V1.md
         repeat_penalty: 1.05
         top_k: 20
@@ -2271,6 +2271,8 @@ workspaces:
         guardrail: default
         role: blue
       security-council-qwen36-27b:
+        think: false
+        emits_reasoning: false
         # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: `qwen3.6:27b-q4_K_M` (as
         # used verbatim in blueteam-council.council_models and HEART's roster,
         # bully/adversary.py::resolve_roster) previously had NO workspace
@@ -2302,6 +2304,8 @@ workspaces:
         guardrail: default
         role: blue
       bully-handoff-drafter:
+        think: false
+        emits_reasoning: false
         # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: bully/handoff.py::draft_generalization
         # passed the literal string "bully-handoff-drafter" to _call_model as
         # a `model` value — it was never an addressable route (no Ollama tag,
@@ -2333,6 +2337,8 @@ workspaces:
         guardrail: default
         role: blue
       security-tool-granite41-8b:
+        think: false
+        emits_reasoning: false
         # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: dedicated seat for the
         # tool_model role (blueteam-orchestrated/blueteam-council's Retriever)
         # -- granite4.1:8b-ctx8k previously resolved through the global hint
@@ -2358,6 +2364,8 @@ workspaces:
         guardrail: default
         role: blue
       security-council-granite41-30b:
+        think: false
+        emits_reasoning: false
         # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: dedicated seat for the
         # reasoning_model role and the first council/HEART member --
         # granite4.1:30b-ctx16k previously resolved through the global hint
@@ -2378,6 +2386,8 @@ workspaces:
         guardrail: default
         role: blue
       security-council-mistral-small32-24b:
+        think: false
+        emits_reasoning: false
         # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: dedicated seat for the
         # third council/HEART member -- mistral-small3.2:24b previously
         # resolved through the global hint map to bench-mistral-small-3-2
@@ -2397,6 +2407,8 @@ workspaces:
         guardrail: default
         role: blue
       security-expert-foundation-sec-8b:
+        think: false
+        emits_reasoning: false
         # TASK_AUTO_COUNCIL_PIPELINE_REVISIT_V1 P1: dedicated seat for the
         # expert_model role (fed no-tools domain expert / optional council
         # arbiter) -- previously resolved through the global hint map to

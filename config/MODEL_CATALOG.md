@@ -35,11 +35,11 @@ The dual `general`/`creative` registration with `supports_tools: true` is assert
 
 ### `huihui_ai/qwen3.5-abliterated:9b`
 
-`huihui_ai/qwen3.5-abliterated:9b` is a ~5.8GB fast abliterated model optimized for TTP generation, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: true` in each — a duplicate entry required so security-group routing resolves the correct model. `config/portal.yaml` binds the base id as the `bench-qwen35-abliterated` `model_hint` (the uncensored tool-capable AUTO baseline) while the red-team workspaces route the derived tags: the `auto-security` `redteam` and `purpleteam` variants use `:9b-ctx8k` and the `purpleteam-deep` variant uses `:9b-ctx64k`. It is the hop-0 red-team primary for the purple chains.
+`huihui_ai/qwen3.5-abliterated:9b` remains registered in `general` and `security` with `supports_tools: true`; `bench-qwen35-abliterated` uses the base id. `config/portal.yaml` routes the `auto-security` `redteam` and `purpleteam` variants to `:9b-ctx64k`; `purpleteam-deep` moved to the Inkling abliterated Mix-16G tag on 2026-11-24. The top-level `auto` workspace continues to use the 8K derived tag.
 
 ## Why
 
-The duplicate `general`/`security` registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` shows exactly which workspace uses the base id versus which routes the derived tags. The institutional knowledge about the security-group routing requirement is preserved because the duplicate entry is itself the design mechanism that makes streaming hint resolution correct.
+The duplicate group registrations preserve security routing, while the workspace and bench bindings distinguish the base bench id from the remaining redteam/purpleteam context tag and the new deep-chain seat.
 
 ---
 
@@ -688,21 +688,21 @@ The doc body said the model was "PROMOTED 2026-06-30 to new auto-coding-northmin
 
 ### `huihui_ai/qwen3.5-abliterated:9b`
 
-`huihui_ai/qwen3.5-abliterated:9b` is a ~5.8GB fast abliterated model optimized for TTP generation, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: true` in each — a duplicate entry required so security-group routing resolves the correct model. `config/portal.yaml` binds the base id as the `bench-qwen35-abliterated` `model_hint` (the uncensored tool-capable AUTO baseline) while the red-team workspaces route the derived tags: the `auto-security` `redteam` and `purpleteam` variants use `:9b-ctx8k` and the `purpleteam-deep` variant uses `:9b-ctx64k`. It is the hop-0 red-team primary for the purple chains.
+`huihui_ai/qwen3.5-abliterated:9b` remains registered in `general` and `security` with `supports_tools: true`; `bench-qwen35-abliterated` uses the base id. `config/portal.yaml` routes the `auto-security` `redteam` and `purpleteam` variants to `:9b-ctx64k`; `purpleteam-deep` moved to the Inkling abliterated Mix-16G tag on 2026-11-24. The top-level `auto` workspace continues to use the 8K derived tag.
 
 ## Why
 
-The duplicate `general`/`security` registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` shows exactly which workspace uses the base id versus which routes the derived tags. The institutional knowledge about the security-group routing requirement is preserved because the duplicate entry is itself the design mechanism that makes streaming hint resolution correct.
+The duplicate group registrations preserve security routing, while the workspace and bench bindings distinguish the base bench id from the remaining redteam/purpleteam context tag and the new deep-chain seat.
 
 ---
 
-### `huihui_ai/baronllm-abliterated` — DROPPED (not installed; pruned 2026-10-28)
+### `huihui_ai/baronllm-abliterated` — DROPPED (former auto-security uncensored base; derived tag retained)
 
-`huihui_ai/baronllm-abliterated` is the no-restrictions creative BaronLLM fork, a Llama-3.1-8B-lineage abliteration trained on 53K cybersec examples across 200+ domains. `config/backends.yaml` registers it under both the `security` and `creative` groups with `supports_tools: true`. `config/portal.yaml` uses it as the lineage behind the `auto-security` uncensored variant (which routes the `:latest-ctx8k` tag) and documents in the `bench-baronllm-q6k` and `bench-qwable-35b` descriptions that it was dropped from auto-security in 2026-07-16 for tool-call unreliability at valid_rate 0.25 — a finding scoped to MCP tool-calling, not the no-tools reasoning path. Tool-calling was originally confirmed via the corrected template.
+`huihui_ai/baronllm-abliterated` is the Llama-3.1-8B-lineage abliterated BaronLLM fork, trained on 53K cybersec examples across 200+ domains. Its `latest-ctx8k` tag remains registered under the `security` and `creative` groups with `supports_tools: true`, but `config/portal.yaml` no longer routes an auto-security variant to it: the uncensored seat moved to orcarouter Inkling Mix-16G on 2026-11-24. The prior 2026-07-16 tool-call reliability result remains historical context, not the current seat decision.
 
 ## Why
 
-The `security` and `creative` dual registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` supplies the drop-from-auto-security correction plus the uncensored-variant lineage. The institutional knowledge about the reliability-gate finding is preserved because the portal descriptions are exactly where that reversal is recorded, and it reconciles the true flag with the withdrawal.
+The backend entries preserve the model for reference while the current portal hints identify the replacement. Keeping the 2026-07 result labelled as historical avoids treating it as evidence about the new Inkling seat.
 
 ---
 
@@ -736,13 +736,13 @@ The doc body said `supports_tools` was confirmed true by audit-tools; re-groundi
 
 ---
 
-### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` — DROPPED (not installed; pruned 2026-10-28)
+### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:Q4_K_M` — DROPPED (former auto-security primary; context tags retained)
 
-`config/backends.yaml` lists it with `supports_tools: true` in every group (verified 2026-09-25 by a neutral native tool-call probe — sibling -ctx8k seat on oMLX: 4/4 at the seat's sampling); the router reads one flag per model id, last entry wins, so a per-group split never took effect. `config/portal.yaml` binds the base id to the `bench-vulnllm-r-7b` and `bench-vulnllm-r7b` bench workspaces and the `bench-exec-recon` exec-chain role, while the `auto-security` workspace routes the `q4_K_M-ctx8k` variant and its description records the 2026-07-16 reselection note: the older fast-chain claim predates the reliability-scoring fix, the live re-bench found valid_rate 0.89 with redundant_call_rate 0.50, and `glm-4.7-flash:Q4_K_M` is staged as the reselection primary pending an analytical-workload test.
+The base VulnLLM-R-7B GGUF id remains a reference identity; `config/backends.yaml` retains its context-tagged security registrations and the oMLX aliases to `VulnLLM-R-7B-4bit`. The 2026-11-24 security QAT head-to-head scored the former incumbent 5/8 PASS (three failures), and the approved production `auto-security` hint moved to `Inkling-2-Mini-oQ4e-mtp`. Keep its prior bench/reference records separate from the current seat.
 
 ## Why
 
-The group-split `supports_tools` value is the key config fact: `config/backends.yaml` grants tool support only under `security`, and `config/portal.yaml` keeps the model as the auto-security incumbent while documenting the reliability-gate correction. The reselection knowledge about `glm-4.7-flash:Q4_K_M` is preserved because the same files name it as the staged primary, so both models are grounded in the cited config.
+This entry records the former incumbent and its retained backend mappings without claiming that it is still the production workspace hint.
 
 ---
 
@@ -1242,13 +1242,13 @@ The prior body was three sentences of doc-derived prose. Re-grounding binds it t
 
 ---
 
-### `huihui_ai/baronllm-abliterated` — DROPPED (not installed; pruned 2026-10-28)
+### `huihui_ai/baronllm-abliterated` — DROPPED (former auto-security uncensored base; derived tag retained)
 
-`huihui_ai/baronllm-abliterated` is the no-restrictions creative BaronLLM fork, a Llama-3.1-8B-lineage abliteration trained on 53K cybersec examples across 200+ domains. `config/backends.yaml` registers it under both the `security` and `creative` groups with `supports_tools: true`. `config/portal.yaml` uses it as the lineage behind the `auto-security` uncensored variant (which routes the `:latest-ctx8k` tag) and documents in the `bench-baronllm-q6k` and `bench-qwable-35b` descriptions that it was dropped from auto-security in 2026-07-16 for tool-call unreliability at valid_rate 0.25 — a finding scoped to MCP tool-calling, not the no-tools reasoning path. Tool-calling was originally confirmed via the corrected template.
+`huihui_ai/baronllm-abliterated` is the Llama-3.1-8B-lineage abliterated BaronLLM fork, trained on 53K cybersec examples across 200+ domains. Its `latest-ctx8k` tag remains registered under the `security` and `creative` groups with `supports_tools: true`, but `config/portal.yaml` no longer routes an auto-security variant to it: the uncensored seat moved to orcarouter Inkling Mix-16G on 2026-11-24. The prior 2026-07-16 tool-call reliability result remains historical context, not the current seat decision.
 
 ## Why
 
-The `security` and `creative` dual registration with `supports_tools: true` is asserted directly by `config/backends.yaml`, and `config/portal.yaml` supplies the drop-from-auto-security correction plus the uncensored-variant lineage. The institutional knowledge about the reliability-gate finding is preserved because the portal descriptions are exactly where that reversal is recorded, and it reconciles the true flag with the withdrawal.
+The backend entries preserve the model for reference while the current portal hints identify the replacement. Keeping the 2026-07 result labelled as historical avoids treating it as evidence about the new Inkling seat.
 
 ---
 
@@ -1602,23 +1602,23 @@ The prior body was the shared ctx-cap placeholder. Re-grounding distinguishes th
 
 ---
 
-### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k`
+### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` — RETAINED REFERENCE TAG
 
-`hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` is the derived 8K-context tag of the AppSec specialist and the only VulnLLM tag `config/portal.yaml` routes in production: it is the `model_hint` of the `auto-security` workspace, whose description binds it to authorized CVE/CWE analysis and hardening. `config/backends.yaml` registers it under the `security` group with `supports_tools: true`, while the base `Q4_K_M` id carries the bench and exec-chain roles. The lowercased `q4_K_M` quant segment is the pullable form `ollama create` mints for derived tags, so this spelling is authoritative over any uppercase variant.
+`hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` is the derived 8K-context security tag, retained in `ollama-security` and aliased to `VulnLLM-R-7B-4bit` by `omlx-security`. It is no longer the `auto-security` production hint after the 2026-11-24 Inkling swap; the context-tag registration remains available for reference.
 
 ## Why
 
-The distinction that matters here is routing: `config/portal.yaml` resolves the `auto-security` workspace to this exact `-ctx8k` tag, not to the base id, and `config/backends.yaml` confirms the `security`-group `supports_tools: true` flag beside it. The derived-tag mechanism is preserved because the context cap is a routing requirement enforced by the model id itself, which is precisely what the two cited files determine.
+The current portal hint identifies Inkling as the production seat, while the backend registry still lists this 8K tag and its oMLX mapping.
 
 ---
 
 ### `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx32k`
 
-`hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx32k` is the derived 32K-context tag of the AppSec specialist (`PARAMETER num_ctx 32768`), minted from `:q4_K_M-ctx8k` on 2026-11-24 so `auto-security` (19 security tools + system prompt) has full 32K multi-turn headroom on both `omlx-security` (`VulnLLM-R-7B-4bit`) and Ollama failover (`ollama-security`). Registered in `config/backends.yaml` with `supports_tools: true` and aliased to `VulnLLM-R-7B-4bit`.
+`hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx32k` is the derived 32K-context security tag (`PARAMETER num_ctx 32768`), retained in `ollama-security` and aliased to `VulnLLM-R-7B-4bit` by `omlx-security`. The tag was created for the former 19-tool auto-security seat and remains registered as a reference after that seat moved to Inkling on 2026-11-24.
 
 ## Why
 
-The 19 security tool schemas plus system prompt consumed ~5K of the prior 8,192-token budget, starving multi-turn interactive security conversations; raising the baked `num_ctx` to 32,768 restores multi-turn headroom while keeping Ollama failover parity with `omlx-security`.
+The baked 32K window preserves the old seat configuration for reference; current routing is determined by the updated `auto-security` hint.
 
 ---
 
@@ -1731,13 +1731,13 @@ Registering the twin in the ctx8k tag's groups with the same oMLX alias is what 
 
 ---
 
-### `huihui_ai/baronllm-abliterated:latest-ctx8k`
+### `huihui_ai/baronllm-abliterated:latest-ctx8k` — FORMER AUTO-SECURITY TAG (replaced 2026-11-24; registry retained)
 
-`huihui_ai/baronllm-abliterated:latest-ctx8k` is the 8K-context derived tag of the BaronLLM abliterated fork, and it is the id `config/portal.yaml` routes through the `auto-security` uncensored variant's `model_hint`. `config/backends.yaml` registers it under both the `security` and `creative` groups with `supports_tools: true`. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`, so the per-workspace context cap is a distinct model id. Full model detail lives in the base `huihui_ai/baronllm-abliterated` entry; this tag exists to satisfy registry parity and the uncensored security lane's context limit.
+`huihui_ai/baronllm-abliterated:latest-ctx8k` is the 8K-context derived BaronLLM-abliterated tag, retained under the `security` and `creative` groups with `supports_tools: true`. It was the `auto-security::uncensored` hint before 2026-11-24; that variant now uses `portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k`. The baked `PARAMETER num_ctx 8192` remains part of this registered tag.
 
 ## Why
 
-The routing fact is decisive: `config/portal.yaml` resolves the `auto-security` uncensored variant to this exact `-ctx8k` tag, while `config/backends.yaml` fixes its `security`/`creative` placement with `supports_tools: true`. The num_ctx mechanism is preserved because it explains why a derived tag was minted — a context cap that cannot be passed at request time has to be encoded in the model id.
+The registry keeps the former tag available for reference, while the current portal hint records the Mix-16G replacement.
 
 ---
 
@@ -1753,21 +1753,21 @@ The `security`-group placement with `supports_tools: true` is asserted directly 
 
 ### `huihui_ai/qwen3.5-abliterated:9b-ctx64k`
 
-`huihui_ai/qwen3.5-abliterated:9b-ctx64k` is the 64K-context derived tag of the Qwen3.5-abliterated red-team model, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: true`. `config/portal.yaml` routes the `auto-security` `purpleteam-deep` variant to this tag with a 65536 context limit, giving the four-hop purple chain the long window it needs for red, blue, detect, and IR hops. The `PARAMETER num_ctx 65536` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:9b` entry; this tag exists to give the deep purple chain its context headroom.
+`huihui_ai/qwen3.5-abliterated:9b-ctx64k` is the 64K-context Qwen3.5-abliterated tag, registered in both `general` and `security` with `supports_tools: true`. `config/portal.yaml` retains it for the `auto-security` `redteam` and `purpleteam` variants, each with `context_limit: 32768`; `purpleteam-deep` now uses the Inkling abliterated tag. Ollama’s baked `PARAMETER num_ctx 65536` is part of this tag.
 
 ## Why
 
-The `purpleteam-deep` routing in `config/portal.yaml` is the decisive binding — that four-hop chain is the only consumer of this specific tag — and `config/backends.yaml` confirms the dual-group `supports_tools: true`. The num_ctx mechanism is preserved because the long context window is the sole reason the derived tag was created, and it can only be expressed as a distinct model id.
+The current variant hints preserve the redteam and purpleteam bindings but no longer route the deep chain through this tag.
 
 ---
 
 ### `huihui_ai/qwen3.5-abliterated:9b-ctx8k`
 
-`huihui_ai/qwen3.5-abliterated:9b-ctx8k` is the 8K-context derived tag of the Qwen3.5-abliterated red-team model, registered in `config/backends.yaml` under both the `general` and `security` groups with `supports_tools: true`. `config/portal.yaml` routes it through the `auto` router's `model_hint` and through the `auto-security` `redteam` and `purpleteam` variants, all at an 8192 context limit. The `PARAMETER num_ctx 8192` is baked into the tag because Ollama's `/v1/chat/completions` ignores request-time `options.num_ctx`. Full model detail lives in the base `:9b` entry; this tag exists to enforce the security lanes' context cap as a distinct model id.
+`huihui_ai/qwen3.5-abliterated:9b-ctx8k` is the 8K-context Qwen3.5-abliterated tag, registered in both `general` and `security` with `supports_tools: true`. The top-level `auto` workspace routes to this tag; no current `auto-security` variant does. Ollama bakes `PARAMETER num_ctx 8192` into the tag because request-time `options.num_ctx` is ignored.
 
 ## Why
 
-The `config/portal.yaml` bindings — the `auto` router and both the `redteam` and `purpleteam` variants — are the facts that make this the most-referenced derived tag of the family, and `config/backends.yaml` confirms the dual-group `supports_tools: true`. The num_ctx mechanism is preserved because it explains why the 8K tag exists separately from the base and the 64K sibling: per-workspace context caps must be model ids.
+The current portal hint keeps the 8K tag on the `auto` workspace; auto-security uses separate variant-specific hints.
 
 ---
 
@@ -2119,21 +2119,21 @@ Records the full root-cause chain because none of it is visible from `config/bac
 
 ### `VulnLLM-R-7B-4bit`
 
-`VulnLLM-R-7B-4bit` is the 4-bit MLX conversion (mlx-community) of VulnLLM-R-7B (Qwen2-tokenizer based) served by the oMLX evaluation backend. `config/backends.yaml` registers it in the new `omlx-security` entry (group `security`, `priority: 10`, TASK_OMLX_FULL_PIPELINE_COVERAGE_V1) with `supports_tools: true`, live-audited via a direct `/v1/chat/completions` tool-call probe (clean structured `tool_calls`, `finish_reason: tool_calls`, no template/tokenizer defects found — unlike the reasoning-group model, this conversion's `tokenizer_class`/chat template worked correctly as shipped). The `aliases` block maps the production GGUF hint `hf.co/mradermacher/VulnLLM-R-7B-GGUF:q4_K_M-ctx8k` onto this oMLX name, so the `auto-security` daily workspace can now be served by oMLX with automatic Ollama fallback — no `config/portal.yaml` or `workspace_routing` change was needed.
+`VulnLLM-R-7B-4bit` is the 4-bit MLX conversion of VulnLLM-R-7B, registered in `omlx-security` with `supports_tools: true`. That backend retains aliases from the 8K and 32K VulnLLM GGUF tags. The 2026-11-24 security QAT benchmark recorded 5/8 PASS for the former incumbent; `auto-security` now uses Inkling-2-Mini-oQ4e-mtp, while the VulnLLM model and its aliases remain registered for reference.
 
 ## Why
 
-Grounds the model to the `omlx-security` registration that serves it and the alias that lets the existing GGUF hint reach oMLX unchanged. Noting the clean audit result (no tokenizer/template defect, unlike the reasoning-group sibling model added in the same task) is useful context for a future session comparing why one of the four new backends needed deep root-causing and the others didn't.
+The backend registry keeps the former seat model and both aliases intact, and the portal description now identifies the evidence-backed replacement.
 
 ---
 
 ### `huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit`
 
-`huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit` is the 4-bit MLX conversion of huihui-ai's own Qwen3.5-9B-abliterated served by the oMLX evaluation backend. Registered in `omlx-security` (group `security`) as part of RBP arm coverage: the `auto-security` workspace folds 8 role variants (uncensored/pentest/blueteam/redteam/redteam-deep/purpleteam/purpleteam-deep/purpleteam-exec), each pinning a different `model_hint`, and `redteam`/`purpleteam`/`purpleteam-deep` all pin `huihui_ai/qwen3.5-abliterated:9b` (at ctx8k and ctx64k). This conversion was already resident in the hf-cache (unregistered until now) — no new pull required. Live tool-call-audited via a direct `/v1/chat/completions` probe (clean structured `tool_calls`, `finish_reason: tool_calls`) before being added with `supports_tools: true`.
+`huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit` is the 4-bit MLX conversion of huihui-ai's own Qwen3.5-9B-abliterated served by the oMLX evaluation backend. It remains registered in `omlx-security` as part of RBP arm coverage; the `auto-security` `redteam` and `purpleteam` variants still use the Qwen3.5 GGUF tags (`:ctx64k`). The `uncensored` and `purpleteam-deep` variants moved to the Inkling abliterated GGUF on 2026-11-24. This conversion was already resident in the hf-cache — no new pull required — and was tool-call-audited before registration with `supports_tools: true`.
 
 ## Why
 
-Grounds the model to the `omlx-security` registration and the three role-variant aliases (`ctx8k` for redteam/purpleteam, `ctx64k` for purpleteam-deep) that map onto it. Notes the "already on disk, zero new disk cost" provenance because it's the reason this variant was added while the sibling `redteam-deep`/`purpleteam-exec` roles (supergemma4-26b) were deliberately left Ollama-backed — see `unit-module-security` for the fuller RBP-coverage decision record.
+Grounds the model to its `omlx-security` registration and the two remaining Qwen-based role variants. The already-on-disk conversion keeps the retained redteam and purpleteam mappings available while the two changed roles use the new Ollama tag.
 
 ---
 
@@ -2704,18 +2704,40 @@ template's `reasoning_effort` kwarg (`none/minimal/low/medium/high/xhigh/max` �
 `think: false` is inert on it. Card caveats: repetitive reasoning loops (it recommends output
 and turn limits), weaker instruction fidelity on project conventions, and minimum effort does
 not disable reasoning. Bench lane `bench-inkling-2-mini` (`temperature 1.0`, `top_p 0.95`,
-`emits_reasoning: true`). The Ollama path now exists: the official library `inkling-2-mini`
-(`nvfp4`) was pulled on Ollama 0.40.17 and the matched-context `inkling-2-mini:ctx256k` tag
-registered as this seat's GGUF fallback — see that section below.
+`emits_reasoning: true`). `config/backends.yaml` registers this oMLX checkpoint in both
+`omlx-general` and `omlx-security`; `config/portal.yaml` now selects it for the base
+`auto-security` seat with `predict_limit: 32768` and `emits_reasoning: true`, without a
+`context_limit` or a `think` override. The 2026-11-24 live security QAT benchmark passed 8/8
+prompts in 116.9s, including 4/4 parallel CVE tool calls in 25.8s, 22 MITRE IDs in 21.1s,
+clean ORCHID-9 continuity, authorized JNDI+Sigma without hedging, and preserved refusal behavior.
+The official Ollama `inkling-2-mini:ctx256k` tag remains the security fallback and the separate
+Ollama bench arm; its group-specific mapping is described below.
 
 ## Why
 
-All three are 0.8.1-only capabilities the operator asked to have in use without seating them:
-two adapters that cost 608 MiB each on top of a checkpoint already on disk, and a 26B/3.4B-active
-multimodal model that fits beside the existing fleet. Registering them as bench candidates keeps
-the intake reversible (delete the group + workspaces, or the profile) and keeps the card numbers
-from being mistaken for this host's evidence — every one of them was measured on B200s, and none
-has been re-measured here yet.
+The card and source facts describe Inkling's model behavior and serving requirements. Its
+production selection is grounded separately in the 2026-11-24 security QAT benchmark; the
+benchmark workspaces remain the head-to-head path for the dedicated model variants.
+
+---
+
+### `portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k`
+
+This local Ollama tag is built from `orcarouter/Inkling-2-Mini-abliterated-GGUF` `Mix-16G.gguf`
+and wraps the native Ollama `inkling2` renderer and parser with a baked 32K context. It is
+registered in `config/backends.yaml` under `ollama-general` and `ollama-security` with
+`supports_tools: true` in each group.
+`config/portal.yaml` uses it for `auto-security::uncensored` and `auto-security::purpleteam-deep`,
+each at `context_limit: 32768` and `think: false`; `settings_audit` resolves the tag to the
+`inkling-2-mini` model-card entry. It replaced the legacy BaronLLM uncensored tag and the Qwen3.5
+deep-chain first hop on 2026-11-24. The seat's QAT benchmark passed 7/8 prompts with `think: false`;
+`s3-canonical` completed in 103.8s versus 181.4s with `think: low`.
+
+## Why
+
+The `portal5/` model id is the registered local tag consumed by both security variants. Naming
+the Mix-16G source and baked context keeps the tag's identity distinct from the official Ollama
+Inkling model that provides the base seat's failover.
 
 ---
 
@@ -2727,12 +2749,12 @@ looped MoE, text **and image** in, 1M-token trained context), pulled on Ollama *
 the native `inkling2` renderer and parser (capabilities: completion, vision, tools, thinking).
 The tag bakes `PARAMETER num_ctx 262144` — matching oMLX's `max_context_window: 262144` in
 `~/.omlx/model_settings.json` — from the existing blobs, 0 extra disk bytes. `config/backends.yaml`
-registers it in the `general` group (`ollama-general`) with `supports_tools: true`, live-probed
-via `/api/chat` (410 math/thinking + a structured `fetch_weather` tool call). It is the GGUF
-fallback for the `omlx-general` `Inkling-2-Mini-oQ4e-mtp` seat (same family) but is **deliberately
-NOT aliased** in `omlx-general` (the `granite4.1:30b-ctx96k` pattern): an alias would shadow the
-Ollama bench lane onto oMLX and break the head-to-head, so the oMLX seat keeps a `keep_reason`
-(HY's seat check is alias-based).
+registers it in `ollama-general` and `ollama-security` with `supports_tools: true`, live-probed
+via `/api/chat` (410 math/thinking + a structured `fetch_weather` tool call). In `ollama-security`,
+an alias maps the base `auto-security` oMLX hint to this GGUF tag for failover. It remains
+**deliberately unaliased** in `omlx-general` (the `granite4.1:30b-ctx96k` pattern): a forward
+alias would shadow `bench-inkling-2-mini-ollama` onto oMLX and break the head-to-head, so the
+general oMLX seat keeps its `keep_reason` (HY's seat check is alias-based).
 
 `config/bench_workspaces.yaml` binds it as the `model_hint` of `bench-inkling-2-mini-ollama`
 (`context_limit: 262144`, `ctx_validated: true`, `temperature 1.0`, `top_p 0.95`,
@@ -2745,9 +2767,7 @@ conversion remains reachable through `bench-inkling-2-mini`.
 
 ## Why
 
-The official library build gives the fleet a first-party Ollama path for Inkling 2 Mini (native
-`inkling2` parsing, no community re-quant), and the matched 256K tag lets the Ollama and oMLX
-seats be benched at the same window the deployment serves. Keeping the tag un-aliased is what
-makes `bench-inkling-2-mini-ollama` a true Ollama arm rather than a second oMLX seat; the
-production variant inherits that Ollama-only resolution. Citing both config files keeps the
-parity gate grounded in the two places that decide where the seat lives.
+The official library build gives the fleet a first-party Ollama path for Inkling 2 Mini, and the
+matched 256K tag preserves the Ollama bench arm while serving as `auto-security`'s GGUF failover.
+Keeping it un-aliased in `omlx-general` leaves `bench-inkling-2-mini-ollama` on Ollama; the
+security-group alias is scoped to the production security route.

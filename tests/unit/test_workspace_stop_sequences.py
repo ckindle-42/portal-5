@@ -67,13 +67,21 @@ def test_chain_hop_rebuilds_workspace_stop_options_for_ollama(monkeypatch) -> No
     assert body["options"]["stop"] == expected
 
 
-def test_auto_security_workspace_has_stop_and_sampling_settings() -> None:
+def test_auto_security_workspace_uses_inkling_card_sampling() -> None:
     config = load_portal_config(_force_reload=True)
     workspace = config.workspaces["auto-security"]
 
-    assert workspace.stop == STOP_SEQUENCES
-    assert workspace.repeat_penalty == 1.12
-    assert workspace.temperature == 0.4
+    assert workspace.stop is None
+    assert workspace.model_hint == "Inkling-2-Mini-oQ4e-mtp"
+    assert workspace.context_limit is None
+    assert workspace.predict_limit == 32768
+    assert workspace.temperature == 1.0
+    assert workspace.top_p == 0.95
+    assert workspace.top_k is None
+    assert workspace.min_p is None
+    assert workspace.repeat_penalty is None
+    assert workspace.emits_reasoning is True
+    assert workspace.think is None
     assert workspace.owui_system_prompt.endswith(
         " Always respond in the same language as the user's message."
     )

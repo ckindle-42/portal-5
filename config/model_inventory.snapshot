@@ -88,6 +88,7 @@ huihui_ai/qwen3.5-abliterated:9b-ctx64k
 huihui_ai/qwen3.5-abliterated:9b-ctx8k
 huihui_ai/tongyi-deepresearch-abliterated:latest
 huihui_ai/tongyi-deepresearch-abliterated:latest-ctx64k
+Inkling-2-Mini-oQ4e-mtp
 laguna-xs.2:Q4_K_M
 laguna-xs.2:Q4_K_M-ctx64k
 lfm2.5:8b
@@ -104,6 +105,7 @@ phi4-reasoning:plus
 phi4-reasoning:plus-ctx32k
 phi4:14b-q8_0
 portal5/gemma4-12b:q4_K_M-ctx8k
+portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k
 portal5/qwen3.6-27b-mtp:q8_0-drafted
 qwen3-coder-next:latest
 qwen3-coder-next:latest-ctx64k

@@ -145,3 +145,77 @@ def test_resolve_preset_tools_no_persona() -> None:
     """None persona returns workspace tools unchanged."""
     result = resolve_preset_tools(None, ["memory", "rag"])
     assert result == ["memory", "rag"]
+
+
+def test_security_inkling_seats_preserve_card_and_fallback_contract() -> None:
+    """The approved Inkling seats resolve on their intended engines and card."""
+    from portal.platform.inference.cluster_backends import BackendRegistry
+    from portal.platform.inference.model_cards import card_entry
+
+    backend_data = yaml.safe_load((REPO / "config" / "backends.yaml").read_text())
+    backends = {backend["id"]: backend for backend in backend_data["backends"]}
+    models = {
+        backend_id: {
+            model["id"]: model for model in backend.get("models", []) if isinstance(model, dict)
+        }
+        for backend_id, backend in backends.items()
+    }
+    assert models["omlx-security"]["Inkling-2-Mini-oQ4e-mtp"]["supports_tools"] is True
+    assert models["omlx-security"]["Inkling-2-Mini-oQ4e-mtp"]["keep_reason"]
+    assert (
+        models["ollama-security"]["portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"][
+            "supports_tools"
+        ]
+        is True
+    )
+    assert (
+        models["ollama-general"]["portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"][
+            "supports_tools"
+        ]
+        is True
+    )
+    assert models["ollama-security"]["inkling-2-mini:ctx256k"]["supports_tools"] is True
+    registry = BackendRegistry(str(REPO / "config" / "backends.yaml"))
+    registry_backends = {backend.id: backend for backend in registry.list_backends()}
+    base_hint = "Inkling-2-Mini-oQ4e-mtp"
+    assert registry_backends["omlx-security"].resolve_model(base_hint) == base_hint
+    assert registry_backends["ollama-security"].resolve_model(base_hint) == "inkling-2-mini:ctx256k"
+    assert "inkling-2-mini:ctx256k" not in backends["omlx-general"].get("aliases", {})
+
+    portal = yaml.safe_load((REPO / "config" / "portal.yaml").read_text())
+    workspace = portal["workspaces"]["auto-security"]
+    assert workspace["model_hint"] == base_hint
+    assert "context_limit" not in workspace
+    assert workspace["predict_limit"] == 32768
+    assert (workspace["temperature"], workspace["top_p"]) == (1.0, 0.95)
+    assert workspace["emits_reasoning"] is True
+    assert "think" not in workspace
+    assert not {
+        "top_k",
+        "min_p",
+        "repeat_penalty",
+        "stop",
+        "sampling_override",
+    }.intersection(workspace)
+    variants = workspace["variants"]
+    assert all(variant.get("think") is (name == "pentest") for name, variant in variants.items())
+    assert all(
+        variant.get("emits_reasoning") is False
+        for name, variant in variants.items()
+        if name != "pentest"
+    )
+    uncensored = variants["uncensored"]
+    assert uncensored["model_hint"] == (
+        "portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"
+    )
+    assert uncensored["context_limit"] == 32768
+    deep = variants["purpleteam-deep"]
+    assert deep["model_hint"] == uncensored["model_hint"]
+    assert deep["context_limit"] == 32768
+    assert [hop["model"] for hop in deep["chain"]] == [
+        "granite4.1:8b-ctx8k",
+        "qwen3-coder:30b-a3b-q4_K_M",
+        "qwen3.6:27b-q4_K_M",
+    ]
+    assert card_entry(uncensored["model_hint"])[0] == "inkling-2-mini"
+    assert f"### `{uncensored['model_hint']}`" in (REPO / "config" / "MODEL_CATALOG.md").read_text()

@@ -133,8 +133,16 @@ class TestWorkspaceModelHintUpdated:
     """Each specialist lane seats a wired model and keeps its own tool/thinking settings."""
 
     def test_security_lane_keeps_its_toolset_and_gating(self):
+        from portal.platform.inference.config import load_portal_config
+
         ws = WORKSPACES.get("auto-security", {})
-        assert ws.get("model_hint") and ws.get("think") is False
+        assert ws.get("model_hint") == "Inkling-2-Mini-oQ4e-mtp"
+        assert "think" not in ws
+        assert ws.get("emits_reasoning") is True
+        variants = load_portal_config().workspaces["auto-security"].variants
+        assert all(
+            variant.get("think") is (name == "pentest") for name, variant in variants.items()
+        )
         assert {"lookup_cve", "check_kev", "triage_cve"} <= set(ws.get("tools") or [])
 
     def test_coding_lane_keeps_its_sandbox_toolset(self):
