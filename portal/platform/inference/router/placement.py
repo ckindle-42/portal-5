@@ -243,7 +243,7 @@ def protect_hot_seat(
     if head_index is None:
         return list(candidates)
     head = candidates[head_index]
-    if head.type == "omlx" and model_hint in head.models:
+    if head.type == "omlx" and head.resolve_model(model_hint) is not None:
         return list(candidates)
     head_key = engine_key(head.url)
     hot = active.hot_model(head_key, protect_s, now=now)
@@ -271,4 +271,40 @@ def protect_hot_seat(
         out.pop(idx)
         out.insert(head_index, alt)
         return out
+    return list(candidates)
+
+
+def prefer_ollama_for_compliance_council(
+    candidates: Sequence[Backend], workspace_id: str, model_hint: str
+) -> list[Backend]:
+    """Keep the separately resident compliance council seats on Ollama."""
+    if not workspace_id.startswith("compliance-council-") or "::model=" in workspace_id:
+        return list(candidates)
+    for index, candidate in enumerate(candidates):
+        if candidate.type == "ollama" and candidate.resolve_model(model_hint) is not None:
+            out = list(candidates)
+            out.insert(0, out.pop(index))
+            return out
+    return list(candidates)
+
+
+def prefer_resident_ollama_when_omlx_busy(
+    candidates: Sequence[Backend],
+    workspace_id: str,
+    model_hint: str,
+    *,
+    omlx_busy: bool,
+    ollama_resident_idle: bool,
+) -> list[Backend]:
+    """Prefer an already warm idle Ollama copy only while its oMLX peer is busy."""
+    if not omlx_busy or not ollama_resident_idle or "::model=" in workspace_id:
+        return list(candidates)
+    head_index = _effective_head_index(candidates, workspace_id, model_hint)
+    if head_index is None or candidates[head_index].type != "omlx":
+        return list(candidates)
+    for index, candidate in enumerate(candidates):
+        if candidate.type == "ollama" and candidate.resolve_model(model_hint) is not None:
+            out = list(candidates)
+            out.insert(head_index, out.pop(index))
+            return out
     return list(candidates)

@@ -704,15 +704,82 @@ def _order_candidates(candidates: list[Any], workspace_id: str, registry: Any) -
     """Hot-seat order, then put a declared parallel seat back on its batching engine."""
     from portal.platform.inference.router.parallel_seat import prefer_batching_engine
 
+    model_hint = WORKSPACES.get(workspace_id, {}).get("model_hint", "")
     return prefer_batching_engine(
-        placement.protect_hot_seat(
-            candidates,
+        placement.prefer_ollama_for_compliance_council(
+            placement.protect_hot_seat(
+                candidates,
+                workspace_id,
+                model_hint,
+                getattr(registry, "hot_seat_protect_s", 0.0),
+            ),
             workspace_id,
-            WORKSPACES.get(workspace_id, {}).get("model_hint", ""),
-            getattr(registry, "hot_seat_protect_s", 0.0),
+            model_hint,
         ),
         workspace_id,
     )
+
+
+async def _prefer_warm_ollama_if_omlx_busy(
+    candidates: list[Any], workspace_id: str, model_hint: str
+) -> list[Any]:
+    """Reorder only when a serving oMLX peer is busy and Ollama is warm and idle."""
+    if not candidates or not model_hint or "::model=" in workspace_id:
+        return candidates
+    head = next((b for b in candidates if b.resolve_model(model_hint) is not None), None)
+    ollama = next(
+        (b for b in candidates if b.type == "ollama" and b.resolve_model(model_hint) is not None),
+        None,
+    )
+    if head is None or head.type != "omlx" or ollama is None:
+        return candidates
+
+    from portal.platform.inference import load_guard
+
+    guard = load_guard.GUARD
+    ollama_model = ollama.resolve_model(model_hint)
+    if guard is None or not guard.enabled() or ollama_model is None:
+        return candidates
+    if not await guard.omlx_engine_busy(timeout_s=0.25):
+        return candidates
+    try:
+        async with httpx.AsyncClient(timeout=0.5) as client:
+            response = await client.get(f"{ollama.url.rstrip('/')}/api/ps")
+        if response.status_code != 200:
+            return candidates
+        payload = response.json()
+        if not isinstance(payload, dict):
+            return candidates
+        loaded = payload.get("models") or []
+        if not isinstance(loaded, list):
+            return candidates
+    except Exception:
+        return candidates
+    from portal.platform.inference.model_names import model_key
+
+    if not any(
+        isinstance(model, dict)
+        and model_key(str(model.get("name") or "")) == model_key(ollama_model)
+        for model in loaded
+    ):
+        return candidates
+    if guard.active(load_guard.OLLAMA, ollama_model):
+        return candidates
+    reordered = placement.prefer_resident_ollama_when_omlx_busy(
+        candidates,
+        workspace_id,
+        model_hint,
+        omlx_busy=True,
+        ollama_resident_idle=True,
+    )
+    if reordered != candidates:
+        logger.info(
+            "busy-aware routing: workspace=%s omlx=busy ollama=%s model=%s resident=idle",
+            workspace_id,
+            ollama.id,
+            ollama_model,
+        )
+    return reordered
 
 
 def _reject_disabled_workspace(workspace_id: str) -> None:
@@ -898,6 +965,7 @@ async def _resolve_request_route(
 
     # Hot-seat prefix-cache protection, then a parallel seat returns to its batching engine.
     candidates = _order_candidates(candidates, workspace_id, registry)
+    candidates = await _prefer_warm_ollama_if_omlx_busy(candidates, workspace_id, model_hint)
 
     trace_span(
         "route.resolved",
