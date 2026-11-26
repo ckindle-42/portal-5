@@ -83,10 +83,13 @@ def ollama_residency(client: httpx.Client, settings: Settings) -> tuple[QATResul
 def omlx_residency(client: httpx.Client, settings: Settings) -> tuple[QATResult, list[str]]:
     """Read oMLX residency from /v1/models/status, then /v1/models/loaded."""
     headers = settings.omlx_headers()
+    errors: list[str] = []
     for path in ("/v1/models/status", "/v1/models/loaded"):
         try:
             r = _get(client, f"{settings.omlx_url}{path}", headers)
             if r.status_code != 200:
+                detail = r.text.strip()[:240]
+                errors.append(f"{path} HTTP {r.status_code}" + (f": {detail}" if detail else ""))
                 continue
             body = r.json()
             models = body.get("models", body.get("data", []))
@@ -103,9 +106,13 @@ def omlx_residency(client: httpx.Client, settings: Settings) -> tuple[QATResult,
             status = Status.PASS if not names else Status.WARN
             detail = "reachable, cold" if not names else f"resident: {', '.join(names)}"
             return QATResult("gate-omlx", status, detail, evidence={"resident": names}), names
-        except Exception:
+        except Exception as exc:
+            errors.append(f"{path}: {exc}")
             continue
-    return QATResult("gate-omlx", Status.FAIL, "oMLX residency endpoints unreachable"), []
+    detail = "; ".join(errors) or "no readable residency endpoint"
+    return QATResult(
+        "gate-omlx", Status.FAIL, f"oMLX residency endpoints unreachable: {detail}"
+    ), []
 
 
 def evict_ollama(client: httpx.Client, settings: Settings, resident: list[str]) -> QATResult:
@@ -137,8 +144,9 @@ def evict_omlx(client: httpx.Client, settings: Settings, resident: list[str]) ->
     """Unload residency-confirmed models through the oMLX admin API, then wait out
     oMLX 0.8.1's async unload (200/202/204): PASS only once residency confirms the
     models are no longer loaded, not at the moment the unload is accepted."""
+    already_cold: list[str] = []
     for name in resident:
-        encoded = quote(name, safe="")
+        encoded = quote(name, safe=":")
         try:
             r = client.post(
                 f"{settings.omlx_url}/admin/api/models/{encoded}/unload",
@@ -151,9 +159,29 @@ def evict_omlx(client: httpx.Client, settings: Settings, resident: list[str]) ->
                     headers=settings.omlx_headers(),
                     timeout=15.0,
                 )
+            if r.status_code == 404:
+                residency, names = omlx_residency(client, settings)
+                reason = r.text.strip() or "empty response body"
+                if residency.status is Status.FAIL:
+                    return QATResult(
+                        "gate-evict-omlx",
+                        Status.FAIL,
+                        f"unload {name}: HTTP 404 ({reason}); residency check failed: {residency.detail}",
+                    )
+                if name in names:
+                    return QATResult(
+                        "gate-evict-omlx",
+                        Status.FAIL,
+                        f"unload {name}: HTTP 404 ({reason}); model is still resident",
+                    )
+                already_cold.append(name)
+                continue
             if r.status_code not in (200, 202, 204, 400):
+                reason = r.text.strip()
                 return QATResult(
-                    "gate-evict-omlx", Status.FAIL, f"unload {name}: HTTP {r.status_code}"
+                    "gate-evict-omlx",
+                    Status.FAIL,
+                    f"unload {name}: HTTP {r.status_code}" + (f" ({reason})" if reason else ""),
                 )
         except Exception as exc:
             return QATResult("gate-evict-omlx", Status.FAIL, f"unload {name}: {exc}")
@@ -164,9 +192,10 @@ def evict_omlx(client: httpx.Client, settings: Settings, resident: list[str]) ->
         result, names = omlx_residency(client, settings)
         stuck = [n for n in names if n in resident]
         if not stuck and result.status is not Status.FAIL:
-            return QATResult(
-                "gate-evict-omlx", Status.PASS, f"evicted {len(resident)} oMLX model(s)"
-            )
+            detail = f"evicted {len(resident)} oMLX model(s)"
+            if already_cold:
+                detail += f"; 404 confirmed cold: {', '.join(already_cold)}"
+            return QATResult("gate-evict-omlx", Status.PASS, detail)
         if time.monotonic() >= deadline:
             detail = (
                 f"unload accepted but still resident after {OMLX_EVICT_SETTLE_S:.0f}s: {stuck}"

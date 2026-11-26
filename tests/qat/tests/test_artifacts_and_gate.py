@@ -280,6 +280,80 @@ class TestOWUIAuthentication:
         assert result.status is Status.PASS
         assert unload_calls == ["/admin/api/models/mlx-4bit/unload"]
 
+    def test_evict_omlx_keeps_adapter_colon_in_path_id(self) -> None:
+        unload_calls: list[str] = []
+        adapter = "Qwen3.8-27B-oQ4e-mtp:opencode"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                unload_calls.append(request.url.raw_path.decode())
+                return httpx.Response(200, json={})
+            if request.url.path == "/v1/models/status":
+                return httpx.Response(200, json={"models": []})
+            return httpx.Response(404)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            result = gate.evict_omlx(client, SETTINGS, [adapter])
+        assert result.status is Status.PASS
+        assert unload_calls == [f"/admin/api/models/{adapter}/unload"]
+
+    def test_evict_omlx_404_passes_only_when_residency_confirms_cold(self) -> None:
+        adapter = "Qwen3.8-27B-oQ4e-mtp:opencode"
+        unload_calls: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                unload_calls.append(request.url.raw_path.decode())
+                return httpx.Response(404, json={"detail": "Not Found"})
+            if request.url.path == "/v1/models/status":
+                return httpx.Response(200, json={"models": [{"id": adapter, "loaded": False}]})
+            return httpx.Response(404)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            result = gate.evict_omlx(client, SETTINGS, [adapter])
+        assert result.status is Status.PASS
+        assert "404 confirmed cold" in result.detail
+        assert unload_calls == [
+            f"/admin/api/models/{adapter}/unload",
+            f"/v1/models/{adapter}/unload",
+        ]
+
+    def test_evict_omlx_404_fails_when_model_remains_resident(self) -> None:
+        adapter = "Qwen3.8-27B-oQ4e-mtp:opencode"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                return httpx.Response(404, json={"detail": "Not Found"})
+            if request.url.path == "/v1/models/status":
+                return httpx.Response(200, json={"models": [{"id": adapter, "loaded": True}]})
+            return httpx.Response(404)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            result = gate.evict_omlx(client, SETTINGS, [adapter])
+        assert result.status is Status.FAIL
+        assert "HTTP 404" in result.detail
+        assert "Not Found" in result.detail
+        assert "still resident" in result.detail
+
+    def test_evict_omlx_404_fails_with_residency_error(self) -> None:
+        adapter = "Qwen3.8-27B-oQ4e-mtp:opencode"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                return httpx.Response(404, json={"detail": "Not Found"})
+            if request.url.path in ("/v1/models/status", "/v1/models/loaded"):
+                return httpx.Response(503, json={"detail": "service unavailable"})
+            return httpx.Response(404)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            result = gate.evict_omlx(client, SETTINGS, [adapter])
+        assert result.status is Status.FAIL
+        assert "HTTP 404" in result.detail
+        assert "Not Found" in result.detail
+        assert "residency" in result.detail
+        assert "HTTP 503" in result.detail
+        assert "service unavailable" in result.detail
+
     def test_evict_omlx_fails_on_500(self) -> None:
         transport = _router(unload_status=500)
         with httpx.Client(transport=transport) as client:
