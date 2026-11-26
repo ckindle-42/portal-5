@@ -17,6 +17,7 @@ import pytest
 from portal.platform.inference import load_guard as lg
 from portal.platform.inference.cluster_backends import Backend
 from portal.platform.inference.load_guard import OLLAMA
+from portal.platform.inference.ollama_native import OllamaNativeTransport
 from portal.platform.inference.router.lifespan import _cross_engine_copies
 
 GIB = 1024**3
@@ -911,6 +912,91 @@ async def test_a_sibling_workers_omlx_request_is_not_foreign_traffic():
     assert e.omlx["serving"]["loaded"]
     release()
     g._release_activity_lock(sibling)
+
+
+NEMOTRON = "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k"
+QWEN_OMLX = "Qwen3.8-27B-oQ4e-mtp"
+INKLING = "inkling-2-mini:ctx256k"
+_NEMOTRON_NEED = 23.8 * GIB
+
+
+def _nemotron_tags() -> dict[str, int]:
+    return {NEMOTRON: int(_NEMOTRON_NEED / lg._FACTOR)}
+
+
+def _tool_loop(e: Engines, g: lg.LoadGuard) -> OllamaNativeTransport:
+    return OllamaNativeTransport(
+        httpx.MockTransport(e.handler), is_ollama=lambda _base: True, guard=g
+    )
+
+
+async def _tool_turn(transport: OllamaNativeTransport) -> httpx.Response:
+    async with httpx.AsyncClient(transport=transport) as client:
+        return await client.post(
+            f"{OLLAMA_URL}/v1/chat/completions",
+            json={
+                "model": NEMOTRON,
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": False,
+            },
+        )
+
+
+async def test_tool_loop_admits_nemotron_after_evicting_idle_omlx():
+    """QAT 733985650: 23.8 GiB Ollama cold load, 14 GiB idle oMLX, tool-loop path."""
+    e = Engines(
+        tags=_nemotron_tags(),
+        omlx={QWEN_OMLX: {"size": 14 * GIB, "loaded": True}},
+        ceiling=int(14.6 * GIB) + 14 * GIB,
+        omlx_memory=14 * GIB,
+        unload_counter_drops={QWEN_OMLX: 14 * GIB},
+        immediate_counter_drops={QWEN_OMLX},
+    )
+    g = guard(e)
+
+    response = await _tool_turn(_tool_loop(e, g))
+
+    assert response.status_code == 200
+    assert e.unloaded == [QWEN_OMLX]
+    assert e.chats == [NEMOTRON]
+
+
+async def test_tool_loop_waits_for_a_sibling_ollama_resident_then_evicts_it(monkeypatch):
+    """The logged quiet 507: inkling in flight on the other worker, ceiling 14.6 GiB,
+    idle Ollama 0. The tool loop waits, then evicts the resident and admits Nemotron."""
+    e = Engines(
+        ollama={INKLING: GIB},
+        tags=_nemotron_tags(),
+        ceiling=int(14.6 * GIB),
+    )
+    e.hidden[INKLING] = int(20 * GIB)
+    g = guard(e)
+    sibling = g._activity_lock(OLLAMA, INKLING)
+    assert sibling is not None
+    assert g._sibling_workers_active()
+    original_wait = lg.asyncio.wait_for
+    waits = 0
+
+    async def wait_for(awaitable: Any, timeout: float | None = None) -> Any:
+        nonlocal waits
+        waits += 1
+        if waits == 3:
+            # Loading probe, then the foreign probe, then the activity poll.
+            g._release_activity_lock(sibling)
+        if waits > 20:
+            raise AssertionError("admission kept waiting after the sibling released")
+        return await original_wait(awaitable, timeout)
+
+    monkeypatch.setattr(lg.asyncio, "wait_for", wait_for)
+    lg.set_load_wait("30")
+
+    response = await _tool_turn(_tool_loop(e, g))
+    assert waits >= 2
+
+    assert response.status_code == 200, response.text
+    assert e.unload_calls.get(INKLING) == 1
+    assert e.chats == [NEMOTRON]
+    assert "nothing in flight" not in response.text
 
 
 async def test_a_resident_omlx_seat_frees_idle_ollama_that_ate_its_prefill_share():
