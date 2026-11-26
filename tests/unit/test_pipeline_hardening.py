@@ -1292,6 +1292,50 @@ def test_chain_hop_goes_to_a_backend_that_serves_its_model(monkeypatch) -> None:
     assert body["options"]["temperature"] == 0.25
 
 
+def test_chain_hop_leaves_a_span_naming_the_serving_backend(monkeypatch, tmp_path) -> None:
+    """The turn record must show which engine served a later chain hop."""
+    from portal.platform.inference.router import trace
+
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path))
+    trace.start_trace("p5-chaintest")
+    try:
+        omlx = SimpleNamespace(
+            id="omlx", chat_url="http://omlx/v1/chat/completions", resolve_model=lambda _h: None
+        )
+        ollama = _backend("ollama", url="http://ollama", models=["granite:8b"])
+        reg = SimpleNamespace(
+            get_backend_candidates=lambda _ws: [omlx, ollama], list_healthy_backends=lambda: []
+        )
+        monkeypatch.setattr(ns, "registry", reg)
+        monkeypatch.setitem(ns.WORKSPACES, "ws", {})
+        ns.resolve_hop_target(
+            "ws", "granite:8b", omlx.chat_url, {"model": "granite:8b", "messages": []}
+        )
+        ns.resolve_hop_target("ws", "ghost-model", omlx.chat_url, {"model": "ghost-model"})
+        spans = [
+            span for span in trace.current_trace().to_dict()["spans"] if span["name"] == "chain.hop"
+        ]
+        assert spans == [
+            {
+                "name": "chain.hop",
+                "at_ms": spans[0]["at_ms"],
+                "requested": "granite:8b",
+                "backend": "ollama",
+                "model": "granite:8b",
+            },
+            {
+                "name": "chain.hop",
+                "at_ms": spans[1]["at_ms"],
+                "requested": "ghost-model",
+                "backend": None,
+                "model": "ghost-model",
+                "unresolved": True,
+            },
+        ]
+    finally:
+        trace._current.set(None)
+
+
 def test_chain_hop_rebuilds_omlx_settings_even_on_the_primary_url(monkeypatch) -> None:
     omlx = SimpleNamespace(
         id="omlx",
