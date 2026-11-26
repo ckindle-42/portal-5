@@ -19,6 +19,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
+import portal.platform.inference.router.eval_gate as eval_gate
 import portal.platform.inference.router.non_streaming as ns
 import portal.platform.inference.router.streaming as st
 import portal.platform.inference.router.tools as tool_dispatch
@@ -1725,6 +1726,8 @@ async def test_nonstream_trace_records_schemas_attached_to_backend_body(
 ) -> None:
     notes: list[dict[str, typing.Any]] = []
     monkeypatch.setattr(ns, "trace_note", lambda **fields: notes.append(fields))
+    # The exposure note is emitted by eval_gate.note_tools_exposed.
+    monkeypatch.setattr(eval_gate, "trace_note", lambda **fields: notes.append(fields))
     body: dict[str, typing.Any] = {"messages": []}
     if case == "portal_no_tools":
         body["portal_no_tools"] = True
@@ -1734,6 +1737,9 @@ async def test_nonstream_trace_records_schemas_attached_to_backend_body(
             {"type": "function", "function": {"name": name, "parameters": {}}}
             for name in ("client_a", "client_b")
         ]
+    elif case == "workspace":
+        # A URL in the turn is a full-scope signal; a bare turn gets the bounded default.
+        body["messages"] = [{"role": "user", "content": "see https://example.invalid/x"}]
     elif case == "bite":
         body["portal_bite_tools"] = ["lookup", "finish"]
         body["tools"] = [
@@ -1758,7 +1764,7 @@ async def test_failover_runs_a_tool_loop_until_the_model_answers(monkeypatch, ns
     monkeypatch.setattr(ns, "_http_client", client)
 
     result = await ns._try_non_streaming(
-        _backend("b"), {"messages": []}, ns_tools, 0.0, max_hops=20
+        _backend("b"), {"messages": [], "files": [{"id": "f1"}]}, ns_tools, 0.0, max_hops=20
     )
 
     assert json.loads(result.body)["choices"][0]["message"]["content"] == "the answer"
