@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 
 import pytest
 from fastapi.responses import JSONResponse
@@ -316,6 +317,7 @@ async def test_open_webui_memory_context_suffix_does_not_influence_route(
         else f"{prompt}\n{injected}"
     )
     messages = [{"role": "user", "content": content}]
+    expected_messages = deepcopy(messages)
     body = {"messages": messages}
 
     async def classify_as_daily(_messages: list[dict[str, str]]) -> str:
@@ -337,6 +339,7 @@ async def test_open_webui_memory_context_suffix_does_not_influence_route(
     assert current_turn == prompt
     assert receipt["current_turn_text_chars"] == len(prompt)
     assert receipt["memory_chars_excluded"] > 0
+    assert messages == expected_messages
     assert not {item["keyword"] for item in receipt["matched_keywords"]} & {
         "cve",
         "exploit",

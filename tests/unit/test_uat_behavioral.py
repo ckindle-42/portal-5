@@ -63,6 +63,9 @@ def test_cross_session_prompt_requires_recall_despite_auto_injection() -> None:
         if case.scenario_id == "s5-memory-cross-session"
     )
 
+    assert "{{memory_key}}" in case.prompts[0]
+    assert "preferred color cobalt" in case.prompts[0]
+    assert case.expected_tools == ("remember", "recall")
     assert "Use recall" in case.prompts[1]
     assert "automatically injected memory" in case.prompts[1]
     missing_recall = uat.UATTurn(case.prompts[1], "QATUAT-123; cobalt", {}, (), ())
