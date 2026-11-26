@@ -442,6 +442,15 @@ def test_tool_result_carry_obeys_the_total_character_cap(monkeypatch: pytest.Mon
     assert "x" * 500 not in record
 
 
+def test_enabled_carry_skips_results_without_identifier_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    calls = [{"function": {"name": "get_weather", "arguments": '{"city":"Austin"}'}}]
+
+    assert tool_dispatch.format_tool_result_carry(calls, [{"content": "18 C, sunny"}]) is None
+
+
 @pytest.mark.anyio
 @pytest.mark.parametrize("reasoning_field", ["reasoning", "reasoning_content", "thinking"])
 async def test_streamed_tool_loop_carries_reasoning_and_visible_prose(
@@ -2242,6 +2251,83 @@ def _record_dispatch(monkeypatch: pytest.MonkeyPatch, module: typing.Any) -> lis
 
 
 @pytest.mark.anyio
+async def test_stream_hunt_job_id_reaches_the_next_turn_context(
+    stream_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job_id = "hunt-r2-carry123456"
+    call = {
+        "index": 0,
+        "id": "start-1",
+        "function": {"name": "hunt_start", "arguments": '{"index":"security"}'},
+    }
+
+    async def dispatch(calls, *_args):
+        return {"role": "assistant", "tool_calls": calls}, [
+            {
+                "role": "tool",
+                "tool_call_id": calls[0]["id"],
+                "content": json.dumps(
+                    {
+                        "status": "QUEUED",
+                        "note": "x" * 300,
+                        "job_id": job_id,
+                        "lead": {"notable_id": "notable-carry-123"},
+                    }
+                ),
+            }
+        ]
+
+    monkeypatch.setattr(st, "_dispatch_hop_tool_calls", dispatch)
+    _serve(stream_client, _stream_tool_turn(call), _stream_answer("Hunt started."))
+    first_turn = await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {
+                "messages": [{"role": "user", "content": "Start a hunt."}],
+                "tools": [{"type": "function", "function": {"name": "hunt_start"}}],
+            },
+            "security-reviewer",
+            "m",
+            "p",
+            {"hunt_start"},
+        )
+    )
+    first_content = _content(first_turn)
+    receipt = first_content[first_content.index("<details>") :]
+    assert job_id in receipt
+    assert "notable-carry-123" in receipt
+    assert len(receipt) <= tool_dispatch._TOOL_RESULT_CARRY_MAX_CHARS
+
+    next_body: list[dict[str, typing.Any]] = []
+
+    def record_stream(*_args, json: dict[str, typing.Any], **_kwargs):  # noqa: A002
+        next_body.append(json)
+        return _Ctx(_Resp(200, [_delta(content="Status checked."), "data: [DONE]"]))
+
+    stream_client.stream = record_stream
+    await _drain(
+        st._stream_with_tool_loop_impl(
+            "http://x/v1/chat/completions",
+            {
+                "messages": [
+                    {"role": "user", "content": "Start a hunt."},
+                    {"role": "assistant", "content": first_content},
+                    {"role": "user", "content": "Check the hunt status."},
+                ],
+                "tools": [{"type": "function", "function": {"name": "hunt_status"}}],
+            },
+            "security-reviewer",
+            "m",
+            "p",
+            {"hunt_status"},
+        )
+    )
+
+    assert len(next_body) == 1
+    assert job_id in json.dumps(next_body[0]["messages"])
+
+
+@pytest.mark.anyio
 async def test_stream_mixed_turn_dispatches_owned_and_returns_client_call(
     stream_client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2391,8 +2477,8 @@ async def test_nonstream_all_owned_turn_still_synthesizes(monkeypatch, ns_tools)
     message = body["choices"][0]["message"]
     assert seen == ["lookup"]
     assert not message.get("tool_calls")
-    assert message["content"].startswith("the answer")
-    assert "lookup" in message["content"] and "owned-out" in message["content"]
+    assert message["content"] == "the answer"
+    assert "Tool results" not in message["content"]
     assert len(client.bodies) == 2
 
 

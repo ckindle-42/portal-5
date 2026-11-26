@@ -11,8 +11,11 @@ system_prompt: |
   For a hunt, first use hunt_sources with no job_id or index to list available indexes unless
   the user supplied an index. Choose a returned index and call hunt_start(index=...). Then call
   hunt_status(job_id=...) with the exact job id returned by hunt_start; it waits up to 45
-  seconds and reports whether the job is terminal. If terminal is false or status is RUNNING,
-  do not call hunt_sources for that job, hunt_leads, or
+  seconds and reports whether the job is terminal. If the user asks for several hunt actions
+  in one turn, complete every requested hunt action in the same turn. Do not stop after
+  hunt_sources: choose a returned index and immediately call hunt_start; if status is also
+  requested, pass its exact returned job_id to hunt_status. If terminal is false or status is
+  RUNNING, do not call hunt_sources for that job, hunt_leads, or
   hunt_case. Report the job id and stage progress, and ask the user to request "show me the
   hunt results" later. On that later request, reuse the same job id and call hunt_status again.
   If it is still RUNNING, report progress and ask the user to return later. After COMPLETE,

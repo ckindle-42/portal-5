@@ -580,14 +580,26 @@ def _all() -> list[dict[str, Any]]:
 
 def _resolve(job_id: str | None, index: str | None) -> tuple[dict[str, Any] | None, dict[str, Any]]:
     found = _all()
+    recent_jobs = [
+        {key: job.get(key) for key in ("job_id", "index", "status")} for job in found[:3]
+    ]
+    next_step = "Call hunt_start first, or choose a job_id from the recent_jobs list."
     if not job_id and not index:
-        return None, {"error": "give job_id or index"}
+        return None, {
+            "error": "no such job: no job_id or index was supplied",
+            "next": next_step,
+            "recent_jobs": recent_jobs,
+        }
     if job_id:
         job = next((item for item in found if item.get("job_id") == job_id), None)
     else:
         job = next((item for item in found if item.get("index") == index), None)
     if job is None:
-        return None, {"error": f"no R2 hunt for {job_id or index!r}"}
+        return None, {
+            "error": f"no such job {job_id or index!r}",
+            "next": next_step,
+            "recent_jobs": recent_jobs,
+        }
     return job, {}
 
 

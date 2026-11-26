@@ -285,7 +285,7 @@ def hunt_start(
 
 @mcp.tool()
 def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
-    """Wait for an R2 hunt and return its bounded compact status."""
+    """Wait for a hunt or return recovery guidance and recent jobs when no selector matches."""
     kwargs: dict[str, Any] = {"wait_seconds": r2_hunt_jobs.STATUS_WAIT_MAX_S}
     return _hunt_guard("hunt_status", lambda: r2_hunt_jobs.status(job_id, index, **kwargs))
 

@@ -36,7 +36,7 @@ from portal.platform.inference.router.user_text import own_user_text as _own_use
 
 logger = logging.getLogger(__name__)
 
-_TOOL_RESULT_CARRY_ENABLED = os.environ.get("PORTAL_TOOL_RESULT_CARRY", "false").lower() in (
+_TOOL_RESULT_CARRY_ENABLED = os.environ.get("PORTAL_TOOL_RESULT_CARRY", "true").lower() in (
     "1",
     "true",
     "yes",
@@ -55,13 +55,54 @@ def _carry_excerpt(value: Any, limit: int) -> str:
     return text if len(text) <= limit else f"{text[: limit - 1]}…"
 
 
+def _carry_identifiers(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return ""
+    identifiers: list[str] = []
+
+    def collect(item: Any) -> None:
+        if len(identifiers) >= 8:
+            return
+        if isinstance(item, dict):
+            for key, child in item.items():
+                normalized = str(key).casefold()
+                if (
+                    normalized in ("id", "index") or normalized.endswith(("_id", "_ids"))
+                ) and isinstance(child, (str, int)):
+                    identifiers.append(f"{key}={_carry_excerpt(child, 80)}")
+                elif (normalized == "indexes" or normalized.endswith("_ids")) and isinstance(
+                    child, list
+                ):
+                    identifiers.extend(
+                        f"{key}={_carry_excerpt(identifier, 80)}"
+                        for identifier in child[: 8 - len(identifiers)]
+                        if isinstance(identifier, (str, int))
+                    )
+                if isinstance(child, (dict, list)):
+                    collect(child)
+                if len(identifiers) >= 8:
+                    break
+        elif isinstance(item, list):
+            for child in item:
+                collect(child)
+                if len(identifiers) >= 8:
+                    break
+
+    collect(parsed)
+    return _carry_excerpt("; ".join(identifiers), 400)
+
+
 def format_tool_result_carry(
     tool_calls: list[dict[str, Any]],
     results: list[dict[str, Any]],
     *,
     force: bool = False,
 ) -> str | None:
-    """Bounded receipts for assistant history; force emits them with the flag off."""
+    """Carry bounded identifier receipts; force includes mixed-hop results with the flag off."""
     if (not force and not _TOOL_RESULT_CARRY_ENABLED) or not tool_calls:
         return None
 
@@ -82,16 +123,22 @@ def format_tool_result_carry(
                 key: value
                 for key, value in arguments.items()
                 if key.casefold().endswith(("path", "id", "ref", "uri"))
-                or key.casefold() in ("file", "filename")
+                or key.casefold() in ("file", "filename", "index", "indexes")
             }
             if isinstance(arguments, dict)
             else {}
         )
         args_text = _carry_excerpt(json.dumps(key_args, ensure_ascii=False, default=str), 160)
-        result_text = _carry_excerpt(result.get("content") or "(empty result)", 220)
+        result_content = result.get("content") or "(empty result)"
+        result_ids = _carry_identifiers(result_content)
+        if not force and not key_args and not result_ids:
+            continue
+        result_text = _carry_excerpt(result_content, 220)
         item = f"<li><code>{html.escape(name)}</code>"
         if key_args:
             item += f" <code>{html.escape(args_text)}</code>"
+        if result_ids:
+            item += f" <code>{html.escape(result_ids)}</code>"
         item += f" — {html.escape(result_text)}</li>\n"
         if used_chars + len(item) > _TOOL_RESULT_CARRY_MAX_CHARS:
             omitted = "<li>Additional tool results omitted.</li>\n"

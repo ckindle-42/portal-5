@@ -3,8 +3,8 @@ purpose: >-
   Tool-result carry A/B on the eight realuse_v1 tasks whose later turn grades a
   fact from an earlier tool result. Incumbent only, the same production seat in
   both campaigns, plan repeats 3 (n=24 per condition). OFF is
-  realuse_toolcarry_off_20261105 with PORTAL_TOOL_RESULT_CARRY at its process
-  default false. The flip writes that env key and force-recreates only
+  realuse_toolcarry_off_20261105 with PORTAL_TOOL_RESULT_CARRY set false by the
+  leading flip. The flip writes that env key and force-recreates only
   portal-pipeline, with no image build, then requires /health build_sha unchanged
   and the container printenv to match, so the deployed fingerprint stays put.
   A leading flip forces false so OFF never inherits a stopped run's ON state.

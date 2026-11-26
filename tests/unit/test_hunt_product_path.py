@@ -17,6 +17,7 @@ from portal.modules.security.core.hunt.executor import (
 from portal.modules.security.core.hunt.notables import run as notables_run
 from portal.modules.security.core.hunt.notables.receipt import progress_update
 from portal.modules.security.core.hunt.notables.similar import SIMILAR_GENERATOR
+from portal.modules.security.tools import review_mcp
 
 
 class _FakeClock:
@@ -693,11 +694,44 @@ def test_partial_failure_after_work_surfaces_reason_in_status_and_file(
     assert (tmp_path / job_id / "failure.txt").read_text() == status["partial_reason"] + "\n"
 
 
+def test_hunt_status_unknown_id_returns_recovery_guidance_and_recent_jobs(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    product_jobs._write(
+        "hunt-r2-newer",
+        {"job_id": "hunt-r2-newer", "index": "new", "status": "RUNNING", "started": 2.0},
+    )
+    product_jobs._write(
+        "hunt-r2-older",
+        {
+            "job_id": "hunt-r2-older",
+            "index": "old",
+            "status": "COMPLETE",
+            "started": 1.0,
+        },
+    )
+
+    unknown = review_mcp.hunt_status(job_id="hunt_12345")
+    missing = review_mcp.hunt_status()
+
+    for result in (unknown, missing):
+        assert "no such job" in result["error"]
+        assert "hunt_start" in result["next"]
+        assert "recent" in result["next"]
+        assert result["recent_jobs"] == [
+            {"job_id": "hunt-r2-newer", "index": "new", "status": "RUNNING"},
+            {"job_id": "hunt-r2-older", "index": "old", "status": "COMPLETE"},
+        ]
+
+
 def test_security_reviewer_prompt_distinguishes_partial_and_failed_hunts() -> None:
     config = yaml.safe_load(Path("config/personas/securityreviewer.yaml").read_text())
-    prompt = str(config["system_prompt"]).lower()
+    prompt = " ".join(str(config["system_prompt"]).lower().split())
 
     assert "reports whether the job is terminal" in prompt
     assert "partial_reason" in prompt and "incomplete coverage" in prompt
     assert "report error and stage" in prompt
     assert "failed_preflight" in prompt and "no telemetry work ran" in prompt
+    assert "complete every requested hunt action in the same turn" in prompt
+    assert "do not stop after hunt_sources:" in prompt
