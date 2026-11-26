@@ -1427,10 +1427,11 @@ def grade_case(
     all_text: str | None = None,
 ) -> tuple[list[str], dict[str, object]]:
     evidence: dict[str, object] = {"turn_count": len(turns), "grader": case.grader}
+    text = all_text if all_text is not None else "\n".join(turn.text for turn in turns)
+    evidence["answer_tail"] = _bounded_answer_tail(text)
     transcript_error = validate_transcript(turns, len(case.prompts))
     if transcript_error:
         return [transcript_error], evidence
-    text = all_text if all_text is not None else "\n".join(turn.text for turn in turns)
     handler = _CASE_GRADERS.get(case.grader)
     errors = [error for turn in turns for error in check_output_hygiene(turn.prompt, turn.text)]
     behavior_errors = (
@@ -1660,6 +1661,36 @@ def _asserts_integral_result(lowered: str) -> bool:
     return False
 
 
+# Last 1200 characters: the follow-up sits at the end, and results.jsonl stays bounded.
+_ANSWER_TAIL_CHARS = 1200
+_NEGATED_PREFIX = re.compile(r"\b(?:not|n't|never|isn't|cannot|can't)\b")
+# Prompt says "differentiate ... to check", not the literal word "derivative".
+_DERIVATIVE_CHECK = re.compile(
+    r"\b(?:derivativ\w*|differentiat\w*)\b|f\s*'\s*\(|\\frac\s*\{\s*d\s*\}\s*\{\s*dx\s*\}|\bd\s*/\s*dx\b"
+)
+# Three-place value of e-2. Extra digits (0.7183) still state it; 2.718 does not.
+_THREE_PLACE_DECIMAL = re.compile(r"(?<![\d.])0\.718\d*")
+
+
+def _bounded_answer_tail(text: str) -> str:
+    stripped = text.strip()
+    if len(stripped) <= _ANSWER_TAIL_CHARS:
+        return stripped
+    return stripped[-_ANSWER_TAIL_CHARS:]
+
+
+def _affirmed(pattern: re.Pattern[str], lowered: str) -> bool:
+    for match in pattern.finditer(lowered):
+        prefix = lowered[max(0, match.start() - 24) : match.start()]
+        if not _NEGATED_PREFIX.search(prefix):
+            return True
+    return False
+
+
+def _followup_text(turns: list[UATTurn], text: str) -> str:
+    return turns[-1].text if len(turns) >= 2 else text
+
+
 def _grade_math_case(
     case: UATCase,
     turns: list[UATTurn],
@@ -1668,11 +1699,13 @@ def _grade_math_case(
     evidence: dict[str, object],
 ) -> list[str]:
     errors = _grade_route_case(case, turns, payloads, text, evidence)
-    lowered = text.casefold()
-    if not _asserts_integral_result(lowered):
+    if not _asserts_integral_result(text.casefold()):
         errors.append("answer omitted or denied the exact integral result e - 2")
-    if "derivative" not in lowered or not re.search(r"\b0\.718\b", lowered):
-        errors.append("follow-up omitted the derivative check or the three-place decimal 0.718")
+    followup = _followup_text(turns, text).casefold()
+    if not _affirmed(_DERIVATIVE_CHECK, followup):
+        errors.append("follow-up omitted the derivative check")
+    if not _affirmed(_THREE_PLACE_DECIMAL, followup):
+        errors.append("follow-up omitted the three-place decimal 0.718")
     return errors
 
 

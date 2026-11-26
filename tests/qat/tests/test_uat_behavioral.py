@@ -1533,3 +1533,79 @@ def test_math_grader_rejects_denied_result_and_wrong_decimal() -> None:
     ]
     errors = uat.grade_case(math_case, wrong_decimal, {})[0]
     assert any("0.718" in error for error in errors)
+
+
+# Turn 2 of s5-route-math-integral, chat 3fd10323-8dd2-4af2-854c-64f4ec342c4f (2026-11-26).
+_LIVE_MATH_FOLLOWUP = """**Verification by Differentiation:**
+
+Let $F(x) = e^x(x^2 - 2x + 2)$. We apply the Product Rule, where $u = e^x$ and $v = x^2 - 2x + 2$:
+$$ F'(x) = \\frac{d}{dx}[e^x] \\cdot (x^2 - 2x + 2) + e^x \\cdot \\frac{d}{dx}[x^2 - 2x + 2] $$
+$$ F'(x) = e^x(x^2 - 2x + 2) + e^x(2x - 2) $$
+
+Factor out $e^x$:
+$$ F'(x) = e^x \\left[ (x^2 - 2x + 2) + (2x - 2) \\right] $$
+$$ F'(x) = e^x \\left[ x^2 - 2x + 2 + 2x - 2 \\right] $$
+$$ F'(x) = e^x(x^2) = x^2 e^x $$
+
+**Decimal Approximation:**
+
+The exact result is $e - 2$.
+Since $e \\approx 2.718$,
+$$ e - 2 \\approx 0.718 $$
+"""
+
+
+def test_math_followup_accepts_differentiation_and_keeps_answer_tail() -> None:
+    math_case = uat.UATCase(
+        "m",
+        "m",
+        "auto",
+        ("first", "second"),
+        "route_math",
+        {"targets": ["auto-reasoning", "auto-reasoning::math"]},
+    )
+    turns = [
+        _turn("The exact result is e - 2.", "auto-reasoning"),
+        _turn(_LIVE_MATH_FOLLOWUP, "auto-reasoning::math"),
+    ]
+    errors, evidence = uat.grade_case(math_case, turns, {})
+    assert errors == []
+    tail = str(evidence["answer_tail"])
+    assert "0.718" in tail and len(tail) <= uat._ANSWER_TAIL_CHARS
+
+    longer = [
+        _turn("The exact result is e − 2.", "auto-reasoning"),
+        _turn(
+            "Differentiating the antiderivative recovers x^2 e^x. e - 2 ≈ 0.7183",
+            "auto-reasoning::math",
+        ),
+    ]
+    assert uat.grade_case(math_case, longer, {})[0] == []
+
+    word_only_on_first = [
+        _turn("The derivative of the exact result e - 2 is not the follow-up.", "auto-reasoning"),
+        _turn("The value is 0.718.", "auto-reasoning::math"),
+    ]
+    missed = uat.grade_case(math_case, word_only_on_first, {})[0]
+    assert any("derivative check" in error for error in missed)
+    euler_only = [
+        _turn("The exact result is e - 2.", "auto-reasoning"),
+        _turn(
+            "Differentiating recovers the integrand. Since e ≈ 2.718, that is the value.",
+            "auto-reasoning::math",
+        ),
+    ]
+    euler_errors = uat.grade_case(math_case, euler_only, {})[0]
+    assert any("0.718" in error for error in euler_errors)
+
+    huge = "e - 2\n" + ("x" * 5000) + "\n0.718"
+    _, huge_evidence = uat.grade_case(
+        math_case,
+        [
+            _turn("The exact result is e - 2.", "auto-reasoning"),
+            _turn("Derivative check. " + huge, "auto-reasoning::math"),
+        ],
+        {},
+    )
+    stored = str(huge_evidence["answer_tail"])
+    assert len(stored) == uat._ANSWER_TAIL_CHARS and stored.endswith("0.718")
