@@ -13,10 +13,8 @@ import logging
 import os
 import re
 import time
-from collections.abc import Collection, Mapping
 from typing import Any
 
-from portal.platform.inference.router.client_tools import external_client_tool_names
 from portal.platform.inference.router.metrics import (
     _tool_call_duration,
     _tool_call_errors,
@@ -325,109 +323,6 @@ def _select_explicit_required_tools(
         )
     selected_names = list(dict.fromkeys(names))
     return selected_names if len(selected_names) <= _MAX_EXPLICIT_REQUIRED_TOOLS else None
-
-
-# Per-turn exposure scope (BRIEF_TOOL_EXPOSURE_SCOPE_20261126): a turn with no
-# detected tool need offers this generic core (∩ the workspace whitelist) instead
-# of every declared tool — auto-coding's 63 registered schemas cost ~10k prompt
-# tokens of prefill on a conceptual question that needed none of them.
-_DEFAULT_SCOPE_TOOLS: frozenset[str] = frozenset(
-    {
-        "execute_python",
-        "execute_bash",
-        "execute_nodejs",
-        "sandbox_status",
-        "list_sessions",
-        "reset_session",
-        "read_pdf",
-        "read_word_document",
-        "read_excel",
-        "read_powerpoint",
-        "create_word_document",
-        "create_excel",
-        "create_powerpoint",
-        "remember",
-        "recall",
-        "web_search",
-        "web_fetch",
-        "kb_search",
-    }
-)
-
-_URL_RE = re.compile(r"https?://")
-
-
-def default_scope_tools(effective_tools: list[str]) -> list[str]:
-    """The bounded offer for a turn with no detected tool need."""
-    return [name for name in effective_tools if name in _DEFAULT_SCOPE_TOOLS]
-
-
-def conversation_used_tools(messages: list[dict[str, Any]]) -> bool:
-    """True when an earlier turn dispatched or requested a tool."""
-    return any(
-        isinstance(message, dict) and (message.get("role") == "tool" or message.get("tool_calls"))
-        for message in messages
-    )
-
-
-def turn_needs_full_toolset(
-    body: Mapping[str, Any],
-    messages: list[dict[str, Any]],
-    workspace_cfg: Mapping[str, Any],
-    persona_tool_choice: str | None,
-    *,
-    eval_scoped: bool,
-    bite_scoped: bool,
-    external_client_tools: bool,
-) -> bool:
-    """True when the turn carries any signal the default scope must not shrink.
-
-    Signals: an eval/bite scope, client-supplied external tools, a configured
-    ``tool_choice=required``, an agentic or ``require_tool_before_answer``
-    workspace, an explicit tool_choice, attached files, prior tool use in the
-    conversation, or a URL in the user's own text. Explicit-intent turns never
-    reach here — they are already narrowed to their required tools.
-    """
-    if eval_scoped or bite_scoped or external_client_tools:
-        return True
-    if (persona_tool_choice or workspace_cfg.get("tool_choice")) == "required":
-        return True
-    if workspace_cfg.get("mode") == "agentic" or workspace_cfg.get("require_tool_before_answer"):
-        return True
-    if body.get("tool_choice") not in (None, "auto"):
-        return True
-    if any(body.get(key) for key in ("files", "portal_attached_files")):
-        return True
-    if conversation_used_tools(messages):
-        return True
-    return bool(_URL_RE.search(_own_user_text(messages)))
-
-
-def scope_offer_tools(
-    body: Mapping[str, Any],
-    effective_tools: list[str],
-    workspace_cfg: Mapping[str, Any],
-    persona_tool_choice: str | None,
-    *,
-    eval_scoped: bool,
-    bite_scoped: bool,
-    registered_names: Collection[str],
-) -> tuple[list[str], str]:
-    """(offer, scope) for a turn with no explicit required-tool selection."""
-    external = bool(
-        external_client_tool_names(body.get("tools") or [], registered_names, effective_tools)
-    )
-    if turn_needs_full_toolset(
-        body,
-        list(body.get("messages") or []),
-        workspace_cfg,
-        persona_tool_choice,
-        eval_scoped=eval_scoped,
-        bite_scoped=bite_scoped,
-        external_client_tools=external,
-    ):
-        return effective_tools, "full"
-    return default_scope_tools(effective_tools), "default"
 
 
 def split_embedded_call(name: str, arguments: str, offered: set[str]) -> tuple[str, str]:

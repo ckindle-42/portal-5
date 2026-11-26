@@ -38,7 +38,7 @@ from portal.platform.inference.router.eval_gate import (
     apply_bite_tool_scope,
     apply_eval_scope,
     filter_bite_client_tools,
-    note_tools_exposed,
+    offered_tool_names,
     resolve_bite_tool_pool,
 )
 from portal.platform.inference.router.metrics import (
@@ -79,7 +79,6 @@ from portal.platform.inference.router.tools import (
     _select_explicit_required_tools,
     format_tool_result_carry,
     partition_tool_calls,
-    scope_offer_tools,
 )
 from portal.platform.inference.router.trace import (
     add_model_turn,
@@ -1302,7 +1301,6 @@ async def _try_non_streaming(
     # portal_client_tools_only / portal_no_tools / the non-tool-model strip:
     # same contract as streaming._build_streaming_request, so a request (or a
     # stream's non-streaming fallback) behaves the same in either mode.
-    _ns_eval_scoped = "portal_eval" in req_body
     _ns_tools = apply_eval_scope(req_body, _ns_tools)
     _ns_tools, _bite_allowlist = apply_bite_tool_scope(req_body, _ns_tools)
     _ns_client_tools_only = bool(req_body.pop("portal_client_tools_only", False))
@@ -1313,7 +1311,6 @@ async def _try_non_streaming(
         req_body.pop("tools", None)
         req_body.pop("tool_choice", None)
         _ns_tools = []
-    _ns_scope = "client" if _ns_client_tools_only else "none"
     if _ns_tools and _supports_tools:
         from portal.platform.inference.tool_registry import tool_registry  # noqa: PLC0415
 
@@ -1341,17 +1338,6 @@ async def _try_non_streaming(
             _ns_tools,
             tool_registry.list_tool_names(),
         )
-        _ns_scope = "required" if _required_tools else "full"
-        if not _required_tools:
-            _ns_offer_tools, _ns_scope = scope_offer_tools(
-                req_body,
-                _ns_tools,
-                WORKSPACES.get(workspace_id, {}),
-                _resolve_persona_tool_choice(_persona_data),
-                eval_scoped=_ns_eval_scoped,
-                bite_scoped=_bite_allowlist is not None,
-                registered_names=tool_registry.list_tool_names(),
-            )
         _tools_arr = tool_registry.get_openai_tools(_ns_offer_tools)
         # Merge client-injected tools with workspace tools — same logic as the
         # streaming path (handlers.py). Without this, clients (e.g. bench
@@ -1375,16 +1361,14 @@ async def _try_non_streaming(
                 or "auto"
             )
             logger.info(
-                "Tool-call (non-stream): workspace=%s persona=%s model=%s "
-                "exposed %d tools (merged, scope=%s)",
+                "Tool-call (non-stream): workspace=%s persona=%s model=%s exposed %d tools (merged)",
                 workspace_id,
                 persona or "(none)",
                 target_model,
                 len(_tools_arr),
-                _ns_scope,
             )
 
-    note_tools_exposed(req_body, _ns_scope)
+    trace_note(tools_offered=offered_tool_names(req_body))
 
     _prefill_refusal: str | None = None
     _local_refusal = False

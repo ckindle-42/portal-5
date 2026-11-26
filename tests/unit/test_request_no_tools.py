@@ -1,4 +1,4 @@
-"""An explicit no-tools request gets no tools; a plain request gets the bounded scope.
+"""An explicit no-tools request gets no tools, and a plain request is unchanged.
 
 ``tools: []`` used to be ignored: the workspace's own tools were merged into the
 request anyway, and on the security seat that made the engine's parser swallow a
@@ -95,17 +95,7 @@ async def test_tool_choice_none_keeps_the_callers_own_tools(workspace) -> None:
 
 
 @pytest.mark.anyio
-async def test_a_plain_request_offers_only_the_bounded_default_scope(workspace) -> None:
-    # "workspace_tool" is outside the default scope: a signal-free turn pays no
-    # schema prefill for it, while the dispatch whitelist stays the full set.
+async def test_a_plain_request_still_gets_the_workspace_tools(workspace) -> None:
     engine_body, effective, has_tools = await _build({"model": WS, "messages": []})
-    assert effective == ["workspace_tool"]
-    assert has_tools is False and "tools" not in engine_body
-
-
-@pytest.mark.anyio
-async def test_a_plain_request_keeps_a_declared_default_scope_tool(workspace) -> None:
-    WORKSPACES[WS]["tools"] = ["workspace_tool", "recall"]
-    engine_body, _effective, has_tools = await _build({"model": WS, "messages": []})
-    assert has_tools is True
-    assert [tool["function"]["name"] for tool in engine_body["tools"]] == ["recall"]
+    assert effective == ["workspace_tool"] and has_tools is True
+    assert [tool["function"]["name"] for tool in engine_body["tools"]] == ["workspace_tool"]

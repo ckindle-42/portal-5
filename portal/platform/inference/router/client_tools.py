@@ -97,9 +97,7 @@ def merge_client_tools(
 
     OWUI attaches Portal's own MCP tools back to the request as portal_<server>_<tool>
     mirrors; merging them bypasses the workspace whitelist and overflows small context
-    windows, so they are dropped when the pipeline manages the toolset. The same
-    authority drops unprefixed echoes of registered pipeline tools (2026-11-26: OWUI
-    injected a bare `list_memories` the workspace never declared). Bite-allowlist
+    windows, so they are dropped when the pipeline manages the toolset. Bite-allowlist
     requests name their own tools and pass with drop_portal_mirrors=False (legacy dedup).
     """
     seen_names = {t.get("function", {}).get("name") for t in tools_array}
@@ -107,7 +105,6 @@ def merge_client_tools(
     prefixes = _portal_mirror_prefixes() if drop_portal_mirrors else ()
     dropped = 0
     dropped_builtins = 0
-    dropped_echoes = 0
     for ct in client_tools:
         ct_name = ct.get("function", {}).get("name", "")
         if not ct_name or ct_name in seen_names:
@@ -118,43 +115,10 @@ def merge_client_tools(
         if drop_portal_mirrors and ct_name in _OWUI_BUILTIN_TOOLS:
             dropped_builtins += 1
             continue
-        if drop_portal_mirrors and ct_name in registered:
-            dropped_echoes += 1
-            continue
         tools_array.append(ct)
         seen_names.add(ct_name)
     if dropped:
         logger.info("Tool-merge: dropped %d OWUI portal_* mirror schema(s)", dropped)
     if dropped_builtins:
         logger.info("Tool-merge: dropped %d OWUI builtin tool schema(s)", dropped_builtins)
-    if dropped_echoes:
-        logger.info(
-            "Tool-merge: dropped %d unprefixed echo(s) of pipeline-registered tool(s)",
-            dropped_echoes,
-        )
     return tools_array
-
-
-def external_client_tool_names(
-    client_tools: Collection[Any],
-    registered_names: Collection[str],
-    effective_tools: Collection[str],
-) -> list[str]:
-    """Names the pipeline-managed merge would keep: the caller's own tool selection."""
-    registered = set(registered_names)
-    prefixes = _portal_mirror_prefixes()
-    seen_names = set(effective_tools)
-    keep: list[str] = []
-    for ct in client_tools:
-        if not isinstance(ct, dict):
-            continue
-        name = (ct.get("function") or {}).get("name", "")
-        if not name or name in seen_names:
-            continue
-        if _is_portal_mirror(name, prefixes, registered, seen_names):
-            continue
-        if name in _OWUI_BUILTIN_TOOLS or name in registered:
-            continue
-        keep.append(name)
-        seen_names.add(name)
-    return keep
