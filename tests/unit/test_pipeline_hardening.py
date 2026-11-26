@@ -2449,6 +2449,7 @@ async def test_role_slash_persona_is_recorded_in_route_trace(
     }
     backend = SimpleNamespace(id="test-backend", type="ollama")
     notes: list[dict[str, typing.Any]] = []
+    routed_turns: list[str | None] = []
 
     class _Slot:
         async def acquire_workspace(self, _workspace: str) -> None:
@@ -2466,7 +2467,8 @@ async def test_role_slash_persona_is_recorded_in_route_trace(
     async def prefer_warm(candidates, _workspace_id, _model_hint):
         return candidates
 
-    async def resolve_auto(workspace, _messages):
+    async def resolve_auto(workspace, _messages, *, current_turn_text=None):
+        routed_turns.append(current_turn_text)
         return workspace
 
     monkeypatch.setattr(
@@ -2511,6 +2513,7 @@ async def test_role_slash_persona_is_recorded_in_route_trace(
     resolved = await handlers_mod._resolve_request_route(request, _Slot())
 
     assert resolved[3] == "codereviewer"
+    assert routed_turns == ["review this"]
     assert notes[-1]["persona"] == "codereviewer"
 
 
