@@ -105,6 +105,19 @@ class TestPrimaryModelDiscovery:
         assert result is not None and result.status is Status.FAIL
         assert "trace fallback=true" in result.detail
 
+    def test_retry_on_the_served_primary_does_not_claim_a_model_miss(
+        self, primary_hint: None
+    ) -> None:
+        trace = _trace(
+            "primary-model",
+            [{"name": "backend.retry", "backend": "ollama-security", "outcome": "ok"}],
+        )
+        result = runner._primary_model_failure(_canonical_scenario(), trace, "primary-model")
+        assert result is not None and result.status is Status.FAIL
+        assert result.defect_class is DefectClass.INFRA_ENV_GAP
+        assert "primary model missed" not in result.detail
+        assert "primary-model" in result.detail
+
     @pytest.mark.parametrize(
         "span",
         [

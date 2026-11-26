@@ -210,6 +210,26 @@ def _infra_cause(trace: dict[str, object]) -> str | None:
     return None
 
 
+def _served_mismatch_detail(
+    *,
+    expected: str,
+    actual: str,
+    backend: str,
+    reason: str,
+    matched: bool,
+    inversion: str | None,
+) -> str:
+    """Name a dirty turn on the primary without calling it a model miss."""
+    if inversion is not None and matched:
+        return reason
+    if matched:
+        return f"primary served but turn was not clean: served {actual} on {backend} ({reason})"
+    return (
+        f"primary model missed: expected {expected}, served {actual or 'unknown'} "
+        f"on {backend} ({reason})"
+    )
+
+
 def _fallback_reason(
     trace: dict[str, object],
     hard_spans: list[dict[str, object]],
@@ -288,13 +308,13 @@ def _primary_model_failure(
         detail = f"{infra}; {served}" if matched else f"{infra}; expected {expected}, {served}"
     else:
         reason = _fallback_reason(trace, hard_spans, matched=matched, inversion=inversion)
-        detail = (
-            reason
-            if inversion is not None and matched
-            else (
-                f"primary model missed: expected {expected}, served {actual or 'unknown'} "
-                f"on {backend} ({reason})"
-            )
+        detail = _served_mismatch_detail(
+            expected=expected,
+            actual=actual,
+            backend=backend,
+            reason=reason,
+            matched=matched,
+            inversion=inversion,
         )
     mismatch = {
         "workspace": target_workspace,
@@ -491,6 +511,13 @@ def run_provenance(
     }
 
 
+def _rerun_target(row: QATResult) -> bool:
+    """True when --rerun-failed must execute this row again."""
+    if row.status in (Status.FAIL, Status.BLOCKED):
+        return True
+    return row.status is Status.SKIP and row.detail.startswith("requirement not met:")
+
+
 def _load_previous(opts: RunnerOptions) -> tuple[dict[str, QATResult], str]:
     """--append keeps all rows; --rerun-failed keeps only non-failed rows.
 
@@ -510,8 +537,11 @@ def _load_previous(opts: RunnerOptions) -> tuple[dict[str, QATResult], str]:
             row = QATResult.from_dict(json.loads(line))
         except ValueError:
             continue
-        failed = row.status in (Status.FAIL, Status.BLOCKED)
-        if opts.resume_mode == "append" or (opts.resume_mode == "rerun-failed" and not failed):
+        if opts.resume_mode == "append":
+            rows[row.scenario_id] = row
+        elif _rerun_target(row):
+            rows.pop(row.scenario_id, None)
+        else:
             rows[row.scenario_id] = row
     resume_sha = ""
     meta_path = opts.resume_dir / "run_meta.json"
@@ -824,7 +854,7 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             backend=str(trace.get("backend") or ""),
             defect_class=classify_defect(model_output_miss=True),
         )
-    tool_error = _tool_validation_error(scenario, tool_calls, {})
+    tool_error = _tool_validation_error(scenario, tool_calls, trace)
     if tool_error:
         return QATResult(
             scenario.scenario_id,
@@ -861,7 +891,7 @@ def _tool_validation_error(
         return "required tool was not called (tool_calls=0)"
     trace_available = "spans" in trace or "tool_spans" in trace
     if not trace_available:
-        return None
+        return "trace has no spans; cannot verify the required tool succeeded"
     spans = trace.get("tool_spans") or trace.get("spans") or []
     successful = (
         [
