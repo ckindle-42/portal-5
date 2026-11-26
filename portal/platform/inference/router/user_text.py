@@ -66,3 +66,11 @@ def own_user_text(messages: list[dict[str, Any]], limit: int | None = None) -> s
             text = text[close + len("</context>") :]
     text = _ATTACHED_NOTE_RE.sub("", text).strip()
     return text if limit is None else text[:limit]
+
+
+def strip_owui_memory_context(text: str) -> str:
+    closing = text.rfind("</memory_context>")
+    if closing == -1 or text[closing + len("</memory_context>") :].strip():
+        return text
+    opening = text.rfind("<memory_context>", 0, closing)
+    return text[:opening].rstrip() if opening != -1 else text

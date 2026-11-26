@@ -157,3 +157,55 @@ async def test_classifier_and_keyword_fallback_use_entry_text_with_memory_suffix
         "purple team",
         "firewall",
     }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("multipart", [False, True])
+async def test_open_webui_memory_context_suffix_does_not_influence_route(
+    monkeypatch: pytest.MonkeyPatch, multipart: bool
+) -> None:
+    from portal.platform.inference.router import handlers, trace
+
+    prompt = (
+        "We run Kubernetes 1.30 and need read-only access to pods in namespace staging. "
+        "Propose the least-privilege Role and RoleBinding, explain the scope choice, "
+        "and give a safe way to verify it."
+    )
+    injected = (
+        "<memory_context>\n[User Memory]\n- Security incident response, CVE exploits, "
+        "purple-team exercises, and firewall analysis.\n</memory_context>"
+    )
+    content = (
+        [{"type": "text", "text": prompt}, {"type": "text", "text": injected}]
+        if multipart
+        else f"{prompt}\n{injected}"
+    )
+    messages = [{"role": "user", "content": content}]
+    body = {"messages": messages}
+
+    async def classify_as_daily(_messages: list[dict[str, str]]) -> str:
+        return "auto-daily"
+
+    monkeypatch.setattr(preinject, "_route_with_llm", classify_as_daily)
+    current_turn = handlers._capture_current_turn_text(body)
+    record = trace.TurnTrace(f"test-owui-memory-{multipart}")
+    token = trace._current.set(record)
+    try:
+        workspace = await preinject._resolve_auto_routing(
+            "auto", messages, current_turn_text=current_turn
+        )
+        receipt = record.to_dict()["routing_receipt"]
+    finally:
+        trace._current.reset(token)
+
+    assert workspace == "auto-coding"
+    assert current_turn == prompt
+    assert receipt["current_turn_text_chars"] == len(prompt)
+    assert receipt["memory_chars_excluded"] > 0
+    assert not {item["keyword"] for item in receipt["matched_keywords"]} & {
+        "cve",
+        "exploit",
+        "security",
+        "purple team",
+        "firewall",
+    }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import math
 import struct
 import wave
@@ -232,6 +233,123 @@ def test_route_grader_reads_resolved_route_span() -> None:
         "The role answer", spans=[{"name": "route.resolved", "workspace": "auto-coding"}]
     )
     assert uat.grade_case(case, [routed], {})[0] == []
+
+
+def test_route_grader_records_and_checks_injected_memory_receipt() -> None:
+    prompt = "Evaluate the definite integral from 0 to 1 of x squared times e to the x."
+    case = uat.UATCase(
+        "r",
+        "r",
+        "auto",
+        (prompt,),
+        "route",
+        {"target": "auto-reasoning"},
+        owui_memories=("Security CVE and firewall context.",),
+    )
+    turn = uat.UATTurn(
+        prompt,
+        "Integral answer",
+        {
+            "workspace": "auto-reasoning",
+            "routing_receipt": {
+                "current_turn_text_chars": len(prompt),
+                "memory_chars_excluded": 116,
+                "matched_keywords": [],
+            },
+        },
+        (),
+        (),
+    )
+
+    errors, evidence = uat.grade_case(case, [turn], {})
+
+    assert errors == []
+    assert evidence["routing_receipts"] == [
+        {
+            "turn": 1,
+            "prompt_chars": len(prompt),
+            "current_turn_text_chars": len(prompt),
+            "memory_chars_excluded": 116,
+            "matched_keywords": [],
+        }
+    ]
+
+
+def test_route_grader_fails_when_receipt_counts_memory_as_user_text() -> None:
+    prompt = "A short math prompt."
+    case = uat.UATCase(
+        "r",
+        "r",
+        "auto",
+        (prompt,),
+        "route",
+        {"target": "auto-reasoning"},
+        owui_memories=("Security CVE and firewall context.",),
+    )
+    turn = uat.UATTurn(
+        prompt,
+        "Integral answer",
+        {
+            "workspace": "auto-reasoning",
+            "routing_receipt": {
+                "current_turn_text_chars": len(prompt) + 116,
+                "memory_chars_excluded": 0,
+            },
+        },
+        (),
+        (),
+    )
+
+    errors, _ = uat.grade_case(case, [turn], {})
+
+    assert any("routing receipt counted injected memory" in error for error in errors)
+
+
+def test_routing_uat_cases_seed_only_their_declared_owui_memories() -> None:
+    cases = {case.scenario_id: case for case in uat.discover_cases(discover())}
+
+    expected = (uat._ROUTE_MEMORY_SEED,)
+    assert cases["s5-route-kubernetes-rbac"].owui_memories == expected
+    assert cases["s5-route-math-integral"].owui_memories == expected
+    assert cases["s5-route-tls-firewall"].owui_memories == ()
+    assert cases["s5-memory-cross-session"].owui_memories == ()
+
+
+def test_owui_memory_snapshot_clear_and_restore_uses_memory_api(tmp_path: Path) -> None:
+    memories = [{"id": "baseline-id", "type": "user", "path": "work", "content": "baseline"}]
+    requests: list[tuple[str, str, dict]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content) if request.content else {}
+        requests.append((request.method, request.url.path, body))
+        if request.method == "GET" and request.url.path == "/api/v1/memories/":
+            return httpx.Response(200, json=memories)
+        if request.method == "DELETE" and request.url.path == "/api/v1/memories/delete/user":
+            memories.clear()
+            return httpx.Response(200, json=True)
+        if request.method == "POST" and request.url.path == "/api/v1/memories/add":
+            memory = {"id": f"created-{len(memories)}", **body}
+            memories.append(memory)
+            return httpx.Response(200, json=memory)
+        return httpx.Response(404)
+
+    client = OWUIClient(make_settings(tmp_path), httpx.MockTransport(handler))
+    snapshot = client.snapshot_memories("token")
+    client.clear_memories("token")
+    client.add_memory("token", "scenario-only", memory_type="user")
+    client.restore_memories("token", snapshot)
+
+    assert [(m["type"], m.get("path"), m["content"]) for m in memories] == [
+        ("user", "work", "baseline")
+    ]
+    assert [item[0] for item in requests] == [
+        "GET",
+        "DELETE",
+        "POST",
+        "DELETE",
+        "POST",
+        "GET",
+    ]
 
 
 def test_route_followup_stays_on_the_routed_workspace() -> None:
