@@ -581,6 +581,7 @@ class TestCascade:
     def test_report_without_provenance_has_no_provenance_section(self, tmp_path: Path) -> None:
         path = rp.write_markdown(tmp_path, make_discovery(), [_scn("s", model="auto")], [])
         assert "## Run provenance" not in path.read_text(encoding="utf-8")
+
     def test_rerun_failed_latest_failure_drops_an_earlier_pass(self, tmp_path: Path) -> None:
         run_dir = tmp_path / "run"
         run_dir.mkdir()
