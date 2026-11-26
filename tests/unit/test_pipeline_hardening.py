@@ -1104,6 +1104,39 @@ async def test_free_ollama_for_omlx_without_registry_is_a_noop(monkeypatch) -> N
     assert await bi.free_ollama_for_omlx() == []
 
 
+def test_freeable_spends_a_failover_shield_but_not_a_keeper_protected_model() -> None:
+    """2026-11-26: the idle 17.5 GiB failover shield blocked oMLX here too — a shield
+    orders eviction last, it never holds memory; the keeper's preferred resident
+    stays, and so does anything in flight."""
+    import portal.platform.inference.router.backend_introspect as bi
+    from portal.platform.inference import load_guard as lg
+
+    g = lg.LoadGuard(omlx_url=lambda: None, pinned=lambda: "router")
+    g.protect(lg.OLLAMA, "shield", failover=True)
+    g.protect(lg.OLLAMA, "keeper", 300)
+    g.protect(lg.OLLAMA, "busy-shield", failover=True)
+    end = g.begin(lg.OLLAMA, "busy-shield")
+    old = lg.GUARD
+    lg.GUARD = g
+    try:
+        assert bi._freeable(["shield", "keeper", "busy-shield", "router"], "router") == ["shield"]
+    finally:
+        lg.GUARD = old
+        end()
+
+
+def test_declared_groups_resolves_a_variant_to_its_base_routing() -> None:
+    from portal.platform.inference.cluster_backends import BackendRegistry
+
+    reg = BackendRegistry(config_path="/nonexistent/backends.yaml")
+    reg._ws_group_cache = {"auto-documents": ["general", "coding"]}
+    reg._fallback_group = "general"
+
+    assert reg.declared_groups("auto-documents") == ["general", "coding"]
+    assert reg.declared_groups("auto-documents::extract-uncensored") == ["general", "coding"]
+    assert reg.declared_groups("unknown-ws") == ["general"]
+
+
 def test_is_capacity_error_matches_known_omlx_wording() -> None:
     assert ns._is_capacity_error("prefill memory guard rejected the request")
     assert ns._is_capacity_error("Cannot load Qwen3-VL-32B: projected memory 60.81GB")

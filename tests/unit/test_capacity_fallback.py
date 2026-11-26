@@ -38,17 +38,19 @@ def _backend() -> typing.Any:
     return SimpleNamespace(
         id="fake",
         type="ollama",
+        group="general",
         url="http://ollama:11434",
         chat_url="http://ollama:11434/v1/chat/completions",
         resolve_model=lambda hint: hint,
     )
 
 
-def _registry() -> typing.Any:
+def _registry(groups: list[str] | None = None) -> typing.Any:
     backend = _backend()
     return SimpleNamespace(
         list_backends=lambda: [backend],
         get_backend_candidates=lambda _ws: [backend],
+        declared_groups=lambda _ws: groups if groups is not None else ["general"],
     )
 
 
@@ -125,3 +127,48 @@ async def test_served_variant_leaves_a_receipt_on_the_trace(
             "capacity_fallback": "lite",
         }
     ]
+
+
+async def test_a_variant_outside_the_declared_groups_is_never_substituted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """2026-11-26: the tiny extract seat answered a memory-refused turn from a
+    group the workspace never routes to — another workspace's chain, not this
+    seat's fallback. The substitute must come from the declared routing, or not
+    at all."""
+    from fastapi.responses import JSONResponse
+
+    stranger = SimpleNamespace(
+        id="stranger",
+        type="ollama",
+        group="creative",
+        url="http://ollama:11434",
+        chat_url="http://ollama:11434/v1/chat/completions",
+        resolve_model=lambda hint: hint,
+    )
+    local = _backend()
+    monkeypatch.setattr(
+        validation,
+        "registry",
+        SimpleNamespace(
+            list_backends=lambda: [local, stranger],
+            get_backend_candidates=lambda _ws: [local, stranger],
+            declared_groups=lambda _ws: ["general"],
+        ),
+    )
+    monkeypatch.setattr(cf, "_variant_names", lambda _ws: ["extract"])
+    monkeypatch.setattr(cf, "_register_variant", lambda _base, _n: f"{WS}::extract")
+    monkeypatch.setitem(WORKSPACES, f"{WS}::extract", {"model_hint": "tiny-hint"})
+    dispatches: list[str] = []
+
+    async def dispatch(backend: typing.Any, _body: typing.Any, *_a: typing.Any, **_k):
+        dispatches.append(backend.id)
+        return JSONResponse(
+            {"choices": [{"message": {"role": "assistant", "content": "x"}}]},
+            headers={"x-portal-route": f"{WS}::extract;{backend.id};tiny-hint"},
+        )
+
+    result = await cf.try_capacity_fallback(WS, BODY, [GUARD_DETAIL], dispatch=dispatch)
+
+    assert dispatches == ["fake"]  # the stranger group's backend never dispatched
+    assert result is not None

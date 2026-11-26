@@ -605,6 +605,7 @@ def _cap_fallback_env(monkeypatch: pytest.MonkeyPatch) -> None:
     fallback_backend = SimpleNamespace(
         id="fake",
         type="ollama",
+        group="general",
         url="http://engine",
         chat_url="http://engine/v1/chat/completions",
         models=["lite-hint"],
@@ -616,6 +617,7 @@ def _cap_fallback_env(monkeypatch: pytest.MonkeyPatch) -> None:
         SimpleNamespace(
             list_backends=lambda: [fallback_backend],
             get_backend_candidates=lambda _ws: [fallback_backend],
+            declared_groups=lambda _ws: ["general"],
         ),
     )
     monkeypatch.setattr(cf, "_variant_names", lambda _ws: ["lite"])

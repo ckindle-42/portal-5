@@ -28,10 +28,11 @@ reports it here. The guard keeps four things true:
    window: a 202 unload reclaims Metal memory for seconds while the counter reads
    flat. The wait is the request's ``X-Portal-Load-Wait`` header (seconds; batch
    callers send a large value) or ``LOAD_GUARD_WAIT_S``. The 507 says "would exceed",
-   which the router already cascades as a capacity rejection. Keeper-protected
-   residents yield after ordinary idle memory; active failover sources are never
-   evicted until their window expires. Busy, active-elsewhere and pinned models
-   are never evicted.
+   which the router already cascades as a capacity rejection. Protection orders
+   eviction and never refuses a request: keeper-protected residents yield after
+   ordinary idle memory, failover-protected after them, and an idle shield yields
+   when its bytes are what stands between a request and a refusal. Busy,
+   active-elsewhere and pinned models are never evicted.
 4. **Fit can be asked in advance.** ``plan()`` (route ``POST /admin/load-plan``)
    says whether a set of models fits together right now, so batch work can run
    in fit-sized waves instead of discovering the answer as refusals.
@@ -535,8 +536,10 @@ class LoadRefusedError(Exception):
 #: The pipeline's guard (set by lifespan); None outside the pipeline process.
 GUARD: LoadGuard | None = None
 
-#: How long the seat that SERVED a failover stays out of eviction (P-2): it holds the
-#: answer the user is reading, and re-loading it costs a cold load.
+#: How long the seat that SERVED a failover evicts after every other resident (P-2):
+#: it holds the answer the user is reading, and re-loading it costs a cold load. The
+#: window orders eviction, it never refuses: 2026-11-26 saw an idle 17.5 GiB shield
+#: block every oMLX seat for its whole 300 s while eviction would have let them load.
 FAILOVER_PROTECT_S = float(os.environ.get("LOAD_GUARD_FAILOVER_PROTECT_S", "300"))
 
 #: How long a model that just failed (or answered empty) leads the eviction order.
@@ -549,6 +552,8 @@ def protect_failover(engine: str, model: str) -> None:
     Only ever called for the backend that served: the model a hop just failed on is a
     :func:`note_failure` candidate, never a shield (live 2026-11-20: a failed Nemotron
     GGUF pinned 22.9 GiB "failover protected" and refused a healthy oMLX seat).
+    The shield orders eviction last; it never refuses a request an idle eviction
+    would let through.
     """
     if GUARD is not None and engine in (OLLAMA, OMLX) and model:
         GUARD.protect(engine, model, failover=True)
@@ -909,12 +914,17 @@ class LoadGuard:
         }
 
     def failover_protected(self, engine: str) -> set[str]:
+        """Models currently in a failover protection window."""
         now = time.monotonic()
         return {
             model_key(m) if engine == OLLAMA else m
             for (e, m), until in self._failover_protected.items()
             if e == engine and until > now
         }
+
+    def keeper_protected(self, engine: str) -> set[str]:
+        """Models in a keeper (hot-seat) window only; failover shields are not these."""
+        return self.protected(engine) - self.failover_protected(engine)
 
     def note_failure(self, engine: str, model: str) -> None:
         """A model that just failed or answered empty: first eviction candidate, no shield."""
@@ -1032,8 +1042,15 @@ class LoadGuard:
         self._host_free_read_at = time.monotonic()
         return reading
 
-    def _omlx_idle_bytes(self, status: dict[str, Any]) -> float:
-        """Evictable idle oMLX resident bytes reported by ``/v1/models/status``."""
+    def _omlx_idle_bytes(
+        self,
+        status: dict[str, Any],
+        exclude: frozenset[str] | set[str] = frozenset(),
+        failover: bool = False,
+    ) -> float:
+        """Evictable idle oMLX resident bytes reported by ``/v1/models/status``.
+        ``failover`` adds idle failover-protected residents: the last-resort yield's
+        budget — a shield orders eviction, it does not make memory unreclaimable."""
         models = status.get("models")
         if not isinstance(models, list):
             return 0.0
@@ -1048,7 +1065,9 @@ class LoadGuard:
             ):
                 continue
             mid = str(m.get("id") or "")
-            if not mid or mid in failover_protected:
+            if not mid or mid in exclude:
+                continue
+            if mid in failover_protected and not failover:
                 continue
             if self.busy(OMLX, mid) or self._active_elsewhere(OMLX, mid):
                 continue
@@ -1071,21 +1090,26 @@ class LoadGuard:
                 resident = await self._resident(client, base)
             except Exception:
                 resident = {}
-            return self._remember_host_free(headroom + omlx_idle + self._ollama_idle(resident))
+            return self._remember_host_free(
+                headroom + omlx_idle + self._ollama_reclaimable(resident)
+            )
 
     def _ollama_hold_reason(self, name: str, include_protected: bool = False) -> str | None:
-        """Return why an Ollama resident is unavailable for eviction, if anything."""
+        """Return why an Ollama resident is unavailable for eviction, if anything.
+        ``include_protected=True`` treats the keeper and failover shields as spendable:
+        only in-flight work and the pinned router model still hold. In-flight work is
+        reported before a shield: a busy model is busy after the shield expires too."""
         key = model_key(name)
         if key == model_key(self._pinned()):
             return "pinned"
-        if key in self.failover_protected(OLLAMA):
-            return "failover protected"
-        if not include_protected and key in self.protected(OLLAMA):
-            return "protected"
         if self.busy(OLLAMA, name):
             return "busy"
         if self._active_elsewhere(OLLAMA, name):
             return "active elsewhere"
+        if key in self.failover_protected(OLLAMA) and not include_protected:
+            return "failover protected"
+        if not include_protected and key in self.protected(OLLAMA):
+            return "protected"
         return None
 
     def _ollama_idle(
@@ -1101,6 +1125,22 @@ class LoadGuard:
                 for name, size in resident.items()
                 if model_key(name) not in excluded
                 and self._ollama_hold_reason(name, include_protected) is None
+            )
+        )
+
+    def _ollama_reclaimable(
+        self, resident: dict[str, int], exclude: frozenset[str] | set[str] = frozenset()
+    ) -> float:
+        """Idle resident bytes a load may count on: keeper and failover protection
+        order eviction, so an idle shielded resident is reclaimable — in-flight
+        work and the pinned router model are not."""
+        excluded = {model_key(name) for name in exclude}
+        return float(
+            sum(
+                self._ollama_size(name, size)
+                for name, size in resident.items()
+                if model_key(name) not in excluded
+                and self._ollama_hold_reason(name, include_protected=True) is None
             )
         )
 
@@ -1125,9 +1165,13 @@ class LoadGuard:
         return headroom + idle
 
     async def _omlx_idle_models(
-        self, client: httpx.AsyncClient, exclude: frozenset[str] | set[str] = frozenset()
+        self,
+        client: httpx.AsyncClient,
+        exclude: frozenset[str] | set[str] = frozenset(),
+        last_resort: bool = False,
     ) -> tuple[str, list[dict[str, Any]]]:
-        """Return idle oMLX residents, LRU first, keeper last, failover sources excluded."""
+        """Return idle oMLX residents, LRU first, keeper last, failover sources excluded
+        unless ``last_resort`` — the yield just before a refusal orders them last."""
         url = (self._omlx_url() or "").rstrip("/")
         if not url:
             return "", []
@@ -1164,7 +1208,7 @@ class LoadGuard:
             and not m.get("pinned")
             and not m.get("is_loading")
             and m["id"] not in exclude
-            and m["id"] not in failover_protected
+            and (last_resort or m["id"] not in failover_protected)
             and not self.busy(OMLX, m["id"])
             and not self._active_elsewhere(OMLX, m["id"])
         ]
@@ -1261,12 +1305,15 @@ class LoadGuard:
         used: float,
         exclude: frozenset[str] | set[str] = frozenset(),
         last_models: set[str] | None = None,
+        last_resort: bool = False,
     ) -> tuple[float, dict[str, _Free], float | None, float, list[dict[str, str]]]:
         """Unload idle oMLX models; report the drop, pendings (202s and 200s whose
-        release has not reached the counter), post state, 200 bytes."""
+        release has not reached the counter), post state, 200 bytes. ``last_resort``
+        adds idle failover-protected residents, evicted after every other source."""
         try:
-            url, idle = await self._omlx_idle_models(client, exclude)
+            url, idle = await self._omlx_idle_models(client, exclude, last_resort)
             protected = self.protected(OMLX)
+            failover = self.failover_protected(OMLX)
             failed = self.failed(OMLX)
             last_models = last_models or set()
             idle.sort(
@@ -1274,6 +1321,7 @@ class LoadGuard:
                     str(m["id"]) not in failed,
                     str(m["id"]) in last_models,
                     str(m["id"]) in protected,
+                    str(m["id"]) in failover,
                     float(m.get("last_access") or 0),
                 )
             )
@@ -1292,6 +1340,8 @@ class LoadGuard:
                 reason = (
                     "requested seat copy"
                     if str(m["id"]) in last_models
+                    else "failover shield"
+                    if str(m["id"]) in failover
                     else "preferred resident"
                     if str(m["id"]) in protected
                     else "idle LRU"
@@ -1628,6 +1678,27 @@ class LoadGuard:
                 want=shortage - covered,
                 exclude={model},
             )
+            covered += sum(free.size for free in ollama_requested.values())
+        if not omlx_freed and not omlx_queued and covered < shortage:
+            # Idle failover-protected oMLX residents are the last source: a shield
+            # orders eviction, and this load is otherwise refused (2026-11-26).
+            budget = self._omlx_idle_bytes(
+                _ADMIT_OMLX_STATUS.get() or {}, exclude=seat_copies, failover=True
+            )
+            if budget >= shortage - covered:
+                f2, q2, after2, sync2, u2 = await self._free_omlx(
+                    client,
+                    shortage - covered,
+                    float(after) if after is not None else used,
+                    exclude=seat_copies,
+                    last_resort=True,
+                )
+                omlx_freed += f2
+                omlx_queued.update(q2)
+                if after2 is not None:
+                    after = after2
+                synchronous += sync2
+                unloads.extend(u2)
         unloads.extend(
             {"engine": OLLAMA, "model": name, "status": "requested"} for name in ollama_requested
         )
@@ -2136,19 +2207,22 @@ class LoadGuard:
     ) -> list[str]:
         """Last resort before refusal: idle protected residents yield, but only when
         their bytes can cover the gap — protection is spent only when it buys the
-        admission, and never on a model that is busy or active elsewhere. Returns
-        the names attempted (empty when the gate does not pass)."""
+        admission, and never on a model that is busy or active elsewhere. Keeper
+        shields yield first, failover shields after them. Returns the names
+        attempted (empty when the gate does not pass)."""
         if carry is not None and carry.protected_free_attempted:
             return []
         names = [
             n
             for n, s in resident.items()
             if s > 0
-            and self._ollama_hold_reason(n) == "protected"
+            and self._ollama_hold_reason(n) in ("protected", "failover protected")
             and self._ollama_hold_reason(n, include_protected=True) is None
         ]
         last_keys = {model_key(name) for name in (last_models or set())}
-        names.sort(key=lambda name: model_key(name) in last_keys)
+        names.sort(
+            key=lambda n: (model_key(n) in last_keys, self._ollama_hold_reason(n) != "protected")
+        )
         held = sum(self._ollama_size(n, resident[n]) for n in names)
         if not names or available + held < need:
             return []
@@ -2290,7 +2364,7 @@ class LoadGuard:
                 break
             headroom, used = capacity
             carry.last_used, recheck = self._track_counter(used, carry.last_used, recheck)
-            idle = self._ollama_idle(resident)
+            idle = self._ollama_reclaimable(resident)
             available = self._ollama_available(headroom, resident, idle) - _MARGIN
             available, reserved = self._hold_seat_prefill_room(
                 _ADMIT_OMLX_STATUS.get(), model, available
@@ -2386,7 +2460,7 @@ class LoadGuard:
             nbytes = self._ollama_size(name, size)
             if nbytes <= 0:
                 continue
-            reason = self._ollama_hold_reason(name, include_protected=True)
+            reason = self._ollama_hold_reason(name)
             if reason is None and name in failed:
                 reason = "unload failed"
             elif reason is None and name in pending:
@@ -2602,8 +2676,42 @@ class LoadGuard:
             pending_used = self._pending_baseline(used, after, posted)
         if freed or queued:
             return True, [], pending_used
+        spent, pending_used = await self._yield_failover_omlx(
+            client, status, target, shortage, used, attempted, pending, pending_used
+        )
+        if spent:
+            return True, [], pending_used
         holding = await self._omlx_resident_blockers(client, status, target, attempted, pending)
         return False, holding, pending_used
+
+    async def _yield_failover_omlx(
+        self,
+        client: httpx.AsyncClient,
+        status: dict[str, Any],
+        target: str,
+        shortage: float,
+        used: float,
+        attempted: set[str],
+        pending: dict[str, _Free],
+        pending_used: float,
+    ) -> tuple[bool, float]:
+        """Last resort before an oMLX refusal: idle failover-protected residents unload
+        when their bytes alone cover the shortage — the shield orders eviction, it
+        never refuses a request an idle eviction would let through (2026-11-26).
+        Returns (progress, pending baseline)."""
+        if shortage <= 0:
+            return False, pending_used
+        budget = self._omlx_idle_bytes(status, exclude={target} | attempted, failover=True)
+        if budget < shortage:
+            return False, pending_used
+        freed, queued, after, posted, unloads = await self._free_omlx(
+            client, shortage, used, exclude={target} | attempted, last_resort=True
+        )
+        attempted.update(str(entry["model"]) for entry in unloads)
+        pending.update(queued)
+        if queued:
+            pending_used = self._pending_baseline(used, after, posted)
+        return bool(freed or queued), pending_used
 
     async def _omlx_resident_blockers(
         self,
@@ -2836,7 +2944,7 @@ class LoadGuard:
                         "projected_gib": footprint / _GIB,
                     }
                 )
-            idle_ollama = self._ollama_idle(resident, exclude=names, include_protected=True)
+            idle_ollama = self._ollama_reclaimable(resident, exclude=names)
             try:
                 _, idle = await self._omlx_idle_models(client, exclude=names)
             except Exception:
@@ -2886,7 +2994,7 @@ class LoadGuard:
                 if st is None
                 else _budget_bytes(st) - float(st.get("current_model_memory") or 0)
             )
-            idle_ollama = self._ollama_idle(resident, include_protected=True)
+            idle_ollama = self._ollama_reclaimable(resident)
             try:
                 _, idle_models = await self._omlx_idle_models(client)
             except Exception:
