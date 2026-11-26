@@ -816,6 +816,50 @@ def claim_pre_layer(messages: list[dict[str, Any]]) -> tuple[str, str] | None:
     return _claim_pre_layer_text(text) if text else None
 
 
+def auto_routing_matches(
+    scorer: str, messages: list[dict[str, Any]], workspace: str
+) -> list[dict[str, int | str]]:
+    text = _last_user_text(messages, 2000).lower()
+    keywords: dict[str, int] = {}
+    if scorer == "harmful_intent_gate":
+        keywords = _HARMFUL_INTENT_KW_CACHE
+    elif scorer == "router_handoff_gate":
+        ignored = (
+            _FIREWALL_CONFIG_HANDOFF_NOUNS if _is_firewall_config_intent(text) else frozenset()
+        )
+        candidate = _router_handoff_candidate(text, ignored) if text else None
+        if candidate:
+            keywords = _ROUTER_HANDOFF_KEYWORDS.get(candidate[1], {})
+    elif scorer == "deterministic_intent":
+        candidate = _specialist_intent_candidate(text) if text else None
+        if candidate and candidate[1].endswith("::math"):
+            keywords = _MATH_ROUTING_KEYWORDS
+        elif (
+            candidate
+            and candidate[1] == "auto-coding"
+            and (not _is_firewall_config_intent(text) or "kubernetes" in text or "k8s" in text)
+        ):
+            keywords = _KEYWORD_CACHE.get("auto-coding", {})
+    elif scorer == "llm_router" and "::" in workspace:
+        base, variant = workspace.split("::", 1)
+        keywords = _VARIANT_INFERENCE_TABLE.get(base, {}).get(variant, {})
+    elif scorer == "keyword_fallback":
+        scorer_id = next(
+            (
+                key
+                for key, (base, variant) in _SCORER_VARIANT_MAP.items()
+                if workspace == f"{base}::{variant}"
+            ),
+            workspace.split("::", 1)[0],
+        )
+        keywords = _KEYWORD_CACHE.get(scorer_id, {})
+    return [
+        {"keyword": keyword, "weight": weight}
+        for keyword, weight in keywords.items()
+        if keyword in text and (scorer != "router_handoff_gate" or keyword not in ignored)
+    ]
+
+
 def _infer_variant(base: str, message: str) -> str:
     """Score `message` against `base`'s variant-signal sets (if any) and
     return `"<base>::<variant>"` for the highest-scoring variant that clears

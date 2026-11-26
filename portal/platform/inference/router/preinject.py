@@ -9,6 +9,7 @@ selected backend.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -20,14 +21,30 @@ from portal.platform.inference.router.routing import (
     _HARMFUL_INTENT_LANE,
     _detect_workspace,
     _route_with_llm,
+    auto_routing_matches,
     claim_pre_layer,
     detect_harmful_intent,
 )
+from portal.platform.inference.router.trace import note as trace_note
+from portal.platform.inference.router.user_text import own_user_text
 from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
 logger = logging.getLogger(__name__)
 _DEPRECATED_ALIAS_LOGGED: set[str] = set()
 _AUTO_DEFAULT_LANE: str = os.environ.get("AUTO_DEFAULT_LANE", "auto-daily")
+
+
+def _note_auto_route(messages: list[dict[str, Any]], scorer: str, workspace: str) -> None:
+    text = own_user_text(messages)
+    trace_note(
+        routing_receipt={
+            "scorer": scorer,
+            "workspace": workspace,
+            "current_turn_text_chars": len(text),
+            "current_turn_text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "matched_keywords": auto_routing_matches(scorer, messages, workspace),
+        }
+    )
 
 
 def append_text_to_content(content: Any, text: str) -> Any:
@@ -242,6 +259,7 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
     # abliterated default. Non-harmful `auto` traffic still routes normally
     # (mostly to abliterated lanes, by design).
     if detect_harmful_intent(messages):
+        _note_auto_route(messages, "harmful_intent_gate", _HARMFUL_INTENT_LANE)
         logger.warning(
             "Auto-routing: harmful-intent gate fired — routing to standard-posture "
             "lane '%s' instead of the abliterated default.",
@@ -259,6 +277,7 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
     # classifier's second choice.
     if claimed := claim_pre_layer(messages):
         layer, dest = claimed
+        _note_auto_route(messages, layer, dest)
         if layer == "router_handoff_gate":
             logger.info(
                 "Auto-routing: router-handoff gate fired — routing to '%s'; the "
@@ -274,12 +293,14 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
     # LLM router first — semantic intent, ~100ms, falls back on timeout/low confidence
     detected = await _route_with_llm(messages)
     if detected:
+        _note_auto_route(messages, "llm_router", detected)
         logger.info("Auto-routing (LLM): detected workspace '%s' from message content", detected)
         _router_layer_total.labels(layer="llm", workspace=detected).inc()
         return detected
     # Keyword fallback — deterministic, zero-latency
     detected = _detect_workspace(messages)
     if detected:
+        _note_auto_route(messages, "keyword_fallback", detected)
         logger.info(
             "Auto-routing (keywords): detected workspace '%s' from message content",
             detected,
@@ -291,12 +312,14 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
         from portal.platform.wiki.adapters.modules import is_workspace_disabled
 
         if not is_workspace_disabled(default_lane):
+            _note_auto_route(messages, "default_fallback", default_lane)
             logger.info(
                 "Auto-routing (default): no specialist matched — routing to '%s'",
                 default_lane,
             )
             _router_layer_total.labels(layer="fallback_auto", workspace=default_lane).inc()
             return default_lane
+    _note_auto_route(messages, "default_fallback", workspace_id)
     _router_layer_total.labels(layer="fallback_auto", workspace=workspace_id).inc()
     return workspace_id
 
