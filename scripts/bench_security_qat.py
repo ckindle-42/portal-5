@@ -8,8 +8,8 @@ models but never the production path — the hot-seat inversion it could not see
 ``auto-security`` to the Ollama GGUF until 5d2b44447 fixed it. Here every prompt goes
 through Open WebUI ``/api/chat/completions`` exactly as a user's turn does (same auth as
 ``scripts/wfe_production_smoke.py``), and every row records the served backend and model
-from the Pipeline trace (``newest_trace``). A row whose served engine/model differs from
-the seat's intended one is a FAIL, not a pass — that check is the point of the runner.
+from the Pipeline trace (``newest_trace``). A row outside the config-derived primary and
+fallback identities is a FAIL, not a pass — that check is the point of the runner.
 
 The QAT prompts and graders are the agy script's, unchanged. What the transport changes:
 - Tool scenarios run on the pipeline's real tools (the agy script mocked tool outputs
@@ -46,22 +46,11 @@ REPO = Path(__file__).resolve().parents[1]
 OWUI = "http://localhost:8080"
 PIPE = "http://localhost:9099"
 
-# The engine/model each seat must serve, from config/backends.yaml: omlx-security
-# carries both Inkling checkpoints. The Ollama failovers (inkling-2-mini:ctx256k,
-# portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k) are a different engine
-# and model — a fallback row is a FAIL here by design, because it did not serve the
-# benchmarked seat configuration.
-SEATS: dict[str, dict[str, str]] = {
-    "auto-security": {"backend": "omlx-security", "model": "Inkling-2-Mini-oQ4e-mtp"},
-    "auto-security::uncensored": {
-        "backend": "omlx-security",
-        "model": "Inkling-2-Mini-abliterated-oQ4e-mtp",
-    },
-    "auto-security::purpleteam-deep": {
-        "backend": "omlx-security",
-        "model": "Inkling-2-Mini-abliterated-oQ4e-mtp",
-    },
-}
+SEATS = (
+    "auto-security",
+    "auto-security::uncensored",
+    "auto-security::purpleteam-deep",
+)
 
 
 # How a user reaches each seat in Open WebUI. purpleteam-deep has no OWUI preset (it is
@@ -281,8 +270,7 @@ TASKS: list[TaskSpec] = [
 
 def trace_failures(seat_id: str, trace: dict[str, Any] | None) -> list[str]:
     """Why this turn's trace fails the seat check: served identity and completion."""
-    intended = SEATS[seat_id]
-    target = prodpath.SeatTarget(seat_id, intended["backend"], intended["model"])
+    target = prodpath.configured_target(seat_id)
     reasons = prodpath.trace_failures(target, trace)
     if trace is None or trace.get("outcome") == "safety_refusal":
         return reasons
@@ -296,8 +284,7 @@ def trace_failures(seat_id: str, trace: dict[str, Any] | None) -> list[str]:
 def send_turn(seat_id: str, history: list[dict[str, str]], prompt: str) -> Turn:
     """One production turn: OWUI chat completion + the Pipeline trace as its receipt."""
     messages = [*history, {"role": "user", "content": prompt}]
-    intended = SEATS[seat_id]
-    target = prodpath.SeatTarget(seat_id, intended["backend"], intended["model"])
+    target = prodpath.configured_target(seat_id)
     receipt = prodpath.stream_chat(
         target,
         messages,
@@ -394,9 +381,20 @@ def run_task(seat_id: str, spec: TaskSpec) -> dict[str, Any]:
 
 
 def run_seat(seat_id: str) -> dict[str, Any]:
-    intended = SEATS[seat_id]
+    target = prodpath.configured_target(seat_id)
+    intended = {
+        "primary": {
+            "backend": target.primary_backend,
+            "engine": target.engine,
+            "model": target.model,
+        },
+        "fallbacks": [
+            {"backend": item.backend, "engine": item.engine, "model": item.model}
+            for item in target.fallbacks
+        ],
+    }
     print(
-        f"\n==================== {seat_id} -> {intended['backend']}/{intended['model']} ====================",
+        f"\n==================== {seat_id} -> {target.engine}/{target.model} ====================",
         flush=True,
     )
     reps = int(os.environ.get("BENCH_REPS", "1"))
@@ -418,9 +416,7 @@ def main() -> int:
     unknown = [s for s in seats if s not in SEATS]
     if unknown:
         ap.error(f"unknown seat(s): {', '.join(unknown)} (known: {', '.join(SEATS)})")
-    targets = [
-        prodpath.SeatTarget(seat, SEATS[seat]["backend"], SEATS[seat]["model"]) for seat in seats
-    ]
+    targets = [prodpath.configured_target(seat) for seat in seats]
     preflight = prodpath.preflight(targets, owui_url=OWUI, pipeline_url=PIPE)
     if not all(result.ok for result in preflight):
         print("preflight failed; no QAT rows were run", file=sys.stderr)

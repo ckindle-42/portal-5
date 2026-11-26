@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import time
@@ -21,6 +22,15 @@ OWUI_ID: dict[str, str | None] = {
 }
 SUCCESS_OUTCOMES = frozenset({"complete", "ok", "safety_refusal"})
 PREFLIGHT_PROMPT = "Read this short context fill and reply READY. " + "context " * 44
+PREFLIGHT_IMAGE_FIXTURE = REPO / "tests/fixtures/vision/natural-00.png"
+PREFLIGHT_IMAGE_PROMPT = "How many purple shapes are in the image? Reply with a short answer."
+
+
+@dataclass(frozen=True)
+class ServingIdentity:
+    backend: str
+    engine: str
+    model: str
 
 
 @dataclass(frozen=True)
@@ -33,6 +43,9 @@ class SeatTarget:
     owui_id: str | None = None
     request_workspace: str | None = None
     request_model: str | None = None
+    primary_backend: str | None = None
+    fallbacks: tuple[ServingIdentity, ...] = ()
+    preflight_image: Path | None = None
 
 
 @dataclass
@@ -134,29 +147,53 @@ def configured_target(
         raise ValueError(f"workspace {workspace!r} has no model hint")
     registry = BackendRegistry(config_path=str(REPO / "config/backends.yaml"))
     base = resolved_workspace.split("::", 1)[0]
-    groups = list(registry.workspace_routes.get(base, []))
-    groups.append("general")
+    groups = list(registry.workspace_routes.get(base, [registry._fallback_group]))
+    groups.append(registry._fallback_group)
+    ordered_groups = list(dict.fromkeys(groups))
     candidates = list(registry._backends.values())
-    for group in groups:
-        for candidate in candidates:
-            if candidate.group != group or (backend and candidate.id != backend):
-                continue
-            if engine and candidate.type != engine:
-                continue
-            resolved = candidate.resolve_model(hint)
-            if resolved:
-                route_kind, alias = resolve_route(workspace)
-                if resolved_workspace != workspace:
-                    route_kind, alias = "pipeline", None
-                return SeatTarget(
-                    resolved_workspace,
-                    candidate.id if backend else None,
-                    resolved,
-                    candidate.type,
-                    route if route != "auto" else route_kind,
-                    alias,
-                    workspace if resolved_workspace != workspace else None,
-                )
+    ordered: list[Any] = []
+    seen: set[str] = set()
+    for group in ordered_groups:
+        matches = [
+            item
+            for item in candidates
+            if item.group == group
+            and item.id not in seen
+            and (not backend or item.id == backend)
+            and (not engine or item.type == engine)
+        ]
+        matches.sort(key=lambda item: item.priority, reverse=True)
+        ordered.extend(matches)
+        seen.update(item.id for item in matches)
+    ordered.extend(
+        item
+        for item in candidates
+        if item.id not in seen
+        and (not backend or item.id == backend)
+        and (not engine or item.type == engine)
+    )
+    identities = [
+        ServingIdentity(item.id, item.type, resolved)
+        for item in ordered
+        if (resolved := item.resolve_model(hint))
+    ]
+    if identities:
+        primary, *fallbacks = identities
+        route_kind, alias = resolve_route(workspace)
+        if resolved_workspace != workspace:
+            route_kind, alias = "pipeline", None
+        return SeatTarget(
+            workspace=resolved_workspace,
+            backend=backend,
+            model=primary.model,
+            engine=primary.engine,
+            route=route if route != "auto" else route_kind,
+            owui_id=alias,
+            request_workspace=workspace if resolved_workspace != workspace else None,
+            primary_backend=primary.backend,
+            fallbacks=tuple(fallbacks),
+            preflight_image=PREFLIGHT_IMAGE_FIXTURE if base == "auto-vision" else None,
+        )
     raise ValueError(f"no configured backend resolves {hint!r} for {workspace!r}")
 
 
@@ -401,23 +438,58 @@ def trace_failures(target: SeatTarget, trace: dict[str, Any] | None) -> list[str
             f"served {backend}/{model}, seat intends {target.backend}/{target.model} "
             "(fallback is a FAIL, not a pass)"
         )
-    if target.engine:
-        try:
-            import yaml
-
-            config = yaml.safe_load((REPO / "config/backends.yaml").read_text(encoding="utf-8"))
-            engine = next(
-                str(item.get("type") or "")
-                for item in config.get("backends") or []
-                if item.get("id") == backend
+    engine = _backend_engine(backend) if target.engine else ""
+    if target.primary_backend and not target.backend:
+        expected = (ServingIdentity(target.primary_backend, target.engine or "", target.model),)
+        accepted = (*expected, *target.fallbacks)
+        if not any(
+            (identity.backend, identity.engine, identity.model) == (backend, engine, model)
+            for identity in accepted
+        ):
+            alternatives = ", ".join(f"{item.engine}/{item.model}" for item in accepted)
+            failures.append(
+                f"served {engine or backend}/{model}, expected configured identity {alternatives}"
             )
-        except (StopIteration, OSError, ValueError):
-            engine = ""
-        if engine != target.engine:
+    else:
+        if target.engine and engine != target.engine:
             failures.append(f"served engine {engine or backend!r}, expected {target.engine!r}")
-    if model != target.model and not target.backend:
-        failures.append(f"served model {model!r}, expected {target.model!r}")
+        if model != target.model and not target.backend:
+            failures.append(f"served model {model!r}, expected {target.model!r}")
     return failures
+
+
+def _backend_engine(backend: str) -> str:
+    import yaml
+
+    try:
+        config = yaml.safe_load((REPO / "config/backends.yaml").read_text(encoding="utf-8"))
+        return next(
+            str(item.get("type") or "")
+            for item in config.get("backends") or []
+            if item.get("id") == backend
+        )
+    except (StopIteration, OSError, ValueError):
+        return ""
+
+
+def preflight_messages(target: SeatTarget, prompt: str | None = None) -> list[dict[str, Any]]:
+    """Build a context-fill turn and attach the configured image fixture when needed."""
+    if target.workspace.split("::", 1)[0] == "auto-vision" and target.preflight_image is None:
+        raise ValueError("vision preflight requires an image fixture")
+    if target.preflight_image is None:
+        return [{"role": "user", "content": prompt or PREFLIGHT_PROMPT}]
+    if not target.preflight_image.is_file():
+        raise ValueError(f"preflight image fixture is missing: {target.preflight_image}")
+    image = base64.b64encode(target.preflight_image.read_bytes()).decode("ascii")
+    return [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt or PREFLIGHT_IMAGE_PROMPT},
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image}"}},
+            ],
+        }
+    ]
 
 
 def stream_chat(
@@ -504,17 +576,23 @@ def preflight(
 ) -> list[PreflightResult]:
     results = []
     for target in seats:
-        receipt = stream_chat(
-            target,
-            [{"role": "user", "content": PREFLIGHT_PROMPT}],
-            owui_url=owui_url,
-            pipeline_url=pipeline_url,
-            owui_key=owui_key or env("OWUI_API_KEY"),
-            pipeline_key=pipeline_key or env("PIPELINE_API_KEY"),
-            timeout=timeout,
-            client=client,
-        )
-        failures = []
+        try:
+            messages = preflight_messages(target)
+        except ValueError as exc:
+            receipt = TurnReceipt(error=str(exc))
+            failures = [str(exc)]
+        else:
+            receipt = stream_chat(
+                target,
+                messages,
+                owui_url=owui_url,
+                pipeline_url=pipeline_url,
+                owui_key=owui_key or env("OWUI_API_KEY"),
+                pipeline_key=pipeline_key or env("PIPELINE_API_KEY"),
+                timeout=timeout,
+                client=client,
+            )
+            failures = []
         if receipt.status != 200:
             failures.append(f"HTTP {receipt.status}: {receipt.error or 'no response'}")
         if receipt.error:
@@ -551,9 +629,10 @@ def calibrate_context_fill(
     timeout: float = 180,
 ) -> tuple[float, int] | None:
     """Measure a seat's filler density while cancelling its fixed prompt overhead."""
+    base_prompt = PREFLIGHT_IMAGE_PROMPT if target.preflight_image else PREFLIGHT_PROMPT
     receipt = stream_chat(
         target,
-        [{"role": "user", "content": f"{PREFLIGHT_PROMPT} {PREFLIGHT_PROMPT}"}],
+        preflight_messages(target, prompt=f"{base_prompt} {PREFLIGHT_PROMPT}"),
         owui_url=owui_url,
         pipeline_url=pipeline_url,
         owui_key=owui_key,

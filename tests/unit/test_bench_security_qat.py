@@ -16,14 +16,14 @@ def _turn(answer: str = "", called: list[str] | None = None, failures: list[str]
     return bench.Turn(answer=answer, called=called or [], failures=failures or [])
 
 
-def _trace(**overrides):
-    seat = bench.SEATS["auto-security"]
+def _trace(seat_id: str = "auto-security", **overrides):
+    seat = bench.prodpath.configured_target(seat_id)
     return {
-        "workspace": "auto-security",
+        "workspace": seat_id,
         "outcome": "complete",
         "options_applied": {"reasoning_effort": "low"},
-        "backend": seat["backend"],
-        "model": seat["model"],
+        "backend": seat.primary_backend,
+        "model": seat.model,
         **overrides,
     }
 
@@ -124,11 +124,16 @@ def test_missing_trace_is_a_failure() -> None:
 
 
 def test_served_model_mismatch_is_a_failure() -> None:
-    reasons = bench.trace_failures(
-        "auto-security", _trace(model="inkling-2-mini:ctx256k", backend="ollama-security")
-    )
-    assert any("served ollama-security/inkling-2-mini:ctx256k" in r for r in reasons)
-    assert any("fallback is a FAIL" in r for r in reasons)
+    reasons = bench.trace_failures("auto-security", _trace(model="unconfigured-model"))
+    assert any("served" in r and "expected configured identity" in r for r in reasons)
+
+
+def test_configured_fallback_is_accepted() -> None:
+    target = bench.prodpath.configured_target("auto-security")
+    fallback = target.fallbacks[0]
+    trace = _trace(backend=fallback.backend, model=fallback.model)
+
+    assert bench.trace_failures("auto-security", trace) == []
 
 
 def test_incomplete_outcome_and_workspace_mismatch_fail() -> None:
@@ -142,20 +147,27 @@ def test_incomplete_outcome_and_workspace_mismatch_fail() -> None:
 
 
 def test_variant_seat_checks_its_own_intent() -> None:
+    target = bench.prodpath.configured_target("auto-security::uncensored")
     ok = bench.trace_failures(
         "auto-security::uncensored",
         _trace(
+            "auto-security::uncensored",
             workspace="auto-security::uncensored",
-            backend="omlx-security",
-            model="Inkling-2-Mini-abliterated-oQ4e-mtp",
+            backend=target.primary_backend,
+            model=target.model,
         ),
     )
     assert ok == []
     base_served = bench.trace_failures(
         "auto-security::uncensored",
-        _trace(workspace="auto-security::uncensored"),
+        _trace(
+            "auto-security::uncensored",
+            workspace="auto-security::uncensored",
+            backend=bench.prodpath.configured_target("auto-security").primary_backend,
+            model=bench.prodpath.configured_target("auto-security").model,
+        ),
     )
-    assert any("served omlx-security/Inkling-2-Mini-oQ4e-mtp" in r for r in base_served)
+    assert any("expected configured identity" in r for r in base_served)
 
 
 def test_task_row_combines_grader_and_trace_failures(monkeypatch) -> None:

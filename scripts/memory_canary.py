@@ -30,8 +30,6 @@ ENGINE_RSS_PATTERNS = ("omlx-server", "ollama serve", "llama-server")
 @dataclass(frozen=True)
 class Seat:
     label: str  # workspace id sent to OWUI ("ws" or "ws::variant")
-    engine: str  # expected serving engine: "ollama" | "omlx"
-    model: str  # expected served model id
     context_limit: int  # declared window in tokens
 
 
@@ -48,35 +46,31 @@ class Pair:
 DEFAULT_PAIRS: list[Pair] = [
     Pair(
         "compliance-64k-vs-daily-32k",
-        Seat("auto-compliance", "omlx", "Qwen3.8-27B-oQ4e-mtp", 65536),
+        Seat("auto-compliance", 65536),
         Seat(
             "auto-daily",
-            "ollama",
-            "hf.co/bartowski/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF:Q4_K_M-ctx32k",
             32768,
         ),
     ),
     Pair(
         "uncensored-inkling-vs-toolsspecialist-32k",
-        Seat("auto-general-uncensored", "omlx", "Inkling-2-Mini-abliterated-oQ4e-mtp", 131072),
-        Seat("tools-specialist", "omlx", "unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit", 32768),
+        Seat("auto-general-uncensored", 131072),
+        Seat("tools-specialist", 32768),
     ),
     Pair(
         "purpleteam-deep-inkling-vs-documents-32k",
-        Seat(
-            "auto-security::purpleteam-deep", "omlx", "Inkling-2-Mini-abliterated-oQ4e-mtp", 131072
-        ),
-        Seat("auto-documents", "ollama", "gemma4:26b-a4b-it-qat-ctx32k", 32768),
+        Seat("auto-security::purpleteam-deep", 131072),
+        Seat("auto-documents", 32768),
     ),
     Pair(
         "daily-inkling-256k-vs-compliance-64k",
-        Seat("auto-daily::inkling", "ollama", "inkling-2-mini:ctx256k", 131072),
-        Seat("auto-compliance", "omlx", "Qwen3.8-27B-oQ4e-mtp", 65536),
+        Seat("auto-daily::inkling", 131072),
+        Seat("auto-compliance", 65536),
     ),
     Pair(
         "vision-16k-vs-toolsspecialist-32k",
-        Seat("auto-vision", "ollama", "qwen3-vl:32b-ctx16k", 16384),
-        Seat("tools-specialist", "omlx", "unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit", 32768),
+        Seat("auto-vision", 16384),
+        Seat("tools-specialist", 32768),
     ),
 ]
 
@@ -315,7 +309,7 @@ class TurnResult:
 
 
 def run_turn(seat: Seat, args, chars_per_token: float) -> TurnResult:
-    configured = prodpath.configured_target(seat.label, seat.model, engine=seat.engine)
+    configured = prodpath.configured_target(seat.label)
     prompt = build_filler_prompt(
         int(seat.context_limit * args.fill),
         chars_per_token,
@@ -323,7 +317,7 @@ def run_turn(seat: Seat, args, chars_per_token: float) -> TurnResult:
     )
     receipt = prodpath.stream_chat(
         configured,
-        [{"role": "user", "content": prompt}],
+        prodpath.preflight_messages(configured, prompt=prompt),
         owui_url=OWUI,
         pipeline_url=PIPE,
         owui_key=env("OWUI_API_KEY"),
@@ -480,9 +474,7 @@ def preflight_pairs(
         for pair in pairs:
             for seat in (pair.a, pair.b):
                 if seat.label not in targets:
-                    targets[seat.label] = prodpath.configured_target(
-                        seat.label, seat.model, engine=seat.engine
-                    )
+                    targets[seat.label] = prodpath.configured_target(seat.label)
     except ValueError as exc:
         print(f"preflight setup failed: {exc}", file=sys.stderr)
         return None

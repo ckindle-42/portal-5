@@ -135,10 +135,41 @@ def grade_security_probe(scenario: str, answer: str) -> list[str]:
     return [f"unknown security probe {scenario}"]
 
 
+def _configured_arm_identities(
+    row: dict[str, Any], requested_model: str
+) -> tuple[set[tuple[str, str]] | None, str]:
+    trace = row.get("trace")
+    trace_workspace = trace.get("workspace") if isinstance(trace, dict) else ""
+    workspace = str(row.get("workspace") or trace_workspace or "")
+    if not workspace:
+        return None, ""
+    try:
+        target = prodpath.configured_target(workspace, model=requested_model, route="pipeline")
+    except ValueError as exc:
+        return set(), str(exc)
+    identities = {
+        (target.primary_backend or "", target.model),
+        *((item.backend, item.model) for item in target.fallbacks),
+    }
+    return identities, ""
+
+
+def _served_identity_failure(
+    item: Any, requested_model: str, expected: set[tuple[str, str]] | None
+) -> dict[str, Any] | None:
+    if not isinstance(item, dict) or not item.get("backend") or not item.get("model"):
+        return item
+    if expected is None and item.get("model") != requested_model:
+        return item
+    if expected is not None and (item["backend"], item["model"]) not in expected:
+        return {**item, "reason": "served identity is outside configured arm candidates"}
+    return None
+
+
 def finalize_verdict(
     row: dict[str, Any], requested_model: str, grader_verdict: str
 ) -> dict[str, Any]:
-    """Invalidate a score unless every recorded served identity matches its arm."""
+    """Validate every recorded served identity against its configured arm candidates."""
     served = row.get("served")
     if not isinstance(served, list):
         trace = row.get("trace")
@@ -157,14 +188,14 @@ def finalize_verdict(
             for item in served
             if isinstance(item, dict) and (item.get("backend") or item.get("model"))
         ]
+    expected, resolution_error = _configured_arm_identities(row, requested_model)
     invalid = [
-        item
+        failure
         for item in served
-        if not isinstance(item, dict)
-        or not item.get("backend")
-        or not item.get("model")
-        or item.get("model") != requested_model
+        if (failure := _served_identity_failure(item, requested_model, expected)) is not None
     ]
+    if resolution_error:
+        invalid.append({"reason": f"could not resolve configured arm identity: {resolution_error}"})
     if not served and not safety_refusal:
         invalid.append({"reason": "no served identity in Pipeline trace"})
     if safety_refusal and served:
