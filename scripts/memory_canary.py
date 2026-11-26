@@ -15,6 +15,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from scripts import prodpath
+
 REPO = Path(__file__).resolve().parents[1]
 OWUI = os.environ.get("CANARY_OWUI", "http://localhost:8080")
 PIPE = os.environ.get("CANARY_PIPE", "http://localhost:9099")
@@ -22,7 +24,6 @@ OLLAMA = os.environ.get("CANARY_OLLAMA", "http://localhost:11434")
 OMLX = os.environ.get("CANARY_OMLX", "http://localhost:8085")
 CONTAINER = os.environ.get("CANARY_CONTAINER", "portal5-pipeline")
 GIB = 1024**3
-CHARS_PER_TOKEN = 4  # filler is "tokNNNN " words; measured fill ratio is reported per turn
 ENGINE_RSS_PATTERNS = ("omlx-server", "ollama serve", "llama-server")
 
 
@@ -207,20 +208,13 @@ def parse_omlx_status(payload: dict) -> dict:
     return {"loaded": loaded, "final_ceiling": float(ceiling) if ceiling else None}
 
 
-def build_filler_prompt(target_tokens: int) -> str:
-    """Deterministic filler aimed at ``target_tokens`` (≈4 chars/token)."""
-    words = []
-    total = 0
-    chars = max(target_tokens, 1) * CHARS_PER_TOKEN
-    i = 0
-    while total < chars:
-        w = f"tok{i % 10000}"
-        total += len(w) + (1 if words else 0)
-        words.append(w)
-        i += 1
-    return "Below is a context fill. After reading it, reply with the single word OK.\n" + " ".join(
-        words
-    )
+def build_filler_prompt(
+    target_tokens: int, chars_per_token: float, baseline_tokens: int = 0
+) -> str:
+    """Build deterministic filler from a seat's measured short-prompt ratio."""
+    prefix = "Read this context fill and reply READY after reading it.\n"
+    chars = max(int((target_tokens - baseline_tokens) * chars_per_token) - len(prefix), 1)
+    return prefix + "context " * ((chars + len("context ") - 1) // len("context "))
 
 
 def cross_engine_evictions(
@@ -288,23 +282,17 @@ def snap_metrics() -> dict[str, float]:
         return {}
 
 
-def docker_logs_since(epoch: float) -> str:
+def docker_logs_since(epoch: float) -> str | None:
     try:
-        return _run(["docker", "logs", CONTAINER, "--since", f"{epoch:.0f}"], timeout=60)
-    except Exception:  # noqa: BLE001
-        return ""
-
-
-def newest_trace(workspace: str, since: float) -> dict | None:
-    headers = {"Authorization": f"Bearer {env('PIPELINE_API_KEY')}"}
-    try:
-        data = _get_json(f"{PIPE}/v1/trace?limit=8", headers)
-        for t in data.get("data") or []:
-            if t.get("workspace") == workspace and float(t.get("started_at") or 0) >= since - 1:
-                return _get_json(f"{PIPE}/v1/trace/{t['correlation_id']}", headers)
+        result = subprocess.run(
+            ["docker", "logs", CONTAINER, "--since", f"{epoch:.0f}"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        return result.stdout if result.returncode == 0 else None
     except Exception:  # noqa: BLE001
         return None
-    return None
 
 
 # ── turn + pair execution ─────────────────────────────────────────────────────
@@ -319,52 +307,56 @@ class TurnResult:
     wall_s: float = 0.0
     outcome: str = "no-trace"
     error: str = ""
+    backend: str = ""
+    model: str = ""
+    trace_matched: bool = False
+    valid: bool = False
+    validation_errors: list[str] = field(default_factory=list)
 
 
-def run_turn(seat: Seat, args) -> TurnResult:
-    res = TurnResult(seat.label)
-    target = int(seat.context_limit * args.fill)
-    prompt = build_filler_prompt(target)
-    body = json.dumps(
-        {
-            "model": seat.label,
-            "messages": [{"role": "user", "content": prompt}],
-            "stream": False,
-            "max_tokens": args.max_tokens,
-        }
-    ).encode()
-    req = urllib.request.Request(
-        f"{OWUI}/api/chat/completions",
-        data=body,
-        method="POST",
-        headers={
-            "Authorization": f"Bearer {env('OWUI_API_KEY')}",
-            "Content-Type": "application/json",
-        },
+def run_turn(seat: Seat, args, chars_per_token: float) -> TurnResult:
+    configured = prodpath.configured_target(seat.label, seat.model, engine=seat.engine)
+    prompt = build_filler_prompt(
+        int(seat.context_limit * args.fill),
+        chars_per_token,
+        args.baseline_tokens[seat.label],
     )
-    t0 = time.time()
-    since = t0
-    try:
-        with urllib.request.urlopen(req, timeout=args.timeout) as r:  # noqa: S310
-            res.http_status = r.status
-            out = json.load(r)
-        usage = out.get("usage") or {}
-        res.prompt_tokens = int(usage.get("prompt_tokens") or 0)
-        res.fill_ratio = (
-            round(res.prompt_tokens / seat.context_limit, 3) if seat.context_limit else 0.0
+    receipt = prodpath.stream_chat(
+        configured,
+        [{"role": "user", "content": prompt}],
+        owui_url=OWUI,
+        pipeline_url=PIPE,
+        owui_key=env("OWUI_API_KEY"),
+        pipeline_key=env("PIPELINE_API_KEY"),
+        timeout=args.timeout,
+        body_extra={"max_tokens": args.max_tokens},
+    )
+    res = TurnResult(
+        seat.label,
+        http_status=receipt.status,
+        prompt_tokens=receipt.prompt_tokens,
+        fill_ratio=receipt.prompt_tokens / seat.context_limit if seat.context_limit else 0.0,
+        wall_s=round(receipt.wall_s, 1),
+        outcome=receipt.outcome,
+        error=receipt.error,
+        backend=receipt.backend,
+        model=receipt.model,
+        trace_matched=receipt.trace is not None,
+    )
+    if receipt.status != 200:
+        res.validation_errors.append(f"HTTP {receipt.status}: {receipt.error or 'no response'}")
+    if receipt.prompt_tokens <= 0:
+        res.validation_errors.append("no measured prompt_tokens")
+    if receipt.error:
+        res.validation_errors.append(f"stream error: {receipt.error}")
+    if not 0.80 <= res.fill_ratio <= 0.95 or receipt.prompt_tokens > seat.context_limit:
+        res.validation_errors.append(
+            f"measured fill {res.fill_ratio:.3f} is outside 0.80-0.95 of {seat.context_limit} tokens"
         )
-    except urllib.error.HTTPError as e:
-        res.http_status = e.code
-        res.error = e.read()[:300].decode("utf-8", "replace").strip()
-    except Exception as e:  # noqa: BLE001
-        res.error = f"{type(e).__name__}: {e}"[:300]
-    res.wall_s = round(time.time() - t0, 1)
-    trace = newest_trace(seat.label.split("::")[0], since)
-    if trace:
-        res.outcome = str(trace.get("outcome") or "?")
-        res.prompt_tokens = res.prompt_tokens or int(
-            (trace.get("usage") or {}).get("prompt_tokens") or 0
-        )
+    res.validation_errors.extend(prodpath.trace_failures(configured, receipt.trace))
+    if receipt.trace and (not receipt.backend or not receipt.model):
+        res.validation_errors.append("trace does not name the served backend and model")
+    res.valid = not res.validation_errors
     return res
 
 
@@ -378,19 +370,37 @@ class PairResult:
     cross_evictions: list[dict] = field(default_factory=list)
     swap_growth_gib: float = 0.0
     metrics_delta: dict = field(default_factory=dict)
+    load_guard_log_parsed: bool = False
     verdict: str = "?"
     reasons: list[str] = field(default_factory=list)
 
 
 def judge(pr: PairResult, args) -> None:
+    invalid = [f"{turn.seat}: {reason}" for turn in pr.turns for reason in turn.validation_errors]
+    for turn in pr.turns:
+        if turn.http_status != 200:
+            invalid.append(f"{turn.seat}: HTTP {turn.http_status}")
+        if turn.prompt_tokens <= 0:
+            invalid.append(f"{turn.seat}: no measured prompt_tokens")
+        if not 0.80 <= turn.fill_ratio <= 0.95:
+            invalid.append(f"{turn.seat}: fill {turn.fill_ratio:.3f} is outside 0.80-0.95")
+        if turn.outcome not in prodpath.SUCCESS_OUTCOMES:
+            invalid.append(f"{turn.seat}: trace outcome {turn.outcome!r} is not successful")
+        if not turn.trace_matched:
+            invalid.append(f"{turn.seat}: no matched Pipeline trace")
+        if not turn.backend or not turn.model:
+            invalid.append(f"{turn.seat}: trace has no served backend/model")
+        if turn.error:
+            invalid.append(f"{turn.seat}: stream error: {turn.error}")
+    if not pr.load_guard_log_parsed:
+        invalid.append("load_guard log window was not parsed")
+    if invalid or any(not turn.valid for turn in pr.turns):
+        pr.reasons = invalid or [
+            f"{turn.seat}: turn is INVALID" for turn in pr.turns if not turn.valid
+        ]
+        pr.verdict = "INVALID"
+        return
     reasons = []
-    for t in pr.turns:
-        if t.http_status == 507 or "would exceed" in t.error:
-            reasons.append(f"{t.seat}: load-guard refusal (507)")
-        elif t.http_status not in (0, 200):
-            reasons.append(f"{t.seat}: HTTP {t.http_status} {t.error[:80]}")
-        elif t.outcome not in ("complete", "?"):
-            reasons.append(f"{t.seat}: trace outcome {t.outcome}")
     for ev in pr.cross_evictions:
         reasons.append(
             f"unplanned eviction of resident {ev['engine']}:{ev['model']} ({ev['gib']} GiB)"
@@ -401,7 +411,7 @@ def judge(pr: PairResult, args) -> None:
     pr.verdict = "FAIL" if reasons else "PASS"
 
 
-def run_pair(pair: Pair, args) -> PairResult:
+def run_pair(pair: Pair, args, chars_per_token: dict[str, float]) -> PairResult:
     pr = PairResult(pair.name)
     pre_engines, pre_host, pre_metrics = snap_engines(), snap_host(), snap_metrics()
     pre_resident = {
@@ -412,9 +422,10 @@ def run_pair(pair: Pair, args) -> PairResult:
     for seat in (pair.a, pair.b):
         if args.pause_s:
             time.sleep(args.pause_s)
-        pr.turns.append(run_turn(seat, args))
+        pr.turns.append(run_turn(seat, args, chars_per_token[seat.label]))
     logs = docker_logs_since(t0 - 2)
-    pr.events = parse_load_guard_log(logs)
+    pr.load_guard_log_parsed = logs is not None
+    pr.events = parse_load_guard_log(logs or "")
     pair_models = {pair.a.model, pair.b.model}
     pr.cross_evictions = cross_engine_evictions(pr.events, pre_resident, pair_models)
     post_engines, post_host, post_metrics = snap_engines(), snap_host(), snap_metrics()
@@ -433,10 +444,10 @@ def run_pair(pair: Pair, args) -> PairResult:
 
 def render_table(results: list[PairResult]) -> str:
     head = (
-        "| pair | seat | HTTP | prompt_tok | fill | wall_s | outcome | evictions | "
+        "| pair | seat | HTTP | prompt_tok | fill | wall_s | outcome | served | evictions | "
         "swapΔ GiB | RSS Δ GiB (omlx/ollama-runner) | verdict |"
     )
-    sep = "|" + "---|" * 11
+    sep = "|" + "---|" * 12
     rows = [head, sep]
     for pr in results:
         rss_pre = pr.pre.get("host", {}).get("rss", {}).get("totals", {})
@@ -452,19 +463,66 @@ def render_table(results: list[PairResult]) -> str:
             ev = ",".join(f"{e['engine']}:{e['model']}" for e in pr.cross_evictions) or "-"
             rows.append(
                 f"| {pr.pair if i == 0 else ''} | {t.seat} | {t.http_status or '-'} | "
-                f"{t.prompt_tokens} | {t.fill_ratio} | {t.wall_s} | {t.outcome} | "
-                f"{ev if i == 0 else ''} | {pr.swap_growth_gib if i == 0 else ''} | "
+                f"{t.prompt_tokens} | {t.fill_ratio:.3f} | {t.wall_s} | {t.outcome} | "
+                f"{t.backend}/{t.model} | {ev if i == 0 else ''} | {pr.swap_growth_gib if i == 0 else ''} | "
                 f"{d_omlx:+.1f}/{d_oll:+.1f} | {pr.verdict if i == 0 else ''} |"
             )
         for r in pr.reasons:
-            rows.append(f"| | ⚠ {r} |{' |' * 9}")
+            rows.append(f"| | ⚠ {r} |{' |' * 10}")
     return "\n".join(rows)
+
+
+def preflight_pairs(
+    pairs: list[Pair], args
+) -> tuple[list[prodpath.PreflightResult], dict[str, float], dict[str, int]] | None:
+    targets = {}
+    try:
+        for pair in pairs:
+            for seat in (pair.a, pair.b):
+                if seat.label not in targets:
+                    targets[seat.label] = prodpath.configured_target(
+                        seat.label, seat.model, engine=seat.engine
+                    )
+    except ValueError as exc:
+        print(f"preflight setup failed: {exc}", file=sys.stderr)
+        return None
+    results = prodpath.preflight(
+        list(targets.values()),
+        owui_url=OWUI,
+        pipeline_url=PIPE,
+        owui_key=env("OWUI_API_KEY"),
+        pipeline_key=env("PIPELINE_API_KEY"),
+        timeout=min(args.timeout, 180),
+    )
+    if not all(result.ok for result in results):
+        print("preflight failed; no canary rows were run", file=sys.stderr)
+        return None
+    calibration = {}
+    for result in results:
+        measured = prodpath.calibrate_context_fill(
+            result.target,
+            result.receipt,
+            owui_url=OWUI,
+            pipeline_url=PIPE,
+            owui_key=env("OWUI_API_KEY"),
+            pipeline_key=env("PIPELINE_API_KEY"),
+            timeout=min(args.timeout, 180),
+        )
+        if measured is None:
+            return None
+        calibration[result.target.workspace] = measured
+    ratios = {workspace: values[0] for workspace, values in calibration.items()}
+    baselines = {workspace: values[1] for workspace, values in calibration.items()}
+    return results, ratios, baselines
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--pairs", default="", help="comma-separated pair names (default: all)")
     ap.add_argument("--list", action="store_true", help="list pair names and exit")
+    ap.add_argument(
+        "--preflight-only", action="store_true", help="run seat checks without canary rows"
+    )
     ap.add_argument("--fill", type=float, default=0.85, help="target prompt fill of each window")
     ap.add_argument("--max-tokens", type=int, default=256)
     ap.add_argument("--timeout", type=int, default=900, help="per-turn seconds")
@@ -485,10 +543,21 @@ def main(argv: list[str] | None = None) -> int:
     if not pairs:
         print("no matching pairs", file=sys.stderr)
         return 2
+    if not 0.80 <= args.fill <= 0.95:
+        ap.error("--fill must be between 0.80 and 0.95")
+    preflight = preflight_pairs(pairs, args)
+    if preflight is None:
+        return 1
+    reports, chars_per_token, baseline_tokens = preflight
+    if args.preflight_only:
+        print(f"preflight passed for {len(reports)} seat(s)")
+        return 0
+    # Keep tokenization calibration local to each seat, including its system/tool prompt overhead.
+    args.baseline_tokens = baseline_tokens
     results = []
     for pair in pairs:
         print(f"== pair {pair.name} ==", flush=True)
-        results.append(run_pair(pair, args))
+        results.append(run_pair(pair, args, chars_per_token))
     print(render_table(results))
     if args.json:
         Path(args.json).write_text(json.dumps([vars(r) for r in results], indent=1, default=str))

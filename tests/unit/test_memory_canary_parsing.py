@@ -104,10 +104,12 @@ def test_parse_omlx_status():
 
 
 def test_build_filler_prompt_size():
-    p = canary.build_filler_prompt(1000)
+    p = canary.build_filler_prompt(1000, 4.0)
     body = p.split("\n", 1)[1]
-    assert len(body) >= 1000 * canary.CHARS_PER_TOKEN
-    assert len(body) < 1000 * canary.CHARS_PER_TOKEN + 16
+    assert len(body) >= 1000 * 4.0 - len(
+        "Read this context fill and reply READY after reading it.\n"
+    )
+    assert len(body) < 1000 * 4.0 + len("context ")
 
 
 def test_cross_engine_evictions_flags_preexisting_residents_only():
@@ -129,6 +131,7 @@ class _Args:
 def _pair_result(turns, cross=(), swap=0.0):
     pr = canary.PairResult("p")
     pr.turns = turns
+    pr.load_guard_log_parsed = True
     pr.cross_evictions = list(cross)
     pr.swap_growth_gib = swap
     canary.judge(pr, _Args())
@@ -136,7 +139,18 @@ def _pair_result(turns, cross=(), swap=0.0):
 
 
 def _turn(seat="ws", status=200, outcome="complete", error=""):
-    return canary.TurnResult(seat, http_status=status, outcome=outcome, error=error)
+    return canary.TurnResult(
+        seat,
+        http_status=status,
+        prompt_tokens=100,
+        fill_ratio=0.85,
+        outcome=outcome,
+        error=error,
+        backend="engine",
+        model="model",
+        trace_matched=True,
+        valid=True,
+    )
 
 
 def test_judge_pass():
@@ -145,19 +159,59 @@ def test_judge_pass():
 
 
 def test_judge_fail_on_507():
-    pr = _pair_result([_turn(status=507, outcome="no-trace", error="would exceed host headroom")])
-    assert pr.verdict == "FAIL"
-    assert any("507" in r for r in pr.reasons)
+    turn = _turn(status=507, outcome="no-trace", error="would exceed host headroom")
+    turn.valid = False
+    turn.validation_errors = ["HTTP 507: would exceed host headroom"]
+    pr = _pair_result([turn])
+    assert pr.verdict == "INVALID"
 
 
 def test_judge_fail_on_refusal_text_without_status():
-    pr = _pair_result([_turn(status=200, error="Cannot load x: projected memory would exceed")])
-    assert pr.verdict == "FAIL"
+    turn = _turn(status=200, error="Cannot load x: projected memory would exceed")
+    turn.valid = False
+    turn.validation_errors = ["no measured prompt_tokens"]
+    pr = _pair_result([turn])
+    assert pr.verdict == "INVALID"
 
 
 def test_judge_fail_on_bad_outcome():
-    pr = _pair_result([_turn(outcome="backend.failed")])
-    assert pr.verdict == "FAIL"
+    turn = _turn(outcome="backend.failed")
+    turn.valid = False
+    turn.validation_errors = ["trace outcome 'backend.failed' is not a successful outcome"]
+    pr = _pair_result([turn])
+    assert pr.verdict == "INVALID"
+
+
+def test_judge_invalidates_unmeasured_turn_instead_of_scoring_it():
+    turn = _turn()
+    turn.prompt_tokens = 0
+    turn.valid = False
+    turn.validation_errors = ["no measured prompt_tokens"]
+    pr = _pair_result([turn], swap=2.5)
+    assert pr.verdict == "INVALID"
+    assert "ws: no measured prompt_tokens" in pr.reasons
+
+
+def test_judge_invalidates_fill_above_window_before_scoring_swap_growth():
+    turn = _turn()
+    turn.prompt_tokens = 69600
+    turn.fill_ratio = 2.125
+    pr = _pair_result([turn], swap=2.5)
+    assert pr.verdict == "INVALID"
+    assert any("fill 2.125 is outside 0.80-0.95" in reason for reason in pr.reasons)
+
+
+def test_judge_does_not_flag_ok_as_a_warning():
+    pr = _pair_result([_turn(outcome="ok")])
+    assert pr.verdict == "PASS"
+
+
+def test_judge_invalidates_an_unparsed_load_guard_window():
+    pr = _pair_result([_turn()])
+    pr.load_guard_log_parsed = False
+    canary.judge(pr, _Args())
+    assert pr.verdict == "INVALID"
+    assert "load_guard log window was not parsed" in pr.reasons
 
 
 def test_judge_fail_on_cross_eviction_and_swap():

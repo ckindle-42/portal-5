@@ -10,6 +10,7 @@ import mimetypes
 import os
 import re
 import statistics
+import sys
 import time
 import uuid
 from collections.abc import Callable
@@ -23,6 +24,7 @@ import httpx
 import yaml
 
 from portal.platform.inference.config import effective_workspace
+from scripts import prodpath
 from scripts.bench_security_qat import TASKS as SECURITY_TASKS
 from scripts.bench_security_qat import Turn, grade_purple_jndi_sigma, grade_s3_refusal_preservation
 from scripts.council_bench import DEFAULT_CASES, build_request, load_cases, score_case
@@ -682,47 +684,26 @@ def _run_independent_judge(
 
 
 def _parse_stream(lines: Any) -> tuple[str, list[dict[str, Any]], dict[str, Any], float | None]:
-    text: list[str] = []
-    calls: list[dict[str, Any]] = []
-    usage: dict[str, Any] = {}
-    first_token_s: float | None = None
-    started = time.perf_counter()
-    for line in lines:
-        if not line.startswith("data:"):
-            continue
-        raw = line[5:].strip()
-        if raw == "[DONE]":
-            break
-        event = json.loads(raw)
-        if event.get("type") == "exec_audit":
-            calls.extend(event.get("tool_calls") or [])
-            continue
-        if event.get("error"):
-            raise RuntimeError(str(event["error"]))
-        if event.get("usage"):
-            usage = event["usage"]
-        choice = (event.get("choices") or [{}])[0]
-        delta = choice.get("delta") or {}
-        content = delta.get("content") or ""
-        if content:
-            first_token_s = (
-                first_token_s if first_token_s is not None else time.perf_counter() - started
-            )
-            text.append(content)
-    return "".join(text), calls, usage, first_token_s
+    parsed = prodpath.parse_stream(lines)
+    if parsed.error:
+        raise RuntimeError(parsed.error)
+    return parsed.text, parsed.tool_calls, parsed.usage, parsed.first_token_s
 
 
-def _fetch_trace(client: httpx.Client, settings: Settings, correlation_id: str) -> dict[str, Any]:
-    response = client.get(
-        f"{settings.pipeline_url}/v1/trace/{correlation_id}",
-        headers=settings.auth_headers(),
-        timeout=30.0,
+def _fetch_trace(
+    client: httpx.Client,
+    settings: Settings,
+    correlation_id: str,
+) -> dict[str, Any]:
+    pipeline_key = getattr(settings, "pipeline_api_key", "")
+    if not pipeline_key:
+        pipeline_key = str(settings.auth_headers().get("Authorization", "")).removeprefix("Bearer ")
+    return prodpath.fetch_trace_by_id(
+        correlation_id,
+        settings.pipeline_url,
+        pipeline_key,
+        client=client,
     )
-    response.raise_for_status()
-    payload = response.json()
-    if isinstance(payload, dict) and isinstance(payload.get("data"), dict):
-        return payload["data"]
-    return payload if isinstance(payload, dict) else {}
 
 
 def _audit_calls(raw_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -936,45 +917,46 @@ def _request_turn(
     attachment: dict[str, Any] | None,
     timeout_s: float,
 ) -> dict[str, Any]:
-    cid = str(uuid.uuid4())
     user_content: Any = prompt
     if attachment and attachment.get("inline_image") is not None:
         user_content = _inline_image(prompt, attachment["inline_image"])
     messages.append({"role": "user", "content": user_content})
-    body: dict[str, Any] = {
-        "model": workspace,
-        "messages": messages,
-        "stream": True,
-        "stream_options": {"include_usage": True},
-        "exec_audit": True,
-    }
+    body_extra: dict[str, Any] = {"exec_audit": True}
     if attachment and attachment.get("file"):
-        body["portal_attached_files"] = [attachment["file"]]
-    started = time.perf_counter()
-    with client.stream(
-        "POST",
-        _pipeline_url(settings, model),
-        json=body,
-        headers=_pipeline_headers(settings, cid),
+        body_extra["portal_attached_files"] = [attachment["file"]]
+    target = prodpath.configured_target(workspace, model=model, route="pipeline")
+    receipt = prodpath.stream_chat(
+        target,
+        messages,
+        owui_url=settings.owui_url,
+        pipeline_url=settings.pipeline_url,
+        owui_key=settings.owui_api_key,
+        pipeline_key=settings.pipeline_api_key,
         timeout=timeout_s,
-    ) as response:
-        response.raise_for_status()
-        text, raw_calls, usage, first_token_s = _parse_stream(response.iter_lines())
-    wall = time.perf_counter() - started
-    trace = _fetch_trace(client, settings, cid)
-    calls = _audit_calls(raw_calls)
+        route="pipeline",
+        pipeline_model=model,
+        body_extra=body_extra,
+        headers_extra={"Accept": "text/event-stream"},
+        client=client,
+    )
+    if receipt.status != 200:
+        raise RuntimeError(f"Pipeline turn returned HTTP {receipt.status}: {receipt.error}")
+    text = receipt.text
+    trace = receipt.trace or {}
+    calls = _audit_calls(receipt.tool_calls)
     artifact_urls_found = list(artifact_urls({"content": text}))
     for call in calls:
         artifact_urls_found.extend(artifact_urls({"content": call.get("output", "")}))
     messages.append({"role": "assistant", "content": text})
     return {
-        "correlation_id": cid,
+        "correlation_id": receipt.correlation_id,
         "text": text,
         "trace": trace,
         "served": [{"backend": trace.get("backend", ""), "model": trace.get("model", "")}],
-        "wall_s": wall,
-        "first_token_s": first_token_s,
-        "usage": usage,
+        "wall_s": receipt.wall_s,
+        "first_token_s": receipt.first_token_s,
+        "usage": receipt.usage,
+        "prompt_tokens": receipt.prompt_tokens,
         "portal_timings": trace.get("portal_timings") or {},
         "tool_calls": calls,
         "artifact_urls": list(dict.fromkeys(artifact_urls_found)),
@@ -1458,6 +1440,29 @@ def _judge_for_run(
     return seat, str(_seat_cfg(catalog, seat).get("model_hint") or "")
 
 
+def preflight_arms(
+    workspace: str, arms: list[str], settings: Settings
+) -> list[prodpath.PreflightResult]:
+    try:
+        targets = [
+            replace(
+                prodpath.configured_target(workspace, model=arm, route="pipeline"),
+                request_model=arm,
+            )
+            for arm in arms
+        ]
+    except ValueError as exc:
+        print(f"preflight setup failed: {exc}", file=sys.stderr)
+        return []
+    return prodpath.preflight(
+        targets,
+        owui_url=settings.owui_url,
+        pipeline_url=settings.pipeline_url,
+        owui_key=settings.owui_api_key,
+        pipeline_key=settings.pipeline_api_key,
+    )
+
+
 def _measure_rows(
     client: httpx.Client,
     settings: Settings,
@@ -1507,6 +1512,10 @@ def run(
     cases = _load_cases(suite, workspace)
     if not cases:
         raise ValueError(f"suite {suite!r} discovered no benchmark cases")
+    arms = [incumbent, challenger]
+    preflight_results = preflight_arms(workspace, arms, settings)
+    if not preflight_results or not all(result.ok for result in preflight_results):
+        raise RuntimeError("preflight failed; no seat A/B rows were run")
     output_dir = OUTPUT_ROOT / f"{suite}_{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}"
     output_dir.mkdir(parents=True, exist_ok=False)
     paths = _log_paths()
@@ -1518,7 +1527,6 @@ def run(
     if needs_upload:
         owui = OWUIClient(settings)
         token = owui.signin()
-    arms = [incumbent, challenger]
     chosen_judge, judge_hint = _judge_for_run(cases, incumbent, challenger, judge_seat)
     with httpx.Client() as client:
         rows = _measure_rows(
@@ -1542,6 +1550,18 @@ def run(
         "arms": arms,
         "judge_seat": chosen_judge,
         "judge_hint": judge_hint,
+        "preflight": [
+            {
+                "workspace": result.target.workspace,
+                "backend": result.receipt.backend,
+                "model": result.receipt.model,
+                "prompt_tokens": result.receipt.prompt_tokens,
+                "outcome": result.receipt.outcome,
+                "ok": result.ok,
+                "failures": list(result.failures),
+            }
+            for result in preflight_results
+        ],
         "created_at": datetime.now(UTC).isoformat(),
         "case_count": len(cases),
         "repetitions": 3,
@@ -1687,24 +1707,36 @@ def main() -> int:
         default=None,
         help="re-grade a rows.json from stored turns and tool_calls without re-running the arms",
     )
+    parser.add_argument(
+        "--preflight-only", action="store_true", help="check the selected arms without A/B rows"
+    )
     args = parser.parse_args()
     if args.regrade:
         output = regrade(args.regrade, args.judge_seat)
         print(f"wrote {output}")
         print(f"wrote {output.with_name('report.regrade.md')}")
         return 0
+    if args.preflight_only:
+        if not (args.workspace and args.incumbent and args.challenger):
+            parser.error("workspace, incumbent, and challenger are required for --preflight-only")
+        results = preflight_arms(args.workspace, [args.incumbent, args.challenger], Settings.load())
+        return 0 if results and all(result.ok for result in results) else 1
     if not (args.workspace and args.incumbent and args.challenger and args.suite):
         parser.error(
             "workspace, incumbent, challenger, and suite are required unless --regrade is set"
         )
-    output = run(
-        args.workspace,
-        args.incumbent,
-        args.challenger,
-        args.suite,
-        args.timeout,
-        args.judge_seat,
-    )
+    try:
+        output = run(
+            args.workspace,
+            args.incumbent,
+            args.challenger,
+            args.suite,
+            args.timeout,
+            args.judge_seat,
+        )
+    except (RuntimeError, ValueError) as exc:
+        print(f"seat A/B stopped: {exc}", file=sys.stderr)
+        return 1
     print(f"wrote {output / 'rows.json'}")
     print(f"wrote {output / 'report.md'}")
     return 0
