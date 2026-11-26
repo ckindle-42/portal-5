@@ -725,7 +725,7 @@ def _impl_write_file(path: str, content: str) -> dict[str, Any]:
 async def write_file(path: str, content: str) -> dict[str, Any]:
     """Write or overwrite a file on the host filesystem.
 
-    Writes are constrained to the repo root and /tmp. Creates parent
+    Writes are constrained to the repo root. Creates parent
     directories as needed.
 
     Args:
@@ -738,23 +738,47 @@ async def write_file(path: str, content: str) -> dict[str, Any]:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
+def _confine_repo_read(path: str) -> pathlib.Path | str:
+    """Resolved file under REPO_ROOT, or an error string. Absolute paths and `..` escapes fail."""
+    raw = pathlib.Path(path)
+    if not path or raw.is_absolute():
+        return "ERROR: read blocked: path must be repo-relative"
+    resolved = (REPO_ROOT / raw).resolve()
+    if not resolved.is_relative_to(REPO_ROOT) or resolved == REPO_ROOT:
+        return "ERROR: read blocked: path escapes the repository"
+    return resolved
+
+
+def _glob_escapes_repo(pattern: str) -> bool:
+    pure = pathlib.PurePosixPath(pattern)
+    return not pattern or pure.is_absolute() or ".." in pure.parts
+
+
+def _fastcontext_read(args: dict[str, Any]) -> str:
+    confined = _confine_repo_read(str(args.get("path", "")))
+    if isinstance(confined, str):
+        return confined
+    try:
+        lines = confined.read_text(errors="replace").splitlines()
+        start = max(1, int(args.get("start_line", 1))) - 1
+        end = int(args.get("end_line", len(lines)))
+        chunk = lines[start:end]
+        return "\n".join(f"{start + i + 1}\t{ln}" for i, ln in enumerate(chunk))
+    except FileNotFoundError:
+        return f"ERROR: file not found: {args.get('path')}"
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
 def _dispatch_fastcontext_tool(name: str, args: dict[str, Any]) -> str:
     """Execute one of FastContext's three read-only repo tools."""
     if name == "READ":
-        path = REPO_ROOT / args.get("path", "")
-        try:
-            lines = path.read_text(errors="replace").splitlines()
-            start = max(1, int(args.get("start_line", 1))) - 1
-            end = int(args.get("end_line", len(lines)))
-            chunk = lines[start:end]
-            return "\n".join(f"{start + i + 1}\t{ln}" for i, ln in enumerate(chunk))
-        except FileNotFoundError:
-            return f"ERROR: file not found: {args.get('path')}"
-        except Exception as e:
-            return f"ERROR: {e}"
+        return _fastcontext_read(args)
 
     elif name == "GLOB":
         pattern = args.get("pattern", "**/*")
+        if _glob_escapes_repo(pattern):
+            return "ERROR: glob blocked: pattern must stay inside the repository"
         try:
             # Exclude common noise
             # ".claude" holds full worktree COPIES of this repo. Without it
@@ -785,6 +809,8 @@ def _dispatch_fastcontext_tool(name: str, args: dict[str, Any]) -> str:
     elif name == "GREP":
         pattern = args.get("pattern", "")
         glob_filter = args.get("glob", "**/*.py")
+        if _glob_escapes_repo(glob_filter):
+            return "ERROR: glob blocked: pattern must stay inside the repository"
         max_results = min(int(args.get("max_results", 40)), 100)
         try:
             compiled = re.compile(pattern)

@@ -960,7 +960,14 @@ async def proxmox_node_exec(command: str, timeout: int = 60) -> dict[str, Any]:
         command: Shell command to run on the Proxmox host
         timeout: Seconds to wait for command completion (default 60)
     """
-    return _ok(await _ssh_exec(command, timeout=timeout))
+    result = await _ssh_exec(command, timeout=timeout)
+    if result.get("ok"):
+        return _ok(result)
+    return {
+        "success": False,
+        "error": result.get("error") or result.get("stderr") or "ssh failed",
+        "data": result,
+    }
 
 
 @mcp.tool()

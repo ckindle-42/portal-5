@@ -239,6 +239,20 @@ def span(name: str, **fields: Any) -> None:
             trace.span(name, **fields)
 
 
+def note_hint_mismatch(
+    *, workspace: str, hinted: str, served: str, backend: str, path: str
+) -> None:
+    """Record that the seat's model_hint was not what the backend served."""
+    span(
+        "model.hint_mismatch",
+        workspace=workspace,
+        hinted=hinted,
+        served=served,
+        backend=backend,
+        path=path,
+    )
+
+
 def note(**fields: Any) -> None:
     """Merge turn-level facts onto the current turn. No-op when tracing is off."""
     with contextlib.suppress(Exception):

@@ -82,6 +82,7 @@ from portal.platform.inference.router.tools import (
 from portal.platform.inference.router.trace import (
     add_model_turn,
     current_portal_timings,
+    note_hint_mismatch,
     usage_metric_kwargs,
 )
 from portal.platform.inference.router.trace import capture as trace_capture
@@ -1230,6 +1231,13 @@ async def _try_non_streaming(
                 served=target_model,
                 path="non_streaming",
             ).inc()
+            note_hint_mismatch(
+                workspace=workspace_id,
+                hinted=model_hint,
+                served=target_model,
+                backend=backend.id,
+                path="non_streaming",
+            )
 
     _failover_hop = bool(tried)  # an earlier attempt for this request already failed
     if tried is not None:

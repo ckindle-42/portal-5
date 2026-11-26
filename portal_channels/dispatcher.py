@@ -42,6 +42,8 @@ VALID_WORKSPACES = frozenset(
         # Hunt reasoning seat: called by the hunt, never by a channel user, but
         # the set must match the pipeline's workspace set exactly.
         "hunt-reasoning",
+        # OWUI task seat, listed so the channel roster matches the pipeline catalog.
+        "task-router",
         "auto-general-uncensored::creative",
         "auto-general-uncensored::throwaway",
         "auto-general-uncensored::throwaway-gemma4-heretic",

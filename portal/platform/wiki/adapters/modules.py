@@ -155,11 +155,17 @@ def is_workspace_disabled(
     workspace_id: str, mods: list[str] | None = None, config: Any = None
 ) -> bool:
     """True if the workspace, or ``engine::variant``, belongs to a disabled module."""
-    from portal.platform.inference.config import load_portal_config, variant_module
+    from portal.platform.inference.config import (
+        TASK_MODEL_WORKSPACE,
+        load_portal_config,
+        variant_module,
+    )
 
     cfg = load_portal_config() if config is None else config
     enabled = _active(cfg, mods)
     base, _sep, variant = workspace_id.partition("::")
+    if base == TASK_MODEL_WORKSPACE and not variant:
+        return False
     spec = cfg.workspaces.get(base)
     if spec is None:
         return False

@@ -636,6 +636,9 @@ def load_portal_config(
 
 # ── Derived-view helpers ──────────────────────────────────────────────────────
 
+# OWUI task seat stays servable while its eval module is off, and stays out of user presets.
+TASK_MODEL_WORKSPACE = "task-router"
+
 # Fields that exist only in portal.yaml and must NOT appear in the runtime
 # WORKSPACES dict that the rest of the pipeline imports.
 _OWUI_ONLY_FIELDS = frozenset(
@@ -685,7 +688,7 @@ def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
     eval_on = _eval_enabled()
     result: dict[str, dict[str, Any]] = {}
     for ws_id, spec in config.workspaces.items():
-        if spec.module == "eval" and not eval_on:
+        if spec.module == "eval" and not eval_on and ws_id != TASK_MODEL_WORKSPACE:
             continue
         if spec.module != "eval" and spec.module not in enabled:
             continue
