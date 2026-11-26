@@ -72,3 +72,88 @@ async def test_math_followup_stays_on_reasoning_even_if_layer_one_misclassifies(
     ]
 
     assert await preinject._resolve_auto_routing("auto", messages) == "auto-reasoning::math"
+
+
+@pytest.mark.asyncio
+async def test_auto_route_uses_entry_text_when_memory_was_added_to_user_message() -> None:
+    from portal.platform.inference.router import trace
+
+    current_turn = (
+        "We run Kubernetes 1.30 and need read-only access to pods in namespace staging. "
+        "Propose the least-privilege Role and RoleBinding, explain the scope choice, "
+        "and give a safe way to verify it."
+    )
+    memories = [
+        "CVE exploitation with an authorized purple team attack chain.",
+        "Security incident response, threat hunting, and firewall analysis.",
+        "Write Sigma rules to detect credential theft and lateral movement.",
+        "Review penetration test findings and exploit validation results.",
+    ]
+    injected_memory = "\n".join(memories)
+    messages = [{"role": "user", "content": f"{current_turn}\n\n{injected_memory}"}]
+    record = trace.TurnTrace("test-route-before-memory")
+    token = trace._current.set(record)
+    try:
+        workspace = await preinject._resolve_auto_routing(
+            "auto", messages, current_turn_text=current_turn
+        )
+        receipt = record.to_dict()["routing_receipt"]
+    finally:
+        trace._current.reset(token)
+
+    assert workspace == "auto-coding"
+    assert receipt["current_turn_text_chars"] == len(current_turn)
+    assert receipt["memory_chars_excluded"] == len("\n\n" + injected_memory)
+    assert not {item["keyword"] for item in receipt["matched_keywords"]} & {
+        "cve",
+        "exploit",
+        "security",
+        "purple team",
+        "firewall",
+    }
+
+
+@pytest.mark.asyncio
+async def test_classifier_and_keyword_fallback_use_entry_text_with_memory_suffix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from portal.platform.inference.router import trace
+
+    current_turn = "Please compare the runtime tradeoffs between two generic application designs."
+    memories = ["CVE exploitation, purple team attack chain, and firewall incident response."] * 4
+    messages = [{"role": "user", "content": f"{current_turn}\n\n" + "\n".join(memories)}]
+    classifier_inputs: list[list[dict[str, str]]] = []
+    fallback_inputs: list[list[dict[str, str]]] = []
+
+    async def classify(route_messages):
+        classifier_inputs.append(route_messages)
+        return None
+
+    def keyword_fallback(route_messages):
+        fallback_inputs.append(route_messages)
+        return "auto-reasoning"
+
+    monkeypatch.setattr(preinject, "_route_with_llm", classify)
+    monkeypatch.setattr(preinject, "_detect_workspace", keyword_fallback)
+    record = trace.TurnTrace("test-classifier-before-memory")
+    token = trace._current.set(record)
+    try:
+        workspace = await preinject._resolve_auto_routing(
+            "auto", messages, current_turn_text=current_turn
+        )
+        receipt = record.to_dict()["routing_receipt"]
+    finally:
+        trace._current.reset(token)
+
+    expected_input = [{"role": "user", "content": current_turn}]
+    assert workspace == "auto-reasoning"
+    assert classifier_inputs == [expected_input]
+    assert fallback_inputs == [expected_input]
+    assert receipt["scorer"] == "keyword_fallback"
+    assert receipt["memory_chars_excluded"] == len("\n\n" + "\n".join(memories))
+    assert not {item["keyword"] for item in receipt["matched_keywords"]} & {
+        "cve",
+        "exploit",
+        "purple team",
+        "firewall",
+    }

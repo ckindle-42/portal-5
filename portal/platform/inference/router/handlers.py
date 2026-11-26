@@ -75,6 +75,7 @@ from portal.platform.inference.router.preinject import (
     _apply_client_tools_only,
     _apply_no_tools_request,
     _apply_role_slash,
+    _capture_current_turn_text,
     _inject_attached_files,
     _inject_requested_prompts,
     _inject_system_prompt_append,
@@ -850,6 +851,7 @@ async def _resolve_request_route(
         raise HTTPException(status_code=503, detail="Backend registry not initialised")
 
     body = await _parse_and_guard_body(request)
+    current_turn_text = _capture_current_turn_text(body)
     workspace_id = body.get("model") or "auto"
     _original_model_id = workspace_id
     _messages = body.get("messages")
@@ -866,7 +868,11 @@ async def _resolve_request_route(
     # Phase 3: Content-aware routing for 'auto' — LLM intent classification,
     # falling back to weighted keyword scoring.
     _route_body, role_slug = _apply_role_slash(body)
-    workspace_id = await _resolve_auto_routing(workspace_id, _route_body.get("messages", []))
+    workspace_id = await _resolve_auto_routing(
+        workspace_id,
+        _route_body.get("messages", []),
+        current_turn_text=current_turn_text,
+    )
 
     # Phase 4: auto-vision text-only fallback — reroute to auto-reasoning when
     # no image_url is present in the request.

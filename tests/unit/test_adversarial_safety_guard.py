@@ -646,7 +646,9 @@ def test_legitimate_non_streaming_turn_reaches_backend(
 ) -> None:
     import portal.platform.inference.router.handlers as handlers_mod
 
-    async def _route(workspace_id: str, _messages: typing.Any) -> str:
+    async def _route(
+        workspace_id: str, _messages: typing.Any, *, current_turn_text: str | None = None
+    ) -> str:
         return workspace_id
 
     monkeypatch.setattr(handlers_mod, "_resolve_auto_routing", _route)
@@ -685,7 +687,9 @@ def test_legitimate_streaming_turn_reaches_backend(
 ) -> None:
     import portal.platform.inference.router.handlers as handlers_mod
 
-    async def _route(workspace_id: str, _messages: typing.Any) -> str:
+    async def _route(
+        workspace_id: str, _messages: typing.Any, *, current_turn_text: str | None = None
+    ) -> str:
         return workspace_id
 
     monkeypatch.setattr(handlers_mod, "_resolve_auto_routing", _route)

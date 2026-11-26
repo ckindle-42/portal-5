@@ -29,6 +29,7 @@ from portal.platform.inference.router.metrics import (
 )
 from portal.platform.inference.router.preinject import append_text_to_content
 from portal.platform.inference.router.trace import note as trace_note
+from portal.platform.inference.router.trace import note_routing_memory_chars
 from portal.platform.inference.router.user_text import is_owui_task_prompt, own_user_text
 from portal.platform.inference.router.workspaces import WORKSPACES
 from portal.platform.inference.tool_registry import tool_registry
@@ -112,6 +113,20 @@ def _extract_snippets(result: dict[str, Any]) -> list[str]:
     raise ValueError(f"unrecognised tool result shape: keys={sorted(result)[:6]}")
 
 
+def _memory_recall_evidence(result: Any) -> list[dict[str, str | float]]:
+    memories = result.get("memories") if isinstance(result, dict) else None
+    if not isinstance(memories, list):
+        return []
+    return [
+        {"id": str(memory["id"]), "score": float(memory["similarity"])}
+        for memory in memories
+        if isinstance(memory, dict)
+        and memory.get("id") is not None
+        and isinstance(memory.get("similarity"), (int, float))
+        and not isinstance(memory.get("similarity"), bool)
+    ]
+
+
 def _dispatch_outcome(source: str, result: dict[str, Any], snippets: list[str]) -> str:
     """Classify an auto-context dispatch for the metric.
 
@@ -184,7 +199,8 @@ async def inject_recalled_memory(
     # (same contract-mismatch class as SEAM-V1-AUTORAG-001).
     result = await _dispatch_bounded("recall", {"query": query, "top_k": _TOP_K}, cid)
     snippets = _extract_snippets(result)
-    trace_note(memory_injected=len(snippets))  # what injection actually added, per turn
+    trace_note(memory_injected=len(snippets), memory_recall=_memory_recall_evidence(result))
+    note_routing_memory_chars(sum(len(snippet) for snippet in snippets))
     _auto_context_latency_seconds.labels(source="memory").observe(
         asyncio.get_event_loop().time() - t0
     )

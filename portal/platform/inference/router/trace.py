@@ -254,6 +254,24 @@ def note_hint_mismatch(
     )
 
 
+def note_routing_memory_chars(chars: int) -> None:
+    """Add the system-side memory text size to an existing auto-route receipt."""
+    with contextlib.suppress(Exception):
+        trace = _current.get()
+        if trace is None:
+            return
+        receipt = trace._meta.get("routing_receipt")
+        if not isinstance(receipt, dict):
+            return
+        trace.set(
+            routing_receipt={
+                **receipt,
+                "memory_chars_excluded": int(receipt.get("memory_chars_excluded", 0))
+                + max(0, chars),
+            }
+        )
+
+
 def note(**fields: Any) -> None:
     """Merge turn-level facts onto the current turn. No-op when tracing is off."""
     with contextlib.suppress(Exception):

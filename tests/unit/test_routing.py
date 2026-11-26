@@ -543,6 +543,7 @@ async def test_auto_route_trace_records_private_scorer_receipt():
     assert receipt["scorer"] == "deterministic_intent"
     assert receipt["workspace"] == "auto-reasoning::math"
     assert receipt["current_turn_text_chars"] == len(query)
+    assert receipt["memory_chars_excluded"] == 0
     assert receipt["current_turn_text_sha256"] == hashlib.sha256(query.encode()).hexdigest()
     assert {"keyword": "integral", "weight": 3} in receipt["matched_keywords"]
     assert not any(

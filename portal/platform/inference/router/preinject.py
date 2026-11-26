@@ -34,7 +34,12 @@ _DEPRECATED_ALIAS_LOGGED: set[str] = set()
 _AUTO_DEFAULT_LANE: str = os.environ.get("AUTO_DEFAULT_LANE", "auto-daily")
 
 
-def _note_auto_route(messages: list[dict[str, Any]], scorer: str, workspace: str) -> None:
+def _note_auto_route(
+    messages: list[dict[str, Any]],
+    scorer: str,
+    workspace: str,
+    memory_chars_excluded: int,
+) -> None:
     text = own_user_text(messages)
     trace_note(
         routing_receipt={
@@ -43,6 +48,7 @@ def _note_auto_route(messages: list[dict[str, Any]], scorer: str, workspace: str
             "current_turn_text_chars": len(text),
             "current_turn_text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             "matched_keywords": auto_routing_matches(scorer, messages, workspace),
+            "memory_chars_excluded": memory_chars_excluded,
         }
     )
 
@@ -244,7 +250,12 @@ def _append_handoff_note(messages: list[dict[str, Any]], lane: str) -> None:
         messages.append({"role": "system", "content": " ".join(notes)})
 
 
-async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]]) -> str:
+async def _resolve_auto_routing(
+    workspace_id: str,
+    messages: list[dict[str, Any]],
+    *,
+    current_turn_text: str | None = None,
+) -> str:
     """Run LLM-based and keyword-based auto-routing when workspace_id is 'auto'.
 
     When workspace_id is not 'auto', returns it unchanged. Otherwise attempts
@@ -253,13 +264,24 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
     """
     if workspace_id != "auto":
         return workspace_id
+    if current_turn_text is None:
+        current_turn_text = own_user_text(messages)
+    observed_text = own_user_text(messages)
+    memory_chars_excluded = (
+        len(observed_text) - len(current_turn_text)
+        if current_turn_text and observed_text.startswith(current_turn_text)
+        else 0
+    )
+    routing_messages = [{"role": "user", "content": current_turn_text}]
     # Harmful-intent gate (adaptive UAT FINDINGS C1/C2/C3): a genuinely harmful
     # ask — targeting a private individual, deception/fraud, harassment — must
     # be handled by a standard-posture lane so it refuses, never by the
     # abliterated default. Non-harmful `auto` traffic still routes normally
     # (mostly to abliterated lanes, by design).
-    if detect_harmful_intent(messages):
-        _note_auto_route(messages, "harmful_intent_gate", _HARMFUL_INTENT_LANE)
+    if detect_harmful_intent(routing_messages):
+        _note_auto_route(
+            routing_messages, "harmful_intent_gate", _HARMFUL_INTENT_LANE, memory_chars_excluded
+        )
         logger.warning(
             "Auto-routing: harmful-intent gate fired — routing to standard-posture "
             "lane '%s' instead of the abliterated default.",
@@ -275,9 +297,9 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
     # scored next-best and be answered there. Checked before Layer 1 for the
     # same reason the harmful gate is: the destination must not depend on the
     # classifier's second choice.
-    if claimed := claim_pre_layer(messages):
+    if claimed := claim_pre_layer(routing_messages):
         layer, dest = claimed
-        _note_auto_route(messages, layer, dest)
+        _note_auto_route(routing_messages, layer, dest, memory_chars_excluded)
         if layer == "router_handoff_gate":
             logger.info(
                 "Auto-routing: router-handoff gate fired — routing to '%s'; the "
@@ -291,16 +313,16 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
         _router_layer_total.labels(layer=layer, workspace=dest).inc()
         return dest
     # LLM router first — semantic intent, ~100ms, falls back on timeout/low confidence
-    detected = await _route_with_llm(messages)
+    detected = await _route_with_llm(routing_messages)
     if detected:
-        _note_auto_route(messages, "llm_router", detected)
+        _note_auto_route(routing_messages, "llm_router", detected, memory_chars_excluded)
         logger.info("Auto-routing (LLM): detected workspace '%s' from message content", detected)
         _router_layer_total.labels(layer="llm", workspace=detected).inc()
         return detected
     # Keyword fallback — deterministic, zero-latency
-    detected = _detect_workspace(messages)
+    detected = _detect_workspace(routing_messages)
     if detected:
-        _note_auto_route(messages, "keyword_fallback", detected)
+        _note_auto_route(routing_messages, "keyword_fallback", detected, memory_chars_excluded)
         logger.info(
             "Auto-routing (keywords): detected workspace '%s' from message content",
             detected,
@@ -312,14 +334,16 @@ async def _resolve_auto_routing(workspace_id: str, messages: list[dict[str, Any]
         from portal.platform.wiki.adapters.modules import is_workspace_disabled
 
         if not is_workspace_disabled(default_lane):
-            _note_auto_route(messages, "default_fallback", default_lane)
+            _note_auto_route(
+                routing_messages, "default_fallback", default_lane, memory_chars_excluded
+            )
             logger.info(
                 "Auto-routing (default): no specialist matched — routing to '%s'",
                 default_lane,
             )
             _router_layer_total.labels(layer="fallback_auto", workspace=default_lane).inc()
             return default_lane
-    _note_auto_route(messages, "default_fallback", workspace_id)
+    _note_auto_route(routing_messages, "default_fallback", workspace_id, memory_chars_excluded)
     _router_layer_total.labels(layer="fallback_auto", workspace=workspace_id).inc()
     return workspace_id
 
@@ -540,6 +564,12 @@ def _strip_role_prefix(content: Any) -> tuple[str | None, Any]:
                 updated: Any = {**first, "text": rest} if isinstance(first, dict) else rest
                 return slug, [updated, *content[1:]]
     return None, content
+
+
+def _capture_current_turn_text(body: dict[str, Any]) -> str:
+    text = own_user_text(body.get("messages", []))
+    _, text = _strip_role_prefix(text)
+    return str(text)
 
 
 def _role_variant_for_workspace(body: dict[str, Any], workspace_id: str) -> str | None:
