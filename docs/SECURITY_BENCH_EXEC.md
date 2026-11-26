@@ -2,6 +2,8 @@
 
 The current target list is derived from `auto-security.variants` in `config/portal.yaml`. Query `unit-fact-security-variants` through the wiki MCP.
 
+> The code sandbox now always runs user code with `--network none` and refuses startup when `SANDBOX_LAB_EXEC=true`. The networked lab-exec setup below is unavailable until lab execution has a separate isolated runtime.
+
 ---
 
 `bench_security` is a **package** (`portal/modules/security/core/`), decomposed from a single module. Chain execution, scoring, and lab-exec logic were further split into focused sub-modules; `chain.py` and `cli.py` are now thin re-export shims over the implementations that moved out.

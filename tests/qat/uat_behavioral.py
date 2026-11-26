@@ -14,6 +14,7 @@ import unicodedata
 import uuid
 import wave
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -129,6 +130,7 @@ class UATTurn:
     trace: dict[str, object]
     tool_names: tuple[str, ...]
     artifact_urls: tuple[str, ...]
+    tool_results: tuple[dict[str, object], ...] = ()
 
 
 def build_registry(
@@ -371,8 +373,15 @@ def _tool_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 coding,
                 (
                     "Use execute_python to print UAT_PYTHON_73, then try urllib.request.urlopen "
-                    "against https://example.com with a short timeout. Report the exception class "
-                    "returned by the sandbox.",
+                    "against https://example.com and http://portal-pipeline:9099/health with a "
+                    "short timeout, and call socket.getaddrinfo('example.com', 443). On failures, "
+                    "print UAT_EXTERNAL_URL_BLOCKED:<exception class>, "
+                    "UAT_INTERNAL_SERVICE_BLOCKED:<exception class>, and "
+                    "UAT_DNS_BLOCKED:<exception class> for their matching probes. Print "
+                    "UAT_EXTERNAL_URL_SUCCEEDED:<status> or "
+                    "UAT_INTERNAL_SERVICE_SUCCEEDED:<status> if any HTTP response arrives "
+                    "(including HTTPError), and UAT_DNS_SUCCEEDED if the lookup resolves. "
+                    "Report the sandbox's actual markers.",
                     "Now use execute_bash to run `printf UAT_BASH_48` and quote its exact output.",
                 ),
                 "sandbox",
@@ -1720,23 +1729,113 @@ def _grade_sandbox_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del case, payloads, evidence
+    del case, payloads
     errors = []
     lowered = text.casefold()
+    results = [result for turn in turns for result in turn.tool_results]
+    python_results = [result for result in results if result.get("tool") == "execute_python"]
+    bash_results = [result for result in results if result.get("tool") == "execute_bash"]
     if "uat_python_73" not in lowered:
         errors.append("sandbox answer omitted the Python marker")
     if "uat_bash_48" not in lowered:
         errors.append("sandbox answer omitted the Bash marker")
-    if "urlerror" not in lowered:
-        errors.append("sandbox answer did not report the urllib URLError isolation result")
-    if any(
-        phrase in lowered
-        for phrase in ("connection succeeded", "request succeeded", "connected successfully")
-    ):
-        errors.append("sandbox network request unexpectedly succeeded")
+    if not python_results or not bash_results:
+        errors.append("sandbox execution result is missing")
+    else:
+        python_result = python_results[-1].get("result")
+        python_stdout = (
+            str(python_result.get("stdout", "")) if isinstance(python_result, dict) else ""
+        )
+        bash_result = bash_results[-1].get("result")
+        bash_stdout = str(bash_result.get("stdout", "")) if isinstance(bash_result, dict) else ""
+        if not isinstance(python_result, dict) or not python_result.get("success"):
+            errors.append("sandbox Python probe did not complete successfully")
+        if "uat_python_73" not in python_stdout.casefold():
+            errors.append("sandbox Python execution output omitted its marker")
+        errors.extend(_grade_sandbox_network_probes(python_stdout, evidence))
+        if not isinstance(bash_result, dict) or not bash_result.get("success"):
+            errors.append("sandbox Bash probe did not complete successfully")
+        if "uat_bash_48" not in bash_stdout.casefold():
+            errors.append("sandbox Bash execution output omitted its marker")
     if len(turns) != 2:
         errors.append("sandbox journey did not complete both tool turns")
     return errors
+
+
+def _grade_sandbox_network_probes(stdout: str, evidence: dict[str, object]) -> list[str]:
+    errors = []
+    lowered = stdout.casefold()
+    statuses = {}
+    for probe in ("external_url", "internal_service", "dns"):
+        if f"uat_{probe}_succeeded" in lowered:
+            errors.append(f"sandbox {probe.replace('_', ' ')} probe returned success")
+            statuses[probe] = "succeeded"
+        elif f"uat_{probe}_blocked:" in lowered:
+            statuses[probe] = "blocked"
+        else:
+            errors.append(f"sandbox {probe.replace('_', ' ')} isolation result was not observed")
+            statuses[probe] = "unobserved"
+    evidence["sandbox_network_probes"] = statuses
+    return errors
+
+
+def _sandbox_tool_results(chat: dict[str, Any]) -> tuple[dict[str, object], ...]:
+    """Read code-tool outputs from the persisted Open WebUI conversation."""
+    entries = _sandbox_chat_messages(chat)
+    names_by_call_id = _sandbox_tool_names_by_call_id(entries)
+    return tuple(
+        result
+        for message in entries
+        if (result := _sandbox_tool_result(message, names_by_call_id)) is not None
+    )
+
+
+def _sandbox_chat_messages(chat: dict[str, Any]) -> list[Any]:
+    chat_data = chat.get("chat", chat)
+    history = chat_data.get("history", {}) if isinstance(chat_data, dict) else {}
+    messages = history.get("messages", []) if isinstance(history, dict) else []
+    if isinstance(messages, dict):
+        return list(messages.values())
+    return messages if isinstance(messages, list) else []
+
+
+def _sandbox_tool_names_by_call_id(entries: list[Any]) -> dict[str, str]:
+    names_by_call_id: dict[str, str] = {}
+    for message in entries:
+        if not isinstance(message, dict):
+            continue
+        info = message.get("info") if isinstance(message.get("info"), dict) else {}
+        calls = message.get("tool_calls") or info.get("tool_calls") or []
+        for call in calls if isinstance(calls, list) else []:
+            if not isinstance(call, dict):
+                continue
+            function = call.get("function") if isinstance(call.get("function"), dict) else {}
+            name = str(function.get("name") or call.get("name") or "")
+            call_id = str(call.get("id") or call.get("tool_call_id") or "")
+            if name and call_id:
+                names_by_call_id[call_id] = name
+    return names_by_call_id
+
+
+def _sandbox_tool_result(
+    message: Any, names_by_call_id: dict[str, str]
+) -> dict[str, object] | None:
+    if not isinstance(message, dict) or message.get("role") != "tool":
+        return None
+    call_id = str(message.get("tool_call_id") or message.get("tool_callId") or "")
+    name = str(message.get("name") or message.get("tool_name") or names_by_call_id.get(call_id, ""))
+    if name not in {"execute_python", "execute_bash"}:
+        return None
+    content = message.get("content", "")
+    if isinstance(content, list):
+        content = "\n".join(str(part.get("text", "")) for part in content if isinstance(part, dict))
+    if isinstance(content, str):
+        with suppress(json.JSONDecodeError):
+            content = json.loads(content)
+    return {
+        "tool": name,
+        "result": content if isinstance(content, dict) else {"content": content},
+    }
 
 
 def _grade_office_case(
@@ -2865,6 +2964,9 @@ def _run_browser_sequence(
                 chat_id,
             )
         transcript.append(UATTurn(prompt, text, trace, _tool_names_from_calls((), trace), urls))
+    if case.grader == "sandbox" and chat_id and transcript:
+        detail = client.chat_detail(token, chat_id, deadline=deadline)
+        transcript[-1].tool_results = _sandbox_tool_results(detail)
     tool_error = _required_tool_error(case, transcript)
     if tool_error:
         return transcript, _status_result(scenario, tool_error, chat_id, transcript), chat_id
@@ -3107,6 +3209,9 @@ def _run_chat_case(
         if error:
             error.chat_id = chat_id
             return _archive_chat(client, token, chat_id, scenario, options, error)
+        if case.grader == "sandbox" and turns:
+            detail = client.chat_detail(token, chat_id, deadline=deadline)
+            turns[-1].tool_results = _sandbox_tool_results(detail)
         return _finalize_turns(client, token, chat_id, scenario, case, options, turns)
     except Exception as exc:
         return QATResult(

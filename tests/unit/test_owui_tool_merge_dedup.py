@@ -396,12 +396,10 @@ _MIRROR_PARAMS = {
 }
 _WORKSPACE_SCHEMAS: dict[str, tuple[str, dict]] = {
     "execute_bash": (
-        "Execute a bash command in an isolated Docker sandbox. Security constraints "
-        "(default posture): no network, 256MB RAM, 0.5 CPU, 30s timeout, read-only "
-        "filesystem, no Linux capabilities, no privilege escalation. Widened under "
-        "SANDBOX_ALLOW_NETWORK (pip/probe) and replaced by the attack-image lab "
-        "envelope under SANDBOX_LAB_EXEC (live *-exec workspaces against a routable "
-        "lab). Returns dict with success, stdout, stderr, exit_code, timed_out.",
+        "Execute a bash command in an isolated Docker sandbox. Security constraints: "
+        "no network, 256MB RAM, 0.5 CPU, 30s timeout, read-only filesystem, no Linux "
+        "capabilities, no privilege escalation. Returns dict with success, stdout, "
+        "stderr, exit_code, timed_out.",
         {
             "type": "object",
             "properties": {
@@ -418,12 +416,10 @@ _WORKSPACE_SCHEMAS: dict[str, tuple[str, dict]] = {
     "execute_python": (
         "Execute Python code in an isolated Docker sandbox. To run an existing file, "
         "call runpy.run_path(path) or exec(open(path).read()); /workspace is readable. "
-        "Security constraints (default posture): no network, 256MB RAM, 0.5 CPU, 30s "
+        "Security constraints: no network, 256MB RAM, 0.5 CPU, 30s "
         "timeout, read-only filesystem, no Linux capabilities, no privilege escalation, "
-        "Python standard library only. Widened under SANDBOX_ALLOW_NETWORK (pip/probe) "
-        "and replaced by the attack-image lab envelope under SANDBOX_LAB_EXEC (live "
-        "*-exec workspaces against a routable lab). Returns dict with success, stdout, "
-        "stderr, exit_code, timed_out.",
+        "Python standard library only. Returns dict with success, stdout, stderr, "
+        "exit_code, timed_out.",
         {
             "type": "object",
             "properties": {

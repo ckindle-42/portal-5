@@ -738,19 +738,94 @@ def test_multiturn_transcript_and_tool_grading() -> None:
 
 def test_sandbox_hunt_and_rag_behavior_graders() -> None:
     sandbox = uat.UATCase("sandbox", "sandbox", "auto-coding", ("run", "bash"), "sandbox")
-    assert (
-        uat.grade_case(
-            sandbox,
-            [_turn("UAT_PYTHON_73; URLError"), _turn("UAT_BASH_48")],
+    blocked = {
+        "success": True,
+        "stdout": (
+            "UAT_PYTHON_73\n"
+            "UAT_EXTERNAL_URL_BLOCKED:URLError\n"
+            "UAT_INTERNAL_SERVICE_BLOCKED:URLError\n"
+            "UAT_DNS_BLOCKED:gaierror\n"
+        ),
+    }
+    bash = {"success": True, "stdout": "UAT_BASH_48"}
+    turns = [
+        uat.UATTurn(
+            "run",
+            "UAT_PYTHON_73; UAT_NETWORK_BLOCKED:URLError; connection succeeded was not observed",
             {},
-        )[0]
-        == []
+            (),
+            (),
+            ({"tool": "execute_python", "result": blocked},),
+        ),
+        uat.UATTurn(
+            "bash",
+            "UAT_BASH_48",
+            {},
+            (),
+            (),
+            ({"tool": "execute_bash", "result": bash},),
+        ),
+    ]
+
+    errors, evidence = uat.grade_case(sandbox, turns, {})
+    assert errors == []
+    assert evidence["sandbox_network_probes"] == {
+        "external_url": "blocked",
+        "internal_service": "blocked",
+        "dns": "blocked",
+    }
+
+    succeeded = {
+        "success": True,
+        "stdout": (
+            "UAT_PYTHON_73\n"
+            "UAT_EXTERNAL_URL_SUCCEEDED:200\n"
+            "UAT_INTERNAL_SERVICE_SUCCEEDED:200\n"
+            "UAT_DNS_SUCCEEDED\n"
+        ),
+    }
+    turns[0].tool_results = ({"tool": "execute_python", "result": succeeded},)
+    turns[0].text = "UAT_PYTHON_73; UAT_NETWORK_BLOCKED:URLError"
+    assert uat.grade_case(sandbox, turns, {})[0] == [
+        "sandbox external url probe returned success",
+        "sandbox internal service probe returned success",
+        "sandbox dns probe returned success",
+    ]
+
+    turns[0].tool_results = ()
+    assert "sandbox execution result is missing" in uat.grade_case(sandbox, turns, {})[0]
+
+
+def test_sandbox_tool_results_are_read_from_the_openwebui_chat_history() -> None:
+    chat = {
+        "chat": {
+            "history": {
+                "messages": {
+                    "assistant": {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "id": "python-1",
+                                "function": {"name": "execute_python"},
+                            }
+                        ],
+                    },
+                    "python-result": {
+                        "role": "tool",
+                        "tool_call_id": "python-1",
+                        "content": '{"success": true, "stdout": "UAT_EXTERNAL_URL_BLOCKED:URLError"}',
+                    },
+                }
+            }
+        }
+    }
+
+    assert uat._sandbox_tool_results(chat) == (
+        {
+            "tool": "execute_python",
+            "result": {"success": True, "stdout": "UAT_EXTERNAL_URL_BLOCKED:URLError"},
+        },
     )
-    assert uat.grade_case(
-        sandbox,
-        [_turn("UAT_PYTHON_73; connection succeeded"), _turn("UAT_BASH_48")],
-        {},
-    )[0]
 
     hunt = uat.UATCase(
         "hunt", "hunt", "security-reviewer", ("sources", "status", "leads"), "hunt_workflow"

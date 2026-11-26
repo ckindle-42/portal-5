@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
@@ -59,7 +60,7 @@ async def health_check(request: Request) -> JSONResponse:
             "service": "sandbox-mcp",
             "lab_exec_active": SANDBOX_LAB_EXEC,
             "lab_image": SANDBOX_LAB_IMAGE or None,
-            "network": "bridge" if SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC else "disabled",
+            "network": "disabled",
         }
     )
 
@@ -94,26 +95,13 @@ SANDBOX_SESSIONS_DIR = SANDBOX_DIR / "sessions"
 SANDBOX_SESSION_MAX_BYTES = int(os.getenv("SANDBOX_SESSION_MAX_BYTES", str(512 * 1024 * 1024)))
 SANDBOX_PIP_INSTALL_ENABLED = os.getenv("SANDBOX_PIP_INSTALL_ENABLED", "true").lower() == "true"
 
-# Opt-in network access (DEFAULT OFF — production posture unchanged).
-# Set SANDBOX_ALLOW_NETWORK=true ONLY for capability-probe test runs that need
-# pip install / real dependencies (TASK_CODING_CAPABILITY_PROBE_V1 A2). When
-# enabled the resource envelope is widened so pip has room; otherwise the
-# sandbox is byte-for-byte its locked-down self.
+# Legacy network opt-in retained so startup can reject unsafe configurations.
 SANDBOX_ALLOW_NETWORK = os.getenv("SANDBOX_ALLOW_NETWORK", "false").lower() == "true"
 SANDBOX_NET_MEMORY = os.getenv("SANDBOX_NET_MEMORY", "1g")
 SANDBOX_NET_CPUS = os.getenv("SANDBOX_NET_CPUS", "1.0")
 SANDBOX_NET_TIMEOUT_MAX = int(os.getenv("SANDBOX_NET_TIMEOUT_MAX", "300"))
 
-# Lab-exec lane (DEFAULT OFF — production/probe posture unchanged).
-# Set SANDBOX_LAB_EXEC=true ONLY when the *-exec security workspace variants
-# (auto-security purpleteam-exec / pentest) should run live enumeration/PoC against a
-# routable remote lab (the Incalmo/Talon GOAD lab on a separate machine). When
-# enabled this is a SUPERSET of SANDBOX_ALLOW_NETWORK: containers get bridge
-# networking (outbound routable to the lab machine), the attack image replaces
-# the default alpine/python-slim base, the timeout envelope widens, and the
-# LAB_TARGET_* coordinates are injected into the container env so model-emitted
-# commands can reference them. The operator is responsible for IP-level
-# reachability between this host and the lab machine (route / VPN / same LAN).
+# Legacy lab mode is retained only so startup can reject unsafe configurations.
 SANDBOX_LAB_EXEC = os.getenv("SANDBOX_LAB_EXEC", "false").lower() == "true"
 # Attack-capable image for the lab lane. Must contain the tooling the *-exec
 # workspaces invoke (nmap, impacket, netexec, etc.). No default that ships
@@ -177,6 +165,50 @@ def _get_docker_env() -> dict[str, str]:
     return env
 
 
+def _verify_network_isolation() -> None:
+    """Refuse startup unless the daemon accepts an explicitly isolated container."""
+    if SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC:
+        raise RuntimeError("sandbox network isolation forbids network-enabled configuration")
+    container_id = ""
+    try:
+        created = subprocess.run(
+            ["docker", "create", "--network", "none", PYTHON_IMAGE],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=_get_docker_env(),
+            timeout=30,
+        )
+        container_id = created.stdout.strip()
+        if not container_id:
+            raise RuntimeError("sandbox network isolation check returned no container id")
+        inspected = subprocess.run(
+            ["docker", "inspect", "--format", "{{.HostConfig.NetworkMode}}", container_id],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=_get_docker_env(),
+            timeout=30,
+        )
+        if inspected.stdout.strip() != "none":
+            raise RuntimeError("sandbox network isolation check did not apply network=none")
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError("sandbox network isolation check failed") from exc
+    finally:
+        if container_id:
+            try:
+                subprocess.run(
+                    ["docker", "rm", "--force", container_id],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    env=_get_docker_env(),
+                    timeout=30,
+                )
+            except OSError:
+                logger.exception("could not remove sandbox isolation check container")
+
+
 def _resolve_image(default_image: str) -> str:
     """Return the attack image under lab-exec, else the caller's default.
 
@@ -190,8 +222,7 @@ def _resolve_image(default_image: str) -> str:
         return SANDBOX_LAB_IMAGE
     if SANDBOX_LAB_EXEC and not SANDBOX_LAB_IMAGE:
         logger.warning(
-            "SANDBOX_LAB_EXEC=true but SANDBOX_LAB_IMAGE is empty — using "
-            "default image %s with no preinstalled attack tooling",
+            "SANDBOX_LAB_EXEC=true but SANDBOX_LAB_IMAGE is empty — using default image %s",
             default_image,
         )
     return default_image
@@ -279,7 +310,7 @@ async def _install_packages(
         "run",
         "--rm",
         "--network",
-        "bridge",
+        "none",
         "--cpus",
         "1.0",
         "--memory",
@@ -408,13 +439,7 @@ async def _run_in_docker(
     code_file = work_dir / "code"
     code_file.write_text(code, encoding="utf-8")
 
-    # Network + resource envelope. Three postures, locked-down first:
-    #   default            → no network, tight envelope (production/probe-off)
-    #   SANDBOX_ALLOW_NETWORK → bridge + wider envelope (capability-probe pip)
-    #   SANDBOX_LAB_EXEC      → bridge + lab envelope (live *-exec against lab),
-    #                           superset of ALLOW_NETWORK
-    _network_on = SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC
-    _net = "bridge" if _network_on else "none"
+    _network_envelope = SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC
     if SANDBOX_LAB_EXEC:
         _cpus, _mem = SANDBOX_LAB_CPUS, SANDBOX_LAB_MEMORY
     elif SANDBOX_ALLOW_NETWORK:
@@ -427,7 +452,7 @@ async def _run_in_docker(
             "run",
             "--rm",
             "--network",
-            _net,  # "none" by default; "bridge" only under SANDBOX_ALLOW_NETWORK
+            "none",  # Executed user code always runs on Docker's isolated none network.
             "--cpus",
             _cpus,  # 0.5 default; SANDBOX_NET_CPUS when network-enabled
             "--memory",
@@ -486,7 +511,7 @@ async def _run_in_docker(
             "/tmp:size=64m",  # 64MB /tmp
         ]
         + (
-            # pip writes to /root/.local; needs a writable home when network-enabled.
+            # Provide a writable user-site path for locally available Python packages.
             # PYTHONPATH set so user-installed packages are importable immediately
             # (user site isn't in sys.path at startup when the dir doesn't exist yet).
             [
@@ -495,7 +520,7 @@ async def _run_in_docker(
                 "--env",
                 "PYTHONPATH=/root/.local/lib/python3.11/site-packages",
             ]
-            if _network_on
+            if _network_envelope
             else []
         )
         + (
@@ -830,11 +855,9 @@ async def execute_python(
     Execute Python code in an isolated Docker sandbox. To run an existing file,
     call runpy.run_path(path) or exec(open(path).read()); /workspace is readable.
 
-    Security constraints (default posture): no network, 256MB RAM, 0.5 CPU,
+    Security constraints: no network, 256MB RAM, 0.5 CPU,
     30s timeout, read-only filesystem, no Linux capabilities, no privilege
-    escalation, Python standard library only. Widened under SANDBOX_ALLOW_NETWORK
-    (pip/probe) and replaced by the attack-image lab envelope under
-    SANDBOX_LAB_EXEC (live *-exec workspaces against a routable lab).
+    escalation, Python standard library only.
 
     Args:
         code: Python code to execute
@@ -931,11 +954,9 @@ async def execute_bash(
     """
     Execute a Bash script in an isolated Docker sandbox.
 
-    Security constraints (default posture): no network, 256MB RAM, 0.5 CPU,
+    Security constraints: no network, 256MB RAM, 0.5 CPU,
     30s timeout, read-only filesystem, no Linux capabilities, no privilege
-    escalation, common Unix utilities (Alpine-based), no sudo. Widened under
-    SANDBOX_ALLOW_NETWORK and replaced by the attack-image lab envelope under
-    SANDBOX_LAB_EXEC (live *-exec workspaces against a routable lab).
+    escalation, common Unix utilities (Alpine-based), no sudo.
 
     Args:
         code: Bash script to execute
@@ -1031,13 +1052,7 @@ async def sandbox_status() -> dict[str, Any]:
         "ps_image": PS_IMAGE,
         "timeout_seconds": DEFAULT_TIMEOUT,
         "constraints": {
-            # SANDBOX_LAB_EXEC is a superset of SANDBOX_ALLOW_NETWORK (see
-            # _run_in_docker's _network_on) — this field previously omitted
-            # it, so `sandbox_status` reported "disabled" even with a live
-            # lab-exec container (found live during
-            # TASK_SECURITY_ARM_CLOSE_LOOP_V1 Phase 9: /health already had
-            # this right, sandbox_status silently didn't).
-            "network": "bridge" if (SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC) else "disabled",
+            "network": "disabled",
             "memory_mb": 256,
             "cpu_fraction": 0.5,
             "pids_limit": 64,
@@ -1170,4 +1185,5 @@ align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     port = int(os.getenv("SANDBOX_MCP_PORT", "8914"))
+    _verify_network_isolation()
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
