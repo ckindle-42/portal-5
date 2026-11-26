@@ -202,6 +202,7 @@ dev = [
     "mcp>=2.0.0,<3.0.0",  # cap receipt: see the `mcp` extra above
     "promptfoo>=0.1.4",    # PyPI wrapper around the promptfoo Node CLI (dev-only LLM quality evals)
     "duckdb>=1.1",  # hunt R2 suites import it at module level (CI installs .[dev] only)
+    "playwright>=1.50",  # QAT browser layer (tests/qat/browser_ui.py); `playwright install chromium` once per host
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
