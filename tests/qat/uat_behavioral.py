@@ -29,6 +29,8 @@ from .models import DefectClass, QATResult, QATScenario, Status, classify_defect
 from .owui_client import ArtifactDownloadError, OWUIClient, artifact_urls
 
 UAT_PHASE = "human_grade"
+#: Stage 5 must cascade after Stage 4 (tier 200); tier=index collided with Stage 1/2 tiers.
+UAT_TIER_BASE = 300
 #: Committed 2-speaker WAV. Follow-up turns upload this, never a generated file.
 REAL_WAV_FIXTURE = "tests/fixtures/sample_two_speakers.wav"
 GENERATED_DOCX = "uat:upload-generated-docx"
@@ -149,7 +151,7 @@ def build_registry(
             title=case.title,
             stage=5,
             phase=UAT_PHASE,
-            tier=index,
+            tier=UAT_TIER_BASE + index,
             model_slug=case.model_slug,
             kind="uat",
             prompts=case.prompts,
