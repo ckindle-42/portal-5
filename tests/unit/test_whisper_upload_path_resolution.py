@@ -14,8 +14,11 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import os
+import shutil
+import subprocess
 import sys
 import time
+import wave
 from pathlib import Path
 
 import pytest
@@ -59,6 +62,16 @@ def _write_audio(up: Path, name: str, age_s: float = 0.0) -> Path:
     return p
 
 
+def _write_pcm_wav(path: Path, sample_rate: int = 24000) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as audio:
+        audio.setnchannels(1)
+        audio.setsampwidth(2)
+        audio.setframerate(sample_rate)
+        audio.writeframes(b"\0\0" * sample_rate)
+    return path
+
+
 def test_container_workspace_path_resolves_on_host(uploads: Path) -> None:
     _write_audio(uploads, STORED)
     path, name = transcribe._resolve_audio_input(f"/workspace/uploads/{STORED}")
@@ -88,6 +101,102 @@ def test_bare_stored_name_and_original_name_resolve(uploads: Path) -> None:
     assert path == uploads / STORED
     path, _ = transcribe._resolve_audio_input("sample_two_speakers.wav")
     assert path == uploads / STORED
+
+
+def test_generated_speech_download_link_resolves_to_workspace_audio(uploads: Path) -> None:
+    name = "speak_sample.wav"
+    generated = _write_pcm_wav(uploads.parent / "generated" / "speech" / name)
+    link = f"https://portal.example/api/v1/files/published-id/content/{name}"
+
+    for reference in (link, f"[Download audio]({link})"):
+        path, source_name = transcribe._resolve_audio_input(reference)
+        assert path == generated
+        assert source_name == name
+
+
+def test_owui_download_link_resolves_upload_file_id(uploads: Path) -> None:
+    uploaded = _write_audio(uploads, STORED)
+    link = f"https://portal.example/api/v1/files/{UUID}/content/{STORED}"
+
+    path, source_name = transcribe._resolve_audio_input(link)
+
+    assert path == uploaded
+    assert source_name == STORED
+
+
+def test_generated_pcm_wav_keeps_its_observed_sample_rate(
+    monkeypatch: pytest.MonkeyPatch, uploads: Path
+) -> None:
+    generated = _write_pcm_wav(uploads.parent / "generated" / "speech" / "speak_sample.wav")
+    monkeypatch.setattr(shutil, "which", lambda _name: pytest.fail("ffmpeg should not run"))
+
+    with transcribe._decoded_audio_path(str(generated)) as decoded:
+        assert Path(decoded) == generated
+        with wave.open(decoded, "rb") as audio:
+            assert audio.getframerate() == 24000
+            assert audio.getnchannels() == 1
+            assert audio.getsampwidth() == 2
+
+
+def test_unsupported_audio_is_converted_to_pcm_wav(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "generated.webm"
+    source.write_bytes(b"unsupported container")
+    commands: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        commands.append(command)
+        _write_pcm_wav(Path(command[-1]), sample_rate=16000)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    def reject_miniaudio(_path: Path) -> None:
+        raise ValueError("unsupported file format")
+
+    monkeypatch.setattr(transcribe, "_probe_audio_file", reject_miniaudio)
+    monkeypatch.setattr(shutil, "which", lambda _name: "ffmpeg")
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    with transcribe._decoded_audio_path(str(source)) as decoded:
+        assert Path(decoded) != source
+        with wave.open(decoded, "rb") as audio:
+            assert audio.getframerate() == 16000
+            assert audio.getnchannels() == 1
+            assert audio.getsampwidth() == 2
+
+    assert commands[0][0] == "ffmpeg"
+    assert "-i" in commands[0]
+    assert commands[0][commands[0].index("-i") + 1] == str(source)
+    assert commands[0][commands[0].index("-ac") + 1] == "1"
+    assert commands[0][commands[0].index("-ar") + 1] == "16000"
+    assert commands[0][commands[0].index("-c:a") + 1] == "pcm_s16le"
+    assert not Path(decoded).exists()
+
+
+def test_failed_ffmpeg_conversion_reports_actual_decode_cause(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source = tmp_path / "broken.webm"
+    source.write_bytes(b"not media")
+
+    def reject_miniaudio(_path: Path) -> None:
+        raise ValueError("unsupported file format")
+
+    monkeypatch.setattr(transcribe, "_probe_audio_file", reject_miniaudio)
+    monkeypatch.setattr(shutil, "which", lambda _name: "ffmpeg")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda command, **kwargs: subprocess.CompletedProcess(
+            command, 1, "", "Invalid data found when processing input"
+        ),
+    )
+
+    with (
+        pytest.raises(ValueError, match="broken.webm.*Invalid data found"),
+        transcribe._decoded_audio_path(str(source)),
+    ):
+        pass
 
 
 def test_omitted_argument_auto_detects_latest_upload(uploads: Path) -> None:
