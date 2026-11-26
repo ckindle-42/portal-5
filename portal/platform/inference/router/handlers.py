@@ -233,14 +233,13 @@ async def _with_portal_timings(
 ) -> AsyncIterator[bytes]:
     """Add the closing usage guarantee (when requested) and one metadata-only
     timing frame immediately before the SSE terminator."""
-    done = False
-    usage_seen = False
+    seen = {"usage": False, "done": False}
     notice = take_handoff_notice()
     if notice:
         yield _content_chunk("chatcmpl-handoff", "auto", notice)
 
     def _closing_frames() -> Iterator[bytes]:
-        if usage_wanted and not usage_seen:
+        if usage_wanted and not seen["usage"]:
             yield terminal_usage_chunk(None)
         timings = current_portal_timings()
         trace_note(portal_timings=timings)
@@ -254,36 +253,91 @@ async def _with_portal_timings(
 
     source_iter = _stream_with_request_deadline(source, start_time, timeout_s)
     try:
-        async for chunk in source_iter:
-            raw = chunk.encode() if isinstance(chunk, str) else bytes(chunk)
-            if b'"usage"' in raw:
-                usage_seen = True
-            marker = b"data: [DONE]"
-            if marker in raw:
-                before, separator, after = raw.partition(marker)
-                if before:
-                    yield before
-                for frame in _closing_frames():
-                    yield frame
-                yield separator + after
-                done = True
-                break
-            else:
-                yield raw
-    except _TurnDeadlineExceededError:
-        async for frame in _turn_timeout_frames(workspace_id, timeout_s, _closing_frames):
-            yield frame
-        done = True
+        try:
+            async for frame in _forward_stream_until_done(source_iter, _closing_frames, seen):
+                yield frame
+        except _TurnDeadlineExceededError:
+            async for frame in _turn_timeout_frames(workspace_id, timeout_s, _closing_frames):
+                yield frame
+            seen["done"] = True
+        except asyncio.CancelledError:
+            _release_task_cancellation()
+            async for frame in _abandoned_terminal_frames(
+                workspace_id, "client disconnected", _closing_frames, reason="client_disconnect"
+            ):
+                yield frame
+            seen["done"] = True
+        except Exception:
+            logger.warning("stream failed before a terminal frame", exc_info=True)
+            async for frame in _abandoned_terminal_frames(
+                workspace_id, "stream failed", _closing_frames, reason="stream_error"
+            ):
+                yield frame
+            seen["done"] = True
     finally:
         await _close_async_iterator(source_iter)
-    if not done:
+    if not seen["done"]:
         for frame in _closing_frames():
             yield frame
+        yield b"data: [DONE]\n\n"
     finalize_trace()
 
 
 class _TurnDeadlineExceededError(Exception):
     """The response body exceeded its end-to-end request budget."""
+
+
+async def _forward_stream_until_done(
+    source_iter: AsyncIterable[str | bytes | memoryview],
+    closing_frames: Callable[[], Iterator[bytes]],
+    seen: dict[str, bool],
+) -> AsyncIterator[bytes]:
+    """Forward one turn, recording usage and whether ``[DONE]`` was written."""
+    async for chunk in source_iter:
+        raw = chunk.encode() if isinstance(chunk, str) else bytes(chunk)
+        if b'"usage"' in raw:
+            seen["usage"] = True
+        marker = b"data: [DONE]"
+        if marker in raw:
+            before, separator, after = raw.partition(marker)
+            if before:
+                yield before
+            for frame in closing_frames():
+                yield frame
+            yield separator + after
+            seen["done"] = True
+            return
+        yield raw
+
+
+def _release_task_cancellation() -> None:
+    task = asyncio.current_task()
+    if task is None:
+        return
+    while task.cancelling():
+        task.uncancel()
+
+
+async def _abandoned_terminal_frames(
+    workspace_id: str,
+    message: str,
+    closing_frames: Callable[[], Iterator[bytes]],
+    *,
+    reason: str,
+) -> AsyncIterator[bytes]:
+    """Error content, the timing frame, one finish, one ``[DONE]``."""
+    trace_note(outcome="error", turn_end_reason=reason)
+    trace_span("stream.finished", outcome="error", reason=reason)
+    frames = _error_terminal_frames(
+        get_correlation_id() or "chatcmpl-stream-end",
+        workspace_id,
+        message,
+    )
+    for frame in frames[:-1]:
+        yield frame
+    for frame in closing_frames():
+        yield frame
+    yield frames[-1]
 
 
 async def _turn_timeout_frames(

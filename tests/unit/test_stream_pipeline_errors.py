@@ -350,6 +350,95 @@ async def test_turn_deadline_stops_after_backend_terminal_marker(monkeypatch) ->
     assert not deadlines
 
 
+def _silence_trace(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, typing.Any]]:
+    notes: list[dict[str, typing.Any]] = []
+    monkeypatch.setattr(handlers, "trace_note", lambda **fields: notes.append(fields))
+    monkeypatch.setattr(handlers, "trace_span", lambda *_a, **_k: None)
+    monkeypatch.setattr(handlers, "finalize_trace", lambda: None)
+    return notes
+
+
+@pytest.mark.anyio
+async def test_stream_that_ends_without_done_still_terminates(monkeypatch) -> None:
+    """A backend that closes after tokens, the cold-start miss, still ends the SSE."""
+    _silence_trace(monkeypatch)
+
+    async def closed_early() -> typing.AsyncIterator[bytes]:
+        yield b'data: {"choices":[{"delta":{"content":"PONG"}}]}\n\n'
+
+    chunks = await _drain(handlers._with_portal_timings(closed_early(), workspace_id="auto-daily"))
+
+    assert b"PONG" in b"".join(chunks)
+    assert chunks.count(DONE) == 1
+    assert chunks[-1] == DONE
+
+
+@pytest.mark.anyio
+async def test_exception_after_preamble_ends_with_done(monkeypatch) -> None:
+    """A 5xx/reset after the role chunk must not drop the socket without [DONE]."""
+    notes = _silence_trace(monkeypatch)
+
+    async def reset() -> typing.AsyncIterator[bytes]:
+        yield b'data: {"choices":[{"delta":{"role":"assistant","content":""}}]}\n\n'
+        raise RuntimeError("connection reset")
+
+    chunks = await _drain(handlers._with_portal_timings(reset(), workspace_id="auto-daily"))
+
+    _assert_terminal(chunks, "stream failed")
+    assert any(note.get("turn_end_reason") == "stream_error" for note in notes)
+
+
+@pytest.mark.anyio
+async def test_client_disconnect_during_cold_load_ends_with_done(monkeypatch) -> None:
+    """Cancel at the load wait, after the preamble, still writes the terminal frame."""
+    notes = _silence_trace(monkeypatch)
+
+    async def cold_load() -> typing.AsyncIterator[bytes]:
+        yield b'data: {"choices":[{"delta":{"role":"assistant","content":""}}]}\n\n'
+        await asyncio.Event().wait()
+
+    agen = handlers._with_portal_timings(
+        cold_load(), workspace_id="auto-daily", start_time=time.monotonic(), timeout_s=30
+    )
+    chunks: list[bytes] = []
+
+    async def consume() -> None:
+        async for chunk in agen:
+            chunks.append(chunk)
+
+    task = asyncio.create_task(consume())
+    await asyncio.sleep(0.05)
+    task.cancel()
+    await asyncio.wait_for(task, timeout=2)
+
+    _assert_terminal(chunks, "client disconnected")
+    assert any(note.get("turn_end_reason") == "client_disconnect" for note in notes)
+
+
+@pytest.mark.anyio
+async def test_backend_507_through_timings_ends_with_done(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A load-guard refusal is a finished stream, including the timings wrapper."""
+    _silence_trace(monkeypatch)
+    monkeypatch.setattr(st.no_answer, "chat_ui", lambda: False)
+    _serve(
+        stream_client,
+        _Resp([], status=507, body=b'{"error":"cannot load model"}'),
+    )
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            st._stream_from_backend_guarded("http://ollama/v1/chat/completions", {}, "ws", "m"),
+            workspace_id="ws",
+        )
+    )
+
+    assert chunks.count(DONE) == 1
+    assert chunks[-1] == DONE
+    assert b"cannot load model" in b"".join(chunks)
+
+
 @pytest.mark.anyio
 async def test_guarded_stream_without_backend_done_is_not_success(
     stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
