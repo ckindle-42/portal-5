@@ -3452,6 +3452,8 @@ workspaces:
 
   task-router:
     module: eval
+    # Servable by id for OWUI tasks. router false so auto-route never picks this 2k title seat.
+    router: false
     name: Task model (titles, tags, follow-ups)
     description: |-
       Open WebUI task model: chat titles, tags and follow-up suggestions. Runs on the resident intent-router model at the router's own num_ctx 2048 and the pipeline's keep_alive -1, so a task request never loads a second model, evicts the router, or queues behind a 96K General chat. Long inputs are tail-truncated by the engine, which is fine for a title.
