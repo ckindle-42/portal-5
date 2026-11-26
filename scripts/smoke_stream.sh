@@ -20,7 +20,8 @@
 
 PIPE="${PIPE:-http://localhost:9099}"
 API_KEY="${PIPELINE_API_KEY:-portal-pipeline}"
-TIMEOUT="${SMOKE_STREAM_TIMEOUT:-30}"
+# Let the server's 900s stream ceiling end cold-load requests before curl closes.
+TIMEOUT="${SMOKE_STREAM_TIMEOUT:-930}"
 
 # Load .env if API_KEY is still the default placeholder
 if [ "$API_KEY" = "portal-pipeline" ] && [ -f "$(dirname "$0")/../.env" ]; then
