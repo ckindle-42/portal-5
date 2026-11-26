@@ -177,7 +177,7 @@ case "${1:-up}" in
     # is the depends_on container. Retired personas are printed by the seeder.
     if docker compose ps open-webui 2>/dev/null | grep -q "(healthy)"; then
         echo "[portal-5] Syncing Portal presets to the repo..."
-        docker compose run --rm openwebui-init >/dev/null 2>&1 &
+        docker compose run --rm openwebui-init &
     fi
 
     # Pruning is one step: the sandbox images are ensured first (a manual prune
