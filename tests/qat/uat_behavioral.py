@@ -214,7 +214,8 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 ),
                 "route_security_handoff",
                 {
-                    "targets": [security],
+                    # s5-route-tls-firewall follows router:false with fallback and selection note.
+                    "targets": ["auto-daily"],
                     "handoff_target": security,
                     "handoff_name": security_workspace.name if security_workspace else security,
                 },

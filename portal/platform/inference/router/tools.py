@@ -32,6 +32,7 @@ from portal.platform.inference.router.trace import note as trace_note
 from portal.platform.inference.router.trace import (
     span as trace_span,
 )
+from portal.platform.inference.router.user_text import own_user_text as _own_user_text
 
 logger = logging.getLogger(__name__)
 
@@ -159,39 +160,6 @@ def _unwrap_tool_name_envelope(arguments: dict[str, Any]) -> dict[str, Any]:
     if set(arguments) <= {"tool_name", "parameters"} and isinstance(params, dict):
         return params
     return arguments
-
-
-def _last_user_content(messages: list[dict[str, Any]]) -> str:
-    """Return the last user turn as plain text, including multimodal text parts."""
-    for message in reversed(messages):
-        if message.get("role") != "user":
-            continue
-        content = message.get("content", "")
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            return " ".join(
-                str(part.get("text", ""))
-                for part in content
-                if isinstance(part, dict) and part.get("type") == "text"
-            )
-        return str(content)
-    return ""
-
-
-# preinject._attachment_notes appends "[Attached file — id: …, name: …, type: …(, path: …)]" notes.
-_ATTACHED_NOTE_RE = re.compile(r"\[Attached file — id: .*?, name: .*?, type: .*?(?:, path: .*?)?\]")
-
-
-def _own_user_text(messages: list[dict[str, Any]]) -> str:
-    """The last user turn's own words, minus OWUI's RAG wrapper and attachment notes."""
-    text = _last_user_content(messages)
-    # OWUI prepends the rendered rag_template on attachment turns; judge the request, not the excerpts.
-    if text.lstrip().startswith("### Task:") and "provided context" in text:
-        close = text.rfind("</context>")
-        if close != -1:
-            text = text[close + len("</context>") :].strip()
-    return _ATTACHED_NOTE_RE.sub("", text).strip()
 
 
 _FOLLOWUP_PRODUCE_RE = re.compile(

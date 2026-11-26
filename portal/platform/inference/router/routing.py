@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from portal.platform.inference.router.power import (
     INTERNAL_ROUTER_WORKSPACE,
     INTERNAL_WARMUP_WORKSPACE,
 )
+from portal.platform.inference.router.user_text import own_user_text as _last_user_text
 from portal.platform.inference.router.workspaces import WORKSPACES
 
 
@@ -360,30 +362,6 @@ for _ws_id, _ws_cfg in _WORKSPACE_ROUTING.items():
     _KEYWORD_CACHE[_ws_id] = {kw.lower(): weight for kw, weight in _ws_cfg["keywords"].items()}
 
 
-def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
-    """Extract the text content of the last user message, truncated to ``limit`` chars.
-
-    Handles both string-content messages (the common case) and
-    list-content messages (OpenAI-style content arrays with text parts).
-    Non-string, non-list content is coerced via ``str()``.
-    """
-    for msg in reversed(messages):
-        if msg.get("role") != "user":
-            continue
-        content = msg.get("content", "")
-        if isinstance(content, str):
-            return content[:limit]
-        if isinstance(content, list):
-            parts = [
-                p.get("text", "")
-                for p in content
-                if isinstance(p, dict) and p.get("type") == "text"
-            ]
-            return " ".join(parts)[:limit]
-        return str(content)[:limit]
-    return ""
-
-
 # ── LLM-Based Intent Router (P5-FUT-006) ─────────────────────────────────────
 # Falls back to keyword scoring (Layer 2) on low confidence or timeout.
 # Default model: gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M (~82% acc).
@@ -709,35 +687,55 @@ _ROUTER_HANDOFF_KEYWORDS: dict[str, dict[str, int]] = {
 }
 
 
-def detect_router_handoff(messages: list[dict[str, Any]]) -> str | None:
-    """The lane to hand an `auto` request to when it is a `router: false`
-    workspace's work, else ``None``.
+_FIREWALL_CONFIG_HANDOFF_NOUNS = frozenset(
+    {
+        "security",
+        "tls",
+        "ssl",
+        "firewall",
+        "firewall rule",
+        "firewall rules",
+        "certificate",
+        "certificate chain",
+        "sni",
+        "security rule",
+        "security rules",
+        "ingress",
+        "hardening",
+    }
+)
 
-    Runs ahead of Layer 1, mirroring ``detect_harmful_intent``. The global
-    router cannot name such a workspace at all, so without this gate the
-    request would scatter to whichever remaining lane scored next-best and be
-    answered there. The fallback lane declines and names the workspace to
-    select (``router_handoff_note``).
-    """
-    text = _last_user_text(messages, 2000).lower()
-    if not text:
-        return None
+
+def _router_handoff_candidate(
+    text: str, ignored_keywords: frozenset[str] = frozenset()
+) -> tuple[int, str] | None:
     best: tuple[int, str] | None = None
     for ws_id, keywords in _ROUTER_HANDOFF_KEYWORDS.items():
         if ws_id not in _ROUTER_EXCLUDED:
             continue
-        score = sum(weight for kw, weight in keywords.items() if kw in text)
+        score = sum(
+            weight for kw, weight in keywords.items() if kw in text and kw not in ignored_keywords
+        )
         if score >= _ROUTER_HANDOFF_THRESHOLD and (best is None or score > best[0]):
             best = (score, ws_id)
-    if best is None:
-        return None
-    lane = _ROUTER_FALLBACK.get(best[1]) or _HARMFUL_INTENT_LANE
+    return best if best is not None and best[0] >= _ROUTER_HANDOFF_THRESHOLD else None
+
+
+def _handoff_lane(workspace_id: str) -> str:
+    lane = _ROUTER_FALLBACK.get(workspace_id) or _HARMFUL_INTENT_LANE
     logger.info(
         "Auto-routing: '%s' is operator-selected only (router: false) — handing off to '%s'.",
-        best[1],
+        workspace_id,
         lane,
     )
     return lane
+
+
+def detect_router_handoff(messages: list[dict[str, Any]]) -> str | None:
+    """Return the configured fallback when the user's own text claims a barred lane."""
+    text = _last_user_text(messages, 2000).lower()
+    claim = _claim_pre_layer_text(text) if text else None
+    return claim[1] if claim and claim[0] == "router_handoff_gate" else None
 
 
 def _reasoning_math_lane() -> str:
@@ -750,32 +748,72 @@ def _reasoning_math_lane() -> str:
     return "auto-reasoning"
 
 
-def detect_specialist_intent(messages: list[dict[str, Any]]) -> str | None:
-    """Route unmistakable Kubernetes code and calculus turns deterministically.
+_FIREWALL_ACTION_RE = re.compile(
+    r"\b(?:configure|write|create|add|update|set|apply|generate|edit|implement)\b"
+)
+_FIREWALL_OBJECT_RE = re.compile(r"\bfirewall\s+(?:rules?|config(?:uration)?|polic(?:y|ies))\b")
 
-    Calculus turns promote to ``auto-reasoning::math`` (when that variant is
-    declared and its module enabled) instead of dropping the variant.
-    """
-    text = _last_user_text(messages, 2000).lower()
-    if not text:
-        return None
+
+def _is_firewall_config_intent(text: str) -> bool:
+    return bool(_FIREWALL_ACTION_RE.search(text) and _FIREWALL_OBJECT_RE.search(text))
+
+
+def _specialist_intent_candidate(text: str) -> tuple[int, str] | None:
+    candidates: list[tuple[int, str]] = []
     kubernetes = "kubernetes" in text or "k8s" in text
     if kubernetes and any(
         term in text for term in ("rbac", "rolebinding", "role binding", "yaml", "manifest")
     ):
-        return "auto-coding"
+        candidates.append(
+            (
+                sum(
+                    weight
+                    for keyword, weight in _KEYWORD_CACHE["auto-coding"].items()
+                    if keyword in text
+                ),
+                "auto-coding",
+            )
+        )
+    if _is_firewall_config_intent(text):
+        candidates.append((8, "auto-coding"))
     if any(term in text for term in _MATH_ROUTING_KEYWORDS):
-        return _reasoning_math_lane()
+        score = sum(weight for keyword, weight in _MATH_ROUTING_KEYWORDS.items() if keyword in text)
+        candidates.append((score, _reasoning_math_lane()))
+    return max(candidates, default=None, key=lambda candidate: candidate[0])
+
+
+def detect_specialist_intent(messages: list[dict[str, Any]]) -> str | None:
+    """Return a deterministic coding or calculus specialist claim for this turn."""
+    text = _last_user_text(messages, 2000).lower()
+    candidate = _specialist_intent_candidate(text) if text else None
+    return candidate[1] if candidate else None
+
+
+def _keyword_score(scorer_id: str, text: str) -> int:
+    return sum(
+        weight for keyword, weight in _KEYWORD_CACHE.get(scorer_id, {}).items() if keyword in text
+    )
+
+
+def _claim_pre_layer_text(text: str) -> tuple[str, str] | None:
+    specialist = _specialist_intent_candidate(text)
+    firewall_config = _is_firewall_config_intent(text)
+    handoff = _router_handoff_candidate(
+        text,
+        _FIREWALL_CONFIG_HANDOFF_NOUNS if firewall_config else frozenset(),
+    )
+    specialist_score = specialist[0] if specialist else 0
+    if handoff and (firewall_config or handoff[0] > specialist_score):
+        return "router_handoff_gate", _handoff_lane(handoff[1])
+    if specialist:
+        return "deterministic_intent", specialist[1]
     return None
 
 
 def claim_pre_layer(messages: list[dict[str, Any]]) -> tuple[str, str] | None:
-    """(metric layer, workspace) claimed before Layer 1: handoff, then specialist intent."""
-    if handoff := detect_router_handoff(messages):
-        return "router_handoff_gate", handoff
-    if specialist := detect_specialist_intent(messages):
-        return "deterministic_intent", specialist
-    return None
+    """Resolve a security hand-off against explicit specialist claims for this turn."""
+    text = _last_user_text(messages, 2000).lower()
+    return _claim_pre_layer_text(text) if text else None
 
 
 def _infer_variant(base: str, message: str) -> str:
@@ -1102,8 +1140,8 @@ def _detect_workspace(messages: list[dict[str, Any]]) -> str | None:
 
     # P7-PERF: Use pre-compiled keyword cache for faster scoring
     scores: dict[str, int] = {}
-    for workspace_id, keywords in _KEYWORD_CACHE.items():
-        score = sum(weight for kw, weight in keywords.items() if kw in last_user_content)
+    for workspace_id in _KEYWORD_CACHE:
+        score = _keyword_score(workspace_id, last_user_content)
         threshold = _WORKSPACE_ROUTING[workspace_id]["threshold"]
         if score >= threshold:
             scores[workspace_id] = score

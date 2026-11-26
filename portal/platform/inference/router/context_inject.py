@@ -29,6 +29,7 @@ from portal.platform.inference.router.metrics import (
 )
 from portal.platform.inference.router.preinject import append_text_to_content
 from portal.platform.inference.router.trace import note as trace_note
+from portal.platform.inference.router.user_text import is_owui_task_prompt, own_user_text
 from portal.platform.inference.router.workspaces import WORKSPACES
 from portal.platform.inference.tool_registry import tool_registry
 
@@ -69,26 +70,11 @@ _writeback_tasks: set[asyncio.Task[Any]] = set()
 
 
 def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
-    for m in reversed(messages or []):
-        if isinstance(m, dict) and m.get("role") == "user":
-            c = m.get("content")
-            if isinstance(c, str):
-                return c[:limit]
-            if isinstance(c, list):  # OpenAI multimodal content parts
-                for part in c:
-                    if isinstance(part, dict) and part.get("type") == "text":
-                        return str(part.get("text", ""))[:limit]
-    return ""
+    return own_user_text(messages, limit)
 
 
 def _is_owui_task_prompt(messages: list[dict[str, Any]]) -> bool:
-    """OWUI's background tasks (title, tags, follow-ups, ...) arrive as ordinary
-    chat requests whose user turn is a ``### Task:`` template wrapping the chat
-    history. They are not user statements: a history containing "remember that"
-    matched the write-back markers and stored the whole template as a memory,
-    which recall then injected into later conversations."""
-    text = _last_user_text(messages, 4000).lstrip()
-    return text.startswith("### Task:") and "<chat_history>" in text
+    return is_owui_task_prompt(messages)
 
 
 def _extract_snippets(result: dict[str, Any]) -> list[str]:

@@ -305,33 +305,32 @@ def test_security_route_checks_allowed_destination_and_manual_handoff() -> None:
     )
     allowed = case.expected["targets"]
     assert case.grader == "route_security_handoff"
-    assert allowed == ["auto-security"]
+    assert allowed == ["auto-daily"]
 
     turns = [
         _turn(
             "For security analysis, select the auto-security workspace, Portal Security Analyst.",
-            "auto-security",
+            "auto-daily",
         ),
-        _turn("Check SNI and the firewall path before changing either.", "auto-security"),
+        _turn("Check SNI and the firewall path before changing either.", "auto-daily"),
     ]
     assert uat.grade_case(case, turns, {})[0] == []
-    turns[0] = _turn("Check the certificate chain and subnet route.", "auto-security")
+    turns[0] = _turn("Check the certificate chain and subnet route.", "auto-daily")
     assert any("select auto-security" in error for error in uat.grade_case(case, turns, {})[0])
     turns[0] = _turn(
         "Select a safe diagnostic and mention the auto-security workspace separately.",
-        "auto-security",
-    )
-    assert any("select auto-security" in error for error in uat.grade_case(case, turns, {})[0])
-    turns[0] = _turn("Select the auto-security workspace for security analysis.", "auto-security")
-    assert uat.grade_case(case, turns, {})[0] == []
-    # the diagnosis itself must resolve to the security workspace, not a general one
-    turns[0] = _turn(
-        "For security analysis, select the auto-security workspace, Portal Security Analyst.",
         "auto-daily",
     )
+    assert any("select auto-security" in error for error in uat.grade_case(case, turns, {})[0])
+    turns[0] = _turn("Select the auto-security workspace for security analysis.", "auto-daily")
+    assert uat.grade_case(case, turns, {})[0] == []
+    # router:false means the auto request resolves to the fallback lane.
+    turns[0] = _turn(
+        "For security analysis, select the auto-security workspace, Portal Security Analyst.",
+        "auto-security",
+    )
     assert any(
-        "turn 1 expected route auto-security" in error
-        for error in uat.grade_case(case, turns, {})[0]
+        "turn 1 expected route auto-daily" in error for error in uat.grade_case(case, turns, {})[0]
     )
     turns[1] = _turn("Follow-up", "auto-coding")
     assert any("expected route" in error for error in uat.grade_case(case, turns, {})[0])
@@ -346,9 +345,9 @@ def test_security_handoff_strips_markdown_and_leading_emoji() -> None:
     turns = [
         _turn(
             "Please select the **🔒 Portal Security Analyst** workspace from the list and re‑send your request.",
-            "auto-security",
+            "auto-daily",
         ),
-        _turn("Check SNI and the firewall path before changing either.", "auto-security"),
+        _turn("Check SNI and the firewall path before changing either.", "auto-daily"),
     ]
     assert uat.grade_case(case, turns, {})[0] == []
 
