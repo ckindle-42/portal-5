@@ -13,6 +13,7 @@ import hashlib
 import logging
 import os
 import re
+from collections import OrderedDict
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any
@@ -37,6 +38,8 @@ _AUTO_DEFAULT_LANE: str = os.environ.get("AUTO_DEFAULT_LANE", "auto-daily")
 # User-visible redirect for this turn. The system note is not the redirect:
 # a fallback model can ignore it, and the reply must still name the workspace.
 _handoff_notice: ContextVar[str] = ContextVar("portal_handoff_notice", default="")
+_ROUTER_CLASSIFICATION_CACHE: OrderedDict[str, tuple[str, str | None]] = OrderedDict()
+_ROUTER_CLASSIFICATION_CACHE_LIMIT = 512
 
 
 def _note_auto_route(
@@ -271,19 +274,78 @@ def _append_handoff_note(messages: list[dict[str, Any]], lane: str) -> None:
     _handoff_notice.set(handoff_user_notice(lane))
 
 
+def _specialist_user_notice(workspace_id: str) -> str:
+    workspace_base = workspace_id.split("::", 1)[0]
+    display = str(WORKSPACES.get(workspace_base, {}).get("name") or workspace_base).strip()
+    return f"This looks like specialist work; consider {display} ({workspace_id}) for this request.\n\n"
+
+
+async def _route_with_chat_cache(
+    routing_messages: list[dict[str, Any]], chat_id: Any
+) -> str | None:
+    if not isinstance(chat_id, str) or not chat_id:
+        return await _route_with_llm(routing_messages)
+    current_text = own_user_text(routing_messages)
+    digest = hashlib.sha256(current_text.encode("utf-8")).hexdigest()
+    cached = _ROUTER_CLASSIFICATION_CACHE.get(chat_id)
+    if cached is not None and cached[0] == digest:
+        _ROUTER_CLASSIFICATION_CACHE.move_to_end(chat_id)
+        return cached[1]
+    detected = await _route_with_llm(routing_messages)
+    _ROUTER_CLASSIFICATION_CACHE[chat_id] = (digest, detected)
+    _ROUTER_CLASSIFICATION_CACHE.move_to_end(chat_id)
+    if len(_ROUTER_CLASSIFICATION_CACHE) > _ROUTER_CLASSIFICATION_CACHE_LIMIT:
+        _ROUTER_CLASSIFICATION_CACHE.popitem(last=False)
+    return detected
+
+
+async def _suggest_specialist_workspace(
+    workspace_id: str,
+    messages: list[dict[str, Any]],
+    *,
+    current_turn_text: str | None,
+    chat_id: Any,
+) -> None:
+    workspace_base = workspace_id.split("::", 1)[0]
+    if WORKSPACES.get(workspace_base, {}).get("module") != "general":
+        return
+    observed_text = own_user_text(messages)
+    if current_turn_text is None:
+        current_turn_text = strip_owui_memory_context(observed_text)
+    if not current_turn_text.strip():
+        return
+    routing_messages = [{"role": "user", "content": current_turn_text}]
+    detected = await _route_with_chat_cache(routing_messages, chat_id)
+    if not detected:
+        return
+    detected_base = detected.split("::", 1)[0]
+    if detected_base == workspace_base:
+        return
+    if WORKSPACES.get(detected_base, {}).get("module") == "general":
+        return
+    _handoff_notice.set(_specialist_user_notice(detected))
+
+
 async def _resolve_auto_routing(
     workspace_id: str,
     messages: list[dict[str, Any]],
     *,
     current_turn_text: str | None = None,
+    chat_id: Any = None,
 ) -> str:
     """Run LLM-based and keyword-based auto-routing when workspace_id is 'auto'.
 
-    When workspace_id is not 'auto', returns it unchanged. Otherwise attempts
-    Layer 1 LLM intent classification, falling back to Layer 2 keyword scoring.
+    Explicit general workspaces get an optional specialist suggestion. Auto
+    workspaces use Layer 1 classification with keyword fallback.
     Returns the detected workspace_id, or 'auto' if no workspace was detected.
     """
     if workspace_id != "auto":
+        await _suggest_specialist_workspace(
+            workspace_id,
+            messages,
+            current_turn_text=current_turn_text,
+            chat_id=chat_id,
+        )
         return workspace_id
     observed_text = own_user_text(messages)
     if current_turn_text is None:
@@ -334,7 +396,7 @@ async def _resolve_auto_routing(
         _router_layer_total.labels(layer=layer, workspace=dest).inc()
         return dest
     # LLM router first — semantic intent, ~100ms, falls back on timeout/low confidence
-    detected = await _route_with_llm(routing_messages)
+    detected = await _route_with_chat_cache(routing_messages, chat_id)
     if detected:
         _note_auto_route(routing_messages, "llm_router", detected, memory_chars_excluded)
         logger.info("Auto-routing (LLM): detected workspace '%s' from message content", detected)

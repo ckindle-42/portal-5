@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import time
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,19 @@ def _load_data(name: str) -> Any:
 
 
 logger = logging.getLogger(__name__)
+
+
+@cache
+def _keyword_pattern(keyword: str) -> re.Pattern[str]:
+    escaped = re.escape(keyword)
+    if keyword.split()[-1] == "test":
+        escaped += r"(?:s|ing)?"
+    return re.compile(rf"(?<!\w){escaped}(?!\w)", re.IGNORECASE)
+
+
+def _keyword_matches(text: str, keyword: str) -> bool:
+    return _keyword_pattern(keyword).search(text) is not None
+
 
 # Shared httpx client — set by lifespan in router_pipe after startup.
 # None until lifespan runs; _route_with_llm checks and degrades gracefully.
@@ -117,7 +131,7 @@ _HARMFUL_INTENT_KW_CACHE: dict[str, int] = {
 def detect_harmful_intent(messages: list[dict[str, Any]]) -> bool:
     """True when the last user message trips the harmful-intent keyword gate.
 
-    Weighted substring scoring over the lowercased last user message, same
+    Weighted whole-token scoring over the last user message, same
     mechanism as ``_detect_workspace``. Conservative by design: a false
     positive only means the request is handled by the standard lane instead
     of an abliterated one, which is cheap; a false negative is the failure
@@ -126,7 +140,7 @@ def detect_harmful_intent(messages: list[dict[str, Any]]) -> bool:
     text = _last_user_text(messages, 2000).lower()
     if not text:
         return False
-    score = sum(w for kw, w in _HARMFUL_INTENT_KW_CACHE.items() if kw in text)
+    score = sum(w for kw, w in _HARMFUL_INTENT_KW_CACHE.items() if _keyword_matches(text, kw))
     return score >= _HARMFUL_INTENT_THRESHOLD
 
 
@@ -715,7 +729,9 @@ def _router_handoff_candidate(
         if ws_id not in _ROUTER_EXCLUDED:
             continue
         score = sum(
-            weight for kw, weight in keywords.items() if kw in text and kw not in ignored_keywords
+            weight
+            for kw, weight in keywords.items()
+            if _keyword_matches(text, kw) and kw not in ignored_keywords
         )
         if score >= _ROUTER_HANDOFF_THRESHOLD and (best is None or score > best[0]):
             best = (score, ws_id)
@@ -761,24 +777,29 @@ def _is_firewall_config_intent(text: str) -> bool:
 
 def _specialist_intent_candidate(text: str) -> tuple[int, str] | None:
     candidates: list[tuple[int, str]] = []
-    kubernetes = "kubernetes" in text or "k8s" in text
+    kubernetes = _keyword_matches(text, "kubernetes") or _keyword_matches(text, "k8s")
     if kubernetes and any(
-        term in text for term in ("rbac", "rolebinding", "role binding", "yaml", "manifest")
+        _keyword_matches(text, term)
+        for term in ("rbac", "rolebinding", "role binding", "yaml", "manifest")
     ):
         candidates.append(
             (
                 sum(
                     weight
                     for keyword, weight in _KEYWORD_CACHE["auto-coding"].items()
-                    if keyword in text
+                    if _keyword_matches(text, keyword)
                 ),
                 "auto-coding",
             )
         )
     if _is_firewall_config_intent(text):
         candidates.append((8, "auto-coding"))
-    if any(term in text for term in _MATH_ROUTING_KEYWORDS):
-        score = sum(weight for keyword, weight in _MATH_ROUTING_KEYWORDS.items() if keyword in text)
+    if any(_keyword_matches(text, term) for term in _MATH_ROUTING_KEYWORDS):
+        score = sum(
+            weight
+            for keyword, weight in _MATH_ROUTING_KEYWORDS.items()
+            if _keyword_matches(text, keyword)
+        )
         candidates.append((score, _reasoning_math_lane()))
     return max(candidates, default=None, key=lambda candidate: candidate[0])
 
@@ -792,7 +813,9 @@ def detect_specialist_intent(messages: list[dict[str, Any]]) -> str | None:
 
 def _keyword_score(scorer_id: str, text: str) -> int:
     return sum(
-        weight for keyword, weight in _KEYWORD_CACHE.get(scorer_id, {}).items() if keyword in text
+        weight
+        for keyword, weight in _KEYWORD_CACHE.get(scorer_id, {}).items()
+        if _keyword_matches(text, keyword)
     )
 
 
@@ -857,7 +880,8 @@ def auto_routing_matches(
     return [
         {"keyword": keyword, "weight": weight}
         for keyword, weight in keywords.items()
-        if keyword in text and (scorer != "router_handoff_gate" or keyword not in ignored)
+        if _keyword_matches(text, keyword)
+        and (scorer != "router_handoff_gate" or keyword not in ignored)
     ]
 
 
@@ -879,7 +903,7 @@ def _infer_variant(base: str, message: str) -> str:
         variant: score
         for variant, keywords in signal_table.items()
         if f"{base}::{variant}" not in _ROUTER_EXCLUDED_VARIANTS
-        if (score := sum(w for kw, w in keywords.items() if kw in text))
+        if (score := sum(w for kw, w in keywords.items() if _keyword_matches(text, kw)))
         >= _VARIANT_INFERENCE_THRESHOLD
     }
     if not scores:

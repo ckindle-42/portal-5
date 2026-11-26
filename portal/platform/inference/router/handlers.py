@@ -934,6 +934,7 @@ async def _resolve_request_route(
         workspace_id,
         _route_body.get("messages", []),
         current_turn_text=current_turn_text,
+        **({"chat_id": body["chat_id"]} if isinstance(body.get("chat_id"), str) else {}),
     )
 
     # Phase 4: auto-vision text-only fallback — reroute to auto-reasoning when
