@@ -1083,7 +1083,7 @@ class LoadGuard:
             if st is None or st.get("final_ceiling") is None:
                 return self._cached_host_free()
             headroom = _budget_bytes(st) - float(st.get("current_model_memory") or 0)
-            omlx_idle = self._omlx_idle_bytes(st)
+            omlx_idle = self._omlx_idle_bytes(st, failover=True)
             if omlx_idle > 0 and await self._omlx_foreign_active(client):
                 omlx_idle = 0.0
             try:
@@ -2946,7 +2946,7 @@ class LoadGuard:
                 )
             idle_ollama = self._ollama_reclaimable(resident, exclude=names)
             try:
-                _, idle = await self._omlx_idle_models(client, exclude=names)
+                _, idle = await self._omlx_idle_models(client, exclude=names, last_resort=True)
             except Exception:
                 idle = []
             freeable_omlx = float(
@@ -2996,7 +2996,7 @@ class LoadGuard:
             )
             idle_ollama = self._ollama_reclaimable(resident)
             try:
-                _, idle_models = await self._omlx_idle_models(client)
+                _, idle_models = await self._omlx_idle_models(client, last_resort=True)
             except Exception:
                 idle_models = []
             freeable_omlx = float(

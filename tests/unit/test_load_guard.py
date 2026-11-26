@@ -1415,6 +1415,25 @@ async def test_the_headroom_math_counts_idle_shields_of_both_kinds():
     end()
 
 
+async def test_host_free_bytes_counts_idle_shields_on_both_engines():
+    """Property 2's other half: an idle failover-protected oMLX resident is
+    reclaimable memory too, on both engines."""
+    e = Engines(
+        ollama={QWEN_GGUF: int(17.5 * GIB)},
+        omlx={"mlx-shield": {"size": 20 * GIB, "loaded": True}},
+        ceiling=int(50 * GIB),
+        omlx_memory=int(20 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OLLAMA, QWEN_GGUF, failover=True)
+    g.protect(lg.OMLX, "mlx-shield", failover=True)
+
+    # 30 GiB headroom + 17.5 GiB Ollama shield + 20 GiB oMLX shield
+    actual = await _REAL_HOST_FREE_BYTES(g, OLLAMA_URL)
+    assert actual is not None
+    assert actual == 30 * GIB + int(17.5 * GIB) + 20 * GIB
+
+
 async def test_the_shield_refusal_message_reports_the_real_idle_bytes():
     g = lg.LoadGuard(omlx_url=lambda: None, pinned=lambda: "")
     resident = {QWEN_GGUF: int(17.5 * GIB)}

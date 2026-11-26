@@ -798,7 +798,7 @@ async def test_auto_security_omlx_stream_error_falls_back_through_ollama_alias(m
         models=[gguf],
         aliases={hint: gguf},
     )
-    calls: list[tuple[str, str | None]] = []
+    calls: list[tuple[str, str | None, bool | None]] = []
 
     async def failed_stream(*_args, **_kwargs):
         yield b'data: {"error": "Backend returned HTTP 503: unavailable", "status": 503}\n\n'
@@ -808,7 +808,7 @@ async def test_auto_security_omlx_stream_error_falls_back_through_ollama_alias(m
 
     async def fallback(backend, _body, *_args, **_kwargs):
         resolved = backend.resolve_model(hint)
-        calls.append((backend.id, resolved))
+        calls.append((backend.id, resolved, _kwargs.get("enforce_hint")))
         return JSONResponse(
             {"choices": [{"message": {"role": "assistant", "content": "rescued"}}]},
             headers={"x-portal-route": f"auto-security;{backend.id};{resolved}"},
@@ -837,7 +837,7 @@ async def test_auto_security_omlx_stream_error_falls_back_through_ollama_alias(m
         )
     )
 
-    assert calls == [("ollama-security", gguf)]
+    assert calls == [("ollama-security", gguf, True)]
     assert _content(chunks) == "rescued"
 
 
@@ -1034,6 +1034,36 @@ async def test_no_wrong_model_substitution_after_hint_failed(monkeypatch, ns_env
         other, {"messages": []}, ns_env, 0.0, enforce_hint=False, tried=tried
     )
     assert result is None and client.posts == ["m"]
+
+
+@pytest.mark.anyio
+async def test_non_streaming_dispatch_does_not_use_an_unrelated_last_backend(
+    monkeypatch, ns_env
+) -> None:
+    """A known seat with no healthy alias must end in an error, not another seat's model."""
+    from fastapi import HTTPException
+
+    import portal.platform.inference.router.handlers as handlers
+
+    client = _set_client(
+        monkeypatch,
+        httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "wrong seat"}}]},
+        ),
+    )
+    candidates = [
+        _backend("omlx-seat", url="http://omlx", models=["other-seat"]),
+        _backend("ollama-creative", url="http://creative", models=["gaston"]),
+    ]
+    monkeypatch.setattr(handlers, "_try_non_streaming", ns._try_non_streaming)
+    monkeypatch.setattr(handlers.no_answer, "chat_ui", lambda: False)
+
+    with pytest.raises(HTTPException) as exc:
+        await handlers._dispatch_non_streaming(candidates, {"messages": []}, ns_env, "", False, 0.0)
+
+    assert exc.value.status_code == 502
+    assert client.posts == []
 
 
 @pytest.mark.anyio

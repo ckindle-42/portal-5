@@ -3339,7 +3339,7 @@ async def _stream_with_fallback(
                         fallback_body,
                         workspace_id,
                         start_time,
-                        enforce_hint=not fb_last,
+                        enforce_hint=True,
                         persona=persona,
                         tried=tried,
                         max_hops=_tool_hop_limit(workspace_id, MAX_TOOL_HOPS),

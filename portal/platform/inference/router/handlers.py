@@ -1112,9 +1112,9 @@ async def _dispatch_non_streaming(
 ) -> JSONResponse:
     """Iterate healthy candidates and return the first successful non-streaming response.
 
-    Tries each backend in priority order via ``_try_non_streaming``; the model
-    hint is enforced (skip backends without the hinted model) for all but the
-    last candidate, where any model is accepted. Applies the workspace's
+    Tries each backend in priority order via ``_try_non_streaming``; a declared
+    model hint stays enforced across the chain, with backend aliases resolving
+    the seat's own fallback. Applies the workspace's
     ``chain`` when configured. An oMLX capacity refusal falls through to the
     remaining candidates and is reported (HTTP 400, with the prompt estimate)
     only when none of them can serve the request; otherwise every candidate
@@ -1150,7 +1150,7 @@ async def _dispatch_non_streaming(
                 body,
                 workspace_id,
                 start_time,
-                enforce_hint=(not is_last),
+                enforce_hint=True,
                 persona=persona,
                 tried=tried,
                 **({"max_hops": configured_hops} if configured_hops is not None else {}),
@@ -1268,8 +1268,8 @@ async def chat_completions(
         set_prompt_estimate(body)
 
         if not stream:
-            # Non-streaming: try each backend until one succeeds; enforce the
-            # model hint except on the last candidate. A client disconnect
+            # Non-streaming: try each backend until one succeeds; keep the
+            # model hint enforced through the last candidate. A client disconnect
             # cancels the work (W3.1).
             async def _non_streaming() -> Any:
                 council_resp = await _dispatch_council(
