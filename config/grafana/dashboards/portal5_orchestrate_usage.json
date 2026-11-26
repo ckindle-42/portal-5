@@ -322,7 +322,7 @@
       "id": 17,
       "type": "table",
       "title": "Plan Headroom & Burn Pace",
-      "description": "One row per plan window that publishes a quota \u2014 every plan, Gemini Pro's five pools included. Headroom left % is the vendor's own reading (red under 15, amber under 35). Pace vs even (pp) is headroom minus the share of the window already elapsed: negative is a pool burning ahead of even pace that empties before it resets, positive is spare. Projected waste % is what the burn model expects to reset unused (blank where untracked). Sorted tightest-first: the top row is the pool to move work off. Rolling windows with no fixed reset (Claude Pro 5h) publish no pace or reset time.",
+      "description": "One row per plan window that publishes a quota \u2014 every plan, Gemini Pro's five pools included. Headroom left % is the vendor's own reading (red under 15, amber under 35). Pace vs even reads orchestrate_pool_pace_delta_pp (elapsed percent minus used percent; positive means behind an even burn) as words: '12 pp behind' in green, 'ahead 5 pp' in red, 'on pace' at zero. Projected waste % is what the burn model expects to reset unused (blank where untracked). Sorted tightest-first: the top row is the pool to move work off. Rolling windows with no fixed reset (Claude Pro 5h) publish no pace or reset time.",
       "gridPos": {
         "x": 0,
         "y": 5,
@@ -344,7 +344,7 @@
         },
         {
           "refId": "PACE",
-          "expr": "100 * orchestrate_quota_remaining / orchestrate_quota_limit - 100 * (orchestrate_quota_reset_timestamp - time()) / 3600 / ((orchestrate_quota_limit{window=~\"gemini-5h|3p-5h|5h\"} * 0 + 5) or (orchestrate_quota_limit{window=\"default\"} * 0 + 24) or (orchestrate_quota_limit{window=~\"gemini-week|3p-week|week|1w|7d\"} * 0 + 168) or (orchestrate_quota_limit{window=\"month\"} * 0 + 720)) and on(plan, window) (orchestrate_quota_reset_timestamp > 0)",
+          "expr": "round(orchestrate_pool_pace_delta_pp)",
           "instant": true,
           "format": "table"
         },
@@ -547,6 +547,44 @@
                 "value": 0
               },
               {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^-(.+)$",
+                      "result": {
+                        "text": "ahead $1 pp",
+                        "color": "red",
+                        "index": 0
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^0(?:\\.0+)?$",
+                      "result": {
+                        "text": "on pace",
+                        "color": "#c98500",
+                        "index": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": "^(.+)$",
+                      "result": {
+                        "text": "$1 pp behind",
+                        "color": "#199e70",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
                 "id": "color",
                 "value": {
                   "mode": "thresholds"
@@ -563,11 +601,11 @@
                     },
                     {
                       "color": "#c98500",
-                      "value": -15
+                      "value": 0
                     },
                     {
                       "color": "#199e70",
-                      "value": 0
+                      "value": 1
                     }
                   ]
                 }
@@ -1013,9 +1051,9 @@
         },
         {
           "id": 128,
-          "type": "timeseries",
+          "type": "table",
           "title": "Burn Deficit (Behind Even Burn)",
-          "description": "orchestrate_burn_deficit per pool (left minus even-burn-left). Positive is a pool behind its spend clock (idle capacity); negative is burning fast. The controller ranks by projected unused first, this is the pace context every dispatch prints.",
+          "description": "orchestrate_burn_deficit times 100, the same sign as pace: positive pp is behind an even burn (left minus even-burn-left). The cell reads '12 pp behind' or 'ahead 5 pp'. The controller still ranks by projected unused first.",
           "gridPos": {
             "x": 12,
             "y": 24,
@@ -1025,43 +1063,88 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "orchestrate_burn_deficit",
-              "legendFormat": "{{plan}} {{window}}"
-            },
+              "expr": "round(orchestrate_burn_deficit * 100)",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "transformations": [
             {
-              "refId": "ZERO",
-              "expr": "vector(0)",
-              "legendFormat": "even burn"
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "instance": true,
+                  "job": true
+                },
+                "renameByName": {
+                  "plan": "Plan",
+                  "window": "Window",
+                  "Value": "Behind even burn"
+                }
+              }
             }
           ],
           "fieldConfig": {
             "defaults": {
-              "unit": "percentunit",
               "custom": {
-                "drawStyle": "line",
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never"
-              },
-              "color": {
-                "mode": "palette-classic"
+                "align": "auto"
               }
             },
             "overrides": [
               {
                 "matcher": {
-                  "id": "byName",
-                  "options": "even burn"
+                  "id": "byRegexp",
+                  "options": "^(Value.*|Behind even burn)$"
                 },
                 "properties": [
                   {
-                    "id": "custom.lineStyle",
+                    "id": "decimals",
+                    "value": 0
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "type": "regex",
+                        "options": {
+                          "pattern": "^-(.+)$",
+                          "result": {
+                            "text": "ahead $1 pp",
+                            "color": "red",
+                            "index": 0
+                          }
+                        }
+                      },
+                      {
+                        "type": "regex",
+                        "options": {
+                          "pattern": "^0(?:\\.0+)?$",
+                          "result": {
+                            "text": "on pace",
+                            "color": "#c98500",
+                            "index": 1
+                          }
+                        }
+                      },
+                      {
+                        "type": "regex",
+                        "options": {
+                          "pattern": "^(.+)$",
+                          "result": {
+                            "text": "$1 pp behind",
+                            "color": "#199e70",
+                            "index": 2
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.cellOptions",
                     "value": {
-                      "dash": [
-                        10,
-                        10
-                      ],
-                      "fill": "dash"
+                      "type": "color-text"
                     }
                   }
                 ]
@@ -1069,14 +1152,8 @@
             ]
           },
           "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "multi"
-            }
+            "showHeader": true,
+            "cellHeight": "sm"
           }
         },
         {
@@ -4107,6 +4184,55 @@
             "defaults": {
               "unit": "dateTimeAsIso"
             }
+          }
+        },
+        {
+          "id": 137,
+          "type": "table",
+          "title": "Exporter running sha",
+          "description": "orchestrate_build_info label sha is the git revision the exporter process loaded at start. It equals orchestrate main HEAD only after that process has restarted; a merge that has not restarted the job leaves the old sha here.",
+          "gridPos": {
+            "x": 0,
+            "y": 56,
+            "w": 24,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "orchestrate_build_info",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "__name__": true,
+                  "Value": true,
+                  "instance": true,
+                  "job": true
+                },
+                "indexByName": {
+                  "service": 0,
+                  "sha": 1
+                }
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "left"
+              }
+            }
+          },
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm"
           }
         }
       ]

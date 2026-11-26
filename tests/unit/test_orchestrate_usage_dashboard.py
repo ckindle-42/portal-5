@@ -11,14 +11,14 @@ DASHBOARD = (
     Path(__file__).resolve().parents[2] / "config/grafana/dashboards/portal5_orchestrate_usage.json"
 )
 # Frozen from the pre-redesign dashboard. Titles and gridPos may change; nothing else may.
-# 2026-11-26: re-frozen after drilldown data links were added to count panels (orchestrate da11fc6).
-CONTENT_SHA256 = "e2e0ef327615547a3385fd71e2594eb7d3058a0c2bd000de594e864c6b3b19a2"
+# 2026-11-25: re-frozen after pace and deficit cells became words and the exporter sha panel was added.
+CONTENT_SHA256 = "d5d5064816ff14335912571c7b938fb1aff1c589fa557834dae1347549e83449"
 EXPECTED_EXPRS = 103
 # fmt: off
 EXPECTED_DATA_IDS = frozenset({
     2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17,
     103, 104, 105, 106, 107, 109, 110, 111, 113, 115, 116, 117,
-    119, 120, 121, 122, 123, 124, 125, 127, 128, 129, 130, 131, 133, 134, 136,
+    119, 120, 121, 122, 123, 124, 125, 127, 128, 129, 130, 131, 133, 134, 136, 137,
     201, 202, 203, 204,  # drilldown tables (orchestrate da11fc6)
 })
 # fmt: on
@@ -70,6 +70,7 @@ RATE_TITLES = (
     "Rate-Limit Events (24h)",
     "Last Rate-Limit Retry Time",
     "Last Rate-Limit Event per Pool",
+    "Exporter running sha",
 )
 ARCHIVE_TITLES = (
     "Retired Seats (History Only)",
@@ -101,7 +102,13 @@ EXPECTED_BANDS = {
         ((12, 12), 7),
         ((6, 9, 9), 5),
     ),
-    "Rate Limits & Exporter Health": (((12, 12), 7), ((12, 12), 8), ((16, 8), 7), ((24,), 7)),
+    "Rate Limits & Exporter Health": (
+        ((12, 12), 7),
+        ((12, 12), 8),
+        ((16, 8), 7),
+        ((24,), 7),
+        ((24,), 4),
+    ),
     "Lane Drilldown": (((6, 6, 6, 6), 4),),
     "Archive & Data Notes": (((24,), 7), ((24,), 6)),
 }
