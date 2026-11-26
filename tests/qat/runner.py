@@ -194,6 +194,26 @@ def _infra_cause(trace: dict[str, object]) -> str | None:
     return None
 
 
+def _served_mismatch_detail(
+    *,
+    expected: str,
+    actual: str,
+    backend: str,
+    reason: str,
+    matched: bool,
+    inversion: str | None,
+) -> str:
+    """Name a dirty turn on the primary without calling it a model miss."""
+    if inversion is not None and matched:
+        return reason
+    if matched:
+        return f"primary served but turn was not clean: served {actual} on {backend} ({reason})"
+    return (
+        f"primary model missed: expected {expected}, served {actual or 'unknown'} "
+        f"on {backend} ({reason})"
+    )
+
+
 def _fallback_reason(
     trace: dict[str, object],
     hard_spans: list[dict[str, object]],
@@ -272,13 +292,13 @@ def _primary_model_failure(
         detail = f"{infra}; {served}" if matched else f"{infra}; expected {expected}, {served}"
     else:
         reason = _fallback_reason(trace, hard_spans, matched=matched, inversion=inversion)
-        detail = (
-            reason
-            if inversion is not None and matched
-            else (
-                f"primary model missed: expected {expected}, served {actual or 'unknown'} "
-                f"on {backend} ({reason})"
-            )
+        detail = _served_mismatch_detail(
+            expected=expected,
+            actual=actual,
+            backend=backend,
+            reason=reason,
+            matched=matched,
+            inversion=inversion,
         )
     mismatch = {
         "workspace": target_workspace,
