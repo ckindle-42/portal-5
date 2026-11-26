@@ -28,6 +28,7 @@ from portal.platform.inference.router.context_budget import ContextOverflowError
 from portal.platform.inference.router.context_budget import fit_prompt as fit_context
 from portal.platform.inference.router.correlation import get_correlation_id
 from portal.platform.inference.router.download_links import (
+    missing_published_suffix,
     offers_file_creation,
     prior_office_filenames,
     strip_unbacked_download_lines,
@@ -417,6 +418,17 @@ async def _run_non_streaming_chain(
     )
 
 
+def _attach_published_links(data: dict[str, Any], results: list[dict[str, Any]] | None) -> None:
+    """Append OWUI file links a tool published when the answer omitted them."""
+    if not results:
+        return
+    for choice in data.get("choices") or []:
+        msg = choice.get("message") or {}
+        if msg.get("tool_calls") or not isinstance(msg.get("content"), str):
+            continue
+        msg["content"] += missing_published_suffix(msg["content"], results)
+
+
 def _apply_non_stream_response(
     data: dict[str, Any],
     backend: Any,
@@ -429,6 +441,7 @@ def _apply_non_stream_response(
     model_elapsed_s: float | None = None,
     tool_result_carry: str | None = None,
     thinking_allowed: bool = True,
+    published_results: list[dict[str, Any]] | None = None,
 ) -> JSONResponse:
     """Normalise + record + wrap a completed non-streaming response dict.
 
@@ -476,6 +489,7 @@ def _apply_non_stream_response(
             msg = choice.get("message") or {}
             content = str(msg.get("content") or "")
             msg["content"] = f"{content}\n\n{tool_result_carry}" if content else tool_result_carry
+    _attach_published_links(data, published_results)
 
     _elapsed = time.monotonic() - start_time
     _model_total_s = (
@@ -1686,6 +1700,7 @@ async def _try_non_streaming(
                 model_elapsed_s=max(0.0, time.monotonic() - _model_started),
                 tool_result_carry=_ns_carry,
                 thinking_allowed=_ns_thinking_allowed,
+                published_results=carry_results,
             )
         except (httpx.TimeoutException, BackendRequestError):
             raise  # timeout: outer handler checks /api/ps; 4xx: caller surfaces it

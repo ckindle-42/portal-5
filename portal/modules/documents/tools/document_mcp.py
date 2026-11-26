@@ -1,7 +1,7 @@
 """
 Document Tools MCP Server
 Exposes Word, PowerPoint, and Excel document creation as MCP tools.
-Generated files are saved to OUTPUT_DIR with unique IDs.
+Generated files are saved under the workspace's generated/documents directory.
 
 Requires: pip install python-docx python-pptx openpyxl
 Start with: python -m mcp.documents.document_mcp
@@ -29,6 +29,7 @@ from starlette.responses import JSONResponse, Response
 from portal.platform.data_loader import load_data
 from portal.platform.mcp_host import eval_scope
 from portal.platform.mcp_host.build_info import build_info
+from portal.platform.mcp_host.delivery import category_output_dir
 from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file_sync
 from portal.platform.mcp_host.tool_support import align_native_tools
@@ -290,10 +291,15 @@ def _resolve_input_path(file_path: str) -> Path:
     return given.resolve()  # not found anywhere: the caller's not-found error, unchanged
 
 
+def _office_dir() -> Path:
+    """Rule 11 write directory. OUTPUT_DIR is the workspace mount in this container."""
+    return category_output_dir("documents", root=OUTPUT_DIR)
+
+
 def _lookup_bare_name(file_path: str) -> Path | None:
     """Find a bare filename in the output directory or its upload namespace."""
     uploads = OUTPUT_DIR / "uploads"
-    for candidate in (OUTPUT_DIR / file_path, uploads / file_path):
+    for candidate in (_office_dir() / file_path, OUTPUT_DIR / file_path, uploads / file_path):
         if candidate.is_file():
             return _readable(candidate)
     if uploads.is_dir():
@@ -332,14 +338,15 @@ def _resolve_image(source: str) -> Path:
     scope = eval_scope.EVAL_SCOPE.get()
     if scope:
         return eval_scope.confine(OUTPUT_DIR, scope, source, sub="in")
-    candidate = Path(source)
-    if not candidate.is_absolute():
-        candidate = OUTPUT_DIR / candidate
-    resolved = candidate.resolve()
+    name = Path(source).name
     root = OUTPUT_DIR.resolve()
-    if not resolved.is_file() or not resolved.is_relative_to(root):
-        raise ValueError("Local images must be files within the output directory")
-    return resolved
+    relative = Path(source) if Path(source).is_absolute() else OUTPUT_DIR / source
+    candidates = [relative, _office_dir() / name]
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved.is_file() and resolved.is_relative_to(root):
+            return resolved
+    raise ValueError("Local images must be files within the output directory")
 
 
 @_route("/health", methods=["GET"])
@@ -400,7 +407,7 @@ def _unique_path(name: str, ext: str) -> Path:
         out = eval_scope.run_root(OUTPUT_DIR, scope) / "out"
         out.mkdir(exist_ok=True)
         return out / f"{safe}_{uid}.{ext}"
-    return OUTPUT_DIR / f"{safe}_{uid}.{ext}"
+    return _office_dir() / f"{safe}_{uid}.{ext}"
 
 
 @mcp.tool()
@@ -942,18 +949,32 @@ def prepare_embed_image(
 
 @mcp.tool()
 def list_generated_files() -> list[dict[str, Any]]:
-    """List recently generated documents in the output directory."""
-    files = []
-    for f in sorted(OUTPUT_DIR.iterdir(), key=lambda x: x.stat().st_mtime, reverse=True)[:20]:
-        if f.is_file():
+    """List recently generated documents, newest first, including legacy root files."""
+    files: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    folders = [_office_dir()]
+    if OUTPUT_DIR.is_dir():
+        folders.append(OUTPUT_DIR)
+    for folder in folders:
+        entries = sorted(
+            (f for f in folder.iterdir() if f.is_file()),
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        )
+        for entry in entries:
+            if entry.name in seen:
+                continue
+            seen.add(entry.name)
             files.append(
                 {
-                    "filename": f.name,
-                    "path": str(f),
-                    "size_bytes": f.stat().st_size,
-                    "type": f.suffix.lstrip("."),
+                    "filename": entry.name,
+                    "path": str(entry),
+                    "size_bytes": entry.stat().st_size,
+                    "type": entry.suffix.lstrip("."),
                 }
             )
+            if len(files) >= 20:
+                return files
     return files
 
 
