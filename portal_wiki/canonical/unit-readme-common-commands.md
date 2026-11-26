@@ -123,16 +123,18 @@ to `user` and also accepts `admin` or `pending`. `list-users` reads
 
 ```bash
 # Seeding
-./launch.sh seed            # Re-seed Open WebUI (workspaces + personas)
-./launch.sh reseed          # Force-refresh all presets (delete + recreate)
+./launch.sh seed            # Upsert Portal presets in place (workspaces + personas)
+./launch.sh reseed          # Delete and recreate Portal presets (FORCE_RESEED=true)
 ```
 
 Both run the `openwebui-init` compose service, which executes
-`scripts/openwebui_init.py` against the Open WebUI API. `seed` is idempotent —
-`FORCE_RESEED` is false, so existing presets are left alone — while `reseed` sets
-`FORCE_RESEED=true` and deletes then recreates every workspace, persona and tool
-preset. `./launch.sh up` also runs an incremental seed in the background whenever
-`open-webui` is already healthy.
+`scripts/openwebui_init.py` against the Open WebUI API. `seed` is an in-place
+upsert of presets Portal created: system prompt, params, toolIds, model, meta and
+access converge to the repo, an unchanged preset is not written, and chat history
+and pins stay. `reseed` sets `FORCE_RESEED=true` and deletes then recreates those
+presets. A retired Portal persona is reported on seed and deleted only by reseed.
+`./launch.sh up` runs the same upsert in the background whenever `open-webui` is
+already healthy.
 
 ## Why
 

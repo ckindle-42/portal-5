@@ -16,12 +16,12 @@ tags:
 - verified-v1
 ---
 
-After restoring or hand-editing config, the Open WebUI presets must be reconciled with the files on disk. The `seed` case runs `docker compose run --rm openwebui-init`, and the init container skips presets that already exist, so reseeding is additive and non-destructive. The `reseed` case forces recreation by passing `FORCE_RESEED=true`, which deletes and recreates every preset, persona prompt, and workspace tool binding before applying config afresh.
+After restoring or hand-editing config, the Open WebUI presets must be reconciled with the files on disk. The `seed` case runs `docker compose run --rm openwebui-init`, which updates presets Portal created in place (no delete). Chat history and the user's pins stay, and a preset that already matches is not written. The `reseed` case passes `FORCE_RESEED=true`, which deletes and recreates every Portal preset.
 
 ## Why
 
-Config files and the seeded Open WebUI database are two layers that can drift apart, and `seed` is the bridge that reconciles them. The skip-existing default protects a restored chat database from having its workspace presets clobbered on boot, while the explicit force flag hands the operator a deliberate, destructive path when a clean re-apply is actually wanted.
+Config files and the seeded Open WebUI database are two layers that can drift apart, and `seed` is the bridge that reconciles them. The in-place update keeps a restored chat database's history and pins, while the explicit force flag hands the operator a destructive rebuild when one is actually wanted.
 
 ## Drift detection
 
-Because `seed` skips existing presets, a workspace prompt, name or tool binding changed in `config/portal.yaml` and regenerated into `imports/openwebui/workspaces/` by `sync-config` does not reach the presets users chat with until `reseed`. `scripts/check_owui_preset_drift.py` compares each live preset (`/api/v1/models/model`) with its seeded file and names every difference; `sync-config` runs it and warns to run `./launch.sh reseed`. It is silent only when Open WebUI or its API key is unavailable. It covers the workspace presets, not persona prompts. It was added after an `auto-documents` prompt fix (1370cd64) was live in the pipeline's config but not in the preset Open WebUI sent.
+`scripts/check_owui_preset_drift.py` compares each live preset (`/api/v1/models/model`) with its seeded file and names every difference. `./launch.sh up` runs the same upsert `seed` does, so a prompt or tool binding changed in the repo reaches the preset without `reseed`. The checker is silent only when Open WebUI or its API key is unavailable. It covers workspace presets and persona prompts. It was added after an `auto-documents` prompt fix (1370cd64) was live in the pipeline's config but not in the preset Open WebUI sent.

@@ -228,11 +228,11 @@ Config restoration must be an explicit, careful act rather than a silent side ef
 
 # After config changes, re-seed
 
-After restoring or hand-editing config, the Open WebUI presets must be reconciled with the files on disk. The `seed` case runs `docker compose run --rm openwebui-init`, and the init container skips presets that already exist, so reseeding is additive and non-destructive. The `reseed` case forces recreation by passing `FORCE_RESEED=true`, which deletes and recreates every preset, persona prompt, and workspace tool binding before applying config afresh.
+After restoring or hand-editing config, the Open WebUI presets must be reconciled with the files on disk. The `seed` case runs `docker compose run --rm openwebui-init`, which updates presets Portal created in place (no delete). Chat history and the user's pins stay, and a preset that already matches is not written. The `reseed` case passes `FORCE_RESEED=true`, which deletes and recreates every Portal preset.
 
 ## Why
 
-Config files and the seeded Open WebUI database are two layers that can drift apart, and `seed` is the bridge that reconciles them. The skip-existing default protects a restored chat database from having its workspace presets clobbered on boot, while the explicit force flag hands the operator a deliberate, destructive path when a clean re-apply is actually wanted.
+Config files and the seeded Open WebUI database are two layers that can drift apart, and `seed` is the bridge that reconciles them. The in-place update keeps a restored chat database's history and pins, while the explicit force flag hands the operator a destructive rebuild when one is actually wanted.
 
 ---
 

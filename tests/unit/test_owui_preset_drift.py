@@ -1,5 +1,5 @@
-"""The Open WebUI preset drift check: a prompt, name or tool binding changed in the seeded
-files but not live (seed skips existing presets) must be reported, preset by preset."""
+"""The Open WebUI preset drift check: a prompt, name or tool binding that differs from the
+seeded files must be reported, preset by preset."""
 
 from __future__ import annotations
 

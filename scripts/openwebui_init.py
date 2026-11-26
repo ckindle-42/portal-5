@@ -18,8 +18,9 @@ Environment variables:
   OPENWEBUI_ADMIN_NAME       Admin display name (default: Portal Admin)
   DEFAULT_USER_ROLE          Role for new signups: pending|user|admin (default: pending)
   ENABLE_SIGNUP              Allow self-registration: true|false (default: true)
-  FORCE_RESEED               Delete and re-create all presets: true|false (default: false)
-                             Use via: ./launch.sh reseed
+  FORCE_RESEED               Delete and re-create Portal presets: true|false (default: false)
+                             Use via: ./launch.sh reseed. The default seed updates
+                             Portal-owned presets in place and does not delete them.
 """
 
 from __future__ import annotations
@@ -254,6 +255,329 @@ async def register_tool_servers_async(client: httpx.AsyncClient, token: str) -> 
         print(f"  Done: all {skipped} servers already registered")
 
 
+# --- Preset upsert ------------------------------------------------------------
+# A persona preset is Portal's when meta.description starts with this mark.
+# persona_preset_payload writes it; a user preset does not, so seed never edits it.
+# A workspace preset is Portal's when its id is one of the seeded workspace files.
+
+PORTAL_PERSONA_MARK = "Portal persona:"
+_PERSONA_PARAMS = ("system", "model", "enable_web_search")
+_PERSONA_META = ("description", "profile_image_url", "toolIds", "tags")
+_WORKSPACE_PARAMS = ("system", "model", "enable_web_search", "function_calling")
+_WORKSPACE_META = ("description", "profile_image_url", "toolIds", "tags", "capabilities")
+
+
+def _managed_keys(kind: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    if kind == "workspace":
+        return _WORKSPACE_PARAMS, _WORKSPACE_META
+    return _PERSONA_PARAMS, _PERSONA_META
+
+
+def _tag_names(tags: object) -> list[str]:
+    if not isinstance(tags, list):
+        return []
+    names = []
+    for tag in tags:
+        name = tag.get("name") if isinstance(tag, dict) else tag
+        if isinstance(name, str) and name.strip():
+            names.append(name.strip())
+    return sorted(names)
+
+
+def _same_managed(key: str, have: object, present: bool, want: object) -> bool:
+    """True when a managed field already matches the repo, so seed must not write."""
+    if key == "profile_image_url" and have not in (None, ""):
+        return True  # a user-set avatar is not repo drift
+    if key == "toolIds":
+        return sorted(have or []) == sorted((want or []) if present else [])
+    if key == "tags":
+        return _tag_names(have) == _tag_names(want if present else [])
+    if key == "capabilities":
+        return (have or {}) == ((want or {}) if present else {})
+    if key == "enable_web_search" and not present:
+        return have in (None, False)
+    if not present:
+        return have is None
+    return have == want
+
+
+def preset_diff(desired: dict, live: dict, *, kind: str = "persona") -> list[str]:
+    """Managed fields that differ. Empty means the row already matches — no write."""
+    param_keys, meta_keys = _managed_keys(kind)
+    diffs: list[str] = []
+    if (desired.get("name") or "") != (live.get("name") or ""):
+        diffs.append("name")
+    if desired.get("base_model_id") != live.get("base_model_id"):
+        diffs.append("base_model_id")
+    want_p = desired.get("params") or {}
+    have_p = live.get("params") or {}
+    for key in param_keys:
+        if not _same_managed(key, have_p.get(key), key in want_p, want_p.get(key)):
+            diffs.append(f"params.{key}")
+    want_m = desired.get("meta") or {}
+    have_m = live.get("meta") or {}
+    for key in meta_keys:
+        if not _same_managed(key, have_m.get(key), key in want_m, want_m.get(key)):
+            diffs.append(f"meta.{key}")
+    if bool(desired.get("access_grants")) != bool(live.get("access_grants")):
+        diffs.append("access_grants")
+    return diffs
+
+
+def preset_upsert_action(
+    desired: dict, live: dict | None, *, owned: bool, kind: str = "persona"
+) -> str:
+    """create, update, or skip. skip performs no write. An unowned live row is skip."""
+    if live is None:
+        return "create"
+    if not owned:
+        return "skip"
+    if preset_diff(desired, live, kind=kind):
+        return "update"
+    return "skip"
+
+
+def portal_persona_owned(live: dict | None) -> bool:
+    if not isinstance(live, dict):
+        return False
+    description = (live.get("meta") or {}).get("description")
+    return isinstance(description, str) and description.startswith(PORTAL_PERSONA_MARK)
+
+
+def retired_portal_personas(live_presets: list[dict], catalog_ids: set[str]) -> list[str]:
+    """Portal persona ids that are no longer in the repo. Reported, not deleted, unless forced."""
+    found = []
+    for row in live_presets:
+        mid = str(row.get("id") or "")
+        if mid and mid not in catalog_ids and portal_persona_owned(row):
+            found.append(mid)
+    return sorted(set(found))
+
+
+def persona_seed_actions(
+    desired: list[dict],
+    live_by_id: dict[str, dict],
+    base_ids: set[str],
+    *,
+    force: bool = False,
+) -> list[tuple[str, str]]:
+    """(id, action): create, update, skip, foreign, reseed, retired, or delete (force only)."""
+    catalog = {row["id"] for row in desired}
+    actions: list[tuple[str, str]] = []
+    for mid in retired_portal_personas(list(live_by_id.values()), catalog):
+        actions.append((mid, "delete" if force else "retired"))
+    for row in desired:
+        mid = row["id"]
+        live = live_by_id.get(mid)
+        if live is None and mid in base_ids:
+            actions.append((mid, "skip"))
+            continue
+        if live is not None and not portal_persona_owned(live):
+            actions.append((mid, "foreign"))
+            continue
+        if force and live is not None:
+            actions.append((mid, "reseed"))
+            continue
+        actions.append((mid, preset_upsert_action(row, live, owned=True)))
+    return actions
+
+
+def workspace_seed_action(
+    desired: dict,
+    live: dict | None,
+    *,
+    exists: bool,
+    force: bool,
+    record_readable: bool,
+) -> str:
+    """create, update, skip, or reseed. A missing DB row is created; an unreadable listed id is updated."""
+    if not record_readable:
+        if force and exists:
+            return "reseed"
+        return "update" if exists else "create"
+    if live is None:
+        return "create"
+    if force:
+        return "reseed"
+    if preset_diff(desired, live, kind="workspace"):
+        return "update"
+    return "skip"
+
+
+def preset_write_body(desired: dict, live: dict | None, *, kind: str = "persona") -> dict:
+    """Update body. Repo-managed keys are overwritten; user keys (knowledge, temperature) stay."""
+    param_keys, meta_keys = _managed_keys(kind)
+    want_p = desired.get("params") or {}
+    params = {**((live or {}).get("params") or {}), **want_p}
+    for key in param_keys:
+        if key not in want_p:
+            params.pop(key, None)
+    want_m = desired.get("meta") or {}
+    live_meta = (live or {}).get("meta") or {}
+    meta = {**live_meta, **want_m}
+    if live_meta.get("profile_image_url") not in (None, ""):
+        meta["profile_image_url"] = live_meta["profile_image_url"]
+    for key in meta_keys:
+        if key not in want_m and not (
+            key == "profile_image_url" and meta.get("profile_image_url") not in (None, "")
+        ):
+            meta.pop(key, None)
+    meta.pop("chat_variables_schema", None)
+    return {
+        "id": desired["id"],
+        "name": desired.get("name") or desired["id"],
+        "base_model_id": desired.get("base_model_id"),
+        "meta": meta,
+        "params": params,
+        "access_grants": list(desired.get("access_grants") or []),
+    }
+
+
+def normalize_preset(raw: dict) -> dict:
+    """Flat preset row from /export or /api/v1/models/base (not the public model list)."""
+    info = raw.get("info") if isinstance(raw.get("info"), dict) else {}
+    src = info if any(key in info for key in ("params", "meta", "base_model_id")) else raw
+    return {
+        "id": str(raw.get("id") or src.get("id") or ""),
+        "name": src.get("name", raw.get("name")),
+        "base_model_id": src.get("base_model_id", raw.get("base_model_id")),
+        "meta": src.get("meta") or {},
+        "params": src.get("params") or {},
+        "access_grants": src.get("access_grants") or [],
+    }
+
+
+def _rows_of(data: object) -> list[dict]:
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, dict)]
+    if isinstance(data, dict):
+        items = data.get("items") or data.get("data") or []
+        return [row for row in items if isinstance(row, dict)]
+    return []
+
+
+async def _load_base_presets(client: httpx.AsyncClient, token: str) -> tuple[dict[str, dict], bool]:
+    """Full overlay-preset rows from /api/v1/models/base. (records, readable)."""
+    try:
+        resp = await client.get(
+            f"{OPENWEBUI_URL}/api/v1/models/base", headers=auth_headers(token), timeout=15.0
+        )
+    except Exception as exc:
+        print(f"  Warning: could not read base presets ({exc}); updates will still be written")
+        return {}, False
+    if resp.status_code != 200:
+        print(
+            f"  Warning: could not read base presets (HTTP {resp.status_code}); "
+            "updates will still be written"
+        )
+        return {}, False
+    records = {}
+    for raw in _rows_of(resp.json()):
+        row = normalize_preset(raw)
+        if row["id"]:
+            records[row["id"]] = row
+    return records, True
+
+
+async def _apply_persona_plan(
+    client: httpx.AsyncClient,
+    token: str,
+    actions: list[tuple[str, str]],
+    payloads: dict[str, dict],
+    exported: dict[str, dict],
+) -> dict[str, int]:
+    """Run persona actions. Unchanged and foreign rows make no request."""
+    counts = {"create": 0, "update": 0, "reseed": 0, "delete": 0, "skip": 0, "fail": 0}
+    labels = {
+        "create": "Created",
+        "update": "Updated",
+        "reseed": "Reseeded",
+        "delete": "Removed retired",
+    }
+    for mid, action in actions:
+        if action == "retired":
+            print(f"  Retired persona: {mid} (kept; ./launch.sh reseed deletes it)")
+        elif action == "foreign":
+            print(f"  Left untouched (not a Portal persona): {mid}")
+            counts["skip"] += 1
+        elif action == "skip":
+            counts["skip"] += 1
+    writes = [
+        (mid, action)
+        for mid, action in actions
+        if action in {"create", "update", "reseed", "delete"}
+    ]
+    # ~110 concurrent delete+create calls lock SQLite (HTTP 500). Bound and retry.
+    gate = asyncio.Semaphore(4)
+
+    async def _one(mid: str, action: str) -> tuple[str, str]:
+        payload = payloads.get(mid) or {"id": mid, "name": mid}
+        name = str(payload.get("name") or mid)
+        result = (name, "fail:unknown")
+        for attempt in range(3):
+            try:
+                async with gate:
+                    status, text = await _apply_preset_action(
+                        client, token, action, payload, exported.get(mid), "persona"
+                    )
+            except Exception as exc:
+                return name, f"error:{exc}"
+            if status in (200, 201):
+                return name, action
+            if status == 401 and "already registered" in text:
+                return name, "skip"
+            result = (name, f"fail:{status}")
+            if status != 500:
+                return result
+            await asyncio.sleep(1.0 + attempt)
+        return result
+
+    results = await asyncio.gather(
+        *[_one(mid, action) for mid, action in writes], return_exceptions=True
+    )
+    for result in results:
+        if isinstance(result, Exception):
+            counts["fail"] += 1
+            continue
+        name, status = result
+        if status in labels:
+            print(f"  {labels[status]} persona: {name}")
+            counts[status] += 1
+        elif status == "skip":
+            counts["skip"] += 1
+        else:
+            print(f"  Failed {name}: {status}")
+            counts["fail"] += 1
+    return counts
+
+
+async def _apply_preset_action(
+    client: httpx.AsyncClient,
+    token: str,
+    action: str,
+    payload: dict,
+    live: dict | None,
+    kind: str,
+) -> tuple[int, str]:
+    """create/update in place, or reseed/delete. Returns (status, response text)."""
+    headers = auth_headers(token)
+    if action in {"reseed", "delete"}:
+        resp = await client.post(
+            f"{OPENWEBUI_URL}/api/v1/models/model/delete",
+            json={"id": payload["id"]},
+            headers=headers,
+            timeout=10.0,
+        )
+        if action == "delete":
+            return resp.status_code, resp.text[:160]
+    body = preset_write_body(payload, None if action in {"create", "reseed"} else live, kind=kind)
+    path = (
+        "/api/v1/models/create" if action in {"create", "reseed"} else "/api/v1/models/model/update"
+    )
+    resp = await client.post(f"{OPENWEBUI_URL}{path}", json=body, headers=headers, timeout=10.0)
+    return resp.status_code, resp.text[:160]
+
+
 # --- Workspace Creation -------------------------------------------------------
 
 
@@ -322,22 +646,17 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
             else:
                 await asyncio.sleep(1)
 
-    created = updated = failed = 0
+    # /api/v1/models strips system prompts (public_model_params). /base is the full
+    # DB row for overlay presets (base_model_id is None), which is what the diff reads.
+    base_records, base_readable = await _load_base_presets(client, token)
+
+    created = updated = unchanged = failed = 0
     for ws_file in ws_files:
         ws = json.loads(ws_file.read_text())
         ws_id = ws.get("id", "")
         ws_name = ws.get("name", ws_id)
-
-        # OW 0.9.x: base_model_id=None causes OWUI to overlay this preset on the
-        # pipeline model with matching id (setting model.info from this preset),
-        # which lets model.info.meta.toolIds be read by the frontend for tool resolution.
-        # Non-null base_model_id treats the preset as a standalone model that is skipped
-        # when a pipeline model with the same id already exists.
-        # access_grants must be an explicit [] (not omitted/None): OWUI's
-        # /model/update route re-validates the request against ModelForm,
-        # which requires a list — an omitted field defaults to None on
-        # ingress and then 500s on that re-validation. Every existing
-        # preset's update silently failed this way until this was added.
+        # base_model_id=None overlays this preset on the pipeline model of the same id.
+        # access_grants must be []: /model/update re-validates ModelForm and 500s on None.
         payload = {
             "id": ws_id,
             "name": ws_name,
@@ -346,61 +665,38 @@ async def create_workspaces_async(client: httpx.AsyncClient, token: str) -> None
             "params": ws.get("params", {}),
             "access_grants": [],
         }
-
+        action = workspace_seed_action(
+            payload,
+            base_records.get(ws_id),
+            exists=ws_id in existing_names,
+            force=FORCE_RESEED,
+            record_readable=base_readable,
+        )
+        if action == "skip":
+            unchanged += 1
+            continue
         try:
-            if ws_id in existing_names:
-                if FORCE_RESEED:
-                    # Delete then recreate to ensure all fields are current
-                    await client.post(
-                        f"{OPENWEBUI_URL}/api/v1/models/model/delete",
-                        json={"id": ws_id},
-                        headers=auth_headers(token),
-                        timeout=10.0,
-                    )
-                    resp = await client.post(
-                        f"{OPENWEBUI_URL}/api/v1/models/create",
-                        json=payload,
-                        headers=auth_headers(token),
-                        timeout=10.0,
-                    )
-                    if resp.status_code in (200, 201):
-                        print(f"  Reseeded: {ws_name}")
-                        updated += 1
-                    else:
-                        print(f"  Reseed failed {ws_name}: HTTP {resp.status_code}")
-                        failed += 1
-                else:
-                    # Update existing workspace to pick up toolIds changes
-                    # OW 0.8.x: id is in the request body (ModelForm.id), not a query param
-                    resp = await client.post(
-                        f"{OPENWEBUI_URL}/api/v1/models/model/update",
-                        json=payload,
-                        headers=auth_headers(token),
-                        timeout=10.0,
-                    )
-                    if resp.status_code in (200, 201):
-                        print(f"  Updated: {ws_name}")
-                        updated += 1
-                    else:
-                        print(f"  Skip (update failed {resp.status_code}): {ws_name}")
+            status, _text = await _apply_preset_action(
+                client, token, action, payload, base_records.get(ws_id), "workspace"
+            )
+        except Exception as exc:
+            print(f"  Error {ws_name}: {exc}")
+            failed += 1
+            continue
+        if status in (200, 201):
+            print(f"  {action.capitalize()}: {ws_name}")
+            if action == "create":
+                created += 1
             else:
-                resp = await client.post(
-                    f"{OPENWEBUI_URL}/api/v1/models/create",
-                    json=payload,
-                    headers=auth_headers(token),
-                    timeout=10.0,
-                )
-                if resp.status_code in (200, 201):
-                    print(f"  Created: {ws_name}")
-                    created += 1
-                else:
-                    print(f"  Failed {ws_name}: HTTP {resp.status_code}")
-                    failed += 1
-        except Exception as e:
-            print(f"  Error {ws_name}: {e}")
+                updated += 1
+        else:
+            print(f"  {action} failed {ws_name}: HTTP {status}")
             failed += 1
 
-    print(f"  Workspaces: {created} created, {updated} updated, {failed} failed")
+    print(
+        f"  Workspaces: {created} created, {updated} updated, "
+        f"{unchanged} unchanged, {failed} failed"
+    )
 
     current_ws_ids = {json.loads(f.read_text()).get("id", "") for f in ws_files}
     # Scope orphan-deletion strictly to ids config/portal.yaml has ever known
@@ -645,6 +941,8 @@ def persona_preset_payload(
                 else {}
             ),
         },
+        # Explicit []: /model/update re-validates ModelForm and 500s when this is omitted.
+        "access_grants": [],
     }
 
 
@@ -732,33 +1030,22 @@ async def create_persona_presets_async(
         print("  Skipping — no persona YAML files found")
         return
 
-    # Get existing models to avoid duplicates.
-    # /export returns user-created presets only — does NOT include base models
-    # (pipeline connections registered via Admin > Connections). Persona slugs
-    # can collide with these connection IDs, producing 401 "already registered"
-    # on create. We check both endpoints and merge the ID sets.
-    existing_ids: set[str] = set()
-    # /export is user presets only. /api/models also lists pipeline connections;
-    # a role slug that is only a connection id must not be deleted.
+    # /export is the full preset row (the public list strips system prompts).
+    # It omits pipeline connections. A persona slug that is only a connection id
+    # must not be created or deleted — that id is not a preset Portal owns.
+    exported: dict[str, dict] = {}
     preset_ids: set[str] = set()
-
-    # 1. Fetch model presets via /export (unpaginated, returns all presets)
     for attempt in range(3):
         try:
             resp = await client.get(
                 f"{OPENWEBUI_URL}/api/v1/models/export", headers=auth_headers(token)
             )
             if resp.status_code == 200:
-                data = resp.json()
-                items = (
-                    data
-                    if isinstance(data, list)
-                    else (data.get("items") or data.get("data") or [])
-                )
-                for m in items:
-                    if isinstance(m, dict):
-                        existing_ids.add(m.get("id", ""))
-                        preset_ids.add(m.get("id", ""))
+                for raw in _rows_of(resp.json()):
+                    row = normalize_preset(raw)
+                    if row["id"]:
+                        exported[row["id"]] = row
+                        preset_ids.add(row["id"])
                 break
         except Exception as e:
             if attempt == 2:
@@ -766,16 +1053,15 @@ async def create_persona_presets_async(
             else:
                 await asyncio.sleep(1)
 
-    # 2. Fetch base models (connections) via /api/models — these IDs also
-    #    collide with persona slug if they share the same value.
+    base_ids: set[str] = set()
     try:
         resp2 = await client.get(f"{OPENWEBUI_URL}/api/models", headers=auth_headers(token))
         if resp2.status_code == 200:
             base_data = resp2.json()
             base_items = base_data.get("data", []) if isinstance(base_data, dict) else []
-            for m in base_items:
-                if isinstance(m, dict) and m.get("id"):
-                    existing_ids.add(m["id"])
+            for raw in base_items:
+                if isinstance(raw, dict) and raw.get("id"):
+                    base_ids.add(raw["id"])
     except Exception:
         pass  # Non-critical — /export already covers presets
 
@@ -803,97 +1089,23 @@ async def create_persona_presets_async(
         if payload is None:
             print(f"  Skip {f.name}: prompt_template {persona.get('prompt_template')!r} unreadable")
             continue
-        persona_payloads.append((slug, payload["name"], payload["base_model_id"], payload))
+        persona_payloads.append(payload)
 
     await _delete_role_model_presets(client, token, role_slugs, preset_ids)
-
-    # Open WebUI stores presets in SQLite: ~110 concurrent delete+create calls hit
-    # "database is locked" (HTTP 500) on a few presets every reseed. Bound the fan-out
-    # and retry a 500, so a reseed never leaves presets missing.
-    gate = asyncio.Semaphore(4)
-
-    async def _create_one(
-        slug: str, name: str, workspace_model: str, payload: dict
-    ) -> tuple[str, str]:
-        result: tuple[str, str] = (name, "fail:unknown")
-        for attempt in range(3):
-            async with gate:
-                result = await _create_once(slug, name, workspace_model, payload)
-            if not result[1].startswith("fail:500"):
-                return result
-            await asyncio.sleep(1.0 + attempt)
-        return result
-
-    async def _create_once(
-        slug: str, name: str, workspace_model: str, payload: dict
-    ) -> tuple[str, str]:
-        try:
-            if FORCE_RESEED and slug in existing_ids:
-                # OW 0.8.x: DELETE endpoint is now POST with JSON body
-                await client.post(
-                    f"{OPENWEBUI_URL}/api/v1/models/model/delete",
-                    json={"id": slug},
-                    headers=auth_headers(token),
-                    timeout=10.0,
-                )
-            resp = await client.post(
-                f"{OPENWEBUI_URL}/api/v1/models/create",
-                json=payload,
-                headers=auth_headers(token),
-                timeout=10.0,
-            )
-            if resp.status_code in (200, 201):
-                action = "reseeded" if FORCE_RESEED and slug in existing_ids else "created"
-                return (name, f"{action}:{workspace_model}")
-            # OWUI returns 401 when a model preset ID collides with an existing
-            # pipeline connection (base model). Treat as skip — the ID is taken.
-            if resp.status_code == 401 and "already registered" in resp.text:
-                return (name, "skip:exists (base model)")
-            return (name, f"fail:{resp.status_code}")
-        except Exception as e:
-            return (name, f"error:{e}")
-
-    # Create personas in parallel — reseed all if FORCE_RESEED, else skip existing
-    if FORCE_RESEED:
-        to_create = persona_payloads
-        skipped = 0
-    else:
-        to_create = [
-            (slug, name, wm, payload)
-            for slug, name, wm, payload in persona_payloads
-            if slug not in existing_ids
-        ]
-        skipped = len(persona_payloads) - len(to_create)
-
-    results = await asyncio.gather(
-        *[_create_one(slug, name, wm, payload) for slug, name, wm, payload in to_create],
-        return_exceptions=True,
+    plan = persona_seed_actions(persona_payloads, exported, base_ids, force=FORCE_RESEED)
+    counts = await _apply_persona_plan(
+        client, token, plan, {row["id"]: row for row in persona_payloads}, exported
     )
-
-    created = reseeded = failed = 0
-    for result in results:
-        if isinstance(result, Exception):
-            failed += 1
-            continue
-        name, status = result
-        if status.startswith("created:"):
-            _, wm = status.split(":", 1)
-            print(f"  Created persona: {name} → {wm}")
-            created += 1
-        elif status.startswith("reseeded:"):
-            _, wm = status.split(":", 1)
-            print(f"  Reseeded persona: {name} → {wm}")
-            reseeded += 1
-        elif status.startswith("skip:"):
-            skipped += 1
-        else:
-            print(f"  Failed {name}: {status}")
-            failed += 1
-
     if FORCE_RESEED:
-        print(f"  Done: {reseeded} reseeded, {failed} failed")
+        print(
+            f"  Done: {counts['reseed']} reseeded, {counts['create']} created, "
+            f"{counts['delete']} retired deleted, {counts['fail']} failed"
+        )
     else:
-        print(f"  Done: {created} created, {skipped} skipped, {failed} failed")
+        print(
+            f"  Done: {counts['create']} created, {counts['update']} updated, "
+            f"{counts['skip']} unchanged, {counts['fail']} failed"
+        )
 
 
 def configure_user_settings(client: httpx.Client, token: str) -> None:

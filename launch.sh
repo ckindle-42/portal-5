@@ -172,12 +172,12 @@ case "${1:-up}" in
     _check_image_freshness
 
 
-    # Re-run openwebui-init in the background to pick up any new personas/workspaces
-    # added since the last run (idempotent — skips existing, only creates new ones).
-    # Only runs if open-webui is already healthy (first-run init is handled by depends_on).
+    # Re-run openwebui-init so Portal presets converge to the repo. In-place upsert:
+    # unchanged presets are not written; chat history and pins stay. First-run init
+    # is the depends_on container. Retired personas are printed by the seeder.
     if docker compose ps open-webui 2>/dev/null | grep -q "(healthy)"; then
-        echo "[portal-5] Syncing new personas/workspaces (incremental)..."
-        docker compose run --rm openwebui-init >/dev/null 2>&1 &
+        echo "[portal-5] Syncing Portal presets to the repo..."
+        docker compose run --rm openwebui-init &
     fi
 
     # Pruning is one step: the sandbox images are ensured first (a manual prune
@@ -433,9 +433,9 @@ case "${1:-up}" in
     ;;
   seed)
     cd "$COMPOSE_DIR"
-    echo "[portal-5] Seeding Open WebUI (skips existing presets)..."
+    echo "[portal-5] Seeding Open WebUI (updates Portal presets in place)..."
     docker compose run --rm openwebui-init
-    echo "[portal-5] Seed complete. To force-refresh all presets: ./launch.sh reseed"
+    echo "[portal-5] Seed complete. To delete and recreate every preset: ./launch.sh reseed"
     ;;
   reseed)
     cd "$COMPOSE_DIR"
