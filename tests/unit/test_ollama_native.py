@@ -630,3 +630,51 @@ async def test_omlx_logprobs_without_the_field_is_a_typed_engine_limit():
     err = response.json()["error"]
     assert err["type"] == "invalid_request_error"
     assert err["message"] == "oMLX engine limit: logprobs is not supported for this model."
+
+
+@pytest.mark.asyncio
+async def test_native_passthrough_uses_atomic_ollama_admission(monkeypatch):
+    from types import SimpleNamespace
+
+    from fastapi.responses import StreamingResponse
+
+    from portal.platform.inference.router import ollama_passthrough
+
+    class Guard:
+        def __init__(self):
+            self.calls = []
+
+        async def admit_and_begin_ollama(self, base, model):
+            self.calls.append((base, model))
+            return (lambda: None), (lambda: None)
+
+    class Request:
+        method = "POST"
+        headers = {}
+        url = SimpleNamespace(query="")
+
+        async def body(self):
+            return b'{"model":"qwen:large"}'
+
+    guard = Guard()
+
+    class Client:
+        def build_request(self, **_kwargs):
+            return object()
+
+        async def send(self, *_args, **_kwargs):
+            return httpx.Response(200)
+
+    async def immediate(_request, work, _path):
+        return await work
+
+    monkeypatch.setattr(ollama_passthrough.load_guard, "GUARD", guard)
+    monkeypatch.setattr(ollama_passthrough, "_verify_key", lambda *_args: None)
+    monkeypatch.setattr(ollama_passthrough, "_backend", lambda: SimpleNamespace(url=BASE))
+    monkeypatch.setattr(ollama_passthrough, "_client", Client())
+    monkeypatch.setattr(ollama_passthrough, "cancel_on_disconnect", immediate)
+
+    response = await ollama_passthrough._proxy(Request(), None, "chat", inference=True)
+
+    assert isinstance(response, StreamingResponse)
+    assert guard.calls == [(BASE, "qwen:large")]
