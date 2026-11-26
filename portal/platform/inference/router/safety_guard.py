@@ -267,6 +267,18 @@ _REFUSED_FOLLOWUP = re.compile(
     re.IGNORECASE,
 )
 _SPACED_SARIN = re.compile(r"(?<![a-z])s\s+a\s+r\s+i\s+n(?![a-z])", re.IGNORECASE)
+_RAG_CONTEXT = re.compile(r"<context\b", re.IGNORECASE)
+_RAG_SOURCE = re.compile(r"<source\b", re.IGNORECASE)
+_OWUI_TASK_TYPES = frozenset(
+    {
+        "title_generation",
+        "tags_generation",
+        "follow_up_generation",
+        "query_generation",
+        "image_prompt_generation",
+        "autocomplete_generation",
+    }
+)
 
 
 def _normalise_text(text: str) -> str:
@@ -341,6 +353,58 @@ def last_user_text(messages: Any) -> str:
     return ""
 
 
+def _owui_message_text(message: dict[str, Any]) -> str:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return next(
+            (
+                part["text"]
+                for part in content
+                if isinstance(part, dict)
+                and part.get("type") == "text"
+                and isinstance(part.get("text"), str)
+            ),
+            "",
+        )
+    return ""
+
+
+def _owui_task_source_messages(body: dict[str, Any]) -> list[Any] | None:
+    metadata = body.get("metadata")
+    if not isinstance(metadata, dict) or metadata.get("task") not in _OWUI_TASK_TYPES:
+        return None
+    task_body = metadata.get("task_body")
+    source = task_body.get("messages") if isinstance(task_body, dict) else None
+    task_text = last_user_text(body.get("messages"))
+    if not isinstance(source, list) or not task_text.startswith("### Task:"):
+        return None
+    start = task_text.find("<chat_history>")
+    end = task_text.rfind("</chat_history>")
+    if start < 0 or end < start:
+        return None
+    rendered = task_text[start + len("<chat_history>") : end].strip()
+    for offset in range(len(source) + 1):
+        selected = source[offset:]
+        if not selected or not all(
+            isinstance(message, dict) and isinstance(message.get("role"), str)
+            for message in selected
+        ):
+            continue
+        history = "\n".join(
+            f"{message['role'].upper()}: {_owui_message_text(message)}" for message in selected
+        )
+        if history == rendered:
+            return selected
+    return None
+
+
+def _retrieved_contexts(text: str) -> list[str]:
+    match = _RAG_CONTEXT.search(text) or _RAG_SOURCE.search(text)
+    return [text[match.start() :]] if match else []
+
+
 def _exfil_hit(text: str) -> bool:
     for match in _EXFIL.finditer(text):
         target = match.group("target")
@@ -362,7 +426,7 @@ def _injection(text: str) -> bool:
     return bool(reveal and (_OVERRIDE.search(text) or _MODE_CLAIM.search(text)))
 
 
-def detect(text: str) -> str | None:
+def detect(text: str, *, include_injection: bool = True) -> str | None:
     """``"cbrn"`` / ``"injection"`` when the text is an explicit hard-line request, else None."""
     source_text = text
     text = _normalise_text(text)
@@ -379,7 +443,7 @@ def detect(text: str) -> str | None:
         agent = re.search(r"\bsarin\b", text)
         if agent is not None and not _defensive_cbrn_context(text, agent):
             return "cbrn"
-    if _injection(text):
+    if include_injection and _injection(text):
         return "injection"
     return None
 
@@ -399,7 +463,27 @@ def _guard_hit(kind: str) -> GuardHit:
     return GuardHit(kind, CBRN_REFUSAL if kind == "cbrn" else INJECTION_REFUSAL)
 
 
-def _check_messages(messages: list[Any]) -> GuardHit | None:
+def _non_user_message_hit(role: Any, text: str) -> GuardHit | None:
+    if role == "system":
+        kind = detect(text, include_injection=False)
+        if kind:
+            return _guard_hit(kind)
+        for context in _retrieved_contexts(text):
+            kind = detect(context)
+            if kind:
+                return _guard_hit(kind)
+    elif role == "tool":
+        kind = detect(text)
+        if kind:
+            return _guard_hit(kind)
+    else:
+        kind = detect(text, include_injection=False)
+        if kind:
+            return _guard_hit(kind)
+    return None
+
+
+def _check_messages(messages: list[Any], *, skip_user_injection: bool = False) -> GuardHit | None:
     user_indexes = [
         i
         for i, message in enumerate(messages)
@@ -413,12 +497,8 @@ def _check_messages(messages: list[Any]) -> GuardHit | None:
             continue
         role = message.get("role")
         text = _content_text(message.get("content"))
-        if role in ("system", "tool"):
-            kind = detect(text)
-            if kind:
-                return _guard_hit(kind)
-        elif role == "user":
-            kind = detect(text)
+        if role == "user":
+            kind = detect(text, include_injection=not skip_user_injection)
             if not kind:
                 continue
             if i == current_index:
@@ -427,6 +507,10 @@ def _check_messages(messages: list[Any]) -> GuardHit | None:
                 prior_refused.append(kind)
             else:
                 return _guard_hit(kind)
+        else:
+            hit = _non_user_message_hit(role, text)
+            if hit:
+                return hit
     if prior_refused and _REFUSED_FOLLOWUP.search(_normalise_text(current_text)):
         kind = prior_refused[-1]
         return _guard_hit(kind)
@@ -437,7 +521,9 @@ def check_body(body: Any) -> GuardHit | None:
     """The refusal for a chat request body, or None when the turn may proceed."""
     if not isinstance(body, dict):
         return None
-    return _check_messages(_body_messages(body))
+    task_messages = _owui_task_source_messages(body)
+    hit = _check_messages(_body_messages(body), skip_user_injection=task_messages is not None)
+    return hit or (_check_messages(task_messages) if task_messages is not None else None)
 
 
 class SafetyRefusalError(Exception):
