@@ -28,7 +28,7 @@ rather than silently believing it saw everything.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 #: Characters per token, for budgeting. Deliberately crude and stated: a real
@@ -54,9 +54,16 @@ CHARS_PER_TOKEN = 2.1
 
 DEFAULT_BUDGET_TOKENS = 60_000
 
+#: ``R2``, ``Requirement 2``, ``Req 2`` and ``R 2`` are one requirement keyword:
+#: QAT 140220Z s5-compliance-multiframework FAILED because the seat spelled the
+#: canonical citation in its expanded form ("CIP-007-6 Requirement 2 Part 2.2")
+#: and the parser rejected it. The version suffix is optional ("CIP-007 R2");
+#: :func:`canonical_ref` resolves that against the store.
+_REQUIREMENT_KEYWORD = r"(?:Req(?:uirements?)?|R)\.?\s*"
+
 _REF_RE = re.compile(
-    r"^(?P<standard>CIP-\d{3}-[\w.]+)"
-    r"(?:\s+R(?P<requirement>\d+))?"
+    r"^(?P<standard>CIP-\d{3}(?:-[\w.]+)?)"
+    rf"(?:\s+{_REQUIREMENT_KEYWORD}(?P<requirement>\d+))?"
     r"(?:\s+Attachment\s+(?P<attachment>\d+))?"
     r"(?:\s+(?:Part\s+(?P<part>\d+(?:\.\d+)*)|Section\s+(?P<section>\d+)))?\s*$",
     re.I,
@@ -67,9 +74,26 @@ _REF_RE = re.compile(
 #: as "not a regulatory address" for the life of the module, which is how a
 #: well-formed address became 30 of the sites' worth of "invalid" refusals.
 _SHORTHAND_RE = re.compile(
-    r"^(?P<standard>CIP-\d{3}-[\w.]+)\s+R(?P<requirement>\d+)\.(?P<part>\d+(?:\.\d+)*)\s*$",
+    rf"^(?P<standard>CIP-\d{{3}}(?:-[\w.]+)?)\s+{_REQUIREMENT_KEYWORD}"
+    r"(?P<requirement>\d+)\.(?P<part>\d+(?:\.\d+)*)\s*$",
     re.I,
 )
+
+_VERSIONED_STANDARD_RE = re.compile(r"^CIP-\d{3}-", re.I)
+
+#: What a rejection names, so a caller can correct the spelling instead of
+#: guessing at the grammar (QAT 140220Z: the seat repeated its rejected call
+#: verbatim, then answered from the error text).
+ACCEPTED_ADDRESS_FORMS = (
+    "accepted forms: 'CIP-007-6 R2 Part 2.2', 'CIP-007-6 Requirement 2 Part 2.2', "
+    "'CIP-007-6 R2.2', 'CIP-002-5.1a Attachment 1 Part 2.3' — each with or without "
+    "the version suffix"
+)
+
+
+def not_an_address(ref: str) -> str:
+    """The rejection message for a string that is not a regulatory address."""
+    return f"{ref!r} is not a regulatory address; {ACCEPTED_ADDRESS_FORMS}"
 
 
 @dataclass
@@ -103,6 +127,10 @@ class Ref:
 def parse_ref(ref: str) -> Ref | None:
     """``CIP-007-6 R2 Part 2.2`` -> a :class:`Ref`. ``None`` when the string is
     not a regulatory address (it may still be a section id or a document).
+    Equivalent spellings of one address parse to one canonical ``str(Ref)``:
+    ``Requirement 2``/``Req 2``/``R 2`` for ``R2``, ``R2.2`` for ``R2 Part 2.2``,
+    and the version suffix is optional (``CIP-007 R2`` — :func:`canonical_ref`
+    resolves that against the store).
     Attachment addresses parse too: ``CIP-002-5.1a Attachment 1 Part 2.3`` and
     ``CIP-002-5.1a Attachment 1 Section 1`` — the register carries them as
     requirement nodes, and ``str(Ref)`` round-trips to exactly those ids."""
@@ -135,6 +163,64 @@ def parse_ref(ref: str) -> Ref | None:
         attachment=m.group("attachment") or "",
         section=m.group("section") or "",
     )
+
+
+#: (in force at the request's date, version sort key) — the family pick order.
+_Rank = tuple[int, tuple[tuple[int, int, str], ...]]
+
+
+def _version_key(version: str) -> tuple[tuple[int, int, str], ...]:
+    """``5.1a`` sorts before ``6``: digit pieces numerically, the rest lexically."""
+    key: list[tuple[int, int, str]] = []
+    for piece in re.split(r"[.]", str(version)):
+        digits = re.match(r"\d+", piece)
+        if digits:
+            key.append((0, int(digits.group(0)), piece[digits.end() :]))
+        else:
+            key.append((1, 0, piece))
+    return tuple(key)
+
+
+def canonical_standard(repo: Any, standard: str, valid_at: str = "") -> str:
+    """A versionless standard resolved against the store: ``CIP-007`` -> ``CIP-007-6``.
+
+    A versioned standard passes through untouched. The family's in-force member
+    at ``valid_at`` wins; when none is in force, the highest version the store
+    carries. Companion documents (``… implementation plan``) never count — the
+    version is the whole tail after the family prefix, letters included.
+    """
+    if _VERSIONED_STANDARD_RE.match(standard):
+        return standard
+    base = standard.upper()
+    try:
+        rows = repo._conn.execute(
+            """SELECT logical_id, effective_date, inactive_date
+               FROM document_revisions WHERE logical_id LIKE ?""",
+            (f"NERC/{base}-%",),
+        ).fetchall()
+    except Exception:  # noqa: BLE001 - a store without the table keeps the ref as asked
+        return standard
+    pattern = re.compile(rf"^NERC/{re.escape(base)}-(?P<version>[\w.]+)$")
+    at = valid_at or _today()
+    best: tuple[str, _Rank] | None = None
+    for row in rows:
+        matched = pattern.match(str(row[0]))
+        if matched is None:
+            continue
+        effective = str(row[1] or "")
+        inactive = str(row[2] or "")
+        in_force = bool(effective) and effective <= at and (not inactive or at < inactive)
+        rank: _Rank = (1 if in_force else 0, _version_key(matched.group("version")))
+        candidate = (f"{base}-{matched.group('version')}", rank)
+        if best is None or candidate[1] > best[1]:
+            best = candidate
+    return best[0] if best else standard
+
+
+def canonical_ref(repo: Any, parsed: Ref, valid_at: str = "") -> Ref:
+    """``parsed`` with a versionless standard resolved to the store's version."""
+    standard = canonical_standard(repo, parsed.standard, valid_at)
+    return replace(parsed, standard=standard) if standard != parsed.standard else parsed
 
 
 @dataclass
@@ -368,7 +454,8 @@ def conflicts_for_requirement(repo: Any, ref: str, *, valid_at: str = "") -> dic
 
     parsed = parse_ref(ref)
     if parsed is None:
-        return {"ref": ref, "error": f"{ref!r} is not a regulatory address"}
+        return {"ref": ref, "error": not_an_address(ref)}
+    parsed = canonical_ref(repo, parsed, valid_at)
     revision = _revision_for(repo, parsed.logical_id, valid_at)
     if revision is None:
         return {"ref": ref, "error": f"{parsed.logical_id} is not in the store"}
@@ -516,7 +603,8 @@ def assemble(
     """
     parsed = parse_ref(ref)
     if parsed is None:
-        return {"ref": ref, "error": f"{ref!r} is not a regulatory address"}
+        return {"ref": ref, "error": not_an_address(ref)}
+    parsed = canonical_ref(repo, parsed, valid_at)
     revision = _revision_for(repo, parsed.logical_id, valid_at)
     if revision is None:
         return {

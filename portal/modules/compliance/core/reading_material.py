@@ -405,11 +405,18 @@ def render(
     shared prefix.
     """
     from portal.modules.compliance.core.answer_contract import build_contract
-    from portal.modules.compliance.core.reading_assembly import parse_ref
+    from portal.modules.compliance.core.reading_assembly import (
+        canonical_ref as _canonicalize,
+    )
+    from portal.modules.compliance.core.reading_assembly import (
+        not_an_address,
+        parse_ref,
+    )
 
     parsed = parse_ref(ref)
     if parsed is None:
-        return {"error": f"{ref!r} is not a regulatory address", "ref": ref}
+        return {"error": not_an_address(ref), "ref": ref}
+    parsed = _canonicalize(repo, parsed)
     canonical_ref = str(parsed)
     if fixed is None:
         # the fixed body is per REVISION — address the standard the way the

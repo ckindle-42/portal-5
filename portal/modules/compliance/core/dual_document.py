@@ -236,17 +236,21 @@ def _estimate(text: str) -> int:
 
 
 def _resolve_by_address(repo: Any, ref: str) -> dict[str, Any]:
-    from portal.modules.compliance.core.reading_assembly import parse_ref
+    from portal.modules.compliance.core.reading_assembly import (
+        canonical_ref,
+        not_an_address,
+        parse_ref,
+    )
 
     parsed = parse_ref(ref)
     if parsed is None:
         return {
-            "error": f"{ref!r} is not a regulatory address",
+            "error": not_an_address(ref),
             "resolved": False,
             "requirement_ids": [],
             "standards": [],
         }
-    standard = str(parsed)
+    standard = str(canonical_ref(repo, parsed))
     standard_only = _standard_of(standard)
     register = _register_ids(repo)
     if parsed.part:
