@@ -477,3 +477,75 @@ class TestAutoDefaultLaneSafety:
         ):
             resolved = await _resolve_auto_routing("auto", msgs)
         assert resolved == "auto-daily"
+
+
+def test_owui_tool_selection_wrapper_routes_on_current_query_only():
+    from portal.platform.inference.router.routing import claim_pre_layer
+
+    query = "Evaluate the definite integral of x squared from zero to one exactly."
+    api_messages = _user_messages(query)
+    browser_task_messages = [
+        {
+            "role": "system",
+            "content": (
+                'Available Tools: [{"name":"search_cve","description":"Search CVE vulnerabilities"}]\n\n'
+                "Your task is to choose and return the correct tool(s) from the list of available tools based on the query."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                'History:\nUSER: """Find CVE vulnerabilities and map them to MITRE ATT&CK."""\n'
+                f"Query: {query}"
+            ),
+        },
+    ]
+    browser_initial_task_messages = [
+        browser_task_messages[0],
+        {"role": "user", "content": f"Query: {query}"},
+    ]
+
+    expected = ("deterministic_intent", "auto-reasoning::math")
+    assert claim_pre_layer(api_messages) == expected
+    assert claim_pre_layer(browser_task_messages) == expected
+    assert claim_pre_layer(browser_initial_task_messages) == expected
+
+
+@pytest.mark.asyncio
+async def test_auto_route_trace_records_private_scorer_receipt():
+    import hashlib
+
+    from portal.platform.inference.router import trace
+    from portal.platform.inference.router.preinject import _resolve_auto_routing
+
+    query = "Evaluate the definite integral of x squared from zero to one exactly."
+    messages = [
+        {
+            "role": "system",
+            "content": "Available Tools: []\n\nYour task is to choose and return the correct tool(s) from the list of available tools based on the query.",
+        },
+        {
+            "role": "user",
+            "content": (
+                'History:\nUSER: """Find CVE vulnerabilities and map them to MITRE ATT&CK."""\n'
+                f"Query: {query}"
+            ),
+        },
+    ]
+    record = trace.TurnTrace("test-auto-routing")
+    token = trace._current.set(record)
+    try:
+        assert await _resolve_auto_routing("auto", messages) == "auto-reasoning::math"
+        receipt = record.to_dict()["routing_receipt"]
+    finally:
+        trace._current.reset(token)
+
+    assert receipt["scorer"] == "deterministic_intent"
+    assert receipt["workspace"] == "auto-reasoning::math"
+    assert receipt["current_turn_text_chars"] == len(query)
+    assert receipt["current_turn_text_sha256"] == hashlib.sha256(query.encode()).hexdigest()
+    assert {"keyword": "integral", "weight": 3} in receipt["matched_keywords"]
+    assert not any(
+        item["keyword"] in {"cve", "vulnerability", "mitre"} for item in receipt["matched_keywords"]
+    )
+    assert query not in str(receipt)
