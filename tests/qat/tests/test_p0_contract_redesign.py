@@ -6,6 +6,7 @@ import base64
 import json
 import struct
 import subprocess
+import time
 import zlib
 from pathlib import Path
 
@@ -126,6 +127,93 @@ def test_owui_native_chat_payload_and_trace_envelope() -> None:
         "/api/v1/files/01234567-89ab-cdef-0123-456789abcdef/content/result.wav",
     )
     assert outcome.trace["spans"][0]["name"] == "tool.completed"
+
+
+def test_poll_turn_returns_finished_answer_despite_lingering_tasks() -> None:
+    """F12: a background title/tag task must not hold a finished answer hostage."""
+    settings = make_settings(Path("/tmp"), OWUI_API_KEY="qat-token")
+    assistant_id = ""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal assistant_id
+        if request.url.path == "/api/v1/chats/new":
+            return httpx.Response(201, json={"id": "chat-f12"})
+        if request.url.path == "/api/chat/completions":
+            assistant_id = json.loads(request.content)["id"]
+            return httpx.Response(200, json={})
+        if request.url.path == "/api/tasks/chat/chat-f12":
+            return httpx.Response(200, json={"task_ids": ["title-gen-1"]})
+        if request.url.path == "/api/v1/chats/chat-f12":
+            return httpx.Response(
+                200,
+                json={
+                    "chat": {
+                        "history": {
+                            "messages": {
+                                assistant_id: {
+                                    "id": assistant_id,
+                                    "role": "assistant",
+                                    "content": "finished answer",
+                                    "done": True,
+                                }
+                            }
+                        }
+                    }
+                },
+            )
+        if request.url.path == "/v1/trace":
+            return httpx.Response(200, json={"data": []})
+        return httpx.Response(404)
+
+    client = OWUIClient(settings, httpx.MockTransport(handler))
+    chat_id = client.create_chat("qat-token", "auto", "F12", prompt="hi")
+    client.send_turn("qat-token", chat_id, "auto", "hi")
+    start = time.monotonic()
+    outcome = client.poll_turn("qat-token", chat_id, max_wait_s=5.0)
+    elapsed = time.monotonic() - start
+    assert elapsed < 4.0  # the old loop slept through the whole budget first
+    assert outcome.done is True
+    assert outcome.text == "finished answer"
+
+
+def test_poll_turn_still_times_out_when_the_answer_never_finishes() -> None:
+    settings = make_settings(Path("/tmp"), OWUI_API_KEY="qat-token")
+    assistant_id = ""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal assistant_id
+        if request.url.path == "/api/v1/chats/new":
+            return httpx.Response(201, json={"id": "chat-f12b"})
+        if request.url.path == "/api/chat/completions":
+            assistant_id = json.loads(request.content)["id"]
+            return httpx.Response(200, json={})
+        if request.url.path == "/api/tasks/chat/chat-f12b":
+            return httpx.Response(200, json={"task_ids": []})
+        if request.url.path == "/api/v1/chats/chat-f12b":
+            return httpx.Response(
+                200,
+                json={
+                    "chat": {
+                        "history": {
+                            "messages": {
+                                assistant_id: {
+                                    "id": assistant_id,
+                                    "role": "assistant",
+                                    "content": "",
+                                    "done": False,
+                                }
+                            }
+                        }
+                    }
+                },
+            )
+        return httpx.Response(404)
+
+    client = OWUIClient(settings, httpx.MockTransport(handler))
+    chat_id = client.create_chat("qat-token", "auto", "F12b", prompt="hi")
+    client.send_turn("qat-token", chat_id, "auto", "hi")
+    with pytest.raises(TimeoutError):
+        client.poll_turn("qat-token", chat_id, max_wait_s=0.5)
 
 
 def test_owui_followup_sends_full_branch_messages() -> None:

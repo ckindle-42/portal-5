@@ -29,6 +29,14 @@ TERMINAL_STATES = {"completed", "complete", "done", "success"}
 _RED = (255, 0, 0)
 
 
+class ArtifactDownloadError(RuntimeError):
+    """Artifact download died on transport or HTTP; status_code 0 means transport."""
+
+    def __init__(self, message: str, status_code: int = 0) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
 def red_square_png(side: int = 64) -> bytes:
     raw = b"".join(b"\x00" + bytes(_RED) * side for _ in range(side))
     return (
@@ -380,9 +388,13 @@ class OWUIClient:
         try:
             with self._client(30.0) as client:
                 r = client.get(target, headers=headers)
-        except Exception:
-            return b""
-        return r.content if r.status_code == 200 else b""
+        except Exception as exc:
+            raise ArtifactDownloadError(f"artifact download failed: {exc}") from exc
+        if r.status_code != 200:
+            raise ArtifactDownloadError(
+                f"artifact download failed: HTTP {r.status_code}", status_code=r.status_code
+            )
+        return r.content
 
     def poll_turn(
         self,
@@ -406,9 +418,8 @@ class OWUIClient:
             while time.monotonic() < deadline:
                 task = self.task_status(token, chat_id, client, deadline)
                 task_ids = [str(task_id) for task_id in task.get("task_ids", []) if task_id]
-                if task_ids:
-                    time.sleep(min(POLL_INTERVAL_S, max(0.0, deadline - time.monotonic())))
-                    continue
+                # Read the answer every pass: title/tag background tasks must not
+                # hold a finished message hostage until the deadline (F12).
                 detail = self.chat_detail(token, chat_id, client, deadline)
                 messages = ((detail.get("chat") or {}).get("history") or {}).get("messages") or {}
                 message = messages.get(message_id, {})
@@ -418,8 +429,7 @@ class OWUIClient:
                     if isinstance(error, dict):
                         raise RuntimeError(f"OWUI assistant message failed: {error}")
                     state = str(message.get("status") or info.get("status") or "").lower()
-                    done = message.get("done") is True or state in TERMINAL_STATES
-                    if done:
+                    if message.get("done") is True or state in TERMINAL_STATES:
                         break
                 time.sleep(min(POLL_INTERVAL_S, max(0.0, deadline - time.monotonic())))
             else:
