@@ -1654,13 +1654,13 @@
   },
   {
     "name": "cad_build",
-    "description": "PRIMARY CAD PATH. Build a part from a complete build123d Python script in a fresh session (reset, execute, measure, validate in one call). Units mm, Z-up. Start with `from build123d import *`; end with show(part, 'part'). Returns ok, measure (volume/bbox/topology), validate (validity gate). On failure returns error, last_error (line + excerpt) and repair_hints: fix the script and call cad_build again. When ok, call cad_finalize.",
+    "description": "PRIMARY CAD PATH. Build a part from a complete build123d Python script in a fresh session (reset, execute, measure, validate in one call). Units mm, Z-up. Start with `from build123d import *`; end with show(part, 'part'). Every Box, Cylinder, Cone, Torus, Sphere, and Wedge must pass align=: the default origin is the center, so Pos(x, y, z) * Box(...) puts the center at (x, y, z), not the corner. Use align=(Align.MIN, Align.MIN, Align.MIN) for a minimum corner and align=(Align.CENTER, Align.CENTER, Align.CENTER) for a center. Omitting align fails the call. Returns ok, measure (volume/bbox/topology), validate (validity gate). On failure returns error, last_error (line + excerpt) and repair_hints: fix the script and call cad_build again. When ok, call cad_finalize.",
     "parameters": {
       "type": "object",
       "properties": {
         "code": {
           "type": "string",
-          "description": "Complete build123d script."
+          "description": "Complete build123d script. Every solid must pass align= (Align.MIN for a corner, Align.CENTER for a center)."
         }
       },
       "required": [

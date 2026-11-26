@@ -22,6 +22,7 @@ separate round-trips it has to sequence itself.
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import atexit
 import base64
@@ -323,13 +324,54 @@ def safe_basename(name: str | None) -> str:
     return base or "part"
 
 
+# Default origin is the center, so Pos()*Box() places the center (90x40x25 bracket).
+_CENTERED_SOLIDS = frozenset({"Box", "Cylinder", "Cone", "Torus", "Sphere", "Wedge"})
+
+
+def align_contract_error(code: str) -> str | None:
+    """Reject solids that omit align=; a syntax error is left for the engine."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+    missing: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name):
+            name = func.id
+        elif isinstance(func, ast.Attribute):
+            name = func.attr
+        else:
+            continue
+        if name not in _CENTERED_SOLIDS:
+            continue
+        if any(kw.arg == "align" for kw in node.keywords):
+            continue
+        missing.append(f"{name}() line {node.lineno}")
+    if not missing:
+        return None
+    listed = ", ".join(missing)
+    return (
+        "build123d Box/Cylinder/Cone/Torus/Sphere/Wedge default to a CENTER origin, "
+        f"so Pos()*solid places the center, not the corner ({listed}). "
+        "Pass align=(Align.MIN, Align.MIN, Align.MIN) when the position is the minimum "
+        "corner, or align=(Align.CENTER, Align.CENTER, Align.CENTER) when it is the center, "
+        "and call cad_build again."
+    )
+
+
 # ── model-facing tools (Portal names) ────────────────────────────────────────
 
 
 async def cad_build(code: str, session: str, out_dir: Path) -> dict[str, Any]:
     """Fresh build: reset → execute(code) → measure → validate, one call."""
+    blocked = align_contract_error(code)
     async with httpx.AsyncClient(timeout=CALL_TIMEOUT_S) as c:
         await engine_call("reset", {}, session, c)
+        if blocked:
+            return {"ok": False, "stage": "align", "error": blocked, "repair_hints": blocked}
         ex = await engine_call("execute", {"code": code}, session, c)
         if failed(ex):
             err = _text(ex)
@@ -358,6 +400,9 @@ async def cad_build(code: str, session: str, out_dir: Path) -> dict[str, Any]:
 
 async def cad_execute(code: str, session: str, out_dir: Path) -> dict[str, Any]:
     """Incremental: run more build123d code in the existing session."""
+    blocked = align_contract_error(code)
+    if blocked:
+        return {"ok": False, "stage": "align", "error": blocked, "repair_hints": blocked}
     async with httpx.AsyncClient(timeout=CALL_TIMEOUT_S) as c:
         ex = await engine_call("execute", {"code": code}, session, c)
         if failed(ex):
