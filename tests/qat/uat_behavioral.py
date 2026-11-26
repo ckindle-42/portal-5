@@ -1978,7 +1978,7 @@ def _tool_results_from_trace(trace: dict[str, object]) -> tuple[dict[str, object
     """Executed results from this turn's trace. An OWUI task row is never the graded turn."""
     if not isinstance(trace, dict) or trace.get("owui_task"):
         return ()
-    spans = trace.get("spans")
+    spans = trace.get("spans") if isinstance(trace.get("spans"), list) else trace.get("tool_spans")
     if not isinstance(spans, list):
         return ()
     results: list[dict[str, object]] = []
@@ -1992,19 +1992,32 @@ def _tool_results_from_trace(trace: dict[str, object]) -> tuple[dict[str, object
 def _completed_tool_result(span: object) -> dict[str, object] | None:
     if not isinstance(span, dict) or span.get("name") != "tool.completed":
         return None
-    if "success" not in span:
-        return None
     name = str(span.get("tool") or "")
     if not name:
         return None
-    result: dict[str, object] = {
-        "success": bool(span.get("success")),
-        "stdout": str(span.get("stdout_head") or ""),
-        "stderr": str(span.get("stderr_head") or ""),
-    }
-    if span.get("error_type"):
-        result["error_type"] = span.get("error_type")
-    return {"tool": name, "result": result}
+    raw_result = span.get("result")
+    if "success" in span:
+        result: dict[str, object] = {
+            "success": bool(span.get("success")),
+            "stdout": str(span.get("stdout_head") or ""),
+            "stderr": str(span.get("stderr_head") or ""),
+        }
+        if span.get("error_type"):
+            result["error_type"] = span.get("error_type")
+    elif isinstance(raw_result, dict) and "success" in raw_result:
+        result = {
+            "success": bool(raw_result.get("success")),
+            "stdout": str(raw_result.get("stdout") or raw_result.get("stdout_head") or ""),
+            "stderr": str(raw_result.get("stderr") or raw_result.get("stderr_head") or ""),
+        }
+        if raw_result.get("error_type"):
+            result["error_type"] = raw_result.get("error_type")
+    else:
+        return None
+    entry: dict[str, object] = {"tool": name, "result": result}
+    if span.get("session_id"):
+        entry["session_id"] = str(span["session_id"])
+    return entry
 
 
 def _grade_office_case(
@@ -2271,6 +2284,54 @@ def _grade_markers_case(
     return errors
 
 
+def _tool_result_session_id(item: dict[str, object]) -> str:
+    for container in (item, item.get("arguments"), item.get("result")):
+        if isinstance(container, dict) and container.get("session_id"):
+            return str(container["session_id"])
+    return ""
+
+
+def _nodejs_body_session_ids(trace: dict[str, object]) -> list[str]:
+    bodies = trace.get("bodies")
+    if not isinstance(bodies, dict):
+        return []
+    raw = bodies.get("tool_arguments")
+    entries = raw if isinstance(raw, list) else ([raw] if isinstance(raw, dict) else [])
+    session_ids: list[str] = []
+    for entry in entries:
+        if isinstance(entry, dict) and "execute_nodejs" in entry:
+            args = entry["execute_nodejs"]
+            session_ids.append(str(args.get("session_id") or "") if isinstance(args, dict) else "")
+    return session_ids
+
+
+def _sandbox_session_b_result(turn: UATTurn) -> dict[str, object] | None:
+    """Return the execute_nodejs result dict for session B (uat_iso_b), or None if absent."""
+    results = turn.tool_results or _tool_results_from_trace(turn.trace)
+    nodejs = [
+        item for item in results if isinstance(item, dict) and item.get("tool") == "execute_nodejs"
+    ]
+    if not nodejs:
+        return None
+    tagged = [_tool_result_session_id(item) for item in nodejs]
+    if any(tagged):
+        for item, sid in zip(nodejs, tagged, strict=True):
+            if sid == "uat_iso_b":
+                return item.get("result") if isinstance(item.get("result"), dict) else None
+        return None
+    body_sids = _nodejs_body_session_ids(turn.trace)
+    if len(body_sids) == len(nodejs) and any(body_sids):
+        for item, sid in zip(nodejs, body_sids, strict=True):
+            if sid == "uat_iso_b":
+                return item.get("result") if isinstance(item.get("result"), dict) else None
+        return None
+    # Default traces omit tool arguments; turn 2 runs uat_iso_a then uat_iso_b.
+    if len(nodejs) >= 2:
+        last = nodejs[-1].get("result")
+        return last if isinstance(last, dict) else None
+    return None
+
+
 def _grade_sandbox_lifecycle_case(
     case: UATCase,
     turns: list[UATTurn],
@@ -2279,11 +2340,22 @@ def _grade_sandbox_lifecycle_case(
     evidence: dict[str, object],
 ) -> list[str]:
     errors = _grade_markers_case(case, turns, payloads, text, evidence)
-    session_b = turns[1].text.casefold() if len(turns) > 1 else ""
-    if "undefined" not in session_b:
-        errors.append("session B did not report undefined as the isolated output")
-    if "uat_leak_55" in session_b:
+    if len(turns) < 2:
+        errors.append("session B execute_nodejs tool result is missing; cannot verify isolation")
+        return errors
+    session_b = _sandbox_session_b_result(turns[1])
+    if session_b is None:
+        errors.append("session B execute_nodejs tool result is missing; cannot verify isolation")
+        return errors
+    stdout = str(session_b.get("stdout") or "")
+    evidence["sandbox_session_b_stdout"] = stdout
+    if not session_b.get("success"):
+        errors.append("session B execute_nodejs call did not complete successfully")
+    lowered = stdout.casefold()
+    if "uat_leak_55" in lowered:
         errors.append("session B observed the leaked global; sessions are not isolated")
+    if "undefined" not in lowered:
+        errors.append("session B tool output did not report undefined as the isolated output")
     return errors
 
 

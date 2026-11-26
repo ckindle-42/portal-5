@@ -1675,7 +1675,21 @@ def test_artifact_download_failures_classify_by_evidence() -> None:
     assert payloads["wav"] == [b"data"] and error is None and defect is None
 
 
-def test_sandbox_lifecycle_requires_undefined_in_session_b() -> None:
+def _nodejs_span(stdout: str, *, success: bool = True, session_id: str = "") -> dict[str, object]:
+    span: dict[str, object] = {
+        "name": "tool.completed",
+        "tool": "execute_nodejs",
+        "outcome": "ok" if success else "error",
+        "success": success,
+        "stdout_head": stdout,
+        "stderr_head": "",
+    }
+    if session_id:
+        span["session_id"] = session_id
+    return span
+
+
+def test_sandbox_lifecycle_grades_session_b_from_tool_result_not_prose() -> None:
     case = uat.UATCase(
         "sb",
         "sb",
@@ -1687,21 +1701,47 @@ def test_sandbox_lifecycle_requires_undefined_in_session_b() -> None:
             "any_markers": ["docker"],
         },
     )
-    good = [
-        _turn("stdout was uat_nodejs_87 and docker is available"),
-        _turn("the exact output is undefined"),
-        _turn("uat_py_session_91 printed"),
-    ]
-    assert uat.grade_case(case, good, {})[0] == []
+    recap_prose = (
+        "In session `uat_iso_a`, we ran `globalThis.uatLeak = 'UAT_LEAK_55'; console.log('set')`.\n"
+        "In session `uat_iso_b`, `execute_nodejs` returned:\n"
+        "stdout: `undefined`\nexit code: 0\nSessions are isolated."
+    )
+    t1 = _turn("stdout was uat_nodejs_87 and docker is available")
+    t3 = _turn("uat_py_session_91 printed")
 
-    leaked = [
-        _turn("stdout was uat_nodejs_87 and the node image is undefined"),
-        _turn("it printed uat_leak_55"),
-        _turn("uat_py_session_91 printed"),
-    ]
-    errors = uat.grade_case(case, leaked, {})[0]
-    assert any("did not report undefined" in error for error in errors)
-    assert any("sessions are not isolated" in error for error in errors)
+    # Observed live shape: prose recaps UAT_LEAK_55, session B tool stdout is undefined -> PASS.
+    iso_trace: dict[str, object] = {
+        "spans": [_nodejs_span("set\n"), _nodejs_span("undefined\n")],
+    }
+    t2_isolated = uat._observed_turn("b", recap_prose, iso_trace, ("execute_nodejs",), ())
+    assert uat.grade_case(case, [t1, t2_isolated, t3], {})[0] == []
+
+    # Explicit session_id via trace bodies selects uat_iso_b even if ordered first.
+    bodies_trace: dict[str, object] = {
+        "spans": [_nodejs_span("undefined\n"), _nodejs_span("set\n")],
+        "bodies": {
+            "tool_arguments": [
+                {"execute_nodejs": {"session_id": "uat_iso_b"}},
+                {"execute_nodejs": {"session_id": "uat_iso_a"}},
+            ]
+        },
+    }
+    t2_bodies = uat._observed_turn("b", recap_prose, bodies_trace, ("execute_nodejs",), ())
+    assert uat.grade_case(case, [t1, t2_bodies, t3], {})[0] == []
+
+    # Session B stdout actually contains UAT_LEAK_55 -> FAIL even if prose claims undefined.
+    leak_trace: dict[str, object] = {
+        "spans": [_nodejs_span("set\n"), _nodejs_span("UAT_LEAK_55\n")],
+    }
+    t2_leaked = uat._observed_turn("b", "the exact output is undefined", leak_trace, (), ())
+    leak_errors = uat.grade_case(case, [t1, t2_leaked, t3], {})[0]
+    assert any("did not report undefined" in error for error in leak_errors)
+    assert any("sessions are not isolated" in error for error in leak_errors)
+
+    # No tool evidence -> explicit failure, never guesses from prose.
+    t2_no_evidence = _turn("the exact output is undefined")
+    missing_errors = uat.grade_case(case, [t1, t2_no_evidence, t3], {})[0]
+    assert any("tool result is missing" in error for error in missing_errors)
 
 
 def test_data_sql_totals_match_on_number_boundaries() -> None:

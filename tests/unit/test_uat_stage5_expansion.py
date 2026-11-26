@@ -258,8 +258,19 @@ def test_marker_graders_pass_and_fail(
     grader: str, expected: dict[str, object], good: str, bad: str
 ) -> None:
     case = _case(grader, ("first", "second"), expected)
-    assert uat.grade_case(case, [_turn(good), _turn(good)], {})[0] == []
-    assert uat.grade_case(case, [_turn(bad), _turn(bad)], {})[0]
+    good_t2 = _turn(good)
+    bad_t2 = _turn(bad)
+    if grader == "sandbox_lifecycle":
+        good_t2.tool_results = (
+            {"tool": "execute_nodejs", "result": {"success": True, "stdout": "set\n"}},
+            {"tool": "execute_nodejs", "result": {"success": True, "stdout": "undefined\n"}},
+        )
+        bad_t2.tool_results = (
+            {"tool": "execute_nodejs", "result": {"success": True, "stdout": "set\n"}},
+            {"tool": "execute_nodejs", "result": {"success": True, "stdout": "string\n"}},
+        )
+    assert uat.grade_case(case, [_turn(good), good_t2], {})[0] == []
+    assert uat.grade_case(case, [_turn(bad), bad_t2], {})[0]
 
 
 def test_security_toolbelt_full_markers() -> None:
