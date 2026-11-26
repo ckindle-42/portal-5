@@ -60,6 +60,113 @@ def test_handoff_notice_names_the_operator_selected_workspace() -> None:
     assert preinject.handoff_user_notice("auto-coding") == ""
 
 
+@pytest.mark.asyncio
+async def test_explicit_general_workspace_suggests_llm_specialist_without_rerouting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    prompt = (
+        "Build a production-ready 600-line service that synchronizes Okta users into "
+        "PostgreSQL, including migrations, retries, and tests. Please put the full code inline here."
+    )
+    messages = [
+        {"role": "user", "content": "Earlier I asked for a summary."},
+        {"role": "assistant", "content": "Here is the summary."},
+        {"role": "user", "content": prompt},
+    ]
+    classified_messages: list[list[dict[str, str]]] = []
+
+    async def classify(messages: list[dict[str, str]]) -> str:
+        classified_messages.append(messages)
+        return "auto-coding"
+
+    monkeypatch.setattr(preinject, "_route_with_llm", classify)
+    chat_id = "test-out-of-lane-coding"
+    preinject._ROUTER_CLASSIFICATION_CACHE.pop(chat_id, None)
+    try:
+        selected = await preinject._resolve_auto_routing(
+            "auto-daily", messages, current_turn_text=prompt, chat_id=chat_id
+        )
+        assert selected == "auto-daily"
+        assert classified_messages == [[{"role": "user", "content": prompt}]]
+
+        response = JSONResponse(
+            content={"choices": [{"message": {"role": "assistant", "content": "I can help."}}]}
+        )
+        visible = _response_with_handoff_notice(response)
+    finally:
+        preinject.take_handoff_notice()
+        preinject._ROUTER_CLASSIFICATION_CACHE.pop(chat_id, None)
+
+    content = json.loads(visible.body)["choices"][0]["message"]["content"]
+    assert content.startswith("This looks like specialist work; consider ")
+    assert "Portal Code Expert (auto-coding)" in content
+    assert content.endswith("I can help.")
+
+
+@pytest.mark.asyncio
+async def test_general_workspace_everyday_chat_is_not_nagged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    async def classify(_messages: list[dict[str, str]]) -> str:
+        nonlocal calls
+        calls += 1
+        return "auto-daily"
+
+    monkeypatch.setattr(preinject, "_route_with_llm", classify)
+    messages = [{"role": "user", "content": "Can you help me plan a relaxed weekend?"}]
+    try:
+        assert await preinject._resolve_auto_routing("auto-daily", messages) == "auto-daily"
+        assert preinject.take_handoff_notice() == ""
+    finally:
+        preinject.take_handoff_notice()
+
+    assert calls == 1
+
+
+@pytest.mark.asyncio
+async def test_general_workspace_classifier_result_is_cached_per_chat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    async def classify(messages: list[dict[str, str]]) -> str:
+        prompt = messages[-1]["content"]
+        calls.append(prompt)
+        return "auto-coding" if "service" in prompt else "auto-daily"
+
+    monkeypatch.setattr(preinject, "_route_with_llm", classify)
+    chat_id = "test-out-of-lane-cache"
+    preinject._ROUTER_CLASSIFICATION_CACHE.pop(chat_id, None)
+    try:
+        for _ in range(2):
+            assert (
+                await preinject._resolve_auto_routing(
+                    "auto-daily",
+                    [{"role": "user", "content": "Build a service."}],
+                    chat_id=chat_id,
+                )
+                == "auto-daily"
+            )
+            preinject.take_handoff_notice()
+        assert calls == ["Build a service."]
+
+        assert (
+            await preinject._resolve_auto_routing(
+                "auto-daily",
+                [{"role": "user", "content": "What is a relaxed weekend plan?"}],
+                chat_id=chat_id,
+            )
+            == "auto-daily"
+        )
+        assert calls == ["Build a service.", "What is a relaxed weekend plan?"]
+        assert preinject.take_handoff_notice() == ""
+    finally:
+        preinject.take_handoff_notice()
+        preinject._ROUTER_CLASSIFICATION_CACHE.pop(chat_id, None)
+
+
 def test_pipeline_notice_satisfies_security_handoff_grader_without_model_compliance() -> None:
     case = next(
         item

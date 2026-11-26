@@ -149,6 +149,7 @@ def test_uat_discovery_uses_configured_workspaces_and_personas() -> None:
         "s5-security-hunt-workflow",
         "s5-rag-followup",
         "s5-cad-stl-render",
+        "s5-daily-everyday-no-suggestion",
     } <= discovered_ids
     assert any(case.grader == "imbalance" for case in cases)
 
@@ -407,6 +408,22 @@ def test_daily_redirect_normalizes_unicode_markdown_and_counts_code_lines() -> N
         assert (
             "daily answer attempted to print a large implementation inline" in errors
         ) is expect_large_code
+
+
+def test_daily_everyday_grader_rejects_the_pipeline_specialist_notice() -> None:
+    case = uat.UATCase(
+        "daily-everyday",
+        "daily-everyday",
+        "auto-daily",
+        ("Can you help me plan a relaxed weekend?",),
+        "daily_no_suggestion",
+    )
+    assert uat.grade_case(case, [_turn("Sure, let’s sketch a relaxed plan.")], {})[0] == []
+    assert uat.grade_case(
+        case,
+        [_turn("This looks like specialist work; consider Portal Code Expert (auto-coding).")],
+        {},
+    )[0] == ["everyday answer included a specialist suggestion"]
 
 
 def test_text_journey_does_not_require_artifact_payload() -> None:

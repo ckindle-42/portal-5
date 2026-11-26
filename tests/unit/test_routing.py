@@ -550,3 +550,24 @@ async def test_auto_route_trace_records_private_scorer_receipt():
         item["keyword"] in {"cve", "vulnerability", "mitre"} for item in receipt["matched_keywords"]
     )
     assert query not in str(receipt)
+
+
+def test_keyword_scorer_matches_whole_tokens_not_substrings() -> None:
+    from portal.platform.inference.router.routing import auto_routing_matches, claim_pre_layer
+
+    postgresql = [{"role": "user", "content": "PostgreSQL"}]
+    implementation = [{"role": "user", "content": "implementation"}]
+    explicit_sql = [{"role": "user", "content": "Use SQL with PostgreSQL"}]
+    penetration_testing = [
+        {
+            "role": "user",
+            "content": "Explain common web application penetration testing methodology.",
+        }
+    ]
+
+    assert auto_routing_matches("keyword_fallback", postgresql, "auto-coding") == []
+    assert auto_routing_matches("keyword_fallback", implementation, "auto-coding") == []
+    assert auto_routing_matches("keyword_fallback", explicit_sql, "auto-coding") == [
+        {"keyword": "sql", "weight": 1}
+    ]
+    assert claim_pre_layer(penetration_testing) == ("router_handoff_gate", "auto-daily")

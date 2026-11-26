@@ -264,6 +264,17 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 {"target": coding, "target_name": target_name.name if target_name else coding},
             )
         )
+    if daily:
+        cases.append(
+            _case(
+                discovery,
+                "s5-daily-everyday-no-suggestion",
+                "Daily driver: everyday chat has no specialist suggestion",
+                daily,
+                ("What are three easy ways to unwind after a busy week?",),
+                "daily_no_suggestion",
+            )
+        )
 
 
 def _persona_cases(
@@ -1686,6 +1697,18 @@ def _grade_daily_case(
     return errors
 
 
+def _grade_daily_no_suggestion(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del case, turns, payloads, evidence
+    marker = "this looks like specialist work; consider "
+    return ["everyday answer included a specialist suggestion"] if marker in text.casefold() else []
+
+
 _CAUSAL_AFFIRMATION = (
     re.compile(r"\bcaused?\s+the\s+increase\b"),
     re.compile(r"\bfeature\s+(?:did\s+|does\s+|must\s+have\s+)?caused?\b"),
@@ -2335,6 +2358,7 @@ _CASE_GRADERS: dict[str, GradeHandler] = {
     "route_security_handoff": _grade_security_route_case,
     "route_math": _grade_math_case,
     "daily_redirect": _grade_daily_case,
+    "daily_no_suggestion": _grade_daily_no_suggestion,
     **dict.fromkeys(
         (
             "clarification",
