@@ -37,6 +37,50 @@ def _lab_network_inspect(
     )
 
 
+@pytest.mark.parametrize(
+    ("first_id", "second_id"),
+    [("team/alpha", "teamalpha"), ("a" * 48 + "x", "a" * 48 + "y")],
+)
+def test_session_directories_keep_distinct_ids_separate(monkeypatch, tmp_path, first_id, second_id):
+    monkeypatch.setattr(sandbox, "SANDBOX_SESSIONS_DIR", tmp_path / "sessions")
+
+    first = sandbox._session_dir(first_id)
+    second = sandbox._session_dir(second_id)
+
+    assert first != second
+    assert {row["session_id"] for row in sandbox._list_sessions()} == {
+        first_id,
+        second_id,
+    }
+
+
+def test_reset_session_does_not_delete_a_distinct_session(monkeypatch, tmp_path):
+    monkeypatch.setattr(sandbox, "SANDBOX_SESSIONS_DIR", tmp_path / "sessions")
+    first = sandbox._session_dir("team/alpha")
+    second = sandbox._session_dir("teamalpha")
+    (second / "state").write_text("owned by teamalpha", encoding="utf-8")
+
+    result = sandbox.reset_session("team/alpha")
+
+    assert result["reset"] is True
+    assert not first.exists()
+    assert (second / "state").read_text(encoding="utf-8") == "owned by teamalpha"
+
+
+def test_session_key_collision_fails_closed(monkeypatch, tmp_path):
+    monkeypatch.setattr(sandbox, "SANDBOX_SESSIONS_DIR", tmp_path / "sessions")
+    monkeypatch.setattr(sandbox, "_safe_session_id", lambda _session_id: "same-key")
+    first = sandbox._session_dir("first")
+    (first / "state").write_text("owned by first", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="session identifier key collision"):
+        sandbox._session_dir("second")
+    with pytest.raises(RuntimeError, match="session identifier key collision"):
+        sandbox.reset_session("second")
+
+    assert (first / "state").read_text(encoding="utf-8") == "owned by first"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("workspace", ["auto-coding", "auto-security::pentest"])
 async def test_general_code_stays_offline_when_lab_mode_is_enabled(
@@ -64,6 +108,39 @@ async def test_general_code_stays_offline_when_lab_mode_is_enabled(
 
     assert result["success"] is True
     assert command[command.index("--network") + 1] == "none"
+
+
+@pytest.mark.asyncio
+async def test_python_sessions_use_fresh_containers_and_distinct_mounts(monkeypatch, tmp_path):
+    commands: list[list[str]] = []
+
+    async def create_subprocess_exec(*args, **_kwargs):
+        commands.append(list(args))
+        return _DockerProcess()
+
+    monkeypatch.setattr(sandbox, "SANDBOX_DIR", tmp_path)
+    monkeypatch.setattr(sandbox, "SANDBOX_SESSIONS_DIR", tmp_path / "sessions")
+    monkeypatch.setattr(sandbox, "GENERAL_EXEC_AVAILABLE", True)
+    monkeypatch.setattr(sandbox, "GENERAL_EXEC_STATE", "ready")
+    monkeypatch.setattr(sandbox.asyncio, "create_subprocess_exec", create_subprocess_exec)
+
+    first = await sandbox.execute_python("print('first')", session_id="uat_iso_a")
+    second = await sandbox.execute_python("print('second')", session_id="uat_iso_b")
+
+    assert first["success"] is True
+    assert second["success"] is True
+    assert [command[:3] for command in commands] == [
+        ["docker", "run", "--rm"],
+        ["docker", "run", "--rm"],
+    ]
+    mounts = [
+        command[index + 1]
+        for command in commands
+        for index, value in enumerate(command[:-1])
+        if value == "-v" and command[index + 1].endswith(":/session")
+    ]
+    assert len(mounts) == 2
+    assert mounts[0] != mounts[1]
 
 
 @pytest.mark.asyncio
