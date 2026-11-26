@@ -64,10 +64,15 @@ def test_cross_session_prompt_requires_recall_despite_auto_injection() -> None:
     )
 
     assert "{{memory_key}}" in case.prompts[0]
+    assert "{{memory_marker}}" in case.prompts[0]
+    assert "{{memory_marker}}" in case.prompts[1]
     assert "preferred color cobalt" in case.prompts[0]
     assert case.expected_tools == ("remember", "recall")
     assert "Use recall" in case.prompts[1]
     assert "automatically injected memory" in case.prompts[1]
+    prompts = uat._memory_prompts(case, "QATUAT-CODE", "QAT-LABEL")
+    assert "QATUAT-CODE" in prompts[0] and "QATUAT-CODE" not in prompts[1]
+    assert all("QAT-LABEL" in prompt for prompt in prompts)
     missing_recall = uat.UATTurn(case.prompts[1], "QATUAT-123; cobalt", {}, (), ())
     assert (
         uat._required_tool_error(replace(case, expected_tools=("recall",)), [missing_recall])

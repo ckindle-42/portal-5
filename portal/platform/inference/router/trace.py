@@ -15,9 +15,10 @@ Records go to a tmpfs directory shared by every worker in the container.
 
 Capture is metadata by default: workspace resolution chain, backend and model,
 tool names with durations and outcomes, plus one bounded result per execution
-(success, error type, stdout/stderr heads). Message and tool-argument bodies
-are captured only when ``PORTAL_TRACE_BODIES`` is set, because prompts are user
-content and this store is readable by anyone holding the pipeline key.
+(success, error type, stdout/stderr heads, or a content-free structured shape).
+Message and tool-argument bodies are captured only when ``PORTAL_TRACE_BODIES``
+is set, because prompts are user content and this store is readable by anyone
+holding the pipeline key.
 
 Every public helper swallows its own exceptions. A trace failure must never
 change the outcome of a turn.
@@ -141,6 +142,27 @@ def _error_message(parsed: dict[str, Any] | None) -> str:
     return ""
 
 
+def _result_shape(parsed: dict[str, Any] | None) -> dict[str, Any]:
+    """Summarize structured results without recording their user content."""
+    if not isinstance(parsed, dict):
+        return {}
+    shape: dict[str, Any] = {"keys": sorted(parsed)[:16]}
+    for key in ("memories", "results", "matches", "documents", "hits", "nodes", "edges"):
+        items = parsed.get(key)
+        if isinstance(items, list):
+            shape[f"{key}_count"] = len(items)
+            if key == "memories":
+                shape["memory_ids"] = [
+                    str(item["id"])
+                    for item in items[:5]
+                    if isinstance(item, dict) and item.get("id")
+                ]
+    count = parsed.get("num_results")
+    if isinstance(count, int) and not isinstance(count, bool):
+        shape["num_results"] = count
+    return shape
+
+
 def _tool_status(parsed: dict[str, Any] | None, error_type: str) -> tuple[bool, str]:
     if error_type:
         return False, error_type[:80]
@@ -175,6 +197,8 @@ def bounded_tool_result(result: Any, *, error_type: str = "") -> dict[str, Any]:
         "stdout_head": stdout_head,
         "stderr_head": stderr_head,
     }
+    if not stdout_head and not stderr_head:
+        fields["result_shape"] = _result_shape(parsed)
     if error_cut:
         fields["error_truncated"] = True
     if stdout_cut:

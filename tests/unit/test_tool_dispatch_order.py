@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 import pytest
 
@@ -71,6 +72,53 @@ async def test_pipeline_forwards_workspace_on_native_tool_dispatch(monkeypatch) 
 
 def _completed(record: dict) -> list[dict]:
     return [span for span in record["spans"] if span["name"] == "tool.completed"]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_traces_structured_mcp_results_without_memory_text(monkeypatch, tmp_path):
+    from portal.platform.inference import tool_registry
+    from portal.platform.inference.router import tools as router_tools
+    from portal.platform.inference.router import trace
+
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path))
+    payload = {
+        "query": "QAT label",
+        "num_results": 2,
+        "memories": [
+            {"id": "memory-1", "text": "private memory one"},
+            {"id": "memory-2", "text": "private memory two"},
+        ],
+    }
+
+    async def dispatch(_name, _arguments, request_id="", workspace_id=""):
+        del request_id, workspace_id
+        return payload
+
+    monkeypatch.setattr(tool_registry.tool_registry, "dispatch", dispatch)
+    trace.start_trace("p5-structuredresult")
+    try:
+        tool_message = await router_tools._dispatch_tool_call(
+            {"id": "call-memory", "function": {"name": "recall", "arguments": "{}"}},
+            {"recall"},
+            "auto-daily",
+            "daily",
+            "request-memory",
+        )
+        trace.finalize_trace()
+        record = trace.read_trace("p5-structuredresult")
+    finally:
+        trace._current.set(None)
+
+    assert json.loads(tool_message["content"]) == payload
+    span = _completed(record)[0]
+    assert span["stdout_head"] == ""
+    assert span["result_shape"] == {
+        "keys": ["memories", "num_results", "query"],
+        "num_results": 2,
+        "memories_count": 2,
+        "memory_ids": ["memory-1", "memory-2"],
+    }
+    assert "private memory" not in str(record)
 
 
 async def test_dispatch_records_a_bounded_redacted_tool_result(monkeypatch, tmp_path):

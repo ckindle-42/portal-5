@@ -168,8 +168,10 @@ class TestPlanAndOrder:
             meta = json.loads((tmp_path / "run_meta.json").read_text())
             assert meta["owui_memory_state"]["status"] == "clean"
             client.events.append("save-chat")
+            assert client.memories == []
             scenario_facts.update({"project_code": "QATUAT-42", "preferred_color": "cobalt"})
             client.events.append("recall-chat")
+            assert client.memories == []
             assert scenario_facts == {"project_code": "QATUAT-42", "preferred_color": "cobalt"}
 
         monkeypatch.setattr(rn, "_execute", execute)

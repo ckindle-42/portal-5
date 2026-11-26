@@ -579,8 +579,8 @@ def _advanced_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 "Memory: recall a private fact in a new chat",
                 daily,
                 (
-                    "Use remember to store this run's project code {{memory_key}} and preferred color cobalt. Confirm when saved.",
-                    "Use recall to retrieve the project code and preferred color I stored in my previous conversation. Do not rely on automatically injected memory; call recall in this chat before answering. Give both values exactly.",
+                    "Use remember to store this run's project code {{memory_key}}, preferred color cobalt, and run label {{memory_marker}}. Confirm when saved.",
+                    "Use recall to retrieve the project code and preferred color stored under run label {{memory_marker}} in my previous conversation. Do not rely on automatically injected memory; call recall in this chat before answering. Give both values exactly.",
                 ),
                 "cross_session_memory",
                 expected_tools=("remember", "recall"),
@@ -3217,6 +3217,13 @@ def _browser_artifact_urls(ui: BrowserUI, text: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys([*dom, *artifact_urls({"content": text})]))
 
 
+def _memory_prompts(case: UATCase, memory_key: str, memory_marker: str) -> list[str]:
+    return [
+        prompt.replace("{{memory_key}}", memory_key).replace("{{memory_marker}}", memory_marker)
+        for prompt in case.prompts
+    ]
+
+
 def _run_browser_memory(
     ui: BrowserUI,
     client: OWUIClient,
@@ -3229,8 +3236,10 @@ def _run_browser_memory(
 ) -> QATResult:
     from . import runner
 
-    memory_key = f"QATUAT-{uuid.uuid4().hex[:10]}"
-    prompts = [prompt.replace("{{memory_key}}", memory_key) for prompt in case.prompts]
+    run_marker = uuid.uuid4().hex[:10]
+    memory_key = f"QATUAT-{run_marker}"
+    memory_marker = f"QAT-MARK-{run_marker}"
+    prompts = _memory_prompts(case, memory_key, memory_marker)
     display = _preset_display_name(state, case)
     chats: list[str] = []
     records: list[UATTurn] = []
@@ -3636,8 +3645,10 @@ def _run_memory_case(
     client = OWUIClient(settings)
     try:
         token = client.signin()
-        memory_key = f"QATUAT-{uuid.uuid4().hex[:10]}"
-        prompts = [prompt.replace("{{memory_key}}", memory_key) for prompt in case.prompts]
+        run_marker = uuid.uuid4().hex[:10]
+        memory_key = f"QATUAT-{run_marker}"
+        memory_marker = f"QAT-MARK-{run_marker}"
+        prompts = _memory_prompts(case, memory_key, memory_marker)
         chats: list[str] = []
         records: list[UATTurn] = []
         for index, prompt in enumerate(prompts, start=1):
