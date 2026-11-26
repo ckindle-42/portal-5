@@ -578,6 +578,28 @@ def test_a_sized_kv_cache_is_not_padded_by_the_weight_factor():
     assert need < 20.55 * GIB * lg._FACTOR + kv
 
 
+def test_glm4moelite_sizes_its_mla_cache_as_one_latent_per_layer():
+    show = {
+        "parameters": "num_ctx 24576\ncache-type-k q8_0\ncache-type-v q8_0",
+        "model_info": {
+            "general.architecture": "glm4moelite",
+            "glm4moelite.block_count": 47,
+            "glm4moelite.attention.head_count_kv": 20,
+            "glm4moelite.attention.key_length": 256,
+            "glm4moelite.attention.value_length": 256,
+            "glm4moelite.attention.kv_lora_rank": 512,
+            "glm4moelite.rope.dimension_count": 64,
+        },
+    }
+    values = lg._show_values(show)
+    model = "glm-4.7-flash:Q4_K_M-ctx24k"
+    weights = 19_019_270_615  # live /api/tags size
+
+    kv = lg._ollama_kv_bytes(values, 24576)
+    assert kv is not None and kv / GIB == pytest.approx(1.244, abs=0.001)
+    assert lg._estimate_ollama_need(weights, show, model) / GIB == pytest.approx(18.957, abs=0.001)
+
+
 async def test_a_256k_ollama_seat_admits_in_the_headroom_that_refused_it():
     """auto-general-uncensored::throwaway, 2026-11-16 03:15Z: 36.3 GiB projected against
     35.2 GiB available (oMLX headroom 37.2, no idle Ollama, margin 2) — a 1.1 GiB refusal
@@ -1000,8 +1022,8 @@ async def test_tool_loop_waits_for_a_sibling_ollama_resident_then_evicts_it(monk
 
 
 async def test_tool_loop_retries_omlx_eviction_after_a_sibling_lease_drains(monkeypatch, caplog):
-    """GLM receipt: the shared resident is idle by the quiet pass after its sibling drains."""
-    model = "glm-4.7-flash:Q4_K_M-ctx24k"
+    """A large Ollama request waits for a sibling to release its oMLX resident."""
+    model = "oversized-ollama-tag"
     idle = "idle-omlx"
     need = 29.4 * GIB
     resident = 21.0 * GIB

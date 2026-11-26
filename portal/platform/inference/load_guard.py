@@ -387,14 +387,30 @@ def _ollama_kv_bytes(values: dict[str, Any], context: int | None) -> float | Non
     if not context or not layer_count or not layer_count.is_integer():
         return None
     count = int(layer_count)
-    heads = _layer_numbers(
-        _show_value(
-            values, "attention.head_count_kv", "n_head_kv", "num_key_value_heads", "num_kv_heads"
-        ),
-        count,
-    )
+    architecture = str(_show_value(values, "general.architecture") or "").lower()
+    heads: list[float] | None
+    lengths: tuple[list[float], list[float]] | None
+    if architecture == "glm4moelite":
+        rank = _show_number(values, "attention.kv_lora_rank", "kv_lora_rank")
+        rope = _show_number(values, "rope.dimension_count", "dimension_count")
+        if rank is None or rope is None:
+            return None
+        # Ollama exposes per-head metadata here, but the runner caches one MLA latent per layer.
+        heads = [1.0] * count
+        lengths = ([rank + rope] * count, [rank] * count)
+    else:
+        heads = _layer_numbers(
+            _show_value(
+                values,
+                "attention.head_count_kv",
+                "n_head_kv",
+                "num_key_value_heads",
+                "num_kv_heads",
+            ),
+            count,
+        )
+        lengths = _attention_lengths(values, count)
     sliding_geometry = _sliding_layers(values, count)
-    lengths = _attention_lengths(values, count)
     if heads is None or sliding_geometry is None or lengths is None:
         return None
     sliding, window = sliding_geometry
