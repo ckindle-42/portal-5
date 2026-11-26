@@ -22,6 +22,7 @@ from typing import Any
 import httpx
 
 from portal.platform.inference import load_guard as _load_guard
+from portal.platform.inference.config import load_portal_config
 from portal.platform.inference.router.metrics import _router_latency_seconds
 from portal.platform.inference.router.power import (
     INTERNAL_ROUTER_WORKSPACE,
@@ -291,6 +292,24 @@ _SCORER_VARIANT_MAP: dict[str, tuple[str, str]] = {
     "_coding_heavy": ("auto-coding", "heavy"),
 }
 
+_ROUTER_EXCLUDED: frozenset[str] = frozenset(
+    workspace_id for workspace_id, cfg in WORKSPACES.items() if cfg.get("router") is False
+)
+_ROUTER_EXCLUDED_VARIANTS: frozenset[str] = frozenset(
+    f"{workspace_id}::{variant_id}"
+    for workspace_id, spec in load_portal_config().workspaces.items()
+    for variant_id, cfg in spec.variants.items()
+    if cfg.get("router") is False
+)
+
+
+def _router_target_excluded(scorer_id: str) -> bool:
+    """Check the canonical workspace target behind a Layer 2 scorer key."""
+    base, variant = _SCORER_VARIANT_MAP.get(scorer_id, (scorer_id, ""))
+    target = f"{base}::{variant}" if variant else base
+    return base in _ROUTER_EXCLUDED or target in _ROUTER_EXCLUDED_VARIANTS
+
+
 # Workspace routing configuration: keywords + activation threshold
 # Thresholds tuned so a single strong signal (weight 3) triggers routing,
 # or a combination of medium signals (2+2=4) reaches the bar.
@@ -328,6 +347,11 @@ _WORKSPACE_ROUTING: dict[str, dict[str, Any]] = {
         "keywords": _COMPLIANCE_KEYWORDS,
         "threshold": 3,
     },
+}
+_WORKSPACE_ROUTING = {
+    scorer_id: cfg
+    for scorer_id, cfg in _WORKSPACE_ROUTING.items()
+    if not _router_target_excluded(scorer_id)
 }
 
 # Pre-lowered keyword cache for O(len(keywords)) scoring in _detect_workspace().
@@ -383,9 +407,6 @@ _LLM_ROUTER_OLLAMA_URL: str = os.environ.get(
 # excluded by name below; this is the per-workspace declarative form. A
 # workspace listed here stays user-selectable and callable by id — only the
 # `auto` router is barred from choosing it.
-_ROUTER_EXCLUDED: frozenset[str] = frozenset(
-    k for k, cfg in WORKSPACES.items() if cfg.get("router") is False
-)
 _ROUTER_FALLBACK: dict[str, str] = {
     k: fallback
     for k in _ROUTER_EXCLUDED
@@ -575,6 +596,7 @@ def _build_router_prompt(user_message: str) -> str:
         ex
         for ex in (examples or [])
         if str(ex.get("workspace", "")).split("::", 1)[0] in _VALID_WORKSPACE_IDS
+        and str(ex.get("workspace", "")) not in _ROUTER_EXCLUDED_VARIANTS
     ]
     example_lines = "\n".join(
         f'Message: "{ex["message"]}"\nWorkspace: {ex["workspace"]}\n'
@@ -773,6 +795,7 @@ def _infer_variant(base: str, message: str) -> str:
     scores = {
         variant: score
         for variant, keywords in signal_table.items()
+        if f"{base}::{variant}" not in _ROUTER_EXCLUDED_VARIANTS
         if (score := sum(w for kw, w in keywords.items() if kw in text))
         >= _VARIANT_INFERENCE_THRESHOLD
     }

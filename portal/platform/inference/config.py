@@ -156,7 +156,10 @@ class WorkspaceSpec(BaseModel):
     # variant name -> partial field overrides, applied on top of this workspace's
     # own fields by resolve_workspace_variant(). Internal-only: never appears in
     # the runtime WORKSPACES dict (see get_workspace_dict's _INTERNAL_ONLY_FIELDS).
-    variants: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    variants: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Variant overrides may set router: false to require explicit selection.",
+    )
 
     # --- Routing ---
     model_hint: str | None = None
@@ -258,6 +261,9 @@ class WorkspaceSpec(BaseModel):
     def _variant_modules_known(self) -> WorkspaceSpec:
         known = set(get_args(ModuleName))
         for name, cfg in self.variants.items():
+            router = cfg.get("router") if isinstance(cfg, dict) else None
+            if router is not None and not isinstance(router, bool):
+                raise ValueError(f"variant {name!r}: router must be a boolean")
             module = cfg.get("module") if isinstance(cfg, dict) else None
             if module is not None and module not in known:
                 raise ValueError(f"variant {name!r}: unknown module {module!r}")
