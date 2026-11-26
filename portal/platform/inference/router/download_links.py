@@ -103,6 +103,77 @@ def strip_unbacked_download_lines(content: str, keep_names: frozenset[str] = fro
     return "".join(kept)
 
 
+# Published OWUI downloads. Host :8924 paths are not user-reachable and are ignored.
+_PUBLISHED_FILE_RE = re.compile(
+    r"(?:https?://[^\s\"'<>\\]+)?/api/v1/files/[0-9a-fA-F-]{8,}/content/[^\s\"'<>\\)\]]+"
+)
+_PUBLISHED_ID_RE = re.compile(r"/api/v1/files/([0-9a-fA-F-]{8,})/content/([^/?#]+)")
+_EXT_RANK = {
+    ".docx": 0,
+    ".xlsx": 1,
+    ".pptx": 2,
+    ".pdf": 3,
+    ".png": 4,
+    ".jpg": 5,
+    ".webp": 6,
+    ".mp4": 7,
+    ".wav": 8,
+    ".mp3": 9,
+    ".stl": 10,
+    ".glb": 11,
+    ".md": 20,
+    ".json": 30,
+}
+
+
+def _published_urls(results: list[dict[str, Any]]) -> list[str]:
+    """Absolute published URLs first, one per file id, user-facing extensions before sidecars."""
+    by_id: dict[str, str] = {}
+    order: list[str] = []
+    for result in results:
+        content = result.get("content") if isinstance(result, dict) else None
+        text = content if isinstance(content, str) else ""
+        if isinstance(content, (dict, list)):
+            text = json.dumps(content)
+        for url in _PUBLISHED_FILE_RE.findall(text):
+            match = _PUBLISHED_ID_RE.search(url)
+            if match is None:
+                continue
+            fid = match.group(1)
+            current = by_id.get(fid)
+            if current is None:
+                order.append(fid)
+                by_id[fid] = url
+            elif url.startswith("http") and not current.startswith("http"):
+                by_id[fid] = url
+    ranked = sorted(
+        order,
+        key=lambda fid: _EXT_RANK.get(_url_suffix(by_id[fid]), 50),
+    )
+    return [by_id[fid] for fid in ranked]
+
+
+def _url_suffix(url: str) -> str:
+    name = url.rsplit("/", 1)[-1]
+    dot = name.rfind(".")
+    return name[dot:].lower() if dot >= 0 else ""
+
+
+def missing_published_suffix(answer: str, results: list[dict[str, Any]] | None) -> str:
+    """Markdown links for OWUI files a tool published that the answer does not already show."""
+    if not results:
+        return ""
+    links: list[str] = []
+    for url in _published_urls(results):
+        match = _PUBLISHED_ID_RE.search(url)
+        if match is None or match.group(1) in answer:
+            continue
+        links.append(f"[{match.group(2)}]({url})")
+    if not links:
+        return ""
+    return "\n\n" + "\n".join(links)
+
+
 def _creates_files(name: str) -> bool:
     return name.startswith("create_") or name == "convert_document"
 

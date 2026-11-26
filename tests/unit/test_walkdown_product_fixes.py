@@ -109,7 +109,7 @@ def test_docx_to_pdf_without_libreoffice(doc_out, no_libreoffice):
     result = dm.convert_document(str(src), "pdf")
     assert result.get("success") is True, result
     assert result["method"] == "pymupdf"
-    pdf = doc_out / result["filename"]
+    pdf = doc_out / "generated" / "documents" / result["filename"]
     data = pdf.read_bytes()
     assert data.startswith(b"%PDF-")
     text = "".join(page.get_text() for page in pymupdf.open(stream=data, filetype="pdf"))
@@ -131,7 +131,9 @@ def test_docx_to_pdf_resolves_bare_name_and_owui_urls(doc_out, no_libreoffice, r
     _make_docx(doc_out / "report_b2.docx")
     result = dm.convert_document(ref, "pdf")
     assert result.get("success") is True, result
-    assert (doc_out / result["filename"]).read_bytes().startswith(b"%PDF-")
+    assert (
+        (doc_out / "generated" / "documents" / result["filename"]).read_bytes().startswith(b"%PDF-")
+    )
 
 
 @_needs("docx")
@@ -140,7 +142,8 @@ def test_export_pdf_delegates_to_fallback(doc_out, no_libreoffice):
     _make_docx(doc_out / "report_c3.docx")
     result = dm.export_pdf("report_c3.docx")
     assert result.get("success") is True, result
-    assert (doc_out / result["filename"]).read_bytes().startswith(b"%PDF-")
+    office = doc_out / "generated" / "documents" / result["filename"]
+    assert office.read_bytes().startswith(b"%PDF-")
 
 
 def test_convert_document_refuses_outside_and_traversal(doc_out, tmp_path):

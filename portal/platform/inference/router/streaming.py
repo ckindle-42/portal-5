@@ -56,6 +56,7 @@ from portal.platform.inference.router.correlation import (
 )
 from portal.platform.inference.router.download_links import (
     DownloadLineFilter,
+    missing_published_suffix,
     offers_file_creation,
     prior_office_filenames,
     successful_file_creation,
@@ -1748,7 +1749,17 @@ async def _tool_loop_frames_impl(
                     _held_frames, _content_chunk(request_id, workspace_id, _download_tail)
                 ):
                     yield _f
+                _content_buf += _download_tail
                 _content_emitted = True
+            if not tool_calls_buf:
+                _published = missing_published_suffix(_content_buf, carry_results)
+                if _published:
+                    for _f in _route(
+                        _held_frames, _content_chunk(request_id, workspace_id, _published)
+                    ):
+                        yield _f
+                    _content_buf += _published
+                    _content_emitted = True
 
         # Empty and reasoning-only terminals are explicit no-answer outcomes.
         # Diagnostics contain only the outcome class and route identity; raw
