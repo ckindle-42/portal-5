@@ -576,6 +576,107 @@ async def test_exhausted_chain_ends_with_one_terminal_frame(
     assert recorded == [("ws", "stream_timeout"), ("ws", "all_backends_failed")]
 
 
+def _cap_fallback_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A chat-UI audience whose lighter declared variant serves the turn."""
+    from portal.platform.inference import load_guard
+    from portal.platform.inference.router import capacity_fallback as cf
+    from portal.platform.inference.router import no_answer, validation
+    from portal.platform.inference.router.workspaces import WORKSPACES
+
+    # A leaked GUARD from another test would have _seat_fits probe the fake URL.
+    monkeypatch.setattr(load_guard, "GUARD", None)
+    monkeypatch.setattr(no_answer, "chat_ui", lambda: True)
+    fallback_backend = SimpleNamespace(
+        id="fake",
+        type="ollama",
+        url="http://engine",
+        chat_url="http://engine/v1/chat/completions",
+        models=["lite-hint"],
+        resolve_model=lambda hint: hint,
+    )
+    monkeypatch.setattr(
+        validation,
+        "registry",
+        SimpleNamespace(
+            list_backends=lambda: [fallback_backend],
+            get_backend_candidates=lambda _ws: [fallback_backend],
+        ),
+    )
+    monkeypatch.setattr(cf, "_variant_names", lambda _ws: ["lite"])
+    monkeypatch.setattr(cf, "_register_variant", lambda _base, _name: "ws::lite")
+    monkeypatch.setitem(WORKSPACES, "ws::lite", {"model_hint": "lite-hint"})
+
+    async def fallback_dispatch(_backend: typing.Any, *_a: typing.Any, **_k: typing.Any):
+        return JSONResponse(
+            {"choices": [{"message": {"role": "assistant", "content": "lite answer"}}]},
+            headers={"x-portal-route": "ws::lite;fake;lite-hint"},
+        )
+
+    monkeypatch.setattr(st, "_try_non_streaming", fallback_dispatch)
+
+
+def _capacity_error_stream() -> typing.Callable[[], typing.AsyncIterator[bytes]]:
+    async def inner() -> typing.AsyncIterator[bytes]:
+        yield (
+            b'data: {"error": "Cannot load m: projected memory 32.8 GiB would exceed '
+            b'host headroom", "status": 507}\n\n'
+        )
+
+    return inner
+
+
+@pytest.mark.anyio
+async def test_capacity_fallback_receipt_survives_the_error_stamp(
+    stream_client: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: typing.Any,
+) -> None:
+    """A chat turn a lighter variant served must not record outcome="error".
+
+    The wrapper stamps "error" when its candidate ladder is exhausted; the capacity
+    fallback that then answers the chat UI overwrites the record with the seat that
+    actually answered (try_capacity_fallback). The stamps are therefore applied
+    before _exhausted_frames runs, not after (2026-11-25 review).
+    """
+    from portal.platform.inference.router import trace
+
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path))
+    _cap_fallback_env(monkeypatch)
+    recorded = _record_errors(monkeypatch)
+    trace.start_trace("p5-captest")
+    try:
+        monkeypatch.setattr(st, "_select_stream_fn", lambda *_a, **_k: _capacity_error_stream()())
+        chunks = await _drain(
+            st._stream_with_fallback(
+                backend=_backend("b0"),
+                body={"messages": [{"role": "user", "content": "hi"}]},
+                workspace_id="ws",
+                target_model="m",
+                persona="p",
+                effective_tools=[],
+                start_time=0.0,
+                has_tools=False,
+                chain=[],
+                portal_no_tools=False,
+                secondary_model="",
+                tertiary_model="",
+                remaining=[],
+                slot=MagicMock(),
+                backend_body={"messages": [{"role": "user", "content": "hi"}]},
+            )
+        )
+
+        assert recorded == [("ws", "all_backends_failed")]
+        assert _assert_well_formed(chunks) is None
+        assert "lite answer" in _content(chunks)
+        record = trace.current_trace().to_dict()
+        assert record["outcome"] == "ok"
+        assert record["backend"] == "fake" and record["model"] == "lite-hint"
+        assert record["workspace"] == "ws::lite" and record["capacity_fallback"] == "lite"
+    finally:
+        trace._current.set(None)
+
+
 @pytest.mark.anyio
 async def test_error_after_output_started_ends_well_formed_without_cascade(
     stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch

@@ -3356,8 +3356,10 @@ async def _stream_with_fallback(
                 or _error_buffer
             )
         _message = _stream_error_detail(_error_buffer) if _error_buffer else "All backends failed"
-        for _f in await _exhausted_frames(workspace_id, body, _message, persona):
-            yield _f
+        # Stamped BEFORE the ending frames: a capacity fallback served inside
+        # _exhausted_frames overwrites outcome/backend/model with the seat that
+        # actually answered (try_capacity_fallback), so the record cannot say
+        # "error" for a turn a lighter variant served.
         _record_error(workspace_id, "all_backends_failed")
         trace_note(outcome="error")
         trace_span(
@@ -3367,4 +3369,6 @@ async def _stream_with_fallback(
             status_code=_error_status,
             error=_message[:200],
         )
+        for _f in await _exhausted_frames(workspace_id, body, _message, persona):
+            yield _f
         finalize_trace()

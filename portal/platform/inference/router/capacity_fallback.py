@@ -19,6 +19,8 @@ from starlette.responses import JSONResponse
 
 from portal.platform.inference.router import no_answer
 from portal.platform.inference.router.metrics import _capacity_fallback_total
+from portal.platform.inference.router.trace import note as trace_note
+from portal.platform.inference.router.trace import span as trace_span
 from portal.platform.inference.router.workspaces import WORKSPACES
 
 logger = logging.getLogger(__name__)
@@ -94,6 +96,26 @@ def _with_note(result: JSONResponse, note: str) -> JSONResponse:
     return JSONResponse(content=data, headers=dict(result.headers))
 
 
+def _note_fallback_receipt(backend: Any, served: str, synthetic_id: str, name: str) -> None:
+    """Name the seat that actually answered. Without this the record has no
+    outcome and no backend/model, because the candidate loop that normally
+    notes them never succeeded."""
+    trace_note(
+        backend=backend.id,
+        model=served,
+        workspace=synthetic_id,
+        outcome="ok",
+        capacity_fallback=name,
+    )
+    trace_span(
+        "backend.selected",
+        backend=backend.id,
+        model=served,
+        fallback=True,
+        capacity_fallback=name,
+    )
+
+
 async def try_capacity_fallback(
     workspace_id: str,
     body: dict[str, Any],
@@ -164,5 +186,9 @@ async def try_capacity_fallback(
                 synthetic_id,
                 served,
             )
+            # The receipt a trace consumer reads must name the seat that actually
+            # answered: without this the record has no outcome and no backend/model,
+            # because the candidate loop that normally notes them never succeeded.
+            _note_fallback_receipt(backend, served, synthetic_id, name)
             return _with_note(result, note)
     return None
