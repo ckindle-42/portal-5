@@ -75,11 +75,12 @@ def resolve(repo: Any, ref: str) -> Scope:
     """The scope of one reference: a parent requirement expands to its Parts, a
     Part is its own leaf, and anything that is not a regulatory address is
     returned unchanged rather than guessed at."""
-    from portal.modules.compliance.core.reading_assembly import parse_ref
+    from portal.modules.compliance.core.reading_assembly import canonical_ref, parse_ref
 
     parsed = parse_ref(ref)
     if parsed is None:
         return Scope(ref=ref, detail=f"{ref!r} is not a regulatory address; it stands for itself")
+    parsed = canonical_ref(repo, parsed)
     canonical = str(parsed)
     if parsed.part:
         return Scope(ref=canonical, detail="a Part is a leaf: it stands for itself")

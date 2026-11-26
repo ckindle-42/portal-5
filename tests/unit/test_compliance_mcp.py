@@ -194,3 +194,56 @@ def test_compliance_context_material_is_json(monkeypatch):
     out = compliance_mcp.compliance_context("CIP-007-6 R2 Part 2.3", mode="material")
     assert out["mode"] == "dual_document" and out["text"] == "payload"
     json.dumps(out)
+
+
+def test_compliance_read_arguments_never_reject_at_the_sdk_boundary():
+    """QAT cfe67a16e run 140220Z, 14:49:23Z: `compliance_read error=Tool
+    'compliance_read' returned an MCP tool error` x2. The compliance MCP log
+    (~/.portal5/logs/compliance-mcp.log, server.py:450) names the actual
+    exception: `Tool 'compliance_read' rejected arguments: ['neighbors']` —
+    pydantic rejected the call at the SDK boundary before the body ran, so a
+    valid section reference surfaced as an opaque error. The SDK redacts the
+    value, so these are the shapes a "batched reads" attempt emits; none of
+    them may reject."""
+    tool = compliance_mcp.mcp._tool_manager.get_tool("compliance_read")
+    assert tool is not None
+    for bad in (None, ["R-abc123", "R-def456"], {"ref": "x"}, "the retention sections"):
+        validated = tool.fn_metadata.validate_arguments(
+            {"ref": "CIP-007-6 Requirement 2 Part 2.2", "neighbors": bad}
+        )
+        assert isinstance(validated["neighbors"], bool)
+    validated = tool.fn_metadata.validate_arguments(
+        {"ref": "csection-abc123", "neighbors": "true", "max_chars": None}
+    )
+    assert validated["neighbors"] is True
+    assert validated["max_chars"] == 6000
+    # the advertised schema is unchanged: the model still sees a plain boolean
+    assert tool.parameters["properties"]["neighbors"]["type"] == "boolean"
+
+
+def test_compliance_read_reads_with_a_misspelled_flag(monkeypatch):
+    """Body level: a non-bool flag value still reads the (valid) reference."""
+    repo = _alias_repo()
+    monkeypatch.setattr(compliance_mcp, "_repo", lambda: repo)
+    _patch_resolution(
+        monkeypatch, {"CIP-007/LSPG ADM CIP007SPM.pdf": ["isection-spm-1"]}, "policy body"
+    )
+    monkeypatch.setattr(
+        compliance_mcp,
+        "_neighbors",
+        lambda repo, entry, max_chars: {"heading_path": "", "siblings": []},
+    )
+    out = compliance_mcp.compliance_read("ot-pol-007", neighbors=["R-abc123"])
+    assert out["resolved"] is True
+    assert "policy body" in out["units"][0]["text"]
+
+
+def test_compliance_read_invalid_ref_gets_a_specific_message(monkeypatch):
+    """An unresolvable reference names what IS accepted instead of failing flat."""
+    repo = _alias_repo()
+    monkeypatch.setattr(compliance_mcp, "_repo", lambda: repo)
+    _patch_resolution(monkeypatch, {}, "")
+    out = compliance_mcp.compliance_read("CIP-007-6 Requirement Twenty-Two")
+    assert out["resolved"] is False
+    assert "accepted forms" in out["detail"]
+    assert "CIP-007-6 R2 Part 2.2" in out["detail"]

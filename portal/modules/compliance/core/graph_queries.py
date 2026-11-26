@@ -10,6 +10,13 @@ def links(
 ) -> dict[str, Any]:
     if direction not in ("out", "in", "both"):
         return {"error": "direction must be one of: out, in, both"}
+    from portal.modules.compliance.core import reading_assembly
+
+    # Edges are recorded against canonical addresses: an equivalent spelling
+    # ("Requirement 2", a versionless standard) matches nothing verbatim.
+    parsed = reading_assembly.parse_ref(ref)
+    if parsed is not None:
+        ref = str(reading_assembly.canonical_ref(repo, parsed))
     clauses: list[str] = []
     params: list[Any] = []
     if direction in ("out", "both"):
@@ -59,6 +66,8 @@ def timeline(repo: Any, ref: str) -> dict[str, Any]:
     from portal.modules.compliance.core.revision_compare import semantic_diff
 
     parsed = reading_assembly.parse_ref(ref)
+    if parsed is not None:
+        parsed = reading_assembly.canonical_ref(repo, parsed)
     logical_id = parsed.logical_id if parsed else ref
     rows = repo._conn.execute(
         """SELECT r.revision_id, r.logical_id, r.version, r.effective_date, r.approved_date,

@@ -23,9 +23,10 @@ import time
 import urllib.request
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 from mcp.server import MCPServer
+from pydantic import BeforeValidator
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
@@ -246,6 +247,7 @@ def compliance_requirement(
     ONE call returns, shared across the matched parts; every clip is STATED
     in ``truncation``, and a rollup whose budget ran out names where."""
     try:
+        from portal.modules.compliance.core import reading_assembly
         from portal.modules.compliance.core.cip_register import Register
         from portal.modules.compliance.core.engine import effective_parts, parse_iso_date
         from portal.modules.compliance.core.obligations import decompose, expression_for
@@ -280,7 +282,10 @@ def compliance_requirement(
         # The register is pinned to current revisions; a selected future or
         # historical store revision it does not carry still resolves from the
         # canonical store (requirement_nodes + verbatim atom clauses).
-        want = re.sub(r"\s+", "", requirement.strip()).upper()
+        # Canonicalize the address spelling first ("Requirement 2" → "R2"):
+        # the register's ids only carry the canonical form.
+        address = reading_assembly.parse_ref(requirement)
+        want = re.sub(r"\s+", "", str(address) if address else requirement.strip()).upper()
         hits = [n for n in active if re.sub(r"\s+", "", n.id).upper().startswith(want)]
         if not hits:
             # Family queries such as CIP-003 select the effective revision at
@@ -1478,8 +1483,35 @@ def _match_document_alias(repo: Any, ref: str) -> dict[str, Any]:
     return {"available_matches": sorted(matches.values(), key=lambda m: str(m["logical_id"]))}
 
 
+def _lenient_flag(value: Any) -> bool:
+    """Read whatever the caller sent as a flag; a rejected call reads nothing at all."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "t", "yes", "y", "on", "1"}
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, (list, tuple, set, dict)):
+        return len(value) > 0
+    return False
+
+
+def _lenient_max_chars(value: Any) -> int:
+    """Coerce a misspelled ceiling to the default instead of rejecting the read."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 6000
+
+
 @mcp.tool()
-def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) -> dict[str, Any]:
+def compliance_read(
+    ref: str,
+    neighbors: Annotated[bool, BeforeValidator(_lenient_flag)] = False,
+    max_chars: Annotated[int, BeforeValidator(_lenient_max_chars)] = 6000,
+) -> dict[str, Any]:
     """Verbatim text of any addressable unit, from either side.
 
     ``ref`` is a ``section_id``, a regulatory address (``CIP-007-6 R2 Part
@@ -1526,7 +1558,8 @@ def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) ->
             return {
                 "ref": ref,
                 "resolved": False,
-                "detail": "no section, address, glossary term or document with that id",
+                "detail": "no section, address, glossary term or document with that id; "
+                + reading_assembly.ACCEPTED_ADDRESS_FORMS,
             }
         units: list[dict[str, Any]] = []
         remaining_sections: list[dict[str, Any]] = []
@@ -1565,7 +1598,7 @@ def compliance_read(ref: str, neighbors: bool = False, max_chars: int = 6000) ->
             payload["neighbors"] = _neighbors(repo, list(resolved.values())[0], max_chars)
         parsed = reading_assembly.parse_ref(ref)
         if parsed is not None:
-            payload["address"] = str(parsed)
+            payload["address"] = str(reading_assembly.canonical_ref(repo, parsed))
         return payload
     finally:
         repo.close()
@@ -1687,7 +1720,8 @@ def compliance_coverage(
             target = f"{standard} {requirement}".strip() if requirement else standard
         parsed = reading_assembly.parse_ref(target) or reading_assembly.parse_ref(standard)
         if parsed is None:
-            return {"error": f"{target!r} is not a regulatory address"}
+            return {"error": reading_assembly.not_an_address(target)}
+        parsed = reading_assembly.canonical_ref(repo, parsed, valid_at)
         assembly_ids = section_index.sections_in_scope(repo, logical_id=parsed.logical_id)
         refs = sorted(
             {
