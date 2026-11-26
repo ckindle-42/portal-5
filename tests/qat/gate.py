@@ -6,15 +6,19 @@ an already-cold model, so residency is read from /v1/models/status (falling
 back to /v1/models/loaded) and only resident models are unloaded. The unload
 itself is asynchronous (HTTP 202): the gate polls residency for
 OMLX_EVICT_SETTLE_S before reporting PASS, since Metal memory is reclaimed
-over the next seconds. The retained MLX media services (mlx-speech :8918,
+over the next seconds. Ollama keep_alive 0 is asynchronous too: /api/ps is
+polled for OLLAMA_EVICT_BUDGET_S while a request is in flight or a runner is
+still releasing. The retained MLX media services (mlx-speech :8918,
 mflux :8933, video-mlx :8935) are memory-pressure reporters only — never killed.
 """
 
 from __future__ import annotations
 
+import fcntl
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
 
 import httpx
@@ -34,6 +38,9 @@ EVICT_SETTLE_S = 2.0
 #: (in OMLX_EVICT_SETTLE_STEP_S steps) before the eviction gate reports PASS.
 OMLX_EVICT_SETTLE_S = 10.0
 OMLX_EVICT_SETTLE_STEP_S = 0.5
+#: Short /api/generate → loaded-runners drop, ollama.log n=78: p50 12.6s, p95 42.2s, max 50.2s.
+OLLAMA_EVICT_BUDGET_S = 60.0
+OLLAMA_EVICT_POLL_S = 0.5
 
 
 def _get(client: httpx.Client, url: str, headers: dict[str, str] | None = None) -> httpx.Response:
@@ -116,28 +123,202 @@ def omlx_residency(client: httpx.Client, settings: Settings) -> tuple[QATResult,
 
 
 def evict_ollama(client: httpx.Client, settings: Settings, resident: list[str]) -> QATResult:
+    """Unload residents and poll /api/ps through in-flight work, a release, or the budget."""
+    started = time.monotonic()
+    deadline = started + OLLAMA_EVICT_BUDGET_S
+    blocked = _request_ollama_unload(client, settings, resident, deadline)
+    if isinstance(blocked, QATResult):
+        return blocked
+    return _wait_ollama_unloaded(client, settings, resident, started, deadline, blocked)
+
+
+def _request_ollama_unload(
+    client: httpx.Client, settings: Settings, resident: list[str], deadline: float
+) -> QATResult | set[str]:
+    """POST keep_alive 0. A timeout means the request is queued behind in-flight work."""
+    blocked: set[str] = set()
+    attempted = False
     for name in resident:
+        if attempted and time.monotonic() >= deadline:
+            blocked.add(name)
+            continue
+        attempted = True
         try:
             response = client.post(
                 f"{settings.ollama_url}/api/generate",
                 json={"model": name, "keep_alive": 0},
-                timeout=15.0,
+                timeout=min(15.0, max(deadline - time.monotonic(), 0.01)),
             )
-            if not response.is_success:
-                return QATResult(
-                    "gate-evict", Status.FAIL, f"Ollama evict {name}: HTTP {response.status_code}"
-                )
+        except httpx.TimeoutException:
+            blocked.add(name)
+            continue
         except Exception as exc:
             return QATResult("gate-evict", Status.FAIL, f"Ollama evict {name}: {exc}")
+        if not response.is_success:
+            return QATResult(
+                "gate-evict", Status.FAIL, f"Ollama evict {name}: HTTP {response.status_code}"
+            )
+    return blocked
+
+
+def _wait_ollama_unloaded(
+    client: httpx.Client,
+    settings: Settings,
+    resident: list[str],
+    started: float,
+    deadline: float,
+    blocked: set[str],
+) -> QATResult:
+    seen: set[str] = set()
+    if blocked:
+        seen.add("in_flight")
+    last_state: dict[str, str] = dict.fromkeys(blocked, "in_flight")
+    last_expiry: dict[str, str] = {}
+    previous_expiry: dict[str, datetime] = {}
+    while True:
+        models, error = _read_ollama_ps(client, settings)
+        if error is not None:
+            return error
+        if not models:
+            return _ollama_evict_pass(len(resident), time.monotonic() - started, seen)
+        for model in models:
+            name = str(model.get("name") or "")
+            last_expiry[name] = str(model.get("expires_at") or "")
+            state = _ollama_release_state(name, model, previous_expiry.get(name), name in blocked)
+            last_state[name] = state
+            seen.add(state)
+            parsed = _expires_at(model.get("expires_at"))
+            if parsed is not None:
+                previous_expiry[name] = parsed
+        if time.monotonic() >= deadline:
+            return _ollama_evict_stuck(models, last_state, last_expiry, time.monotonic() - started)
+        _poll_pause(min(OLLAMA_EVICT_POLL_S, max(0.0, deadline - time.monotonic())))
+
+
+def _read_ollama_ps(
+    client: httpx.Client, settings: Settings
+) -> tuple[list[dict[str, object]] | None, QATResult | None]:
     try:
         response = _get(client, f"{settings.ollama_url}/api/ps")
-        remaining = response.json().get("models", []) if response.status_code == 200 else None
     except Exception as exc:
-        return QATResult("gate-evict", Status.FAIL, f"Ollama residency check failed: {exc}")
-    if remaining is None or remaining:
-        names = [str(model.get("name", "")) for model in remaining or []]
-        return QATResult("gate-evict", Status.FAIL, f"Ollama models remain resident: {names}")
-    return QATResult("gate-evict", Status.PASS, f"evicted {len(resident)} Ollama model(s)")
+        return None, QATResult("gate-evict", Status.FAIL, f"Ollama residency check failed: {exc}")
+    if response.status_code != 200:
+        return None, QATResult(
+            "gate-evict", Status.FAIL, f"Ollama residency check failed: HTTP {response.status_code}"
+        )
+    try:
+        body = response.json()
+    except Exception as exc:
+        return None, QATResult("gate-evict", Status.FAIL, f"Ollama residency check failed: {exc}")
+    models = body.get("models", [])
+    if not isinstance(models, list):
+        return None, QATResult(
+            "gate-evict", Status.FAIL, "Ollama residency check failed: no models"
+        )
+    return [model for model in models if isinstance(model, dict)], None
+
+
+def _ollama_release_state(
+    name: str,
+    model: dict[str, object],
+    previous: datetime | None,
+    unload_blocked: bool,
+) -> str:
+    """in_flight while a request holds the model; otherwise the runner is releasing."""
+    if unload_blocked or _pipeline_ollama_in_flight(name):
+        return "in_flight"
+    expires = _expires_at(model.get("expires_at"))
+    if previous is not None and expires is not None and expires > previous + timedelta(seconds=1):
+        return "in_flight"
+    return "releasing"
+
+
+def _pipeline_ollama_in_flight(name: str) -> bool:
+    """True when a pipeline worker holds this model's load-guard activity lock."""
+    if not name:
+        return False
+    from portal.platform.inference.load_guard import LoadGuard
+
+    path = LoadGuard._activity_path("ollama", name)
+    if not path.is_file():
+        return False
+    try:
+        handle = path.open("a+")
+    except OSError:
+        return True
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return True
+    except OSError:
+        return True
+    else:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        return False
+    finally:
+        handle.close()
+
+
+def _expires_at(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed
+
+
+def _state_summary(states: set[str]) -> str:
+    return ", ".join(sorted(states)) if states else "releasing"
+
+
+def _ollama_evict_pass(count: int, elapsed: float, seen: set[str]) -> QATResult:
+    detail = f"evicted {count} Ollama model(s)"
+    if seen:
+        detail += f" in {elapsed:.1f}s ({_state_summary(seen)})"
+    return QATResult(
+        "gate-evict",
+        Status.PASS,
+        detail,
+        evidence={
+            "waited_s": round(elapsed, 3),
+            "state": _state_summary(seen),
+            "budget_s": OLLAMA_EVICT_BUDGET_S,
+        },
+    )
+
+
+def _ollama_evict_stuck(
+    models: list[dict[str, object]],
+    last_state: dict[str, str],
+    last_expiry: dict[str, str],
+    elapsed: float,
+) -> QATResult:
+    names = [str(model.get("name") or "") for model in models]
+    summary = _state_summary(set(last_state.values()))
+    return QATResult(
+        "gate-evict",
+        Status.FAIL,
+        (
+            f"Ollama models remain resident after {elapsed:.1f}s/"
+            f"{OLLAMA_EVICT_BUDGET_S:.0f}s ({summary}): {names}"
+        ),
+        evidence={
+            "resident": names,
+            "state": dict(last_state),
+            "expires_at": dict(last_expiry),
+            "waited_s": round(elapsed, 3),
+            "budget_s": OLLAMA_EVICT_BUDGET_S,
+        },
+    )
+
+
+def _poll_pause(seconds: float) -> None:
+    if seconds > 0:
+        time.sleep(seconds)
 
 
 def evict_omlx(client: httpx.Client, settings: Settings, resident: list[str]) -> QATResult:

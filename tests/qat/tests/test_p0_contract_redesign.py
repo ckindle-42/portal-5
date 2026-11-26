@@ -310,8 +310,13 @@ def test_omlx_unload_uses_admin_route_and_escaped_model_name() -> None:
     assert posts == [b"/admin/api/models/family%2Fmodel/unload"]
 
 
-def test_ollama_eviction_requires_success_and_empty_residency() -> None:
+def test_ollama_eviction_requires_success_and_empty_residency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     settings = make_settings(Path("/tmp"))
+    monkeypatch.setattr(gate, "_poll_pause", lambda _seconds: None)
+    monkeypatch.setattr(gate, "_pipeline_ollama_in_flight", lambda _name: False)
+    monkeypatch.setattr(gate, "OLLAMA_EVICT_BUDGET_S", 0.0)
 
     def failed(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500)
@@ -323,12 +328,134 @@ def test_ollama_eviction_requires_success_and_empty_residency() -> None:
         if request.url.path == "/api/generate":
             return httpx.Response(200, json={})
         if request.url.path == "/api/ps":
-            return httpx.Response(200, json={"models": [{"name": "q:9b"}]})
+            return httpx.Response(
+                200,
+                json={
+                    "models": [
+                        {"name": "q:9b", "expires_at": "2026-11-26T04:39:04+00:00"},
+                    ]
+                },
+            )
         return httpx.Response(404)
 
     with httpx.Client(transport=httpx.MockTransport(resident)) as client:
         result = gate.evict_ollama(client, settings, ["q:9b"])
     assert result.status is Status.FAIL
+    assert result.detail.startswith("Ollama models remain resident after")
+    assert result.evidence["state"] == {"q:9b": "releasing"}
+    assert result.evidence["expires_at"]["q:9b"] == "2026-11-26T04:39:04+00:00"
+    assert result.evidence["budget_s"] == 0.0
+
+
+def _ps_then_clear(hold_for: int, expires: list[str]) -> httpx.MockTransport:
+    """Hold `name` in /api/ps for `hold_for` reads, then report it gone."""
+    reads = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/generate":
+            return httpx.Response(200, json={})
+        if request.url.path == "/api/ps":
+            reads["n"] += 1
+            if reads["n"] <= hold_for:
+                stamp = expires[min(reads["n"] - 1, len(expires) - 1)]
+                return httpx.Response(
+                    200,
+                    json={"models": [{"name": "glm-4.7-flash:Q4_K_M-ctx24k", "expires_at": stamp}]},
+                )
+            return httpx.Response(200, json={"models": []})
+        return httpx.Response(404)
+
+    return httpx.MockTransport(handler)
+
+
+def test_ollama_eviction_waits_for_an_in_flight_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = make_settings(Path("/tmp"))
+    monkeypatch.setattr(gate, "_poll_pause", lambda _seconds: None)
+    monkeypatch.setattr(gate, "_pipeline_ollama_in_flight", lambda _name: True)
+    transport = _ps_then_clear(1, ["2026-11-26T05:00:00+00:00"])
+    with httpx.Client(transport=transport) as client:
+        result = gate.evict_ollama(client, settings, ["glm-4.7-flash:Q4_K_M-ctx24k"])
+    assert result.status is Status.PASS
+    assert "in_flight" in result.detail
+
+
+def test_ollama_eviction_polls_a_release_until_the_model_is_gone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = make_settings(Path("/tmp"))
+    monkeypatch.setattr(gate, "_poll_pause", lambda _seconds: None)
+    monkeypatch.setattr(gate, "_pipeline_ollama_in_flight", lambda _name: False)
+    transport = _ps_then_clear(2, ["2026-11-26T04:39:04+00:00", "2026-11-26T04:39:04+00:00"])
+    with httpx.Client(transport=transport) as client:
+        result = gate.evict_ollama(client, settings, ["glm-4.7-flash:Q4_K_M-ctx24k"])
+    assert result.status is Status.PASS
+    assert "releasing" in result.detail
+    assert "in_flight" not in result.detail
+
+
+def test_ollama_eviction_treats_a_blocked_unload_as_in_flight(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = make_settings(Path("/tmp"))
+    monkeypatch.setattr(gate, "_poll_pause", lambda _seconds: None)
+    monkeypatch.setattr(gate, "_pipeline_ollama_in_flight", lambda _name: False)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/generate":
+            raise httpx.ReadTimeout("queued behind an in-flight request")
+        if request.url.path == "/api/ps":
+            return httpx.Response(200, json={"models": []})
+        return httpx.Response(404)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = gate.evict_ollama(client, settings, ["glm-4.7-flash:Q4_K_M-ctx24k"])
+    assert result.status is Status.PASS
+    assert "in_flight" in result.detail
+
+
+def test_runner_eviction_call_site_polls_until_the_release_finishes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The intra-phase call site must not fail on the first /api/ps that still lists a release."""
+    monkeypatch.setattr(gate, "_poll_pause", lambda _seconds: None)
+    monkeypatch.setattr(gate, "_pipeline_ollama_in_flight", lambda _name: False)
+    reads = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(200, json={"models": []})
+        if request.url.path == "/api/ps":
+            reads["n"] += 1
+            if reads["n"] < 3:
+                return httpx.Response(
+                    200,
+                    json={
+                        "models": [
+                            {
+                                "name": "glm-4.7-flash:Q4_K_M-ctx24k",
+                                "expires_at": "2026-11-26T04:39:04+00:00",
+                            }
+                        ]
+                    },
+                )
+            return httpx.Response(200, json={"models": []})
+        if request.url.path == "/api/generate":
+            return httpx.Response(200, json={})
+        if request.url.path.startswith("/v1/models"):
+            return httpx.Response(200, json={"models": []})
+        return httpx.Response(404)
+
+    real_client = httpx.Client
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.Client:
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(runner.httpx, "Client", client_factory)
+    assert runner._evict_resident_engines(make_settings(tmp_path)) == []
+    assert reads["n"] >= 3
 
 
 def test_vm_stat_speculative_pages_are_not_used_memory() -> None:
