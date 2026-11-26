@@ -79,6 +79,18 @@ def _output_hygiene_result(
     )
 
 
+#: Matches both router notices ("[Pipeline stream error — …" / "[Backend stream error — …").
+_STREAM_ERROR_MARKER = "stream error — the reply ended early"
+
+
+def _stream_error_notice(text: str) -> str | None:
+    """A truncated turn must not grade as completed; report the router's notice."""
+    idx = text.find(_STREAM_ERROR_MARKER)
+    if idx < 0:
+        return None
+    return f"turn truncated: {text[idx : idx + 120].strip()}"
+
+
 _DISCOVERY_SPAN_NAMES = frozenset({"backend.attempt"})
 
 
@@ -787,7 +799,8 @@ def _execute(
                 StageSummary(stage=scenario.stage, phase=scenario.phase, gate=gate_report)
             )
             if gate_report is not None and gate_report.blocked:
-                _block_remaining(selected, scenario, state)
+                _record_gate_block(state.run_dir, gate_report)
+                _block_remaining(selected, scenario, state, _gate_block_detail(gate_report))
                 break
         if scenario.scenario_id in previous:
             state.results.append(previous[scenario.scenario_id])
@@ -810,15 +823,35 @@ def _execute(
         _checkpoint_result(state.run_dir, result)
 
 
-def _block_remaining(selected: list[QATScenario], first: QATScenario, state: RunState) -> None:
+def _gate_block_detail(gate_report: GateReport) -> str:
+    failed = [c for c in gate_report.checks if c.status is Status.FAIL]
+    if failed:
+        return "; ".join(f"{c.scenario_id}: {c.detail}" for c in failed)[:400]
+    return (
+        f"memory {gate_report.memory_used_pct:.1f}% at/over cap"
+        f" or {gate_report.resident_models} models still resident"
+    )
+
+
+def _record_gate_block(run_dir: Path, gate_report: GateReport) -> None:
+    path = run_dir / f"gate_blocked_{gate_report.phase}.json"
+    path.write_text(json.dumps(gate_report.to_dict(), indent=2), encoding="utf-8")
+
+
+def _block_remaining(
+    selected: list[QATScenario], first: QATScenario, state: RunState, reason: str = ""
+) -> None:
     seen = {r.scenario_id for r in state.results}
+    detail = "blocked by inter-phase gate failure"
+    if reason:
+        detail = f"{detail}: {reason}"
     for s in selected:
         if s.cascade_key() < first.cascade_key() or s.scenario_id in seen:
             continue
         blocked = QATResult(
             s.scenario_id,
             Status.BLOCKED,
-            "blocked by inter-phase gate failure",
+            detail,
             defect_class=classify_defect(infra_hop_failed=True),
         )
         _stamp_lineage(blocked, state.provenance)
@@ -1090,6 +1123,16 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             served_model=served_model,
             backend=str(trace.get("backend") or ""),
             defect_class=classify_defect(model_output_miss=True),
+        )
+    stream_error = _stream_error_notice(answer)
+    if stream_error:
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            stream_error,
+            served_model=served_model,
+            backend=str(trace.get("backend") or ""),
+            defect_class=classify_defect(infra_hop_failed=True),
         )
     tool_error = _tool_validation_error(scenario, tool_calls, trace)
     if tool_error:
@@ -1533,6 +1576,21 @@ def _run_chat_turns(
         )
         if hygiene_failure:
             return None, hygiene_failure, all_spans, all_calls
+        stream_error = _stream_error_notice(outcome.text)
+        if stream_error:
+            return (
+                None,
+                QATResult(
+                    scenario.scenario_id,
+                    Status.FAIL,
+                    stream_error,
+                    chat_id=chat_id,
+                    served_model=outcome.served_model,
+                    defect_class=classify_defect(infra_hop_failed=True),
+                ),
+                all_spans,
+                all_calls,
+            )
         if outcome.leak_marker:
             return (
                 None,

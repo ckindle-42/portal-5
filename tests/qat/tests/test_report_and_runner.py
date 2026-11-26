@@ -308,8 +308,15 @@ class FakeOWUI:
         mode = type(self).mode
         requested = str(kwargs.get("model_slug") or "")
         routed = requested if rn.primary_model_for(requested) else "auto-daily"
+        text = "the answer"
+        if mode == "leak":
+            text = "leak JSONDecodeError happened"
+        elif mode == "stream_error":
+            text = (
+                "[Pipeline stream error — the reply ended early: turn deadline exceeded after 300s]"
+            )
         return FakeOutcome(
-            text="leak JSONDecodeError happened" if mode == "leak" else "the answer",
+            text=text,
             leak_marker="JSONDecodeError" if mode == "leak" else None,
             artifact_urls=()
             if mode == "missing"
@@ -386,6 +393,28 @@ class TestChatExecution:
         assert result.status is Status.FAIL
         assert "HTTP 404" in result.detail
         assert result.defect_class is DefectClass.INFRA_ENV_GAP
+
+    def test_stream_error_notice_is_infra_fail_not_completion(
+        self, fake_owui, tmp_path: Path
+    ) -> None:
+        """A turn killed by the router deadline must not grade as completed."""
+        FakeOWUI.mode = "stream_error"
+        settings = make_settings(tmp_path)
+        scenario = _scn("s2-chat", model="auto-daily")
+        state = rn.RunState(settings=settings, run_dir=tmp_path, discovery=make_discovery())
+        result = rn._execute_one(settings, scenario, state, _chat_opts())
+        assert result.status is Status.FAIL
+        assert "turn truncated" in result.detail
+        assert "turn deadline exceeded after 300s" in result.detail
+        assert result.defect_class is DefectClass.INFRA_ENV_GAP
+
+    def test_stream_error_notice_helper(self) -> None:
+        assert rn._stream_error_notice("a clean answer") is None
+        notice = rn._stream_error_notice(
+            "partial text\n\n[Backend stream error — the reply ended early: engine 502]"
+        )
+        assert notice is not None and notice.startswith("turn truncated: stream error —")
+        assert "engine 502" in notice
 
     def test_artifact_validation_pass(self, fake_owui, tmp_path: Path) -> None:
         settings = make_settings(tmp_path)
@@ -565,6 +594,49 @@ class TestCascade:
         assert statuses["s2-p2-b"] is Status.BLOCKED
         assert statuses["s2-p2-c"] is Status.BLOCKED
         assert state.stages[1].gate is not None and state.stages[1].gate.blocked
+
+    def test_gate_block_records_reason_and_artifact(
+        self, monkeypatch: pytest.MonkeyPatch, fake_owui, tmp_path: Path
+    ) -> None:
+        """A blocked gate must leave its failing check in the rows and on disk."""
+        gate_calls = 0
+
+        def gate_sequence(*args: object, **kwargs: object) -> GateReport:
+            nonlocal gate_calls
+            gate_calls += 1
+            if gate_calls == 1:
+                return GateReport(phase="p2", ok=True, blocked=False)
+            checks = (
+                QATResult("gate-pipeline", Status.PASS, "backends 2/2 healthy"),
+                QATResult("gate-evict", Status.FAIL, "Ollama evict stuck: nex-n2-mini"),
+            )
+            return GateReport(
+                phase="reasoning",
+                checks=checks,
+                memory_used_pct=41.0,
+                resident_models=1,
+                ok=False,
+                blocked=True,
+            )
+
+        monkeypatch.setattr(rn.gate, "run_gate", gate_sequence)
+        settings = make_settings(tmp_path)
+        plan = [
+            _scn("s2-p1-a", tier=10),
+            _scn("s2-p2-b", phase="reasoning", tier=20),
+        ]
+        state = rn.RunState(
+            settings=settings, run_dir=tmp_path, discovery=make_discovery(), scenarios=plan
+        )
+        rn._execute(settings, plan, state, _chat_opts(), previous={})
+        blocked = next(r for r in state.results if r.scenario_id == "s2-p2-b")
+        assert blocked.status is Status.BLOCKED
+        assert "gate-evict: Ollama evict stuck: nex-n2-mini" in blocked.detail
+        artifact = tmp_path / "gate_blocked_reasoning.json"
+        assert artifact.exists()
+        data = json.loads(artifact.read_text(encoding="utf-8"))
+        assert data["blocked"] is True
+        assert any(c["scenario_id"] == "gate-evict" for c in data["checks"])
 
     def test_append_and_rerun_failed_loading(self, tmp_path: Path) -> None:
         run_dir = tmp_path / "run"
