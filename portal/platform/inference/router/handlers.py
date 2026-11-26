@@ -212,6 +212,17 @@ def _response_with_handoff_notice(response: Any) -> Any:
     return response
 
 
+def _stream_with_request_deadline(
+    source: AsyncIterable[str | bytes | memoryview],
+    start_time: float | None,
+    timeout_s: float | None,
+) -> AsyncIterable[str | bytes | memoryview]:
+    if timeout_s is None:
+        return source
+    start = time.monotonic() if start_time is None else start_time
+    return _with_stream_deadline(source, start + timeout_s)
+
+
 async def _with_portal_timings(
     source: AsyncIterable[str | bytes | memoryview],
     *,
@@ -241,10 +252,7 @@ async def _with_portal_timings(
         }
         yield ("data: " + json.dumps(payload, separators=(",", ":")) + "\n\n").encode()
 
-    deadline = None
-    if timeout_s is not None:
-        deadline = (time.monotonic() if start_time is None else start_time) + timeout_s
-    source_iter = _with_stream_deadline(source, deadline) if deadline is not None else source
+    source_iter = _stream_with_request_deadline(source, start_time, timeout_s)
     try:
         async for chunk in source_iter:
             raw = chunk.encode() if isinstance(chunk, str) else bytes(chunk)
