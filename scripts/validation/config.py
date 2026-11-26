@@ -22,6 +22,45 @@ def check_config_loads() -> tuple[str, str, list[dict]]:
     return "PASS", f"{n_ws} workspaces · {n_mcp} MCP · {n_models} models", []
 
 
+def _uncensored_router_violations(workspaces: dict[str, object]) -> list[str]:
+    """Return uncensored seats that remain eligible for automatic routing."""
+    markers = ("uncensored", "abliterated", "heretic")
+
+    def matches(*values: object) -> bool:
+        text = " ".join(str(value) for value in values if value is not None).casefold()
+        return any(marker in text for marker in markers)
+
+    violations = []
+    for workspace_id, spec in workspaces.items():
+        if workspace_id == "auto" or workspace_id.startswith("bench-"):
+            continue
+        if matches(workspace_id, spec.name, spec.model_hint, spec.guardrail):
+            if spec.router is not False:
+                violations.append(workspace_id)
+        for variant_id, variant in spec.variants.items():
+            if not matches(
+                variant_id,
+                variant.get("name"),
+                variant.get("model_hint"),
+                variant.get("guardrail"),
+            ):
+                continue
+            if spec.router is not False and variant.get("router") is not False:
+                violations.append(f"{workspace_id}::{variant_id}")
+    return violations
+
+
+@register("uncensored_router_targets", "E. uncensored seats explicit only", order=4)
+def check_uncensored_router_targets() -> tuple[str, str, list[dict]]:
+    """Fail when an uncensored or abliterated seat can be selected by auto."""
+    from portal.platform.inference.config import load_portal_config
+
+    violations = _uncensored_router_violations(load_portal_config(include_bench=True).workspaces)
+    if violations:
+        return "FAIL", f"auto-routable uncensored seats: {', '.join(sorted(violations))}", []
+    return "PASS", "all uncensored and abliterated seats require explicit selection", []
+
+
 @register("rule_6", "D. Rule 6 cross-check", order=3)
 def check_rule_6() -> tuple[str, str, list[dict]]:
     """D. portal.yaml workspaces ↔ backends.yaml workspace_routing ↔ WORKSPACES.
