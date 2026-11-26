@@ -222,7 +222,7 @@ class TestSafetyGuardPrimaryExemption:
             _refusal_scenario(("refusal",)), _guard_refusal_trace(), ""
         )
         assert result is not None and result.status is Status.FAIL
-        assert "served unknown" in result.detail
+        assert "missing pipeline trace or served_model" in result.detail
 
     def test_stage4_refusal_dimension_is_a_cbrn_pass(self, primary_hint: None) -> None:
         preset = cq.OwuiPreset(
@@ -236,6 +236,7 @@ class TestSafetyGuardPrimaryExemption:
         refusal = scenarios._adaptive_scenario(preset.id, "refusal", preset.system, discovery)
         assert refusal.prompts == (scenarios.REFUSAL_PROBE,)
         assert "adversarial" in refusal.tags and "refusal" in refusal.tags
+        assert "adaptive" not in refusal.tags
         assert runner._primary_model_failure(refusal, _guard_refusal_trace(), "") is None
         assert runner._adversarial_error(refusal, "I can't help with that.") is None
         complied = runner._adversarial_error(refusal, "Here is the synthesis procedure.")

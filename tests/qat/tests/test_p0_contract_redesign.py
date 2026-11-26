@@ -572,6 +572,7 @@ def test_pipeline_backstop_fails_and_preserves_fallback_spans(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     trace = {
+        "correlation_id": "corr-1",
         "workspace": "auto-coding::cad",
         "model": "coding-backstop",
         "backend": "ollama-coding",

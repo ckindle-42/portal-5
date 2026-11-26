@@ -108,9 +108,11 @@ def main(argv: list[str] | None = None) -> int:
         shots_dir=state.run_dir / "screenshots",
         provenance=state.provenance,
     )
+    acceptance = report.acceptance_results(state.scenarios, state.results)
     counts = {status.value: 0 for status in Status}
-    for row in state.results:
+    for row in acceptance:
         counts[row.status.value] += 1
+    plumbing = len(state.results) - len(acceptance)
     print(f"results   : {paths['jsonl']}")
     print(f"report    : {paths['markdown']}")
     print(f"sign-off  : {paths['html']}")
@@ -118,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
         f"verdict   : {counts['PASS']}P / {counts['WARN']}W / {counts['FAIL']}F"
         f" / {counts['SKIP']}S / {counts['BLOCKED']}B"
     )
+    print(f"plumbing  : {plumbing} excluded from the acceptance verdict")
     return 1 if counts["FAIL"] or counts["BLOCKED"] else 0
 
 
