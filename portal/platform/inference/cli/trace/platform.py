@@ -22,7 +22,7 @@ def drift_presets(out: str) -> dict[str, list[str]]:
 
 
 def run(ctx: TraceContext, portal: dict[str, object]) -> list[Hop]:
-    """Seeded workspace/persona presets must still match the repo; seed skips existing ones."""
+    """Seeded workspace and persona presets must match the repo after the in-place seed."""
     script = ctx.repo_root / "scripts" / "check_owui_preset_drift.py"
     done = run_cmd([sys.executable, str(script)], timeout=120.0)
     out = (done.stdout or done.stderr).strip()

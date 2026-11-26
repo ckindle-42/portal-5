@@ -624,8 +624,8 @@ All commands below are the actual `case` branches in `launch.sh` (or dispatch in
 ./launch.sh restore <dir>   # Restore from a backup directory (not a single file; prompts first)
 
 ### Seeding
-./launch.sh seed            # Re-seed Open WebUI (workspaces + personas) — skips existing presets
-./launch.sh reseed          # Force-refresh all presets (FORCE_RESEED=true)
+./launch.sh seed            # Upsert Portal presets in place (workspaces + personas)
+./launch.sh reseed          # Delete and recreate Portal presets (FORCE_RESEED=true)
 
 ### Update (single command: git pull + rebuild + model refresh + re-seed)
 ./launch.sh update                  # cli update — full pass
