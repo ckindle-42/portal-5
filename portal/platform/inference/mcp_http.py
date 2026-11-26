@@ -109,7 +109,7 @@ async def _follow_same_origin(
     url: str,
     payload: dict[str, Any],
     headers: dict[str, str],
-    deadline: float,
+    idle_timeout_s: float,
     response: httpx.Response,
 ) -> httpx.Response:
     """Follow 307/308 that stay on the request origin, keeping POST and its body."""
@@ -125,14 +125,31 @@ async def _follow_same_origin(
             return response
         await response.aclose()
         url = str(target)
-        remaining = deadline - asyncio.get_running_loop().time()
-        if remaining <= 0:
-            raise TimeoutError
-        response = await asyncio.wait_for(
-            client.post(url, json=payload, headers=headers, timeout=None),
-            timeout=remaining,
-        )
+        response = await _stream_post(client, url, payload, headers, idle_timeout_s)
     return response
+
+
+async def _stream_post(
+    client: httpx.AsyncClient,
+    url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str],
+    idle_timeout_s: float,
+) -> httpx.Response:
+    timeout = httpx.Timeout(
+        idle_timeout_s,
+        connect=min(5.0, idle_timeout_s),
+        write=min(5.0, idle_timeout_s),
+        pool=min(5.0, idle_timeout_s),
+    )
+    async with client.stream("POST", url, json=payload, headers=headers, timeout=timeout) as source:
+        await source.aread()
+        return httpx.Response(
+            source.status_code,
+            headers=source.headers,
+            content=source.content,
+            request=source.request,
+        )
 
 
 async def _post(
@@ -140,16 +157,11 @@ async def _post(
     url: str,
     payload: dict[str, Any],
     headers: dict[str, str],
-    deadline: float,
+    idle_timeout_s: float,
 ) -> httpx.Response:
-    """Post one message within the current operation's remaining timeout."""
-    remaining = deadline - asyncio.get_running_loop().time()
-    if remaining <= 0:
-        raise TimeoutError
-    response = await asyncio.wait_for(
-        client.post(url, json=payload, headers=headers, timeout=None), timeout=remaining
-    )
-    return await _follow_same_origin(client, url, payload, headers, deadline, response)
+    """Post one message, letting response bytes reset the read timeout."""
+    response = await _stream_post(client, url, payload, headers, idle_timeout_s)
+    return await _follow_same_origin(client, url, payload, headers, idle_timeout_s, response)
 
 
 def _modern_headers(method: str, params: dict[str, Any]) -> dict[str, str]:
@@ -170,7 +182,7 @@ async def _modern_request(
     url: str,
     method: str,
     params: dict[str, Any],
-    deadline: float,
+    idle_timeout_s: float,
 ) -> dict[str, Any]:
     """Send one current-revision MCP request."""
     request_id = str(uuid.uuid4())
@@ -186,7 +198,7 @@ async def _modern_request(
     request_params = {key: value for key, value in params.items() if key != "_meta"}
     request_params["_meta"] = request_meta
     payload = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": request_params}
-    response = await _post(client, url, payload, _modern_headers(method, params), deadline)
+    response = await _post(client, url, payload, _modern_headers(method, params), idle_timeout_s)
     return _response_result(response, request_id)
 
 
@@ -213,7 +225,9 @@ def _legacy_headers(state: _ServerState, session: bool = True) -> dict[str, str]
     return headers
 
 
-async def _initialize_legacy(client: httpx.AsyncClient, url: str, deadline: float) -> _ServerState:
+async def _initialize_legacy(
+    client: httpx.AsyncClient, url: str, idle_timeout_s: float
+) -> _ServerState:
     """Initialize a 2025-11-25 session and notify the server it is ready."""
     request_id = str(uuid.uuid4())
     params = {
@@ -223,14 +237,14 @@ async def _initialize_legacy(client: httpx.AsyncClient, url: str, deadline: floa
     }
     payload = {"jsonrpc": "2.0", "id": request_id, "method": "initialize", "params": params}
     headers = {"Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
-    response = await _post(client, url, payload, headers, deadline)
+    response = await _post(client, url, payload, headers, idle_timeout_s)
     result = _response_result(response, request_id)
     protocol_version = result.get("protocolVersion")
     if not isinstance(protocol_version, str):
         raise MCPHTTPError("MCP initialize returned no protocol version")
     state = _ServerState("legacy", protocol_version, response.headers.get("Mcp-Session-Id"))
     notification = {"jsonrpc": "2.0", "method": "notifications/initialized"}
-    response = await _post(client, url, notification, _legacy_headers(state), deadline)
+    response = await _post(client, url, notification, _legacy_headers(state), idle_timeout_s)
     if response.status_code >= 400:
         detail = response.text[:200]
         raise MCPHTTPError(
@@ -246,7 +260,7 @@ async def _legacy_request(
     url: str,
     method: str,
     params: dict[str, Any],
-    deadline: float,
+    idle_timeout_s: float,
     state: _ServerState,
     lock: asyncio.Lock,
     retry_expired: bool = True,
@@ -259,15 +273,15 @@ async def _legacy_request(
         "method": method,
         "params": params,
     }
-    response = await _post(client, url, payload, _legacy_headers(state), deadline)
+    response = await _post(client, url, payload, _legacy_headers(state), idle_timeout_s)
     if response.status_code == 404 and retry_expired:
         async with lock:
             current = _SERVER_STATES.get(key)
             if current is None or current.session_id == state.session_id:
-                current = await _initialize_legacy(client, url, deadline)
+                current = await _initialize_legacy(client, url, idle_timeout_s)
                 _SERVER_STATES[key] = current
         return await _legacy_request(
-            client, key, url, method, params, deadline, current, lock, retry_expired=False
+            client, key, url, method, params, idle_timeout_s, current, lock, retry_expired=False
         )
     return _response_result(response, request_id)
 
@@ -282,7 +296,7 @@ async def _request(
     """Send one request using the protocol era cached for its server URL."""
     key = base_url.rstrip("/")
     url = f"{key}/mcp"
-    deadline = asyncio.get_running_loop().time() + timeout_s
+    idle_timeout_s = timeout_s
     lock = _SERVER_LOCKS.setdefault(key, asyncio.Lock())
     state = _SERVER_STATES.get(key)
     if state is None:
@@ -290,29 +304,29 @@ async def _request(
             state = _SERVER_STATES.get(key)
             if state is None:
                 try:
-                    result = await _modern_request(client, url, method, params, deadline)
+                    result = await _modern_request(client, url, method, params, idle_timeout_s)
                 except MCPHTTPError as exc:
                     if not _is_legacy_response(exc):
                         raise
-                    state = await _initialize_legacy(client, url, deadline)
+                    state = await _initialize_legacy(client, url, idle_timeout_s)
                     _SERVER_STATES[key] = state
                 else:
                     _SERVER_STATES[key] = _ServerState("modern")
                     return result
     if state is not None and state.era == "modern":
         try:
-            return await _modern_request(client, url, method, params, deadline)
+            return await _modern_request(client, url, method, params, idle_timeout_s)
         except MCPHTTPError as exc:
             if not _is_legacy_response(exc):
                 raise
             async with lock:
                 state = _SERVER_STATES.get(key)
                 if state is None or state.era == "modern":
-                    state = await _initialize_legacy(client, url, deadline)
+                    state = await _initialize_legacy(client, url, idle_timeout_s)
                     _SERVER_STATES[key] = state
     if state is None:
         raise MCPHTTPError("MCP client protocol state is unavailable")
-    return await _legacy_request(client, key, url, method, params, deadline, state, lock)
+    return await _legacy_request(client, key, url, method, params, idle_timeout_s, state, lock)
 
 
 async def list_tools(

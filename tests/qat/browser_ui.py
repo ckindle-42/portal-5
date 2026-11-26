@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import Settings
+from .owui_client import DEFAULT_TURN_IDLE_TIMEOUT_S, TurnStalledError
 
 RELEASE_OVERLAY_TEXTS = ("Okay, Let's Go!", "Okay, Let's Go", "Got it")
 STOP_CIRCLE_SELECTOR = "button[aria-label='Stop'], path[d*='9.564a1.312']"
@@ -308,41 +309,53 @@ class BrowserUI:
         return tuple(turns[-1]["urls"]) if turns else ()
 
     def send_turn(
-        self, prompt: str, upload_path: Path | None = None, max_wait_s: float = 240.0
+        self,
+        prompt: str,
+        upload_path: Path | None = None,
+        max_wait_s: float | None = None,
+        idle_timeout_s: float = DEFAULT_TURN_IDLE_TIMEOUT_S,
     ) -> str:
         """Send a real GUI turn; wait for a NEW assistant message; return its text."""
+        del max_wait_s
         page = self._require_page()
         _, before = self.visible_turn_count()
         if upload_path is not None:
             self._upload_attachment(upload_path)
         self._type_prompt(prompt)
         self._submit_prompt()
-        self._await_assistant_turn(before, time.monotonic() + max_wait_s)
+        self._await_assistant_turn(before, idle_timeout_s)
         page.wait_for_timeout(1500)
         turns = self._assistant_turns()
         return str(turns[-1]["text"]) if turns else ""
 
     def _upload_attachment(self, upload_path: Path) -> None:
         page = self._require_page()
-        page.set_input_files("input[type='file']", str(upload_path))
+        page.set_input_files("input[type='file']", str(upload_path), timeout=0)
         name = upload_path.name
-        deadline = time.monotonic() + 120.0
+        idle_since = time.monotonic()
+        last_state: tuple[str, int, int] | None = None
         chip = page.locator("[data-testid*='file' i], .file-item, [data-cy='file-item']")
         spinner = page.locator("[data-testid*='loading' i], .animate-spin")
-        while time.monotonic() < deadline:
+        while True:
             body = page.locator("body").inner_text() or ""
-            if (name in body or chip.count()) and not spinner.count():
+            chips, spinners = chip.count(), spinner.count()
+            if (name in body or chips) and not spinners:
                 return
+            state = (body, chips, spinners)
+            if state != last_state:
+                last_state = state
+                idle_since = time.monotonic()
+            if time.monotonic() - idle_since >= 120.0:
+                raise TimeoutError(f"upload {name} made no visible progress for 120s")
             page.wait_for_timeout(300)
-        raise TimeoutError(f"uploaded attachment {name} did not finish processing")
 
     def _type_prompt(self, prompt: str) -> None:
         page = self._require_page()
         box = page.locator(CHAT_INPUT_SELECTOR).first
-        box.click(timeout=15_000)
+        box.click(timeout=0)
         tag = str(box.evaluate("el => el.tagName.toLowerCase()"))
         if tag in ("textarea", "input"):
-            box.fill(prompt)
+            box.fill(prompt, timeout=0)
         else:
             page.keyboard.press("ControlOrMeta+A")
             page.keyboard.insert_text(prompt)
@@ -359,18 +372,24 @@ class BrowserUI:
                 "#send-message-button, button[aria-label*='Send' i], button[type='submit']"
             )
             if send.count():
-                send.first.click()
+                send.first.click(timeout=0)
 
-    def _await_assistant_turn(self, before: int, deadline: float) -> None:
+    def _await_assistant_turn(self, before: int, idle_timeout_s: float) -> None:
         page = self._require_page()
         stop = page.locator(STOP_CIRCLE_SELECTOR)
         appeared = False
         last_text = ""
         stable_since: float | None = None
-        while time.monotonic() < deadline:
+        last_stopping = False
+        started = time.monotonic()
+        last_progress_at = started
+        while True:
             stopping = bool(stop.count())
             if stopping:
                 appeared = True
+            if stopping != last_stopping:
+                last_stopping = stopping
+                last_progress_at = time.monotonic()
             _, count = self.visible_turn_count()
             if count > before:
                 turns = self._assistant_turns()
@@ -379,6 +398,7 @@ class BrowserUI:
                     if text != last_text:
                         last_text = text
                         stable_since = time.monotonic()
+                        last_progress_at = stable_since
                     elif not stopping and stable_since is not None:
                         elapsed = time.monotonic() - stable_since
                         needed = 1.0 if appeared else 2.5
@@ -386,8 +406,9 @@ class BrowserUI:
                             return
                 else:
                     stable_since = None
+            if time.monotonic() - last_progress_at >= idle_timeout_s:
+                raise TurnStalledError(idle_timeout_s, time.monotonic() - started, 0)
             page.wait_for_timeout(300)
-        raise TimeoutError("Open WebUI assistant turn did not complete within the scenario budget")
 
     def last_assistant_text(self) -> str:
         page = self._require_page()

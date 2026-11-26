@@ -22,13 +22,20 @@ from urllib.parse import urlsplit
 import httpx
 
 from portal.platform.inference.cluster_backends import Backend, BackendRegistry
+from portal.platform.inference.streaming_client import StreamTurnStalledError, stream_chat_turn
 
 from . import artifacts, gate, hardening, preflight, report, uat_behavioral
 from . import scenarios as scn
 from .browser_ui import BrowserUI, PlaywrightUnavailable
 from .config import Discovery, Settings, discover, primary_model_for
 from .models import GateReport, QATResult, QATScenario, StageSummary, Status, classify_defect
-from .owui_client import OWUIClient, TurnOutcome, red_square_png
+from .owui_client import (
+    DEFAULT_TURN_IDLE_TIMEOUT_S,
+    OWUIClient,
+    TurnOutcome,
+    TurnStalledError,
+    red_square_png,
+)
 
 DEFAULT_OUTPUT_REL = "results/qat"
 
@@ -116,7 +123,7 @@ def _safety_guard_refusal(trace: dict[str, object]) -> bool:
 # Stage 3 OWUI and pipeline chats must name the served model. Adversarial rows
 # stay exempt in _unverified_model_failure (a guard refusal has no model).
 _TRACE_EXPECTED_STAGES = frozenset({2, 3, 4, 5})
-SLOW_SEAT_WARN_S = 180.0
+SLOW_SEAT_REPORT_S = 180.0
 _INFRA_HTTP = frozenset({401, 404, 429})
 _MITRE_ID = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
 _SOURCETYPE = re.compile(r"sourcetype=(\S+)", re.IGNORECASE)
@@ -822,12 +829,15 @@ def _execute(
             started = time.monotonic()
             result = _execute_one(settings, scenario, state, opts)
             result.duration_s = time.monotonic() - started
-            _warn_slow_seat(result)
+            _record_slow_seat(result)
         _annotate(scenario, result)
         _stamp_lineage(result, state.provenance)
         state.results.append(result)
         state.stages[-1].results.append(result)
         _checkpoint_result(state.run_dir, result)
+        if result.evidence.get("stream_incomplete") is True:
+            _block_after_incomplete_stream(selected, scenario, state)
+            break
 
 
 def _record_gate_row(state: RunState, stage: int, gate_report: GateReport) -> None:
@@ -909,7 +919,9 @@ def _evict_on_primary_change(
         return previous, None
     if previous is not None and previous != primary:
         failed = [
-            row for row in (_evict_resident_engines(settings) or []) if row.status is Status.FAIL
+            row
+            for row in (_evict_resident_engines(settings) or [])
+            if row.status is not Status.PASS
         ]
         if failed:
             detail = "; ".join(row.detail for row in failed)
@@ -930,11 +942,11 @@ def _evict_resident_engines(settings: Settings) -> list[QATResult]:
         _, omlx_resident = gate.omlx_residency(client, settings)
         if ollama_resident:
             row = gate.evict_ollama(client, settings, ollama_resident)
-            if row.status is Status.FAIL:
+            if row.status is not Status.PASS:
                 failed.append(row)
         if omlx_resident:
             row = gate.evict_omlx(client, settings, omlx_resident)
-            if row.status is Status.FAIL:
+            if row.status is not Status.PASS:
                 failed.append(row)
     return failed
 
@@ -946,14 +958,27 @@ def _checkpoint_result(run_dir: Path, result: QATResult) -> None:
         stream.flush()
 
 
-def _warn_slow_seat(result: QATResult) -> None:
-    """A completed turn at or over the old 180s cap is slow, not a failure."""
-    if result.status is not Status.PASS or result.duration_s < SLOW_SEAT_WARN_S:
-        return
-    result.status = Status.WARN
-    result.detail = (
-        f"{result.detail}; slow seat: {result.duration_s:.0f}s >= {SLOW_SEAT_WARN_S:.0f}s"
-    )
+def _record_slow_seat(result: QATResult) -> None:
+    if result.duration_s >= SLOW_SEAT_REPORT_S:
+        result.slow_seat_s = result.duration_s
+
+
+def _block_after_incomplete_stream(
+    selected: list[QATScenario], first: QATScenario, state: RunState
+) -> None:
+    seen = {result.scenario_id for result in state.results}
+    for scenario in selected:
+        if scenario.cascade_key() <= first.cascade_key() or scenario.scenario_id in seen:
+            continue
+        blocked = QATResult(
+            scenario.scenario_id,
+            Status.BLOCKED,
+            "blocked because a prior assistant stream did not reach a terminal state",
+            defect_class=classify_defect(infra_hop_failed=True),
+        )
+        _stamp_lineage(blocked, state.provenance)
+        state.results.append(blocked)
+        _checkpoint_result(state.run_dir, blocked)
 
 
 def _execute_one(
@@ -1083,33 +1108,45 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
     body = {
         "model": scenario.model_slug,
         "messages": [{"role": "user", "content": scenario.prompts[0]}],
-        "stream": False,
+        "stream": True,
     }
     started_at = time.time()
+    turn_started = time.monotonic()
     try:
-        with httpx.Client(timeout=scenario.timeout_s) as client:
-            r = client.post(
-                f"{settings.pipeline_url}/v1/chat/completions",
-                json=body,
-                headers=settings.auth_headers(),
-            )
-            http_failure = _http_status_failure(scenario.scenario_id, r.status_code, "pipeline")
-            if http_failure is not None:
-                return http_failure
-            message = r.json().get("choices", [{}])[0].get("message", {})
-            content = message.get("content")
-            answer = content if isinstance(content, str) else ""
-            tool_calls = message.get("tool_calls") or []
-            sent_correlation = r.headers.get("X-Correlation-ID")
-            trace = _bind_trace(
-                OWUIClient(settings).lookup_trace(
-                    correlation_id=sent_correlation,
-                    model_slug=scenario.model_slug,
-                    turn_started_at=started_at,
-                    deadline=time.monotonic() + scenario.timeout_s,
-                ),
-                sent_correlation,
-            )
+        message = stream_chat_turn(
+            f"{settings.pipeline_url}/v1/chat/completions",
+            settings.auth_headers(),
+            body,
+            is_pipeline_mode=True,
+            idle_timeout_s=DEFAULT_TURN_IDLE_TIMEOUT_S,
+        )
+        answer = str(message.get("content") or "")
+        tool_calls = message.get("tool_calls") or []
+        trace = _bind_trace(
+            OWUIClient(settings).lookup_trace(
+                model_slug=scenario.model_slug,
+                turn_started_at=started_at,
+            ),
+            None,
+        )
+    except httpx.HTTPStatusError as exc:
+        failure = _http_status_failure(scenario.scenario_id, exc.response.status_code, "pipeline")
+        if failure is not None:
+            return failure
+        raise
+    except (StreamTurnStalledError, httpx.TimeoutException) as exc:
+        elapsed = time.monotonic() - turn_started
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            f"{type(exc).__name__}: {exc}",
+            defect_class=classify_defect(infra_hop_failed=True),
+            evidence={
+                "stream_incomplete": True,
+                "turn_idle_timeout_s": DEFAULT_TURN_IDLE_TIMEOUT_S,
+                "turn_duration_s": elapsed,
+            },
+        )
     except Exception as exc:
         return QATResult(
             scenario.scenario_id,
@@ -1185,7 +1222,11 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
         "pipeline turn completed",
         served_model=served_model,
         backend=str(trace.get("backend") or ""),
-        evidence={"text_chars": len(answer), "trace": trace},
+        evidence={
+            "text_chars": len(answer),
+            "trace": trace,
+            "turn_duration_s": time.monotonic() - turn_started,
+        },
     )
 
 
@@ -1367,6 +1408,7 @@ def _run_chat(
     settings: Settings, scenario: QATScenario, state: RunState, opts: RunnerOptions
 ) -> QATResult:
     client = OWUIClient(settings)
+    chat_id = ""
     try:
         token = client.signin()
         chat_id = client.create_chat(
@@ -1375,9 +1417,8 @@ def _run_chat(
             f"QAT: {scenario.scenario_id}",
             prompt=scenario.prompts[0] if scenario.prompts else "",
         )
-        deadline = time.monotonic() + scenario.timeout_s
         outcome, error, all_spans, all_calls = _run_chat_turns(
-            client, token, chat_id, scenario, deadline, state.fleet_ports
+            client, token, chat_id, scenario, 0.0, state.fleet_ports
         )
         if error:
             error.chat_id = chat_id
@@ -1448,13 +1489,31 @@ def _run_chat(
             served_model=outcome.served_model,
             backend=str(outcome.trace.get("backend", "")),
             artifacts=outcome.artifact_urls,
-            evidence={"text_chars": len(outcome.text), "trace": outcome.trace},
+            evidence={
+                "text_chars": len(outcome.text),
+                "trace": outcome.trace,
+                "turn_duration_s": outcome.duration_s,
+            },
         )
         finalized, detail = _finalize_chat(client, token, chat_id, scenario, Status.PASS, opts)
         if not finalized:
             result.status = Status.WARN
             result.detail = f"{result.detail}; {detail}"
         return result
+    except TurnStalledError as exc:
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            str(exc),
+            chat_id=chat_id,
+            defect_class=classify_defect(infra_hop_failed=True),
+            evidence={
+                "stream_incomplete": True,
+                "turn_idle_timeout_s": exc.idle_timeout_s,
+                "turn_duration_s": exc.elapsed_s,
+                "stream_bytes_received": exc.bytes_received,
+            },
+        )
     except Exception as exc:
         return QATResult(
             scenario.scenario_id,
@@ -1469,7 +1528,11 @@ def _inline_vision(scenario: QATScenario) -> bool:
 
 
 def _chat_turn_extras(
-    client: OWUIClient, token: str, scenario: QATScenario, index: int, deadline: float
+    client: OWUIClient,
+    token: str,
+    scenario: QATScenario,
+    index: int,
+    deadline: float | None,
 ) -> tuple[list[dict[str, str]] | None, bytes | None]:
     # Every turn, not only the first: a later text-only turn is rerouted off the VL seat.
     if _inline_vision(scenario):
@@ -1524,7 +1587,8 @@ def _run_tts(settings: Settings, scenario: QATScenario, state: RunState) -> QATR
     )
     errors: list[str] = []
     saw_response = False
-    with httpx.Client(timeout=scenario.timeout_s) as client:
+    timeout = httpx.Timeout(DEFAULT_TURN_IDLE_TIMEOUT_S, connect=10.0, write=10.0, pool=10.0)
+    with httpx.Client(timeout=timeout) as client:
         for url, headers in attempts:
             ok, detail, responded = _post_tts(client, url, headers)
             saw_response = saw_response or responded
@@ -1551,9 +1615,10 @@ def _run_chat_turns(
     token: str,
     chat_id: str,
     scenario: QATScenario,
-    deadline: float,
+    deadline: float | None,
     fleet_ports: dict[str, int] | None = None,
 ) -> tuple[TurnOutcome | None, QATResult | None, list[dict[str, object]], list[object]]:
+    del deadline
     branch: list[dict[str, str]] = []
     outcome: TurnOutcome | None = None
     all_spans: list[dict[str, object]] = []
@@ -1562,8 +1627,8 @@ def _run_chat_turns(
     prompts = list(scenario.prompts)
     poll_wake_at = 0.0
     for index, prompt in enumerate(prompts, start=1):
-        uat_behavioral.sleep_before_poll(prompt, poll_wake_at, deadline)
-        files, image_png = _chat_turn_extras(client, token, scenario, index, deadline)
+        uat_behavioral.sleep_before_poll(prompt, poll_wake_at, 0.0)
+        files, image_png = _chat_turn_extras(client, token, scenario, index, None)
         started_at = time.time()
         response = client.send_turn(
             token,
@@ -1575,7 +1640,6 @@ def _run_chat_turns(
             prior_messages=branch,
             files=files,
             image_png=image_png,
-            deadline=deadline,
         )
         if not response.is_success:
             return (
@@ -1588,12 +1652,13 @@ def _run_chat_turns(
         outcome = client.poll_turn(
             token,
             chat_id,
-            max_wait_s=max(0.0, deadline - time.monotonic()),
+            max_wait_s=float(getattr(client, "idle_timeout_s", 300.0)),
             correlation_id=sent_correlation,
             model_slug=scenario.model_slug,
             turn_started_at=started_at,
-            deadline=deadline,
         )
+        extensions = getattr(response, "extensions", {})
+        outcome.duration_s = float(extensions.get("qat_stream_duration_s") or 0.0)
         outcome.trace = _bind_trace(
             outcome.trace if isinstance(outcome.trace, dict) else {}, sent_correlation
         )
@@ -1670,7 +1735,17 @@ def _run_chat_turns(
             ({"role": "user", "content": prompt}, {"role": "assistant", "content": outcome.text})
         )
         plan = uat_behavioral.plan_media_poll(scenario, turns, fleet_ports)
-        if plan and time.monotonic() + plan.sleep_s + 25 < deadline:
+        if plan and plan.stalled_s is not None:
+            error = QATResult(
+                scenario.scenario_id,
+                Status.FAIL,
+                f"media job made no progress for {plan.stalled_s:.1f}s",
+                chat_id=chat_id,
+                defect_class=classify_defect(tool_misbehaved=True),
+                evidence={"media_job_idle_timeout_s": DEFAULT_TURN_IDLE_TIMEOUT_S},
+            )
+            return outcome, error, all_spans, all_calls
+        if plan:
             poll_wake_at = time.monotonic() + plan.sleep_s
             prompts.append(plan.prompt)
     return outcome, None, all_spans, all_calls
@@ -1746,7 +1821,7 @@ def _run_browser(settings: Settings, scenario: QATScenario, state: RunState) -> 
         ui.login()
         dismissed = ui.dismiss_overlays()
         roster = ui.workspace_roster()
-        text = ui.send_turn(scenario.prompts[0], max_wait_s=scenario.timeout_s)
+        text = ui.send_turn(scenario.prompts[0])
         toggled = ui.toggle_details()
         shot = ui.screenshot(scenario.scenario_id)
         errs = ui.result_errors()
@@ -1772,6 +1847,19 @@ def _run_browser(settings: Settings, scenario: QATScenario, state: RunState) -> 
                 "output_hygiene": hygiene_errors,
             },
             defect_class=classify_defect(browser_error=failed) if failed else None,
+        )
+    except TurnStalledError as exc:
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            str(exc),
+            defect_class=classify_defect(infra_hop_failed=True),
+            evidence={
+                "driver": "browser_gui",
+                "stream_incomplete": True,
+                "turn_idle_timeout_s": exc.idle_timeout_s,
+                "turn_duration_s": exc.elapsed_s,
+            },
         )
     finally:
         ui.stop()

@@ -337,9 +337,16 @@ async def _generate(
     proc = await asyncio.create_subprocess_exec(
         *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
+    started = asyncio.get_running_loop().time()
     try:
         _, err = await asyncio.wait_for(proc.communicate(), timeout=VIDEO_MLX_TIMEOUT)
     except TimeoutError:
+        logger.error(
+            "%s video renderer hit external safety ceiling after %.1fs (limit %ds); terminating child",
+            engine,
+            asyncio.get_running_loop().time() - started,
+            VIDEO_MLX_TIMEOUT,
+        )
         proc.kill()
         await proc.communicate()
         return {

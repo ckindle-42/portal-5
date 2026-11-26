@@ -87,6 +87,7 @@ class QATResult:
     backend: str = ""
     artifacts: tuple[str, ...] = ()
     evidence: dict[str, object] = field(default_factory=dict)
+    slow_seat_s: float | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -95,6 +96,7 @@ class QATResult:
             "detail": self.detail,
             "defect_class": self.defect_class.value if self.defect_class else None,
             "duration_s": round(self.duration_s, 3),
+            "slow_seat_s": round(self.slow_seat_s, 3) if self.slow_seat_s is not None else None,
             "chat_id": self.chat_id,
             "served_model": self.served_model,
             "backend": self.backend,
@@ -116,6 +118,7 @@ class QATResult:
             backend=str(row.get("backend", "")),
             artifacts=tuple(str(a) for a in row.get("artifacts") or ()),
             evidence=dict(row.get("evidence") or {}),
+            slow_seat_s=float(row["slow_seat_s"]) if row.get("slow_seat_s") is not None else None,
         )
 
 

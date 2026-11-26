@@ -602,7 +602,7 @@ class TestRunGate:
         assert report.ok is False
         assert report.memory_used_pct == pytest.approx(91.0)
 
-    def test_over_cap_hold_wait_is_bounded_and_names_memory_holders(
+    def test_over_cap_hold_wait_fails_after_idle_and_names_memory_holders(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
@@ -636,7 +636,7 @@ class TestRunGate:
         start = time.monotonic()
         report = gate.run_gate(SETTINGS, "next_phase", transport=transport, wait=True)
         elapsed = time.monotonic() - start
-        # WAIT_BUDGET_S is 600: the hold budget bounds the wait, not the eviction budget.
+        # The memory hold idle window bounds this wait because no memory changed.
         assert elapsed < 5.0
         assert calls["residency"] >= 2
         assert report.blocked is True and report.ok is False
@@ -649,6 +649,25 @@ class TestRunGate:
         assert mem.evidence["hold_waited_s"] >= 0.3
         assert mem.evidence["hold_budget_s"] == 0.4
         assert any(r.startswith("gate-memory") for r in report.block_reasons)
+
+    def test_over_cap_hold_idle_window_resets_on_memory_progress(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(gate, "MEMORY_HOLD_BUDGET_S", 0.12)
+        monkeypatch.setattr(gate, "MEMORY_HOLD_POLL_S", 0.03)
+        readings = iter([91.0, 90.8, 90.6, 90.4, 79.0, 79.0])
+
+        def memory() -> gate.QATResult:
+            value = next(readings, 79.0)
+            status = Status.PASS if value < gate.DEFAULT_MEM_CAP_PCT else Status.WARN
+            return gate.QATResult("gate-memory", status, f"used {value:.1f}% (cap 80%)")
+
+        monkeypatch.setattr(gate, "vm_memory", memory)
+        transport = _router()
+        report = gate.run_gate(SETTINGS, "next_phase", transport=transport, wait=True)
+        assert report.ok is True
+        assert report.blocked is False
+        assert report.waited_s >= 0.12
 
     def test_media_pressure_reported_never_killed(self) -> None:
         transport = _router(media=True)

@@ -1149,12 +1149,34 @@ def test_plan_media_poll_surfaces_a_failure_once_then_stops(
     assert uat.plan_media_poll(_music_case(), [_music_start_turn(), poll], {"music": 8912}) is None
 
 
-def test_plan_media_poll_stops_past_the_eta_derived_deadline(
+def test_plan_media_poll_remains_scheduled_past_the_eta_estimate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     created = time.time() - 1000.0
     _stub_probe(monkeypatch, {"status": "running", "eta_s": 250.0, "created_at": created})
-    assert uat.plan_media_poll(_music_case(), [_music_start_turn()], {"music": 8912}) is None
+    plan = uat.plan_media_poll(_music_case(), [_music_start_turn()], {"music": 8912})
+    assert plan is not None and plan.stalled_s is None
+    assert "music_status" in plan.prompt
+
+
+def test_plan_media_poll_does_not_fail_a_known_running_job_for_quiet_stage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_probe(monkeypatch, {"status": "running", "stage": 2, "message": "rendering"})
+    start = _music_start_turn()
+    start.media_progress_key = ("running", "2", "rendering")
+    start.media_progress_at_s = 10.0
+    poll = uat.UATTurn(
+        uat._poll_prompt("music_status", "b6d051435de9", 300),
+        "MEDIA_JOB_RUNNING: rendering",
+        {"spans": []},
+        (),
+        (),
+    )
+    monkeypatch.setattr(time, "monotonic", lambda: 10.0 + uat.DEFAULT_TURN_IDLE_TIMEOUT_S + 1.0)
+    plan = uat.plan_media_poll(_music_case(), [start, poll], {"music": 8912})
+    assert plan is not None and plan.stalled_s is None
+    assert "music_status" in plan.prompt
 
 
 def test_plan_media_poll_falls_back_when_the_service_is_unreachable(

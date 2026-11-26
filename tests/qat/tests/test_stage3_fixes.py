@@ -514,7 +514,7 @@ def test_evict_omlx_accepts_http_202_and_waits_for_residency_to_clear(
         return httpx.Response(404)
 
     settings = make_settings(tmp_path)
-    monkeypatch.setattr(gate, "OMLX_EVICT_SETTLE_S", 30.0)
+    monkeypatch.setattr(gate, "OMLX_EVICT_IDLE_TIMEOUT_S", 30.0)
     monkeypatch.setattr(gate, "OMLX_EVICT_SETTLE_STEP_S", 0.0)
     monkeypatch.setattr(
         gate, "time", SimpleNamespace(monotonic=time.monotonic, sleep=lambda _s: None)
@@ -541,7 +541,7 @@ def test_evict_omlx_fails_when_a_202_unload_never_clears_residency(
         return httpx.Response(404)
 
     settings = make_settings(tmp_path)
-    monkeypatch.setattr(gate, "OMLX_EVICT_SETTLE_S", 0.0)
+    monkeypatch.setattr(gate, "OMLX_EVICT_IDLE_TIMEOUT_S", 0.0)
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         res = gate.evict_omlx(client, settings, ["stuck-seat"])
     assert res.status is Status.FAIL

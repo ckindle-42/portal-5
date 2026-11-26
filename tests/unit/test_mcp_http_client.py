@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import json
 
+import httpx
 import pytest
 
 from portal.platform.inference import mcp_http
@@ -81,3 +83,60 @@ def test_map_tool_result_unwraps_sdk_wrapped_non_object_returns() -> None:
     assert map_tool_result(obj, {"type": "object", "additionalProperties": True}) == {
         "status": "ok"
     }
+
+
+@pytest.mark.asyncio
+async def test_mcp_call_can_stream_past_its_old_total_budget() -> None:
+    class SlowChunks(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            await asyncio.sleep(0.04)
+            yield first
+            await asyncio.sleep(0.04)
+            yield second
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        request_id = json.loads(request.content)["id"]
+        wire = (
+            "data: "
+            + json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {"structuredContent": {"ok": True}, "isError": False},
+                }
+            )
+            + "\n\n"
+        ).encode()
+        split = len(wire) // 2
+        nonlocal first, second
+        first, second = wire[:split], wire[split:]
+        return httpx.Response(
+            200, headers={"content-type": "text/event-stream"}, stream=SlowChunks()
+        )
+
+    first = second = b""
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await mcp_http.call_tool(client, "http://mcp", "long_tool", {}, 0.06)
+
+    assert result["structuredContent"] == {"ok": True}
+
+
+@pytest.mark.asyncio
+async def test_mcp_call_fails_when_response_stream_stalls() -> None:
+    idle_timeout_s = 0.02
+
+    class Stalled(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            await asyncio.sleep(idle_timeout_s)
+            raise httpx.ReadTimeout("no response bytes")
+            yield b""
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, stream=Stalled())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        started = asyncio.get_running_loop().time()
+        with pytest.raises(httpx.ReadTimeout, match="no response bytes"):
+            await mcp_http.call_tool(client, "http://mcp", "stalled_tool", {}, idle_timeout_s)
+
+    assert asyncio.get_running_loop().time() - started >= idle_timeout_s

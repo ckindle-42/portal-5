@@ -47,6 +47,7 @@ async def _attach_transcript_urls(res: dict[str, Any]) -> dict[str, Any]:
 # This module proxies there first and only falls back to the in-Docker faster-whisper
 # path (below) on non-Apple-Silicon nodes where the host server is unreachable.
 MLX_TRANSCRIBE_URL = os.getenv("MLX_TRANSCRIBE_URL", "http://host.docker.internal:8924").rstrip("/")
+WHISPER_PROXY_TIMEOUT = int(os.getenv("WHISPER_PROXY_TIMEOUT", "1800"))
 
 
 async def _try_host(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any] | None:
@@ -56,13 +57,19 @@ async def _try_host(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]
     # 30 min, matching AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA — a 2 h recording is
     # ~3-4 min of host work, but a loaded box or a longer file needs the headroom.
     try:
-        async with httpx.AsyncClient(
-            timeout=float(os.getenv("WHISPER_PROXY_TIMEOUT", "1800"))
-        ) as c:
+        async with httpx.AsyncClient(timeout=WHISPER_PROXY_TIMEOUT) as c:
             r = await c.post(url, json={"arguments": arguments})
             if r.status_code == 200:
                 return cast(dict[str, Any], r.json())
             return {"error": f"host transcribe server {r.status_code}: {r.text[:200]}"}
+    except httpx.TimeoutException as exc:
+        logger.warning(
+            "host transcription proxy hit its configured %.0fs safety timeout; %s falls back",
+            WHISPER_PROXY_TIMEOUT,
+            tool_name,
+            exc_info=exc,
+        )
+        return None
     except Exception:
         return None  # host unreachable → caller uses Docker fallback
 
@@ -152,7 +159,6 @@ async def openai_models(request: Request) -> JSONResponse:
 # Docker fallback only (non-Apple-Silicon nodes). Primary is the host MLX server
 # (Parakeet + Sortformer) via MLX_TRANSCRIBE_URL. 'base' was a real accuracy floor.
 WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL", "large-v3-turbo")
-WHISPER_PROXY_TIMEOUT = int(os.getenv("WHISPER_PROXY_TIMEOUT", "1800"))
 _model: Any | None = None
 
 

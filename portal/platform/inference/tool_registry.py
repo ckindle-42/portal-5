@@ -15,7 +15,7 @@ raising so a tool failure can't break the SSE stream.
 
 Knobs (env-overridable): ``TOOL_REGISTRY_REFRESH_S`` (3600s refresh interval),
 ``TOOL_REGISTRY_RETRY_S`` (30s while an MCP is undiscovered),
-``TOOL_DISPATCH_TIMEOUT_S`` (60s per-call POST timeout, overridable per-tool via
+``TOOL_DISPATCH_TIMEOUT_S`` (300s response-idle timeout, overridable per-tool via
 ``ToolDefinition.custom_timeout_s``), ``TOOL_DISPATCH_MAX_TIMEOUT_S`` (upper
 bound on per-tool ``portal5/timeout_s`` overrides, defaulting to
 ``portal.yaml`` ``tool_dispatch_max_timeout_s``), and per-server ``MCP_<NAME>_URL``.
@@ -57,7 +57,7 @@ TOOL_REGISTRY_REFRESH_S = float(os.environ.get("TOOL_REGISTRY_REFRESH_S", "3600"
 # shorter interval so the missing server is retried, not hidden for the full TTL.
 TOOL_REGISTRY_RETRY_S = float(os.environ.get("TOOL_REGISTRY_RETRY_S", "30"))
 TOOL_DISCOVERY_TIMEOUT_S = 5.0
-TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "60"))
+TOOL_DISPATCH_TIMEOUT_S = float(os.environ.get("TOOL_DISPATCH_TIMEOUT_S", "300"))
 TOOL_DISPATCH_MAX_TIMEOUT_S = float(
     os.environ.get("TOOL_DISPATCH_MAX_TIMEOUT_S", str(_PORTAL_CONFIG.tool_dispatch_max_timeout_s))
 )
@@ -254,7 +254,7 @@ def _tool_timeout(tdef: dict[str, Any]) -> float | None:
 
 
 def _effective_timeout_s(tool: ToolDefinition) -> float:
-    """Return per-tool timeout bounded by TOOL_DISPATCH_MAX_TIMEOUT_S, else default 60s."""
+    """Return the per-tool response-idle timeout, bounded by the configured maximum."""
     custom = tool.custom_timeout_s
     if custom is not None and math.isfinite(custom) and custom > 0:
         return min(float(custom), TOOL_DISPATCH_MAX_TIMEOUT_S)
@@ -682,7 +682,13 @@ class ToolRegistry:
                 return {"error": f"Tool '{tool.name}' rejected the MCP request", "detail": str(exc)}
             detail = str(exc)
         except (TimeoutError, httpx.TimeoutException):
-            detail = f"timed out after {timeout_s}s"
+            detail = f"stalled for {timeout_s}s without new response bytes"
+            logger.warning(
+                "MCP tool %s stalled after %.1fs without response bytes (workspace=%s)",
+                tool.name,
+                timeout_s,
+                workspace_id or "unknown",
+            )
         except Exception as exc:
             detail = f"dispatch failed: {exc}"
         _penalize(tool, now)

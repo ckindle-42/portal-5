@@ -49,7 +49,9 @@ _route: Callable[
 ] = mcp.custom_route
 
 SPEECH_URL = os.getenv("MLX_SPEECH_URL", "http://host.docker.internal:8918").rstrip("/")
-HTTP_TIMEOUT = float(os.getenv("TTS_PROXY_TIMEOUT", "120"))
+# TTS is a non-streaming proxy: the host returns one WAV after synthesis. Keep
+# an explicit external safety ceiling, with enough room for long narration.
+HTTP_TIMEOUT = float(os.getenv("TTS_PROXY_TIMEOUT", "900"))
 _AUDIO_EXTS = (".wav", ".flac", ".ogg", ".mp3", ".m4a", ".aac", ".webm", ".aiff", ".aif")
 
 
@@ -117,6 +119,13 @@ async def _post_register(
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             r = await client.post(f"{SPEECH_URL}/v1/voices", json=payload)
             return cast(dict[str, Any], r.json())
+    except httpx.TimeoutException as e:
+        logger.warning(
+            "TTS voice registration timed out (configured external safety ceiling %.0fs): %s",
+            HTTP_TIMEOUT,
+            e,
+        )
+        return {"error": f"host voice registration timed out after {HTTP_TIMEOUT:.0f}s"}
     except Exception as e:
         return {"error": f"host speech server unreachable at {SPEECH_URL}: {e}"}
 
@@ -127,6 +136,13 @@ async def _speech_speak(text: str, voice: str) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
             r = await client.post(url, json={"input": text, "voice": voice})
+    except httpx.TimeoutException as e:
+        logger.warning(
+            "TTS synthesis timed out (configured external safety ceiling %.0fs): %s",
+            HTTP_TIMEOUT,
+            e,
+        )
+        return {"error": f"host speech synthesis timed out after {HTTP_TIMEOUT:.0f}s"}
     except Exception as e:
         return {"error": f"host speech server unreachable at {SPEECH_URL}: {e}"}
     if r.status_code == 200 and not r.headers.get("content-type", "").startswith(

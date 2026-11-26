@@ -39,13 +39,19 @@ trap 'rm -f "$_tmpfile"' EXIT
 # Don't use || echo "000" — curl exits non-zero when the server closes a streaming
 # connection, even after writing a valid 200 response.  Capture the code via -w
 # and check _tmpfile content for the real error signal.
+CURL_EXIT=0
 HTTP_CODE=$(curl -s -o "$_tmpfile" -w "%{http_code}" \
     --max-time "$TIMEOUT" \
     -X POST "$PIPE/v1/chat/completions" \
     -H "Authorization: Bearer $API_KEY" \
     -H "Content-Type: application/json" \
     -d '{"model":"auto","messages":[{"role":"user","content":"Say PONG in one word."}],"stream":true,"max_tokens":64}' \
-    2>/dev/null) || true
+    2>/dev/null) || CURL_EXIT=$?
+
+if [ "$CURL_EXIT" -eq 28 ]; then
+    echo "FAIL — curl hit its external ${TIMEOUT}s safety ceiling before the stream ended"
+    exit 1
+fi
 
 # curl writes body to $_tmpfile and "%{http_code}" to stdout; on streaming
 # connection-close curl may exit non-zero but HTTP_CODE is still valid.

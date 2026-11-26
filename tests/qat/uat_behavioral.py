@@ -26,7 +26,13 @@ from .artifacts import raw_tool_error_leak, validate_pdf, wav_magic_error
 from .browser_ui import BrowserUI, PlaywrightUnavailable
 from .config import PERSONA_DIR, REPO_ROOT, Discovery, Settings, workspace_tools_for
 from .models import DefectClass, QATResult, QATScenario, Status, classify_defect
-from .owui_client import ArtifactDownloadError, OWUIClient, artifact_urls
+from .owui_client import (
+    DEFAULT_TURN_IDLE_TIMEOUT_S,
+    ArtifactDownloadError,
+    OWUIClient,
+    TurnStalledError,
+    artifact_urls,
+)
 
 UAT_PHASE = "human_grade"
 #: Stage 5 must cascade after Stage 4 (tier 200); tier=index collided with Stage 1/2 tiers.
@@ -138,6 +144,8 @@ class UATTurn:
     tool_names: tuple[str, ...]
     artifact_urls: tuple[str, ...]
     tool_results: tuple[dict[str, object], ...] = ()
+    media_progress_key: tuple[str, str, str] | None = None
+    media_progress_at_s: float | None = None
 
 
 def build_registry(
@@ -3172,6 +3180,19 @@ def _run_browser_case(
         if case.cross_session:
             return _run_browser_memory(ui, client, token, settings, scenario, case, state, options)
         return _run_browser_chat(ui, client, token, settings, scenario, case, state, options)
+    except TurnStalledError as exc:
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            str(exc),
+            defect_class=classify_defect(infra_hop_failed=True),
+            evidence={
+                "stream_incomplete": True,
+                "turn_idle_timeout_s": exc.idle_timeout_s,
+                "turn_duration_s": exc.elapsed_s,
+                "stream_bytes_received": exc.bytes_received,
+            },
+        )
     except Exception as exc:
         return QATResult(
             scenario.scenario_id,
@@ -3209,9 +3230,8 @@ def _run_browser_chat(
             return result
     ui.select_model(case.model_slug, _preset_display_name(state, case))
     gui_tools = ui.inspect_and_manage_tools(case.expected_tools)
-    deadline = time.monotonic() + case.timeout_s
     turns, error, chat_id = _run_browser_sequence(
-        ui, client, token, settings, scenario, case, deadline, fleet_ports=_ports_of(state)
+        ui, client, token, settings, scenario, case, None, fleet_ports=_ports_of(state)
     )
     extra = _browser_evidence(ui, scenario)
     extra["gui_tools"] = gui_tools
@@ -3235,7 +3255,7 @@ def _run_browser_sequence(
     settings: Settings,
     scenario: QATScenario,
     case: UATCase,
-    deadline: float,
+    deadline: float | None,
     memory_key: str = "",
     fleet_ports: dict[str, int] | None = None,
 ) -> tuple[list[UATTurn], QATResult | None, str]:
@@ -3253,17 +3273,15 @@ def _run_browser_sequence(
         sleep_before_poll(prompt, poll_wake_at, deadline)
         with tempfile.TemporaryDirectory(prefix="uat-browser-upload-") as tmp:
             upload_path, error = _browser_turn_upload(
-                client, token, settings, case, index, transcript, Path(tmp), deadline
+                client, token, settings, case, index, transcript, Path(tmp), None
             )
             if error:
                 return transcript, _status_result(scenario, error, chat_id, transcript), chat_id
             started_at = time.time()
-            text = ui.send_turn(
-                prompt, upload_path=upload_path, max_wait_s=max(0.0, deadline - time.monotonic())
-            )
+            text = ui.send_turn(prompt, upload_path=upload_path)
         chat_id = ui.current_chat_id() or chat_id
         trace = client.lookup_trace(
-            model_slug=case.model_slug, turn_started_at=started_at, deadline=deadline, token=token
+            model_slug=case.model_slug, turn_started_at=started_at, token=token
         )
         served = runner._served_engine_model(trace, "")
         failure = runner._primary_model_failure(scenario, trace, served, chat_id)
@@ -3284,7 +3302,9 @@ def _run_browser_sequence(
             _observed_turn(prompt, text, trace, _tool_names_from_calls((), trace), urls)
         )
         plan = plan_media_poll(case, transcript, fleet_ports)
-        if plan and time.monotonic() + plan.sleep_s + 25 < deadline:
+        if failure := _media_stall_result(scenario, chat_id, transcript, plan):
+            return transcript, failure, chat_id
+        if plan:
             poll_wake_at = time.monotonic() + plan.sleep_s
             prompts.append(plan.prompt)
     tool_error = _required_tool_error(case, transcript)
@@ -3332,7 +3352,7 @@ def _browser_turn_upload(
     index: int,
     turns: list[UATTurn],
     tmp_dir: Path,
-    deadline: float,
+    deadline: float | None,
 ) -> tuple[Path | None, str | None]:
     follow = _wav_followup(case, index)
     if follow is not None:
@@ -3485,7 +3505,7 @@ def _run_browser_memory(
             settings,
             session_scenario,
             session_case,
-            time.monotonic() + case.timeout_s / 2,
+            None,
             memory_key,
         )
         shots.append(str(ui.screenshot(f"{scenario.scenario_id}-chat{index}")))
@@ -3573,20 +3593,32 @@ def _run_chat_case(
         chat_id = client.create_chat(
             token, case.model_slug, f"UAT: {case.scenario_id}", case.prompts[0]
         )
-        deadline = time.monotonic() + case.timeout_s
         turns, error = _run_sequence(
             client,
             token,
             chat_id,
             scenario,
             case,
-            deadline,
+            None,
             fleet_ports=fleet_ports,
         )
         if error:
             error.chat_id = chat_id
             return _archive_chat(client, token, chat_id, scenario, options, error)
         return _finalize_turns(client, token, chat_id, scenario, case, options, turns)
+    except TurnStalledError as exc:
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            str(exc),
+            defect_class=classify_defect(infra_hop_failed=True),
+            evidence={
+                "stream_incomplete": True,
+                "turn_idle_timeout_s": exc.idle_timeout_s,
+                "turn_duration_s": exc.elapsed_s,
+                "stream_bytes_received": exc.bytes_received,
+            },
+        )
     except Exception as exc:
         return QATResult(
             scenario.scenario_id,
@@ -3671,7 +3703,7 @@ def _run_sequence(
     chat_id: str,
     scenario: QATScenario,
     case: UATCase,
-    deadline: float,
+    deadline: float | None,
     memory_key: str = "",
     fleet_ports: dict[str, int] | None = None,
 ) -> tuple[list[UATTurn], QATResult | None]:
@@ -3687,7 +3719,7 @@ def _run_sequence(
     for index, template in enumerate(prompts, start=1):
         prompt = template.replace("{{memory_key}}", memory_key)
         sleep_before_poll(prompt, poll_wake_at, deadline)
-        files, error = _turn_files(client, token, case, index, transcript, deadline)
+        files, error = _turn_files(client, token, case, index, transcript, None)
         if error:
             return transcript, _status_result(scenario, error, chat_id, transcript)
         started_at = time.time()
@@ -3700,7 +3732,6 @@ def _run_sequence(
             case.function_calling,
             branch,
             files=files,
-            deadline=deadline,
         )
         if not response.is_success:
             return transcript, _http_status_failure(
@@ -3709,11 +3740,10 @@ def _run_sequence(
         outcome = client.poll_turn(
             token,
             chat_id,
-            max_wait_s=max(0.0, deadline - time.monotonic()),
+            max_wait_s=DEFAULT_TURN_IDLE_TIMEOUT_S,
             correlation_id=response.headers.get("X-Correlation-ID"),
             model_slug=case.model_slug,
             turn_started_at=started_at,
-            deadline=deadline,
         )
         outcome.served_model = runner._served_engine_model(outcome.trace, outcome.served_model)
         failure = runner._primary_model_failure(
@@ -3737,13 +3767,33 @@ def _run_sequence(
             ({"role": "user", "content": prompt}, {"role": "assistant", "content": outcome.text})
         )
         plan = plan_media_poll(case, transcript, fleet_ports)
-        if plan and time.monotonic() + plan.sleep_s + 25 < deadline:
+        if failure := _media_stall_result(scenario, chat_id, transcript, plan):
+            return transcript, failure
+        if plan:
             poll_wake_at = time.monotonic() + plan.sleep_s
             prompts.append(plan.prompt)
     tool_error = _required_tool_error(case, transcript)
     if tool_error:
         return transcript, _status_result(scenario, tool_error, chat_id, transcript)
     return transcript, None
+
+
+def _media_stall_result(
+    scenario: QATScenario,
+    chat_id: str,
+    turns: list[UATTurn],
+    plan: MediaPollPlan | None,
+) -> QATResult | None:
+    if plan is None or plan.stalled_s is None:
+        return None
+    result = _status_result(
+        scenario,
+        f"INFRA: media job status unavailable for {plan.stalled_s:.1f}s",
+        chat_id,
+        turns,
+    )
+    result.evidence["media_job_idle_timeout_s"] = DEFAULT_TURN_IDLE_TIMEOUT_S
+    return result
 
 
 def _successful_tools(turn: UATTurn) -> set[str]:
@@ -3774,8 +3824,6 @@ _MEDIA_JOB_SERVERS = {
 
 _JOB_ID_RE = re.compile(r"\b[0-9a-f]{12}\b")
 _POLL_PREFIX = "QAT media status poll:"
-# Grace past 2x the job's own ETA before the row stops polling and fails grading.
-_MEDIA_POLL_GRACE_S = 120.0
 _MEDIA_ARTIFACT_EXTENSIONS = {
     "audio": {".wav", ".mp3"},
     "mp3": {".mp3"},
@@ -3796,6 +3844,7 @@ class MediaPollPlan:
 
     prompt: str
     sleep_s: float = 0.0
+    stalled_s: float | None = None
 
 
 def _expected_artifact_extensions(case: object) -> set[str] | None:
@@ -3854,11 +3903,12 @@ def probe_media_job(port: int, status_tool: str, job_id: str) -> dict[str, Any] 
     return payload if isinstance(payload, dict) else None
 
 
-def sleep_before_poll(prompt: str, wake_at: float, deadline: float) -> None:
+def sleep_before_poll(prompt: str, wake_at: float, deadline: float | None = None) -> None:
     """Hold a scheduled poll turn until the job's ETA; explicit prompts never wait."""
+    del deadline
     if not prompt.startswith(_POLL_PREFIX) or wake_at <= 0.0:
         return
-    remaining = min(wake_at - time.monotonic(), max(0.0, deadline - time.monotonic() - 25))
+    remaining = wake_at - time.monotonic()
     if remaining > 0:
         time.sleep(remaining)
 
@@ -3890,12 +3940,23 @@ def plan_media_poll(
     probe = probe_media_job(port, status_tool, job_id) if job_id and port else None
     if probe is None:
         prompt = _media_job_followup_prompt(case, turns)
-        return MediaPollPlan(prompt) if prompt else None
-    return _plan_from_probe(status_tool, job_id, probe, poll_turns)
+        if not prompt:
+            return None
+        idle_s = _record_media_progress(turns, ("unavailable", "", turns[-1].text))
+        return (
+            MediaPollPlan("", stalled_s=idle_s)
+            if idle_s >= DEFAULT_TURN_IDLE_TIMEOUT_S
+            else MediaPollPlan(prompt)
+        )
+    return _plan_from_probe(status_tool, job_id, probe, turns, poll_turns)
 
 
 def _plan_from_probe(
-    status_tool: str, job_id: str, probe: dict[str, Any], poll_turns: list[UATTurn]
+    status_tool: str,
+    job_id: str,
+    probe: dict[str, Any],
+    turns: list[UATTurn],
+    poll_turns: list[UATTurn],
 ) -> MediaPollPlan | None:
     status = str(probe.get("status") or "")
     if status in {"done", "error", "unknown"}:
@@ -3904,20 +3965,46 @@ def _plan_from_probe(
             return None
         return MediaPollPlan(_poll_prompt(status_tool, job_id, 20 if status == "done" else 0))
     eta = float(probe.get("eta_s") or 0.0)
+    now = time.time()
+    progress = _media_progress_key(probe)
+    _record_media_progress(turns, progress)
+    # Media status exposes coarse queued/running stages, not the renderer's
+    # internal work. A long unchanged stage can be healthy; the media worker's
+    # external safety ceiling is responsible for a runaway process. Keep polling
+    # known-active jobs and reserve the turn idle failure for an unavailable
+    # progress surface, where we cannot observe the job at all.
     if eta <= 0:
         return MediaPollPlan(_poll_prompt(status_tool, job_id, 300))
-    created = float(probe.get("created_at") or time.time())
-    now = time.time()
-    hard_deadline = created + 2.0 * eta + _MEDIA_POLL_GRACE_S
-    if now >= hard_deadline:
-        return None
+    created = float(probe.get("created_at") or now)
     due = created + eta
+    sleep_s = max(0.0, min(due - now - 5.0, DEFAULT_TURN_IDLE_TIMEOUT_S))
     if poll_turns:
-        sleep_s = max(0.0, min(eta * 0.5, hard_deadline - now))
-    else:
-        sleep_s = max(0.0, due - now - 5.0)
-    wait_s = int(min(300, max(60, due + 60 - (now + sleep_s))))
+        sleep_s = min(sleep_s, DEFAULT_TURN_IDLE_TIMEOUT_S)
+    wait_s = int(min(300, max(60, eta - sleep_s + 60)))
     return MediaPollPlan(_poll_prompt(status_tool, job_id, wait_s), sleep_s)
+
+
+def _record_media_progress(turns: list[UATTurn], progress: tuple[str, str, str]) -> float:
+    previous = next(
+        (turn for turn in reversed(turns[:-1]) if turn.media_progress_key is not None), None
+    )
+    progress_at = (
+        previous.media_progress_at_s
+        if previous is not None and previous.media_progress_key == progress
+        else time.monotonic()
+    )
+    latest = turns[-1]
+    latest.media_progress_key = progress
+    latest.media_progress_at_s = progress_at
+    return time.monotonic() - progress_at
+
+
+def _media_progress_key(probe: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(probe.get("status") or ""),
+        str(probe.get("stage") or ""),
+        str(probe.get("message") or ""),
+    )
 
 
 def _has_media_job(turns: list[UATTurn]) -> bool:
@@ -3977,7 +4064,12 @@ def _required_tool_error(case: UATCase, turns: list[UATTurn]) -> str | None:
 
 
 def _turn_files(
-    client: OWUIClient, token: str, case: UATCase, index: int, turns: list[UATTurn], deadline: float
+    client: OWUIClient,
+    token: str,
+    case: UATCase,
+    index: int,
+    turns: list[UATTurn],
+    deadline: float | None,
 ) -> tuple[list[dict[str, str]] | None, str | None]:
     follow = _wav_followup(case, index)
     if follow is not None:
@@ -4103,7 +4195,7 @@ def _run_memory_case(
                 chat_id,
                 session_scenario,
                 session_case,
-                time.monotonic() + case.timeout_s / 2,
+                None,
                 memory_key,
             )
             if error:

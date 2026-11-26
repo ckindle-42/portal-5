@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import random
+import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -150,11 +151,17 @@ async def run_worker(spec: dict[str, Any]) -> dict[str, Any]:
         env=_worker_env(),
     )
     _weights_resident = True
+    started = time.monotonic()
     try:
         out, err = await asyncio.wait_for(
             proc.communicate(json.dumps(spec).encode()), timeout=_JOB_TIMEOUT_S
         )
     except TimeoutError:
+        logger.error(
+            "music worker hit external safety ceiling after %.1fs (limit %.0fs); terminating child",
+            time.monotonic() - started,
+            _JOB_TIMEOUT_S,
+        )
         proc.kill()
         await proc.communicate()
         return {"success": False, "error": f"music worker timed out after {int(_JOB_TIMEOUT_S)}s"}
