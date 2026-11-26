@@ -138,30 +138,39 @@ class TestPlanAndOrder:
         class MemoryClient:
             memories = [{"type": "user", "path": None, "content": "private baseline"}]
             restored = False
+            events: list[str] = []
 
             def snapshot_memories(self, token: str) -> list[dict[str, str | None]]:
                 assert token == "token"
+                self.events.append("snapshot")
                 return list(self.memories)
 
             def clear_memories(self, token: str) -> None:
                 assert token == "token"
+                self.events.append("clear")
                 self.memories = []
 
             def restore_memories(self, token: str, snapshot: list[dict[str, str | None]]) -> None:
                 assert token == "token"
+                self.events.append("restore")
                 self.memories = list(snapshot)
                 self.restored = True
 
         client = MemoryClient()
         settings = make_settings(tmp_path)
         state = rn.RunState(settings, tmp_path, make_discovery())
-        scenario = _scn("s5-route", stage=5, kind="uat")
+        scenario = _scn("s5-memory-cross-session", stage=5, kind="uat")
         options = rn.RunnerOptions({5}, set(), set())
+        scenario_facts: dict[str, str] = {}
 
         def execute(*_args: object, **_kwargs: object) -> None:
             assert client.memories == []
             meta = json.loads((tmp_path / "run_meta.json").read_text())
             assert meta["owui_memory_state"]["status"] == "clean"
+            client.events.append("save-chat")
+            scenario_facts.update({"project_code": "QATUAT-42", "preferred_color": "cobalt"})
+            client.events.append("recall-chat")
+            assert scenario_facts == {"project_code": "QATUAT-42", "preferred_color": "cobalt"}
 
         monkeypatch.setattr(rn, "_execute", execute)
         rn._run_with_clean_owui_memories(client, "token", settings, [scenario], state, options, {})
@@ -172,6 +181,7 @@ class TestPlanAndOrder:
         assert meta["owui_memory_state"]["restored_count"] == 1
         assert "private baseline" not in json.dumps(meta)
         assert client.restored
+        assert client.events == ["snapshot", "clear", "save-chat", "recall-chat", "restore"]
 
     def test_cascade_order_tier_model_id(self) -> None:
         plan = [

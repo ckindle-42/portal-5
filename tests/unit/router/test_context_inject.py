@@ -50,6 +50,9 @@ def test_salience_skips_ordinary_question():
 async def test_recalled_memory_stays_system_side_and_traces_only_ids_and_scores(monkeypatch):
     from portal.platform.inference.router import trace
 
+    prompt = "Kubernetes RoleBinding request"
+    owui_memory = "<memory_context>Private user context stays in the request.</memory_context>"
+    user_content = f"{prompt}\n{owui_memory}"
     memories = [
         {
             "id": f"memory-{index}",
@@ -63,7 +66,7 @@ async def test_recalled_memory_stays_system_side_and_traces_only_ids_and_scores(
 
     async def dispatch(tool, args, request_id):
         assert tool == "recall"
-        assert args["query"] == "Kubernetes RoleBinding request"
+        assert args["query"].startswith(prompt)
         return {"memories": memories}
 
     monkeypatch.setitem(ci.WORKSPACES, "auto-daily", {"inject_memory": True})
@@ -72,7 +75,7 @@ async def test_recalled_memory_stays_system_side_and_traces_only_ids_and_scores(
     record = trace.TurnTrace("test-private-memory-receipt")
     record.set(routing_receipt={"scorer": "router_handoff_gate", "memory_chars_excluded": 0})
     token = trace._current.set(record)
-    body = {"messages": [{"role": "user", "content": "Kubernetes RoleBinding request"}]}
+    body = {"messages": [{"role": "user", "content": user_content}]}
     try:
         result = await ci.inject_recalled_memory("auto-daily", body, "test-cid")
         receipt = record.to_dict()
@@ -80,7 +83,9 @@ async def test_recalled_memory_stays_system_side_and_traces_only_ids_and_scores(
         trace._current.reset(token)
 
     assert result["messages"][0]["role"] == "system"
-    assert result["messages"][-1] == body["messages"][0]
+    assert result["messages"][-1] == {"role": "user", "content": user_content}
+    assert owui_memory in result["messages"][-1]["content"]
+    assert all(memory["text"] in result["messages"][0]["content"] for memory in memories)
     assert receipt["memory_injected"] == 4
     assert receipt["memory_recall"] == [
         {"id": memory["id"], "score": memory["similarity"]} for memory in memories
