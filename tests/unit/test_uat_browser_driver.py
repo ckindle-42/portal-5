@@ -19,7 +19,7 @@ from tests.qat.browser_ui import (
 )
 from tests.qat.config import Settings
 from tests.qat.models import QATScenario, Status
-from tests.qat.owui_client import OWUIClient
+from tests.qat.owui_client import ArtifactDownloadError, OWUIClient
 
 
 def _settings(tmp_path: Path) -> Settings:
@@ -596,3 +596,45 @@ def test_send_turn_times_out_when_no_new_assistant(tmp_path: Path) -> None:
     ui._page = page
     with pytest.raises(TimeoutError):
         ui.send_turn("question", max_wait_s=0.2)
+
+
+def test_download_artifact_resolves_filename_when_file_id_was_rewritten(tmp_path: Path) -> None:
+    """The QAT STEP link mutated 1fa1e061 → 1fa1e03a; the published filename was right."""
+    real_id = "1fa1e061-3a4d-4de6-9029-bf68b8d2bfd0"
+    bad_id = "1fa1e03a-3a4d-4de6-9029-bf68b8d2bfd0"
+    name = "cube_20mm_54faa8.step"
+    body = b"step-bytes"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == f"/api/v1/files/{bad_id}/content/{name}":
+            return httpx.Response(404)
+        if request.url.path == "/api/v1/files/search":
+            assert request.url.params["filename"] == name
+            return httpx.Response(
+                200,
+                json=[
+                    {"id": "older", "filename": name, "created_at": 1},
+                    {"id": real_id, "filename": name, "created_at": 2},
+                    {"id": "other", "filename": "other.step", "created_at": 9},
+                ],
+            )
+        if request.url.path == f"/api/v1/files/{real_id}/content":
+            return httpx.Response(200, content=body)
+        return httpx.Response(500)
+
+    client = OWUIClient(_settings(tmp_path), httpx.MockTransport(handler))
+    url = f"https://chat.example/api/v1/files/{bad_id}/content/{name}"
+    assert client.download_artifact("secret", url) == body
+
+
+def test_download_artifact_404_stays_404_when_filename_is_unpublished(tmp_path: Path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/files/search":
+            return httpx.Response(404, json={"detail": "No files found matching the pattern."})
+        return httpx.Response(404)
+
+    client = OWUIClient(_settings(tmp_path), httpx.MockTransport(handler))
+    url = "http://localhost:8080/api/v1/files/01234567-89ab-cdef-0123-456789abcdef/content/missing.stl"
+    with pytest.raises(ArtifactDownloadError) as caught:
+        client.download_artifact("secret", url)
+    assert caught.value.status_code == 404

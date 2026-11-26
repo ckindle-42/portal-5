@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 import httpx
 
@@ -50,6 +50,7 @@ def _upload_params(filename: str) -> dict[str, str] | None:
 ARTIFACT_URL_RE = re.compile(
     r"/api/v1/files/[0-9a-fA-F-]{8,}/content/(?:[^\s\]\"'<>()]|\([^\s\]\"'<>()]*\))+"
 )
+_PUBLISHED_FILE_RE = re.compile(r"/api/v1/files/(?P<id>[0-9a-fA-F-]{8,})/content/(?P<name>[^/?#]+)")
 TERMINAL_STATES = {"completed", "complete", "done", "success"}
 _RED = (255, 0, 0)
 
@@ -467,19 +468,14 @@ class OWUIClient:
         return r.json() if r.status_code == 200 else {}
 
     def download_artifact(self, token: str, url: str) -> bytes:
-        parsed = urlsplit(url)
-        if "/api/v1/files/" in parsed.path:
-            clean_path = parsed.path[parsed.path.index("/api/v1/files/") :]
-            target = f"{self.settings.owui_url.rstrip('/')}{clean_path}"
-            if parsed.query:
-                target = f"{target}?{parsed.query}"
-            headers = self._headers(token)
-        else:
-            target = url if parsed.scheme else f"{self.settings.owui_url}{url}"
-            headers = self._headers(token) if _same_origin(target, self.settings.owui_url) else {}
+        target, headers = self._artifact_request(token, url)
         try:
             with self._client(30.0) as client:
                 r = client.get(target, headers=headers)
+                if r.status_code == 404:
+                    recovered = self._recover_published_file(client, headers, url)
+                    if recovered is not None:
+                        return recovered
         except Exception as exc:
             raise ArtifactDownloadError(f"artifact download failed: {exc}") from exc
         if r.status_code != 200:
@@ -487,6 +483,60 @@ class OWUIClient:
                 f"artifact download failed: HTTP {r.status_code}", status_code=r.status_code
             )
         return r.content
+
+    def _artifact_request(self, token: str, url: str) -> tuple[str, dict[str, str]]:
+        parsed = urlsplit(url)
+        if "/api/v1/files/" in parsed.path:
+            clean_path = parsed.path[parsed.path.index("/api/v1/files/") :]
+            target = f"{self.settings.owui_url.rstrip('/')}{clean_path}"
+            if parsed.query:
+                target = f"{target}?{parsed.query}"
+            return target, self._headers(token)
+        target = url if parsed.scheme else f"{self.settings.owui_url}{url}"
+        headers = self._headers(token) if _same_origin(target, self.settings.owui_url) else {}
+        return target, headers
+
+    def _recover_published_file(
+        self, client: httpx.Client, headers: dict[str, str], url: str
+    ) -> bytes | None:
+        """A mistyped file id still names the published filename. Resolve that row."""
+        match = _PUBLISHED_FILE_RE.search(urlsplit(url).path)
+        if match is None or not headers:
+            return None
+        name = unquote(match.group("name"))
+        listed = client.get(
+            f"{self.settings.owui_url.rstrip('/')}/api/v1/files/search",
+            params={"filename": name, "content": "false"},
+            headers=headers,
+        )
+        if listed.status_code != 200:
+            return None
+        rows = listed.json()
+        if not isinstance(rows, list):
+            return None
+        exact = [
+            row
+            for row in rows
+            if isinstance(row, dict) and row.get("filename") == name and row.get("id")
+        ]
+        if not exact:
+            return None
+
+        def _stamp(row: dict[str, Any]) -> int:
+            raw = row.get("created_at") or 0
+            return int(raw) if isinstance(raw, (int, float)) else 0
+
+        exact.sort(key=_stamp)
+        file_id = str(exact[-1]["id"])
+        if file_id == match.group("id"):
+            return None
+        fetched = client.get(
+            f"{self.settings.owui_url.rstrip('/')}/api/v1/files/{file_id}/content",
+            headers=headers,
+        )
+        if fetched.status_code != 200 or not fetched.content:
+            return None
+        return fetched.content
 
     def poll_turn(
         self,
