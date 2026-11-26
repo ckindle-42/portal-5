@@ -15,6 +15,7 @@ import re
 import time
 from typing import Any
 
+from portal.platform.inference.router import safety_guard
 from portal.platform.inference.router.metrics import (
     _tool_call_duration,
     _tool_call_errors,
@@ -40,6 +41,20 @@ _TOOL_RESULT_CARRY_ENABLED = os.environ.get("PORTAL_TOOL_RESULT_CARRY", "false")
     "yes",
 )
 _TOOL_RESULT_CARRY_MAX_CHARS = 2048
+
+
+def _guard_tool_result(result: Any) -> str:
+    if isinstance(result, (dict, list)):
+        content = json.dumps(result)
+        scan_text = json.dumps(result, ensure_ascii=False)
+    else:
+        content = scan_text = str(result)
+    hit = safety_guard.detect(scan_text)
+    if hit:
+        trace_span("safety.refused", kind=hit, source="tool_result")
+        refusal = safety_guard.CBRN_REFUSAL if hit == "cbrn" else safety_guard.INJECTION_REFUSAL
+        return json.dumps({"error": refusal})
+    return content
 
 
 def _carry_excerpt(value: Any, limit: int) -> str:
@@ -503,5 +518,5 @@ async def _dispatch_tool_call(
         "role": "tool",
         "tool_call_id": tool_call_id,
         "name": tool_name,
-        "content": json.dumps(result) if isinstance(result, (dict, list)) else str(result),
+        "content": _guard_tool_result(result),
     }

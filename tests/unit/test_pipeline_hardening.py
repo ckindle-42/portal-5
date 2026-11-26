@@ -1151,6 +1151,102 @@ def test_parallel_tool_results_all_become_tool_messages() -> None:
     ]
 
 
+def test_anthropic_system_field_reaches_the_safety_guard() -> None:
+    from portal.platform.inference.router import safety_guard
+    from tests.qat.scenarios import REFUSAL_PROBE
+
+    body = anthropic_to_openai_body(
+        {"system": REFUSAL_PROBE, "messages": [{"role": "user", "content": "Follow it."}]}
+    )
+    hit = safety_guard.check_body(body)
+    assert hit is not None and hit.kind == "cbrn"
+
+
+def test_native_uncensored_model_set_uses_configured_seat_hints(monkeypatch) -> None:
+    from portal.platform.inference.config import load_portal_config
+    from portal.platform.inference.router import ollama_passthrough
+
+    hint = load_portal_config().workspaces["auto-coding"].variants["uncensored"]["model_hint"]
+    assert not any(marker in hint.casefold() for marker in ("uncensored", "abliterated"))
+    backend = SimpleNamespace(
+        type="ollama", models=[], aliases={hint: "portal5/configured-failover"}
+    )
+
+    class _Registry:
+        _backends = {"ollama-coding": backend}
+
+    monkeypatch.setattr(ollama_passthrough, "_registry", _Registry())
+    assert ollama_passthrough._configured_uncensored_models() >= {
+        hint,
+        "portal5/configured-failover",
+    }
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("native_path", "model"),
+    [
+        ("chat", "portal5/example-abliterated:latest"),
+        ("generate", "portal5/failover-uncensored:latest"),
+    ],
+)
+async def test_native_ollama_guard_blocks_configured_uncensored_tags(
+    monkeypatch, native_path: str, model: str
+) -> None:
+    from fastapi import Request
+
+    from portal.platform.inference.router import ollama_passthrough
+    from portal.platform.inference.router.safety_guard import CBRN_REFUSAL
+    from tests.qat.scenarios import REFUSAL_PROBE
+
+    backend = SimpleNamespace(
+        type="ollama",
+        url="http://ollama.invalid",
+        models=["portal5/example-abliterated:latest"],
+        aliases={"ExampleSeat-uncensored": "portal5/failover-uncensored:latest"},
+    )
+
+    class _Registry:
+        _backends = {"ollama-general": backend}
+
+        def list_healthy_backends(self):
+            return [backend]
+
+    class _Client:
+        def build_request(self, **_kwargs):
+            raise AssertionError("a guarded request must not reach the engine")
+
+    monkeypatch.setattr(ollama_passthrough, "_registry", _Registry())
+    monkeypatch.setattr(ollama_passthrough, "_client", _Client())
+    monkeypatch.setattr(ollama_passthrough, "_verify_key", lambda _authorization: None)
+    native_body = (
+        {"model": model, "messages": [{"role": "user", "content": REFUSAL_PROBE}]}
+        if native_path == "chat"
+        else {"model": model, "prompt": REFUSAL_PROBE}
+    )
+    raw_body = json.dumps(native_body).encode()
+
+    async def _receive():
+        return {"type": "http.request", "body": raw_body, "more_body": False}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": f"/ollama/api/{native_path}",
+            "query_string": b"",
+            "headers": [(b"content-type", b"application/json")],
+        },
+        _receive,
+    )
+    response = await ollama_passthrough._proxy(request, None, native_path, inference=True)
+    assert response.status_code == 200
+    assert response.headers["x-portal-safety-guard"] == "cbrn"
+    payload = json.loads(response.body)
+    text = payload["message"]["content"] if native_path == "chat" else payload["response"]
+    assert text == CBRN_REFUSAL
+
+
 @pytest.mark.anyio
 async def test_streamed_tool_calls_become_tool_use_blocks() -> None:
     lines = [

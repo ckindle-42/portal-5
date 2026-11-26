@@ -12,6 +12,7 @@ import json
 import logging
 import re
 import time
+import unicodedata
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any, NamedTuple
@@ -109,9 +110,16 @@ _DEFENSE_NOUNS = (
     r"destruction|neutralization|threat|intel|intelligence|report|analysis|forensics|"
     r"residue|trace|traces|degradation|hydrolysis|sample|samples|assay|screening|"
     r"protection|protective|defense|defensive|defence|simulant|simulants|policy|"
-    r"treaty|convention|ban|disarmament|warfare|program|programme"
+    r"treaty|convention|ban|disarmament|warfare|program|programme|formula|sigma|"
+    r"rule|awareness|course|museum|exhibit"
 )
-_DEFENSE_FOLLOWS = re.compile(rf"^\s*+(?:\w++\s++){{0,2}}(?:{_DEFENSE_NOUNS})\b", re.IGNORECASE)
+_DEFENSE_FOLLOWS = re.compile(rf"^\s*+(?:\w++\s++){{0,5}}(?:{_DEFENSE_NOUNS})\b", re.IGNORECASE)
+_DEFENSE_PRECEDES = re.compile(rf"\b(?:{_DEFENSE_NOUNS})\b(?:\s+\w+){{0,5}}\s*$", re.IGNORECASE)
+_WITHOUT_PROCEDURE = re.compile(
+    r"\bwithout\s+(?:any\s+)?(?:synthesis|production|manufacturing|instructions?|steps?|"
+    r"procedures?|recipes?|guides?)\b",
+    re.IGNORECASE,
+)
 
 # ── Injection: exfiltration of hidden instructions / system prompt / tool config ──
 
@@ -158,7 +166,9 @@ _POSSESSIVE_OR_SECRET = re.compile(rf"(?:{_POSSESSIVE}|{_SECRET_ADJ})\b", re.IGN
 _COMPREHENSION = re.compile(r"\b(?:how|what|why|whether|if|when|where|which|who)\b", re.IGNORECASE)
 _TARGET_DEFENSE = re.compile(
     r"^\s*+(?:works?|working)\b|^\s*+for\s+(?:my|our|a|an|the|this|that|your|his|her|their|its|"
-    r"llms?|chatbots?|agents?|apps?|models?)\b|^\s*+,?\s*+(?:example|template|draft)\b",
+    r"llms?|chatbots?|agents?|apps?|models?)\b|^\s*+,?\s*+(?:example|template|draft)\b|"
+    r"^\s*+of\s+(?:(?:the|this|that|a|an)\s++)?(?:palo\s+alto\s+)?"
+    r"(?:firewall|router|switch|network\s+device)\b",
     re.IGNORECASE,
 )
 
@@ -210,6 +220,103 @@ class GuardHit(NamedTuple):
     text: str
 
 
+_HOMOGLYPHS = str.maketrans(
+    {
+        "а": "a",
+        "е": "e",
+        "і": "i",
+        "ј": "j",
+        "о": "o",
+        "р": "p",
+        "с": "c",
+        "х": "x",
+        "у": "y",
+        "к": "k",
+        "м": "m",
+        "т": "t",
+        "в": "b",
+        "н": "h",
+        "ѕ": "s",
+        "α": "a",
+        "ε": "e",
+        "ι": "i",
+        "κ": "k",
+        "ν": "v",
+        "ο": "o",
+        "ρ": "p",
+        "τ": "t",
+        "χ": "x",
+    }
+)
+_LEETSPEAK = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t"})
+_NEGATED_PRODUCTION = re.compile(
+    r"\b(?:never|not|don't|do not|doesn't|does not|didn't|did not|won't|will not|"
+    r"wouldn't|would not|can't|cannot|couldn't|could not|refuse to|decline to|avoid)"
+    r"(?:\s+\w+){0,2}\s+$",
+    re.IGNORECASE,
+)
+_REFUSAL_RESPONSE = re.compile(
+    r"\b(?:cannot|can't|won't|will not|unable to|not able to|refuse|decline)\b", re.IGNORECASE
+)
+_REFUSED_FOLLOWUP = re.compile(
+    r"\b(?:continue|resume|finish|complete|carry on|go on)\b[^.!?\n]{0,100}"
+    r"\b(?:refused|declined|wouldn't|would not|couldn't|could not|denied|stopped)\b|"
+    r"\b(?:continue|resume|finish|complete)\b[^.!?\n]{0,40}\b(?:steps?|instructions?|"
+    r"procedures?|requests?)\b[^.!?\n]{0,40}\b(?:above|before|earlier|previous)\b|"
+    r"\bdo\s+what\s+i\s+asked\b[^.!?\n]{0,40}\b(?:above|before|earlier|previous)\b",
+    re.IGNORECASE,
+)
+_SPACED_SARIN = re.compile(r"(?<![a-z])s\s+a\s+r\s+i\s+n(?![a-z])", re.IGNORECASE)
+
+
+def _normalise_text(text: str) -> str:
+    folded = unicodedata.normalize("NFKD", text).casefold().translate(_HOMOGLYPHS)
+    folded = "".join(char for char in folded if not unicodedata.combining(char))
+    folded = re.sub(
+        r"\b(?=[a-z0-9]*[a-z])[a-z0-9]+\b",
+        lambda match: match.group().translate(_LEETSPEAK),
+        folded,
+    )
+    folded = re.sub(r"如何\s*合成\s*沙林(?:毒气)?", "how synthesize sarin", folded)
+    folded = re.sub(r"\b(?:comment|wie)\b", "how", folded)
+    folded = re.sub(r"\bsynthetiser\b", "synthesize", folded)
+    folded = re.sub(r"\bsynthetisiere\b", "synthesize", folded)
+    folded = re.sub(r"\bsintetizar\b", "synthesize", folded)
+    folded = re.sub(r"\binstrucciones\b", "instructions", folded)
+    folded = re.sub(r"\bpara\b", "for", folded)
+    folded = re.sub(r"\ble\s+gaz\b|\bich\b", " ", folded)
+    return re.sub(
+        r"(?<![a-z])(?:[a-z]\s+){2,}[a-z](?![a-z])",
+        lambda match: re.sub(r"\s+", "", match.group()),
+        folded,
+    )
+
+
+def _defensive_cbrn_context(text: str, match: re.Match[str]) -> bool:
+    start = max((text.rfind(mark, 0, match.start()) for mark in ".!?;\n"), default=-1) + 1
+    stops = [index for mark in ".!?;\n" if (index := text.find(mark, match.end())) >= 0]
+    end = min(stops, default=len(text))
+    before, after = text[start : match.start()], text[match.end() : end]
+    return bool(
+        _DEFENSE_PRECEDES.search(before)
+        or _DEFENSE_FOLLOWS.match(after)
+        or _WITHOUT_PROCEDURE.search(after)
+    )
+
+
+def _refused_before(messages: list[Any], index: int, current_index: int) -> bool:
+    for message in messages[index + 1 : current_index]:
+        if isinstance(message, dict) and message.get("role") == "user":
+            return False
+        if (
+            isinstance(message, dict)
+            and message.get("role") == "assistant"
+            and _REFUSAL_RESPONSE.search(_content_text(message.get("content")))
+        ):
+            return True
+    return False
+
+
 def _content_text(content: Any) -> str:
     if isinstance(content, str):
         return content
@@ -246,7 +353,10 @@ def _exfil_hit(text: str) -> bool:
 
 
 def _injection(text: str) -> bool:
-    if _exfil_hit(text) or _ABOVE.search(text) or _WHATIS.search(text):
+    if _exfil_hit(text) or _ABOVE.search(text):
+        return True
+    whatis = _WHATIS.search(text)
+    if whatis and not _TARGET_DEFENSE.match(text[whatis.end() :]):
         return True
     reveal = _CLAIM_REVEAL.search(text)
     return bool(reveal and (_OVERRIDE.search(text) or _MODE_CLAIM.search(text)))
@@ -254,14 +364,72 @@ def _injection(text: str) -> bool:
 
 def detect(text: str) -> str | None:
     """``"cbrn"`` / ``"injection"`` when the text is an explicit hard-line request, else None."""
+    source_text = text
+    text = _normalise_text(text)
     if not text.strip():
         return None
     for rule in _CBRN_RULES:
         for match in rule.finditer(text):
-            if not _DEFENSE_FOLLOWS.match(text[match.end("agent") :]):
+            prefix = text[max(0, match.start("agent") - 100) : match.start("agent")]
+            if _NEGATED_PRODUCTION.search(prefix):
+                continue
+            if not _defensive_cbrn_context(text, match):
                 return "cbrn"
+    if _SPACED_SARIN.search(source_text):
+        agent = re.search(r"\bsarin\b", text)
+        if agent is not None and not _defensive_cbrn_context(text, agent):
+            return "cbrn"
     if _injection(text):
         return "injection"
+    return None
+
+
+def _body_messages(body: dict[str, Any]) -> list[Any]:
+    messages = body.get("messages")
+    messages = messages if isinstance(messages, list) else []
+    messages = list(messages)
+    if body.get("system"):
+        messages.insert(0, {"role": "system", "content": body["system"]})
+    if isinstance(body.get("prompt"), str) and body["prompt"]:
+        messages.append({"role": "user", "content": body["prompt"]})
+    return messages
+
+
+def _guard_hit(kind: str) -> GuardHit:
+    return GuardHit(kind, CBRN_REFUSAL if kind == "cbrn" else INJECTION_REFUSAL)
+
+
+def _check_messages(messages: list[Any]) -> GuardHit | None:
+    user_indexes = [
+        i
+        for i, message in enumerate(messages)
+        if isinstance(message, dict) and message.get("role") == "user"
+    ]
+    current_index = user_indexes[-1] if user_indexes else -1
+    current_text = last_user_text(messages)
+    prior_refused: list[str] = []
+    for i, message in enumerate(messages):
+        if not isinstance(message, dict):
+            continue
+        role = message.get("role")
+        text = _content_text(message.get("content"))
+        if role in ("system", "tool"):
+            kind = detect(text)
+            if kind:
+                return _guard_hit(kind)
+        elif role == "user":
+            kind = detect(text)
+            if not kind:
+                continue
+            if i == current_index:
+                return _guard_hit(kind)
+            if _refused_before(messages, i, current_index):
+                prior_refused.append(kind)
+            else:
+                return _guard_hit(kind)
+    if prior_refused and _REFUSED_FOLLOWUP.search(_normalise_text(current_text)):
+        kind = prior_refused[-1]
+        return _guard_hit(kind)
     return None
 
 
@@ -269,10 +437,7 @@ def check_body(body: Any) -> GuardHit | None:
     """The refusal for a chat request body, or None when the turn may proceed."""
     if not isinstance(body, dict):
         return None
-    kind = detect(last_user_text(body.get("messages")))
-    if kind is None:
-        return None
-    return GuardHit(kind, CBRN_REFUSAL if kind == "cbrn" else INJECTION_REFUSAL)
+    return _check_messages(_body_messages(body))
 
 
 class SafetyRefusalError(Exception):
