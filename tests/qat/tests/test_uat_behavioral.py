@@ -6,6 +6,7 @@ import io
 import json
 import math
 import struct
+import time
 import wave
 from dataclasses import replace
 from pathlib import Path
@@ -944,6 +945,130 @@ def test_media_job_followups_are_separate_status_turns() -> None:
         ("https://owui/files/ocean.mp4",),
     )
     assert uat._media_job_followup_prompt(case, [start, done]) is None
+
+
+def _music_case() -> uat.UATCase:
+    return uat.UATCase(
+        "music",
+        "music",
+        "auto-audio::music",
+        ("start music",),
+        "music_quality",
+        artifact_kind="wav",
+    )
+
+
+def _music_start_turn() -> uat.UATTurn:
+    return _turn(
+        "Queued job b6d051435de9 — I will check back later.",
+        spans=[{"name": "tool.completed", "tool": "music_start", "outcome": "ok", "success": True}],
+    )
+
+
+def _stub_probe(monkeypatch: pytest.MonkeyPatch, payload: dict | None) -> list[tuple]:
+    calls: list[tuple] = []
+
+    def fake_probe(port: int, status_tool: str, job_id: str) -> dict | None:
+        calls.append((port, status_tool, job_id))
+        return payload
+
+    monkeypatch.setattr(uat, "probe_media_job", fake_probe)
+    return calls
+
+
+def test_sleep_before_poll_only_delays_scheduled_poll_turns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    slept: list[float] = []
+    monkeypatch.setattr(time, "sleep", slept.append)
+    wake = time.monotonic() + 30.0
+    deadline = time.monotonic() + 600.0
+    uat.sleep_before_poll("Use image_status and report", wake, deadline)
+    assert slept == []
+    uat.sleep_before_poll(uat._poll_prompt("music_status", "b6d051435de9", 60), wake, deadline)
+    assert len(slept) == 1 and 25.0 < slept[0] <= 30.0
+
+
+def test_plan_media_poll_schedules_the_fetch_after_the_job_eta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created = time.time() - 10.0
+    calls = _stub_probe(
+        monkeypatch,
+        {"status": "running", "stage": 2, "eta_s": 250.0, "created_at": created},
+    )
+    plan = uat.plan_media_poll(_music_case(), [_music_start_turn()], {"music": 8912})
+    assert calls == [(8912, "music_status", "b6d051435de9")]
+    assert plan is not None
+    assert "music_status" in plan.prompt and "b6d051435de9" in plan.prompt
+    # sent at the job's own ETA (due in 240s, minus the 5s early arrival)
+    assert 225.0 < plan.sleep_s <= 240.0
+
+
+def test_plan_media_poll_fetches_immediately_when_the_job_is_done(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_probe(monkeypatch, {"status": "done", "download_url": "http://x/s.wav", "eta_s": 250.0})
+    plan = uat.plan_media_poll(_music_case(), [_music_start_turn()], {"music": 8912})
+    assert plan is not None
+    assert plan.sleep_s == 0.0 and "wait_s=20" in plan.prompt
+
+
+def test_plan_media_poll_surfaces_a_failure_once_then_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_probe(monkeypatch, {"status": "error", "error": "insufficient memory", "eta_s": 250.0})
+    plan = uat.plan_media_poll(_music_case(), [_music_start_turn()], {"music": 8912})
+    assert plan is not None and plan.sleep_s == 0.0
+    assert "repeat the error" in plan.prompt
+
+    poll = uat.UATTurn(
+        plan.prompt,
+        "The job failed: insufficient memory",
+        {
+            "spans": [
+                {"name": "tool.completed", "tool": "music_status", "outcome": "ok", "success": True}
+            ]
+        },
+        ("music_status",),
+        (),
+    )
+    assert uat.plan_media_poll(_music_case(), [_music_start_turn(), poll], {"music": 8912}) is None
+
+
+def test_plan_media_poll_stops_past_the_eta_derived_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created = time.time() - 1000.0
+    _stub_probe(monkeypatch, {"status": "running", "eta_s": 250.0, "created_at": created})
+    assert uat.plan_media_poll(_music_case(), [_music_start_turn()], {"music": 8912}) is None
+
+
+def test_plan_media_poll_falls_back_when_the_service_is_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_probe(monkeypatch, None)
+    plan = uat.plan_media_poll(_music_case(), [_music_start_turn()], {"music": 8912})
+    assert plan is not None and plan.sleep_s == 0.0
+    assert plan.prompt == uat._media_job_followup_prompt(_music_case(), [_music_start_turn()])
+
+
+def test_plan_media_poll_is_none_without_a_media_job_or_after_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _stub_probe(monkeypatch, {"status": "running", "eta_s": 250.0, "created_at": time.time()})
+    assert uat.plan_media_poll(_music_case(), [_turn("no tools")], {"music": 8912}) is None
+    delivered = uat.UATTurn(
+        "QAT media status poll: done",
+        "Here is your track",
+        {"spans": []},
+        (),
+        ("https://owui/files/song.wav",),
+    )
+    assert (
+        uat.plan_media_poll(_music_case(), [_music_start_turn(), delivered], {"music": 8912})
+        is None
+    )
 
 
 def test_multiturn_transcript_and_tool_grading() -> None:

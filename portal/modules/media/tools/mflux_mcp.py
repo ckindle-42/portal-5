@@ -38,8 +38,10 @@ from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
 from portal.modules.media.tools._jobs import (
+    DEFAULT_STATS_DIR,
     DEFAULT_STATUS_WAIT_S,
     STATUS_TOOL_TIMEOUT_S,
+    JobDurationStats,
     MediaJobManager,
     start_reply,
 )
@@ -90,7 +92,10 @@ MFLUX_LOW_RAM = os.environ.get("MFLUX_LOW_RAM", "1") not in ("", "0", "false", "
 # mflux 0.24: float16 attention/FFN compute (M1-family speedup; output shifts
 # slightly per seed). Empty/none keeps the model's own precision.
 MFLUX_COMPUTE_PRECISION = os.environ.get("MFLUX_COMPUTE_PRECISION", "float16").strip().lower()
-_JOBS = MediaJobManager()
+_STATS = JobDurationStats(DEFAULT_STATS_DIR / "job_durations_image.json")
+_JOBS = MediaJobManager(stats=_STATS)
+# Bootstrap ETA until measured durations exist for a key.
+_ETA_DEFAULT_S = float(os.environ.get("MFLUX_ETA_DEFAULT_S", "120"))
 
 # Roster key -> the `--model` value its family binary (MFLUX_MODEL_BIN) accepts.
 # `<binary> --help` is the authority on the exact built-in tags; the env overrides
@@ -362,8 +367,14 @@ async def image_start(
             image_paths=srcs or None,
         )
 
-    job_id = _JOBS.start(_run, extra_fields={"model": model, "seed": int(seed)})
-    return start_reply(job_id, "image_status", f"model={model}", model=model, seed=int(seed))
+    eta_key = f"image:{model}"
+    eta_s = _STATS.eta_s(eta_key, _ETA_DEFAULT_S)
+    job_id = _JOBS.start(
+        _run, extra_fields={"model": model, "seed": int(seed)}, eta_key=eta_key, eta_s=eta_s
+    )
+    return start_reply(
+        job_id, "image_status", f"model={model}", model=model, seed=int(seed), eta_s=eta_s
+    )
 
 
 @mcp.tool(meta={"portal5/timeout_s": STATUS_TOOL_TIMEOUT_S})

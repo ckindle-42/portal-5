@@ -16,6 +16,10 @@ import pytest
 # This must be set before any portal_pipeline import.
 os.environ.setdefault("PIPELINE_API_KEY", "test-pipeline-key-for-unit-tests")
 
+# Media MCPs persist measured job durations under MEDIA_JOB_STATS_DIR at import
+# time; keep test runs from writing (fake) ETAs into the real ~/.portal5.
+os.environ.setdefault("MEDIA_JOB_STATS_DIR", tempfile.mkdtemp(prefix="portal-media-job-stats-"))
+
 # Lab-env defaults — so CI's clean environment matches the "no live lab"
 # posture deterministically. A populated local .env overrides these via
 # setdefault. CI gets dry-run/synthetic behaviour; no more "works locally,
