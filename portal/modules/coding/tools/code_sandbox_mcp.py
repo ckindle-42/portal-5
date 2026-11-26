@@ -886,7 +886,7 @@ async def execute_nodejs(
 
     Security constraints: no network, 256MB RAM, 0.5 CPU, 30s timeout,
     read-only filesystem, no Linux capabilities, no privilege escalation.
-    Node.js standard libraries available; no npm packages.
+    Node.js standard libraries available; persistent npm installs require session_id.
 
     Args:
         code: JavaScript code to execute
@@ -924,9 +924,10 @@ async def execute_nodejs(
 
 @mcp.tool()
 async def execute_bash(
-    code: str,
+    code: str | None = None,
     timeout: int = DEFAULT_TIMEOUT,
     session_id: str | None = None,
+    command: str | None = None,
 ) -> dict[str, Any]:
     """
     Execute a Bash script in an isolated Docker sandbox.
@@ -938,12 +939,25 @@ async def execute_bash(
     SANDBOX_LAB_EXEC (live *-exec workspaces against a routable lab).
 
     Args:
-        code: Bash script to execute
+        code: Bash script to execute (legacy REST / internal alias for ``command``)
         timeout: Execution timeout in seconds (default 30, max 60)
+        session_id: Optional persistent session identifier
+        command: Bash script to execute (advertised native MCP parameter)
 
     Returns:
         dict with success, stdout, stderr, exit_code, timed_out
     """
+    script = code if code is not None else command
+    if not script:
+        return {
+            "success": False,
+            "error_type": "invalid_arguments",
+            "stdout": "",
+            "stderr": "command or code is required",
+            "exit_code": -1,
+            "timed_out": False,
+            "artifacts": [],
+        }
     _cap = SANDBOX_LAB_TIMEOUT_MAX if SANDBOX_LAB_EXEC else 60
     timeout = min(timeout, _cap)  # shell stays tight unless lab-exec widens it
     # Lab-exec attack images are commonly Debian/Kali-based; use bash when
@@ -952,7 +966,7 @@ async def execute_bash(
     return await _run_in_docker(
         image=_resolve_image(BASH_IMAGE),
         command=[_shell, "/code"],
-        code=code,
+        code=script,
         timeout=timeout,
         session_id=session_id,
     )
