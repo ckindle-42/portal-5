@@ -580,8 +580,7 @@ services:
       - WORKSPACE_DIR=/workspace
       - SANDBOX_ALLOW_NETWORK=${SANDBOX_ALLOW_NETWORK:-false}
       - SANDBOX_DOCKER_IMAGE=${SANDBOX_DOCKER_IMAGE:-portal5-sandbox-data:latest}
-      # Lab-exec lane — live *-exec workspaces against a routable remote lab.
-      # Off by default; set these in .env to enable. See docs/LAB_SETUP.md.
+      # Legacy network opt-ins are forwarded so the sandbox startup check can fail closed.
       - SANDBOX_LAB_EXEC=${SANDBOX_LAB_EXEC:-false}
       - SANDBOX_LAB_IMAGE=${SANDBOX_LAB_IMAGE:-}
       - SANDBOX_LAB_MEMORY=${SANDBOX_LAB_MEMORY:-2g}
