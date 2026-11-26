@@ -129,6 +129,9 @@ class GateReport:
     resident_models: int = -1
     ok: bool = False
     blocked: bool = False
+    waited_s: float = 0.0
+    budget_s: float = 0.0
+    block_reasons: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -138,6 +141,9 @@ class GateReport:
             "resident_models": self.resident_models,
             "ok": self.ok,
             "blocked": self.blocked,
+            "waited_s": self.waited_s,
+            "budget_s": self.budget_s,
+            "block_reasons": list(self.block_reasons),
         }
 
 

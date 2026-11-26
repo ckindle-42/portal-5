@@ -369,6 +369,7 @@ class RunState:
     results: list[QATResult] = field(default_factory=list)
     stages: list[StageSummary] = field(default_factory=list)
     gate: GateReport | None = None
+    gate_reports: list[GateReport] = field(default_factory=list)
     provenance: dict[str, object] = field(default_factory=dict)
 
     def result_map(self) -> dict[str, QATResult]:
@@ -621,6 +622,7 @@ def run_provenance(
         "stitched_rows": stitched_rows,
         "resume_sha": resume_sha,
         "refused_keeps": list(refused or []),
+        "gate": [],
     }
 
 
@@ -783,12 +785,17 @@ def _execute(
             if state.stages or _uses_gpu(scenario):
                 gate_report = gate.run_gate(settings, scenario.phase)
                 state.gate = gate_report
+                state.gate_reports.append(gate_report)
+                state.provenance["gate"] = [g.to_dict() for g in state.gate_reports]
+                _write_run_meta(state)
             state.stages.append(
                 StageSummary(stage=scenario.stage, phase=scenario.phase, gate=gate_report)
             )
-            if gate_report is not None and gate_report.blocked:
-                _block_remaining(selected, scenario, state)
-                break
+            if gate_report is not None:
+                _record_gate_row(state, scenario.stage, gate_report)
+                if gate_report.blocked:
+                    _block_remaining(selected, scenario, state, gate_report)
+                    break
         if scenario.scenario_id in previous:
             state.results.append(previous[scenario.scenario_id])
             state.stages[-1].results.append(previous[scenario.scenario_id])
@@ -810,7 +817,34 @@ def _execute(
         _checkpoint_result(state.run_dir, result)
 
 
-def _block_remaining(selected: list[QATScenario], first: QATScenario, state: RunState) -> None:
+def _record_gate_row(state: RunState, stage: int, gate_report: GateReport) -> None:
+    """Persist one gate pass as a results.jsonl row keyed gate-<stage>-<phase>."""
+    status = (
+        Status.PASS if gate_report.ok else (Status.BLOCKED if gate_report.blocked else Status.WARN)
+    )
+    row = QATResult(
+        f"gate-{stage}-{gate_report.phase}",
+        status,
+        "; ".join(gate_report.block_reasons) or "gate ok",
+        defect_class=classify_defect(infra_hop_failed=True) if gate_report.blocked else None,
+        evidence={"gate": gate_report.to_dict()},
+    )
+    _stamp_lineage(row, state.provenance)
+    state.results.append(row)
+    if state.stages:
+        state.stages[-1].results.append(row)
+    _checkpoint_result(state.run_dir, row)
+
+
+def _block_remaining(
+    selected: list[QATScenario], first: QATScenario, state: RunState, gate_report: GateReport
+) -> None:
+    reason = "; ".join(gate_report.block_reasons)[:400]
+    detail = (
+        f"blocked by inter-phase gate failure: {reason}"
+        if reason
+        else "blocked by inter-phase gate failure"
+    )
     seen = {r.scenario_id for r in state.results}
     for s in selected:
         if s.cascade_key() < first.cascade_key() or s.scenario_id in seen:
@@ -818,7 +852,7 @@ def _block_remaining(selected: list[QATScenario], first: QATScenario, state: Run
         blocked = QATResult(
             s.scenario_id,
             Status.BLOCKED,
-            "blocked by inter-phase gate failure",
+            detail,
             defect_class=classify_defect(infra_hop_failed=True),
         )
         _stamp_lineage(blocked, state.provenance)

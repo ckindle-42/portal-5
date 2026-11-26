@@ -333,8 +333,9 @@ def test_slow_completed_turn_warns_and_a_fast_one_does_not(
     settings = make_settings(tmp_path)
     state = runner.RunState(settings, tmp_path, make_discovery(), scenarios=plan)
     runner._execute(settings, plan, state, runner.RunnerOptions({2}, set(), set()), previous={})
-    assert state.results[0].status is Status.WARN
-    assert "slow seat" in state.results[0].detail
+    by_id = {row.scenario_id: row for row in state.results}
+    assert by_id["slow"].status is Status.WARN
+    assert "slow seat" in by_id["slow"].detail
     fast = QATResult("fast", Status.PASS, "ran")
     fast.duration_s = 30.0
     runner._warn_slow_seat(fast)

@@ -16,7 +16,7 @@ import pytest
 from tests.qat import config as qat_config
 from tests.qat import gate, hardening, preflight, report, runner, scenarios
 from tests.qat.config import McpFleetEntry
-from tests.qat.models import QATResult, QATScenario, Status
+from tests.qat.models import GateReport, QATResult, QATScenario, Status
 from tests.qat.owui_client import OWUIClient, red_square_png
 
 from .test_config_and_scenarios import make_discovery, make_settings
@@ -674,10 +674,10 @@ def test_runner_checkpoints_each_completed_scenario(
 
     monkeypatch.setattr(runner, "_execute_one", execute)
     monkeypatch.setattr(
-        runner.gate, "run_gate", lambda *args, **kwargs: type("Gate", (), {"blocked": False})()
+        runner.gate, "run_gate", lambda *args, **kwargs: GateReport(phase="phase", ok=True)
     )
     runner._execute(settings, plan, state, runner.RunnerOptions({2}, set(), set()), {})
-    assert seen == ["one"]
+    assert seen == ["gate-2-phase", "one"]
 
 
 def test_registry_hunt_timeout_and_separate_mcp_contracts(tmp_path: Path) -> None:

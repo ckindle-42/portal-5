@@ -49,8 +49,13 @@ def plumbing_ids(scenarios: list[QATScenario]) -> set[str]:
     return {scenario.scenario_id for scenario in scenarios if "plumbing-only" in scenario.tags}
 
 
+def gate_ids(results: list[QATResult]) -> set[str]:
+    """Gate receipt rows (gate-<stage>-<phase>) report the gate, not acceptance."""
+    return {row.scenario_id for row in results if row.scenario_id.startswith("gate-")}
+
+
 def acceptance_results(scenarios: list[QATScenario], results: list[QATResult]) -> list[QATResult]:
-    excluded = plumbing_ids(scenarios)
+    excluded = plumbing_ids(scenarios) | gate_ids(results)
     return [row for row in results if row.scenario_id not in excluded]
 
 
@@ -212,6 +217,34 @@ def _defect_lines(
     return lines
 
 
+def _gate_lines(results: list[QATResult]) -> list[str]:
+    ids = gate_ids(results)
+    rows = [row for row in results if row.scenario_id in ids]
+    lines = ["", "## Inter-phase gates", ""]
+    if not rows:
+        lines.append("- none recorded")
+        return lines
+    for row in rows:
+        meta = row.evidence.get("gate")
+        meta = meta if isinstance(meta, dict) else {}
+        lines.append(f"### {row.scenario_id} — {row.status.value}")
+        lines.append("")
+        lines.append(
+            f"- memory used {float(meta.get('memory_used_pct') or -1.0):.1f}%"
+            f" · resident models {meta.get('resident_models', -1)}"
+            f" · waited {float(meta.get('waited_s') or 0.0):.1f}s"
+            f" of {float(meta.get('budget_s') or 0.0):.0f}s budget"
+        )
+        for check in meta.get("checks") or []:
+            if isinstance(check, dict):
+                lines.append(
+                    f"- {check.get('scenario_id', '')} {check.get('status', '')}:"
+                    f" {check.get('detail', '')}"
+                )
+        lines.append("")
+    return lines
+
+
 def write_markdown(
     run_dir: Path,
     discovery: Discovery,
@@ -221,13 +254,15 @@ def write_markdown(
 ) -> Path:
     by_id = {row.scenario_id: row for row in results}
     acceptance = acceptance_results(scenarios, results)
+    plumbing = plumbing_ids(scenarios)
+    plumbing_count = sum(1 for row in results if row.scenario_id in plumbing)
     failed_rows = [row for row in acceptance if row.status is Status.FAIL]
     lines = [
         "# Portal 5 — Release 1.0 QAT Report",
         "",
         f"Generated: {datetime.now(tz=UTC).isoformat(timespec='seconds')}",
         "",
-        *_verdict_lines(acceptance, len(results) - len(acceptance)),
+        *_verdict_lines(acceptance, plumbing_count),
         *_one_configuration_lines(results),
     ]
     if provenance:
@@ -240,6 +275,7 @@ def write_markdown(
     else:
         lines.append("- none: designed roster == OWUI presets")
     lines += _defect_lines(scenarios, by_id, failed_rows)
+    lines += _gate_lines(results)
     annotations = [
         scenario.notes for scenario in scenarios if scenario.notes and scenario.scenario_id in by_id
     ]
