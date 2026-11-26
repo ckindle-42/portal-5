@@ -165,6 +165,16 @@ def test_uat_discovery_uses_configured_workspaces_and_personas() -> None:
     assert any(case.grader == "imbalance" for case in cases)
 
 
+def test_uat_registry_cascades_after_stage4() -> None:
+    """Stage 5 tiers must sit above Stage 4's adaptive_deep tier (200)."""
+    stage = uat.build_registry(discover())
+    assert stage
+    assert all(s.tier > 200 for s in stage)
+    tiers = [s.tier for s in stage]
+    assert tiers == sorted(tiers)
+    assert len(set(tiers)) == len(tiers)
+
+
 def test_uat_stage_cli_alias() -> None:
     assert parse_stages("uat") == {5}
     assert parse_stages("2,uat") == {2, 5}

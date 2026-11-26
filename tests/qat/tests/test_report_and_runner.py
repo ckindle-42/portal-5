@@ -205,6 +205,18 @@ class TestPlanAndOrder:
         assert not rn._want(media_api, opts)
         assert not rn._want(other_stage, opts)
 
+    def test_full_plan_runs_stages_in_order_with_contiguous_phases(self) -> None:
+        """Stages 0→5 in order, one contiguous block per (stage, phase): no tier collision."""
+        settings = make_settings(Path("/tmp"))
+        _, plan = rn.build_plan(settings)
+        assert any(s.stage == 5 for s in plan)
+        blocks: list[tuple[int, str]] = []
+        for s in plan:
+            if not blocks or blocks[-1] != (s.stage, s.phase):
+                blocks.append((s.stage, s.phase))
+        assert len(blocks) == len(set(blocks))
+        assert [stage for stage, _ in blocks] == sorted(stage for stage, _ in blocks)
+
     def test_every_preflight_executor_has_a_stage0_scenario(self) -> None:
         """A wired executor without a plan scenario never runs (the load-guard
         probe sat dead this way); the plan and the executor map must match."""

@@ -359,6 +359,44 @@ class TestRegistry:
         blue = next(s for s in registry if s.scenario_id.endswith("auto-security-blueteam"))
         assert blue.enabled is True
 
+    def test_unseeded_spec_preset_annotated_disabled(self) -> None:
+        d = make_discovery(preset_ids=[p for p in PRESET_IDS if p != "auto-council"])
+        registry = sc.build_registry(make_settings(Path("/tmp")), d)
+        council = next(s for s in registry if s.scenario_id == "s2-p2-auto-council")
+        assert council.enabled is False
+        assert "not seeded" in council.notes
+        seeded = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
+        assert next(s for s in seeded if s.scenario_id == "s2-p2-auto-council").enabled is True
+
+    def test_persona_sweep_cap_counts_only_eligible(self) -> None:
+        models = ["aaa-ghost", "bbb-ghost"] + sorted({pid for pid in PRESET_IDS if "::" not in pid})
+        personas = tuple(
+            PersonaDef(
+                slug=f"p{i:02d}", name=f"P{i}", workspace_model=wm, category="x", model_pin=""
+            )
+            for i, wm in enumerate(models)
+        )
+        d = make_discovery(personas=personas)
+        rows = [
+            s
+            for s in sc.build_registry(make_settings(Path("/tmp")), d)
+            if s.phase == "personas_pin_sweep"
+        ]
+        assert len(rows) == sc.PERSONA_SWEEP_MAX
+        assert all(r.model_slug in d.presets for r in rows)
+
+    def test_infra_prompt_scenarios_carry_probe_only_note(self) -> None:
+        registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
+        for sid in (
+            "s2-p3-data-mcp",
+            "s2-p3-proxmox-readonly",
+            "s2-p7-pipeline-mcp",
+            "s3-hunt-mcp-mitre",
+            "s3-lab-exec",
+        ):
+            s = next(x for x in registry if x.scenario_id == sid)
+            assert s.notes, sid
+
     def test_media_artifact_kinds(self) -> None:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
         kinds = {s.scenario_id: s.artifact_kind for s in registry if s.phase == "media_heavy"}
@@ -496,7 +534,7 @@ class TestScenarioShape:
         assert {s.stage for s in registry} == {2, 3, 4}
         preset_ids = set(d.presets)
         for s in registry:
-            if s.kind in {"chat", "adversarial", "browser"}:
+            if s.kind in {"chat", "adversarial", "browser"} and s.enabled:
                 assert s.model_slug in preset_ids, s.scenario_id
         # today's live roster exposes the uncensored lane, so the refusal probe runs
         refusal = [s for s in registry if s.scenario_id.endswith("refusal-preservation")]
