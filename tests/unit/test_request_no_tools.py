@@ -29,7 +29,7 @@ def workspace(monkeypatch):
     monkeypatch.setitem(WORKSPACES, WS, {"model_hint": "m", "tools": ["workspace_tool"]})
     monkeypatch.setattr(streaming, "_model_supports_tools", lambda _model: True)
     monkeypatch.setattr(streaming, "_inject_ollama_options", lambda body, _ws: body)
-    monkeypatch.setattr(streaming, "_select_explicit_required_tool", lambda *_args: None)
+    monkeypatch.setattr(streaming, "_select_explicit_required_tools", lambda *_args: None)
 
     async def refresh() -> None:
         return None

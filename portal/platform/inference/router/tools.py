@@ -300,6 +300,40 @@ def _select_explicit_required_tool(
     return None
 
 
+_EXPLICIT_TOOL_ACTION_RE = re.compile(r"\b(?:call|invoke|run|use)\b")
+_MAX_EXPLICIT_REQUIRED_TOOLS = 5
+
+
+def _select_explicit_required_tools(
+    messages: list[dict[str, Any]], effective_tools: set[str]
+) -> list[str] | None:
+    """Keep explicitly named allow-listed tools and small execution companions."""
+    text = _own_user_text(messages).lower()
+    if not text or _NON_PRODUCE_RE.search(text) or not _EXPLICIT_TOOL_ACTION_RE.search(text):
+        selected = _select_explicit_required_tool(messages, effective_tools)
+        if selected is None:
+            return None
+        names = [selected]
+    else:
+        names = [
+            name
+            for name in sorted(effective_tools)
+            if re.search(rf"(?<![a-z0-9_]){re.escape(name.lower())}(?![a-z0-9_])", text)
+        ]
+        if not names:
+            selected = _select_explicit_required_tool(messages, effective_tools)
+            if selected is None:
+                return None
+            names = [selected]
+
+    if any(name.startswith("execute_") for name in names):
+        names.extend(
+            name for name in ("sandbox_status", "list_sessions") if name in effective_tools
+        )
+    selected_names = list(dict.fromkeys(names))
+    return selected_names if len(selected_names) <= _MAX_EXPLICIT_REQUIRED_TOOLS else None
+
+
 def split_embedded_call(name: str, arguments: str, offered: set[str]) -> tuple[str, str]:
     """P-3: a model wrote its arguments into the tool name (``compliance_read{"ref": "x"}``,
     ``compliance_read({"ref": "x"})``, ``compliance_read(ref="x")``). When the name is not

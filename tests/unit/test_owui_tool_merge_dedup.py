@@ -35,6 +35,58 @@ WORKSPACE_TOOLS = [
     "recall",
 ]
 EXTERNAL_TOOLS = ["custom_siem_query", "bench_probe"]
+EXPLICIT_SCENARIO_TOOLS = {
+    "execute_bash",
+    "execute_nodejs",
+    "execute_python",
+    "sandbox_status",
+    "list_sessions",
+    "web_search",
+    "news_search",
+    "web_fetch",
+    "kb_search_all",
+}
+EXPLICIT_SCENARIOS = [
+    (
+        "Call web_search to find authoritative documentation for HTTP status code 429.",
+        {"web_search"},
+    ),
+    (
+        "Call execute_nodejs to run console.log('UAT_NODEJS_87') and quote the exact "
+        "stdout. Then call sandbox_status and report whether Docker is available and "
+        "which Node image is configured. You must call both execute_nodejs and "
+        "sandbox_status in this turn.",
+        {"execute_nodejs", "sandbox_status", "list_sessions"},
+    ),
+    (
+        "Use execute_nodejs with session_id 'uat_iso_a' to run "
+        "globalThis.uatLeak = 'UAT_LEAK_55'; console.log('set'). Then use "
+        "execute_nodejs with session_id 'uat_iso_b' to run "
+        "console.log(typeof globalThis.uatLeak) and quote the exact output — it "
+        "must be undefined if sessions are isolated.",
+        {"execute_nodejs", "sandbox_status", "list_sessions"},
+    ),
+    (
+        "Use execute_python to print UAT_PY_SESSION_91 and confirm the Python "
+        "runtime executed it successfully.",
+        {"execute_python", "sandbox_status", "list_sessions"},
+    ),
+    (
+        "Call web_search to find authoritative sources on what HTTP status code "
+        "429 means and which RFC defines it, then call news_search for recent "
+        "news about API rate limiting. You must call both web_search and "
+        "news_search in this turn. List the sources you found with URLs.",
+        {"web_search", "news_search"},
+    ),
+    (
+        "Call web_fetch to read one authoritative source you found (prefer the "
+        "RFC or MDN page), then call kb_search_all for internal guidance on rate "
+        "limiting. You must call both web_fetch and kb_search_all in this turn. "
+        "Quote what the fetched page says about 429, cite its URL, and state "
+        "whether the KB had relevant guidance. Do not invent content.",
+        {"web_fetch", "kb_search_all"},
+    ),
+]
 
 # The 27 raw tools behind the live OWUI payload, across the seven families the
 # brief names; mirror names come from the real config/owui_tool_servers.yaml.
@@ -171,7 +223,6 @@ def merge_env(monkeypatch: pytest.MonkeyPatch) -> str:
     monkeypatch.setitem(WORKSPACES, WS, {"model_hint": "m", "tools": list(WORKSPACE_TOOLS)})
     monkeypatch.setattr(streaming, "_model_supports_tools", lambda _m: True)
     monkeypatch.setattr(streaming, "_inject_ollama_options", lambda body, _ws: body)
-    monkeypatch.setattr(streaming, "_select_explicit_required_tool", lambda *_a: None)
 
     async def _refresh() -> None:
         return None
@@ -259,6 +310,23 @@ async def test_streaming_bite_allowlist_naming_a_mirror_passes_it_through(merge_
     assert _names(engine_body["tools"]) == ["portal_code_execute_python"]
 
 
+@pytest.mark.anyio
+@pytest.mark.parametrize(("prompt", "expected"), EXPLICIT_SCENARIOS)
+async def test_streaming_offers_every_explicit_scenario_tool(
+    monkeypatch: pytest.MonkeyPatch, merge_env: str, prompt: str, expected: set[str]
+) -> None:
+    monkeypatch.setitem(
+        WORKSPACES, WS, {"model_hint": "m", "tools": sorted(EXPLICIT_SCENARIO_TOOLS)}
+    )
+    body = {"model": WS, "messages": [{"role": "user", "content": prompt}]}
+
+    engine_body, effective, has_tools = await _build(body)
+
+    assert has_tools is True
+    assert set(expected) <= set(effective)
+    assert set(_names(engine_body["tools"])) == expected
+
+
 # ── non-streaming path ───────────────────────────────────────────────────────
 
 
@@ -292,7 +360,7 @@ def ns_merge_env(monkeypatch: pytest.MonkeyPatch) -> _CapturingClient:
     monkeypatch.setitem(ns.WORKSPACES, WS, {"model_hint": "m", "tools": list(WORKSPACE_TOOLS)})
     monkeypatch.setattr(ns, "registry", SimpleNamespace(request_timeout=5.0))
     monkeypatch.setattr(ns, "_model_supports_tools", lambda _m: True)
-    monkeypatch.setattr(ns, "_resolve_persona_tools", lambda *_a: list(WORKSPACE_TOOLS))
+    monkeypatch.setattr(ns, "_resolve_persona_tools", lambda *_a: list(ns.WORKSPACES[WS]["tools"]))
     monkeypatch.setattr(ns, "apply_eval_scope", lambda _b, tools: tools)
 
     async def _refresh() -> None:
@@ -325,6 +393,27 @@ async def test_nonstream_drops_owui_mirrors_and_keeps_external_tools(
     result = await ns._try_non_streaming(_backend(), body, WS, 0.0)
     assert result is not None
     assert _names(ns_merge_env.bodies[0]["tools"]) == WORKSPACE_TOOLS + EXTERNAL_TOOLS
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("prompt", "expected"), EXPLICIT_SCENARIOS)
+async def test_nonstream_offers_every_explicit_scenario_tool(
+    monkeypatch: pytest.MonkeyPatch,
+    ns_merge_env: _CapturingClient,
+    prompt: str,
+    expected: set[str],
+) -> None:
+    monkeypatch.setitem(
+        ns.WORKSPACES, WS, {"model_hint": "m", "tools": sorted(EXPLICIT_SCENARIO_TOOLS)}
+    )
+    body = {"model": WS, "messages": [{"role": "user", "content": prompt}]}
+
+    result = await ns._try_non_streaming(_backend(), body, WS, 0.0)
+
+    assert result is not None
+    offered = _names(ns_merge_env.bodies[0]["tools"])
+    assert set(expected) <= set(offered)
+    assert set(offered) == expected
 
 
 @pytest.mark.anyio

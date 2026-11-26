@@ -114,7 +114,7 @@ from portal.platform.inference.router.tool_repeat import (
 )
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
-    _select_explicit_required_tool,
+    _select_explicit_required_tools,
     format_tool_result_carry,
     partition_tool_calls,
 )
@@ -3010,9 +3010,9 @@ async def _build_streaming_request(
     elif _has_tools:
         from portal.platform.inference.tool_registry import tool_registry
 
-        _required_tool = None
+        _required_tools = None
         if backend_body.get("tool_choice") in (None, "auto"):
-            _required_tool = _select_explicit_required_tool(
+            _required_tools = _select_explicit_required_tools(
                 backend_body.get("messages", []), set(effective_tools)
             )
         # _offer_tools narrows the SCHEMA the model sees; effective_tools
@@ -3021,13 +3021,13 @@ async def _build_streaming_request(
         # that names a different tool the workspace actually allows used to
         # have that call dropped by the whitelist gate — the narrowing was
         # a hint about what to offer, not a shrink of what's authorized.
-        _offer_tools = [_required_tool] if _required_tool else effective_tools
-        if _required_tool:
+        _offer_tools = _required_tools if _required_tools else effective_tools
+        if _required_tools:
             backend_body["tool_choice"] = "required"
             logger.info(
-                "Tool-call: workspace=%s explicit side-effect intent selected required tool=%s",
+                "Tool-call: workspace=%s explicit side-effect intent selected required tools=%s",
                 workspace_id,
-                _required_tool,
+                _required_tools,
             )
         await tool_registry.refresh()
         filter_bite_client_tools(
@@ -3040,7 +3040,7 @@ async def _build_streaming_request(
         # Merge client-injected tools with workspace tools — clients
         # (e.g. bench blue/purple) may inject domain-specific tools
         # that complement the workspace tools, not replace them.
-        client_tools = [] if _required_tool else backend_body.get("tools", [])
+        client_tools = [] if _required_tools else backend_body.get("tools", [])
         if not tools_array and _bite_allowlist is not None and client_tools:
             tools_array = list(client_tools)
         if tools_array:

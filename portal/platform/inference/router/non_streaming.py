@@ -75,7 +75,7 @@ from portal.platform.inference.router.tool_repeat import (
 )
 from portal.platform.inference.router.tools import (
     _dispatch_tool_call,
-    _select_explicit_required_tool,
+    _select_explicit_required_tools,
     format_tool_result_carry,
     partition_tool_calls,
 )
@@ -1300,22 +1300,22 @@ async def _try_non_streaming(
     if _ns_tools and _supports_tools:
         from portal.platform.inference.tool_registry import tool_registry  # noqa: PLC0415
 
-        _required_tool = None
+        _required_tools = None
         if req_body.get("tool_choice") in (None, "auto"):
-            _required_tool = _select_explicit_required_tool(
+            _required_tools = _select_explicit_required_tools(
                 req_body.get("messages", []), set(_ns_tools)
             )
         # _ns_offer_tools narrows the SCHEMA the model sees; _ns_tools stays
         # the workspace's full whitelist for dispatch authorization below —
         # see the matching comment in streaming.py's _build_stream_request.
-        _ns_offer_tools = [_required_tool] if _required_tool else _ns_tools
-        if _required_tool:
+        _ns_offer_tools = _required_tools if _required_tools else _ns_tools
+        if _required_tools:
             req_body["tool_choice"] = "required"
             logger.info(
                 "Tool-call (non-stream): workspace=%s explicit side-effect intent "
-                "selected required tool=%s",
+                "selected required tools=%s",
                 workspace_id,
-                _required_tool,
+                _required_tools,
             )
         await tool_registry.refresh()
         filter_bite_client_tools(
@@ -1330,7 +1330,7 @@ async def _try_non_streaming(
         # blue/purple) that inject domain-specific tools via body["tools"]
         # had them silently discarded and replaced with only the workspace's
         # own registered tools (found 2026-07-05).
-        _client_tools = [] if _required_tool else req_body.get("tools", [])
+        _client_tools = [] if _required_tools else req_body.get("tools", [])
         if _tools_arr:
             if _client_tools:
                 merge_client_tools(

@@ -900,6 +900,39 @@ class TestExplicitRequiredToolSelection:
             is None
         )
 
+    def test_explicit_tool_set_keeps_all_named_tools_and_execution_companions(self):
+        from portal.platform.inference.router_pipe import _select_explicit_required_tools
+
+        prompt = "Call execute_nodejs, then call sandbox_status in this turn."
+        selected = _select_explicit_required_tools(
+            [{"role": "user", "content": prompt}],
+            {"execute_nodejs", "sandbox_status", "list_sessions", "web_search"},
+        )
+        assert set(selected or ()) == {"execute_nodejs", "sandbox_status", "list_sessions"}
+
+    def test_explicit_tool_set_stays_narrow_for_one_named_action(self):
+        from portal.platform.inference.router_pipe import _select_explicit_required_tools
+
+        assert _select_explicit_required_tools(
+            [{"role": "user", "content": "Call web_search for the RFC."}],
+            {"web_search", "news_search", "web_fetch", "kb_search_all"},
+        ) == ["web_search"]
+
+    def test_explicit_tool_set_falls_back_above_the_schema_bound(self):
+        from portal.platform.inference.router_pipe import _select_explicit_required_tools
+
+        names = {
+            "execute_bash",
+            "execute_nodejs",
+            "execute_python",
+            "sandbox_status",
+            "list_sessions",
+            "web_search",
+            "news_search",
+        }
+        prompt = "Call " + ", ".join(sorted(names)) + " in this turn."
+        assert _select_explicit_required_tools([{"role": "user", "content": prompt}], names) is None
+
     @pytest.mark.parametrize(
         "prompt",
         [
