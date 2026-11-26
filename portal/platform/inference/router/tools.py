@@ -132,6 +132,10 @@ _RUN_ACTION_RE = re.compile(r"\b(?:execute|run)\b")
 # tool takes away the read tool it needs first (doc-trip: "Read orders.xlsx … create a Word
 # document" was narrowed to create_excel by the ".xlsx" of the source file).
 _READ_ACTION_RE = re.compile(r"\b(?:read|open|load|extract|parse|summari[sz]e)\b")
+_WEB_SEARCH_RE = re.compile(
+    r"\b(?:search|look up|find)\b.{0,80}\b(?:web|online|internet|documentation|docs?|syntax|reference)\b",
+    re.DOTALL,
+)
 # TASK_COMPLIANCE_REASONING_V2 P8-L tried forcing tool_choice=required onto
 # nerc_cip_requirement for any message naming a CIP id plus a word like
 # "requirement" or "means" — the same mechanism used for
@@ -239,14 +243,7 @@ def _media_side_effect_candidates(text: str) -> list[tuple[str, bool]]:
 def _select_explicit_required_tool(
     messages: list[dict[str, Any]], effective_tools: set[str]
 ) -> str | None:
-    """Select one allow-listed tool when the user explicitly requires its side effect.
-
-    A single-tool schema plus ``tool_choice=required`` avoids the model failure
-    where a multi-tool payload produces a narrated pseudo-call in content instead
-    of a native ``tool_calls`` result. Matching is deliberately conservative:
-    general coding or document-writing prompts retain the full tool set and
-    ``tool_choice=auto``.
-    """
+    """Select one allow-listed tool for a clear user action that needs it."""
     text = _own_user_text(messages).lower()
     if not text:
         return None
@@ -288,12 +285,13 @@ def _select_explicit_required_tool(
                 or re.search(r"(?m)^\s*(?:from\s+\S+\s+import|import\s+\S+)", text) is not None
             ),
         ),
+        ("web_search", _WEB_SEARCH_RE.search(text) is not None),
     ]
     candidates.extend(_media_side_effect_candidates(text))
-    if _READ_ACTION_RE.search(text):
+    if _READ_ACTION_RE.search(text) and _WEB_SEARCH_RE.search(text) is None:
         return None
     matched = [name for name, hit in candidates if hit and name in effective_tools]
-    # Two side effects named (or one file type naming the source, another the target): ambiguous.
+    # Multiple distinct actions named (or one source and another target): ambiguous.
     if len(matched) == 1:
         return matched[0]
     if not matched:

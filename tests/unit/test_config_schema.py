@@ -69,6 +69,13 @@ def test_valid_minimal_config(tmp_path: Path) -> None:
     assert cfg.mcp_fleet[0].id == "documents"
 
 
+def test_bigfix_variant_does_not_force_tool_calls_for_plain_questions() -> None:
+    config = load_portal_config(_force_reload=True)
+    bigfix = config.workspaces["auto-coding"].variants["bigfix"]
+
+    assert bigfix.get("tool_choice") in (None, "auto")
+
+
 def test_stack_down_only_workspace_level_and_variant_override(tmp_path: Path) -> None:
     """stack_down_only is accepted at workspace level and inside a variant dict;
     the runtime dict stays byte-equal for workspaces that do not set it."""
