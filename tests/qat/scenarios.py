@@ -980,6 +980,6 @@ def _adaptive_scenario(pid: str, dim: str, system: str, d: Discovery) -> QATScen
         function_calling=d.presets[pid].function_calling,
         expected=f"operator rubric scores {dim} dimension",
         rubric=criteria,
-        tags=("adaptive", dim),
+        tags=("adaptive", "adversarial", dim) if dim == "refusal" else ("adaptive", dim),
         notes="worksheet-scorable: emit/ingest via --emit-worksheets/--ingest-worksheets",
     )
