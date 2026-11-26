@@ -188,6 +188,8 @@ def vm_memory() -> QATResult:
         used_pct, _free_gb = parse_vm_stat(out)
     except (OSError, ValueError) as exc:
         return QATResult("gate-memory", Status.SKIP, f"vm_stat parse failed: {exc}")
+    if used_pct < 0:
+        return QATResult("gate-memory", Status.SKIP, "vm_stat reported no page counts")
     status = Status.PASS if used_pct < DEFAULT_MEM_CAP_PCT else Status.WARN
     return QATResult(
         "gate-memory", status, f"used {used_pct:.1f}% (cap {DEFAULT_MEM_CAP_PCT:.0f}%)"
@@ -195,7 +197,12 @@ def vm_memory() -> QATResult:
 
 
 def parse_vm_stat(out: str) -> tuple[float, float]:
-    """(used_pct, free_gb) from vm_stat text; M-series pages are 16384 B."""
+    """(used_pct, free_gb) from vm_stat text; M-series pages are 16384 B.
+
+    Compressor pages stay in the denominator: excluding them made
+    (active+wired)/total overstate usage on compressed-heavy hosts. An empty
+    total is unreadable (-1.0), never a fabricated 99%.
+    """
     pages: dict[str, int] = {}
     for line in out.splitlines():
         if ":" not in line:
@@ -210,10 +217,11 @@ def parse_vm_stat(out: str) -> tuple[float, float]:
         "Pages inactive",
         "Pages speculative",
         "Pages wired down",
+        "Pages occupied by compressor",
     )
     total = sum(pages.get(k, 0) for k in total_keys)
     if total == 0:
-        return 99.0, 0.0
+        return -1.0, 0.0
     used = sum(pages.get(k, 0) for k in ("Pages active", "Pages wired down"))
     page = 16384
     return used / total * 100.0, pages.get("Pages free", 0) * page / 1024**3
@@ -259,7 +267,9 @@ def run_gate(
             checks = [c for c in checks if c.scenario_id not in rerun_ids]
             checks.extend([ol, ox, mem])
             resident_total = len(ol_resident) + len(ox_resident)
-            if mem.status is Status.PASS and not ol_resident and not ox_resident:
+            if not ol_resident and not ox_resident:
+                # clean when memory is under the cap; otherwise nothing is
+                # evictable and waiting out the budget cannot help (F9)
                 break
             evicted = False
             if ol_resident:

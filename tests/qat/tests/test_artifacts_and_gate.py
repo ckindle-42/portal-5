@@ -6,6 +6,7 @@ import io
 import json
 import shutil
 import subprocess
+import time
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -322,19 +323,34 @@ class TestVmStat:
         "Mach Virtual Memory Statistics (page size of 16384 bytes)\n"
         "Pages free: 812543.\nPages active: 1739745.\nPages inactive: 654321.\n"
         "Pages speculative: 112233.\nPages wired down: 987654.\n"
+        "Pages purgeable: 5254.\nPages stored in compressor: 1108125.\n"
+        "Pages occupied by compressor: 456789.\n"
     )
 
-    def test_parse_vm_stat(self) -> None:
+    def test_parse_vm_stat_counts_compressor_pages_in_the_total(self) -> None:
         used_pct, free_gb = gate.parse_vm_stat(self.FIXTURE)
-        total = 812543 + 1739745 + 654321 + 112233 + 987654
+        total = 812543 + 1739745 + 654321 + 112233 + 987654 + 456789
         expected = (1739745 + 987654) / total * 100
         assert used_pct == pytest.approx(expected, abs=0.01)
         assert free_gb == pytest.approx(812543 * 16384 / 1024**3, abs=0.01)
 
-    def test_parse_vm_stat_empty_is_unsafe(self) -> None:
+    def test_parse_vm_stat_empty_is_unreadable_not_99(self) -> None:
         used_pct, free_gb = gate.parse_vm_stat("no data")
-        assert used_pct == 99.0
+        assert used_pct == -1.0
         assert free_gb == 0.0
+
+    def test_vm_memory_skips_when_pages_are_unreadable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(gate.sys, "platform", "darwin")
+        monkeypatch.setattr(
+            gate.subprocess,
+            "run",
+            lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="no data", stderr=""),
+        )
+        result = gate.vm_memory()
+        assert result.status is Status.SKIP
+        assert "%" not in result.detail
 
 
 class TestRunGate:
@@ -390,6 +406,31 @@ class TestRunGate:
         assert report.blocked is True
         assert report.ok is False
         assert report.memory_used_pct == pytest.approx(91.0)
+
+    def test_gate_does_not_spin_when_over_cap_and_nothing_is_resident(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            gate,
+            "vm_memory",
+            lambda: gate.QATResult("gate-memory", Status.WARN, "used 91.0% (cap 80%)"),
+        )
+        base = _router()
+        calls = {"residency": 0}
+
+        def counting(request: httpx.Request) -> httpx.Response:
+            if request.url.path in ("/api/tags", "/v1/models/status", "/v1/models/loaded"):
+                calls["residency"] += 1
+            return base.handle_request(request)
+
+        transport = httpx.MockTransport(counting)
+        start = time.monotonic()
+        report = gate.run_gate(SETTINGS, "next_phase", transport=transport, wait=True)
+        elapsed = time.monotonic() - start
+        # POLL_S is 15: the old loop slept at least one poll per pass to the 600s budget.
+        assert elapsed < 10.0
+        assert calls["residency"] <= 6
+        assert report.blocked is True and report.ok is False
 
     def test_media_pressure_reported_never_killed(self) -> None:
         transport = _router(media=True)
