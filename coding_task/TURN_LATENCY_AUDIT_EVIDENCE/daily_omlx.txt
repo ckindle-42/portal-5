@@ -1,0 +1,97 @@
+== DeepSeek-R1-0528-Qwen3-8B-4bit
+  2026-11-19  prefill n=0        - t/s   decode n=   1 med=  52.5 t/s
+  2026-11-20  prefill n=0        - t/s   decode n=  24 med=  28.4 t/s
+  2026-11-21  prefill n=0        - t/s   decode n=  10 med=  22.5 t/s
+== Huihui-Qwen3.6-27B-abliterated-MLX-4bit
+  2026-11-19  prefill n=  2 med=  465.8 t/s   decode n=0      - t/s
+  2026-11-20  prefill n= 10 med=  140.7 t/s   decode n=  35 med=  12.8 t/s
+  2026-11-21  prefill n=  4 med=  162.7 t/s   decode n=   9 med=   6.3 t/s
+  2026-11-22  prefill n=  1 med=  121.0 t/s   decode n=0      - t/s
+  2026-11-25  prefill n=  1 med=  112.7 t/s   decode n=0      - t/s
+== Inkling-2-Mini-abliterated-oQ4e-mtp
+  2026-11-24  prefill n=0        - t/s   decode n=   6 med=  39.8 t/s
+  2026-11-25  prefill n= 12 med=  653.5 t/s   decode n= 173 med=  35.9 t/s
+  2026-11-26  prefill n=  3 med=  462.8 t/s   decode n=   7 med=  33.1 t/s
+== Inkling-2-Mini-oQ4e-mtp
+  2026-11-21  prefill n=0        - t/s   decode n=   4 med=  30.0 t/s
+  2026-11-22  prefill n=0        - t/s   decode n=   1 med=  43.5 t/s
+  2026-11-24  prefill n=0        - t/s   decode n=  16 med=  33.9 t/s
+  2026-11-25  prefill n=  9 med= 1583.4 t/s   decode n= 120 med=  33.7 t/s
+  2026-11-26  prefill n=  6 med=  806.6 t/s   decode n=  15 med=  37.2 t/s
+== Laguna-XS-2.1-4bit
+  2026-11-20  prefill n=  4 med=  772.5 t/s   decode n=  24 med=  65.3 t/s
+  2026-11-21  prefill n=  9 med= 1430.3 t/s   decode n=  23 med=  60.5 t/s
+  2026-11-25  prefill n=  1 med=  742.0 t/s   decode n=0      - t/s
+== Qwen3-Coder-30B-A3B-Instruct-4bit
+  2026-11-19  prefill n=  1 med= 2925.0 t/s   decode n=0      - t/s
+  2026-11-20  prefill n=  6 med=  989.0 t/s   decode n=  33 med=  50.8 t/s
+  2026-11-21  prefill n=  4 med=  967.4 t/s   decode n=  15 med=  56.3 t/s
+  2026-11-22  prefill n= 30 med= 3384.2 t/s   decode n=  66 med=  57.0 t/s
+  2026-11-23  prefill n=  9 med= 3009.2 t/s   decode n=  30 med=  59.7 t/s
+  2026-11-24  prefill n= 70 med= 4339.3 t/s   decode n= 110 med=  55.2 t/s
+  2026-11-25  prefill n=  5 med= 3575.2 t/s   decode n=   7 med=  57.4 t/s
+  2026-11-26  prefill n= 36 med= 4143.7 t/s   decode n=  74 med=  56.9 t/s
+== Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
+  2026-11-20  prefill n=  3 med= 1067.7 t/s   decode n=  26 med=  84.1 t/s
+  2026-11-21  prefill n=  2 med= 1058.1 t/s   decode n=   8 med=  32.1 t/s
+  2026-11-22  prefill n=0        - t/s   decode n=   3 med=  90.9 t/s
+  2026-11-23  prefill n=0        - t/s   decode n=   1 med=  83.7 t/s
+== Qwen3.8-27B-4bit
+  2026-11-19  prefill n=  3 med=  128.3 t/s   decode n=0      - t/s
+  2026-11-20  prefill n= 10 med=  172.5 t/s   decode n=  22 med=  12.2 t/s
+  2026-11-21  prefill n=  4 med=  251.1 t/s   decode n=  29 med=  13.9 t/s
+  2026-11-22  prefill n=  9 med=  294.7 t/s   decode n=  69 med=  14.3 t/s
+== Qwen3.8-27B-oQ4e-mtp
+  2026-11-19  prefill n= 17 med=  130.6 t/s   decode n=   9 med=  33.5 t/s
+  2026-11-20  prefill n= 60 med=  211.5 t/s   decode n= 125 med=  26.9 t/s
+  2026-11-21  prefill n= 25 med=  256.8 t/s   decode n=  48 med=  30.1 t/s
+  2026-11-22  prefill n= 85 med=  572.7 t/s   decode n=  94 med=  30.6 t/s
+  2026-11-23  prefill n= 85 med= 1600.4 t/s   decode n= 128 med=  33.7 t/s
+  2026-11-24  prefill n=134 med=  481.8 t/s   decode n= 166 med=  31.2 t/s
+  2026-11-25  prefill n= 17 med=  324.5 t/s   decode n=  14 med=  28.5 t/s
+  2026-11-26  prefill n=123 med=  610.7 t/s   decode n= 199 med=  31.2 t/s
+== VulnLLM-R-7B-4bit
+  2026-11-20  prefill n=  2 med=  489.9 t/s   decode n=  22 med=  35.7 t/s
+  2026-11-21  prefill n=  1 med=  501.4 t/s   decode n=  16 med=  53.0 t/s
+  2026-11-22  prefill n=  6 med=  488.0 t/s   decode n=  16 med=  49.8 t/s
+  2026-11-23  prefill n=  5 med= 1011.4 t/s   decode n=  14 med=  51.2 t/s
+  2026-11-24  prefill n= 13 med= 1109.9 t/s   decode n=  32 med=  49.2 t/s
+== gemma-4-26b-a4b-it-QAT-4bit
+  2026-11-19  prefill n=  3 med=  544.3 t/s   decode n= 352 med=  10.7 t/s
+  2026-11-20  prefill n=  3 med=  778.2 t/s   decode n= 225 med=  21.3 t/s
+  2026-11-21  prefill n=  2 med= 1075.1 t/s   decode n=1178 med=  13.7 t/s
+  2026-11-22  prefill n=  7 med=  703.6 t/s   decode n=  15 med=  57.0 t/s
+  2026-11-23  prefill n=  2 med=  623.1 t/s   decode n= 479 med=  15.3 t/s
+  2026-11-24  prefill n=  7 med=  751.2 t/s   decode n=  56 med=  16.0 t/s
+  2026-11-25  prefill n=  4 med=  913.8 t/s   decode n= 364 med=  39.7 t/s
+  2026-11-26  prefill n=  4 med=  771.0 t/s   decode n=  57 med=  57.5 t/s
+== granite-4.1-30b-4bit
+  2026-11-20  prefill n=  8 med= 2107.4 t/s   decode n=  35 med=  11.7 t/s
+  2026-11-21  prefill n=  2 med= 1093.7 t/s   decode n=  16 med=  12.1 t/s
+  2026-11-22  prefill n=0        - t/s   decode n=   4 med=  12.4 t/s
+  2026-11-23  prefill n=0        - t/s   decode n=   2 med=  12.4 t/s
+== huihui-ai--Huihui-Qwen3.5-9B-abliterated-mlx-4bit
+  2026-11-20  prefill n=  7 med=  459.3 t/s   decode n=  49 med=  45.2 t/s
+  2026-11-21  prefill n=  4 med=  462.4 t/s   decode n=  10 med=  22.2 t/s
+  2026-11-22  prefill n=0        - t/s   decode n=   5 med=  47.1 t/s
+  2026-11-23  prefill n=0        - t/s   decode n=   2 med=  45.8 t/s
+  2026-11-24  prefill n=0        - t/s   decode n=  15 med=  44.9 t/s
+  2026-11-25  prefill n=0        - t/s   decode n=  10 med=  44.3 t/s
+== mlx-community--gemma-4-26b-a4b-it-4bit
+  2026-11-19  prefill n=  1 med=  698.2 t/s   decode n=0      - t/s
+  2026-11-20  prefill n=  3 med=  855.6 t/s   decode n=  22 med=  49.2 t/s
+  2026-11-21  prefill n=  3 med=  963.0 t/s   decode n=  10 med=  20.0 t/s
+  2026-11-22  prefill n=  2 med=  660.6 t/s   decode n=   1 med=  58.2 t/s
+  2026-11-23  prefill n=  2 med= 1153.9 t/s   decode n=   3 med=  43.5 t/s
+  2026-11-24  prefill n=  2 med=  763.8 t/s   decode n=   3 med=  42.8 t/s
+  2026-11-25  prefill n=  1 med=  770.1 t/s   decode n=0      - t/s
+  2026-11-26  prefill n=  4 med=  732.9 t/s   decode n=   5 med=  42.2 t/s
+== unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+  2026-11-19  prefill n=  3 med= 1017.1 t/s   decode n=  10 med=  71.7 t/s
+  2026-11-20  prefill n= 13 med= 1038.3 t/s   decode n=  42 med=  67.5 t/s
+  2026-11-21  prefill n=  8 med= 1088.8 t/s   decode n=  20 med=  67.8 t/s
+  2026-11-22  prefill n=  5 med= 1083.6 t/s   decode n=  10 med=  67.1 t/s
+  2026-11-23  prefill n=0        - t/s   decode n=   3 med=  66.0 t/s
+  2026-11-24  prefill n=  2 med= 3124.3 t/s   decode n=   3 med=  67.4 t/s
+  2026-11-25  prefill n=  1 med=  929.9 t/s   decode n=   3 med=  39.9 t/s
+  2026-11-26  prefill n=  4 med= 3289.1 t/s   decode n=   7 med=  62.6 t/s
