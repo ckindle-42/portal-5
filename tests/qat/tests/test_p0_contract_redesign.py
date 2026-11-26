@@ -209,11 +209,11 @@ def test_poll_turn_still_times_out_when_the_answer_never_finishes() -> None:
             )
         return httpx.Response(404)
 
-    client = OWUIClient(settings, httpx.MockTransport(handler))
+    client = OWUIClient(settings, httpx.MockTransport(handler), idle_timeout_s=0.5)
     chat_id = client.create_chat("qat-token", "auto", "F12b", prompt="hi")
     client.send_turn("qat-token", chat_id, "auto", "hi")
     with pytest.raises(TimeoutError):
-        client.poll_turn("qat-token", chat_id, max_wait_s=0.5)
+        client.poll_turn("qat-token", chat_id, max_wait_s=5.0)
 
 
 def test_owui_followup_sends_full_branch_messages() -> None:
@@ -316,7 +316,7 @@ def test_ollama_eviction_requires_success_and_empty_residency(
     settings = make_settings(Path("/tmp"))
     monkeypatch.setattr(gate, "_poll_pause", lambda _seconds: None)
     monkeypatch.setattr(gate, "_pipeline_ollama_in_flight", lambda _name: False)
-    monkeypatch.setattr(gate, "OLLAMA_EVICT_BUDGET_S", 0.0)
+    monkeypatch.setattr(gate, "OLLAMA_EVICT_IDLE_TIMEOUT_S", 0.0)
 
     def failed(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500)
@@ -341,10 +341,10 @@ def test_ollama_eviction_requires_success_and_empty_residency(
     with httpx.Client(transport=httpx.MockTransport(resident)) as client:
         result = gate.evict_ollama(client, settings, ["q:9b"])
     assert result.status is Status.FAIL
-    assert result.detail.startswith("Ollama models remain resident after")
+    assert result.detail.startswith("Ollama release made no progress")
     assert result.evidence["state"] == {"q:9b": "releasing"}
     assert result.evidence["expires_at"]["q:9b"] == "2026-11-26T04:39:04+00:00"
-    assert result.evidence["budget_s"] == 0.0
+    assert result.evidence["idle_timeout_s"] == 0.0
 
 
 def _ps_then_clear(hold_for: int, expires: list[str]) -> httpx.MockTransport:
@@ -372,13 +372,39 @@ def test_ollama_eviction_waits_for_an_in_flight_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     settings = make_settings(Path("/tmp"))
-    monkeypatch.setattr(gate, "_poll_pause", lambda _seconds: None)
     monkeypatch.setattr(gate, "_pipeline_ollama_in_flight", lambda _name: True)
-    transport = _ps_then_clear(1, ["2026-11-26T05:00:00+00:00"])
+    posts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/generate":
+            posts.append(request.url.path)
+        return httpx.Response(200, json={"models": []})
+
+    transport = httpx.MockTransport(handler)
     with httpx.Client(transport=transport) as client:
         result = gate.evict_ollama(client, settings, ["glm-4.7-flash:Q4_K_M-ctx24k"])
-    assert result.status is Status.PASS
-    assert "in_flight" in result.detail
+    assert result.status is Status.BLOCKED
+    assert "active" in result.detail
+    assert posts == []
+
+
+def test_omlx_eviction_skips_a_model_with_an_active_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = make_settings(Path("/tmp"))
+    posts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            posts.append(request.url.path)
+        return httpx.Response(200, json={"models": []})
+
+    monkeypatch.setattr(gate, "_pipeline_model_in_flight", lambda _engine, _name: True)
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = gate.evict_omlx(client, settings, ["resident-model"])
+    assert result.status is Status.BLOCKED
+    assert "active" in result.detail
+    assert posts == []
 
 
 def test_ollama_eviction_polls_a_release_until_the_model_is_gone(
@@ -587,7 +613,7 @@ def test_pipeline_chat_none_content_is_failure(
         3,
         "security_canonical",
         1,
-        "auto-security::blue",
+        "auto-security::blueteam",
         kind="pipeline",
         prompts=("test",),
     )
@@ -797,27 +823,11 @@ def test_pipeline_backstop_fails_and_preserves_fallback_spans(
         ],
     }
 
-    class FakeResponse:
-        status_code = 200
-        headers = {"X-Correlation-ID": "corr-1"}
-
-        def json(self) -> dict[str, object]:
-            return {"choices": [{"message": {"content": "the answer"}}]}
-
-    class FakeHTTPClient:
-        def __init__(self, **kwargs: object) -> None:
-            pass
-
-        def __enter__(self) -> FakeHTTPClient:
-            return self
-
-        def __exit__(self, *args: object) -> None:
-            return None
-
-        def post(self, *args: object, **kwargs: object) -> FakeResponse:
-            return FakeResponse()
-
-    monkeypatch.setattr(runner.httpx, "Client", FakeHTTPClient)
+    monkeypatch.setattr(
+        runner,
+        "stream_chat_turn",
+        lambda *args, **kwargs: {"content": "the answer", "tool_calls": []},
+    )
     monkeypatch.setattr(runner, "primary_model_for", lambda workspace: "coding-primary")
     monkeypatch.setattr(
         runner.OWUIClient,
@@ -975,3 +985,184 @@ def test_report_uses_actual_served_model_in_acceptance_matrix(tmp_path: Path) ->
     path = report.write_markdown(tmp_path, make_discovery(), [scenario], [result])
 
     assert "| actual-model | coding-primary | PASS |" in path.read_text(encoding="utf-8")
+
+
+def test_active_owui_stream_completes_after_scenario_deadline() -> None:
+    settings = make_settings(Path("/tmp"), OWUI_API_KEY="qat-token")
+    assistant_id = ""
+
+    class SlowChunks(httpx.SyncByteStream):
+        def __iter__(self):
+            time.sleep(0.02)
+            yield b'data: {"choices":[{"delta":{"content":"one"}}]}\n\n'
+            time.sleep(0.02)
+            yield b"data: [DONE]\n\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal assistant_id
+        if request.url.path == "/api/v1/chats/new":
+            return httpx.Response(201, json={"id": "chat-active"})
+        if request.url.path == "/api/chat/completions":
+            assistant_id = json.loads(request.content)["id"]
+            return httpx.Response(200, stream=SlowChunks())
+        return httpx.Response(404)
+
+    client = OWUIClient(settings, httpx.MockTransport(handler))
+    chat_id = client.create_chat("qat-token", "auto", "active", prompt="hi")
+    response = client.send_turn("qat-token", chat_id, "auto", "hi", deadline=time.monotonic() - 1.0)
+
+    assert response.status_code == 200
+    assert b"[DONE]" in response.content
+    assert client._pending_message_ids[chat_id] == assistant_id
+    assert response.extensions["qat_stream_duration_s"] >= 0.04
+
+
+def test_active_pipeline_stream_completes_after_scenario_budget(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    real_client = httpx.Client
+    captured: dict[str, object] = {}
+    chunks = (
+        b'data: {"choices":[{"delta":{"content":"hello "}}]}\n\n',
+        b'data: {"choices":[{"delta":{"content":"world"}}]}\n\n',
+        b"data: [DONE]\n\n",
+    )
+
+    class SlowSSE(httpx.SyncByteStream):
+        def __iter__(self):
+            for chunk in chunks:
+                time.sleep(0.02)
+                yield chunk
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, headers={"content-type": "text/event-stream"}, stream=SlowSSE())
+
+    monkeypatch.setattr(
+        runner.httpx,
+        "Client",
+        lambda *args, **kwargs: real_client(
+            *args, transport=httpx.MockTransport(handler), **kwargs
+        ),
+    )
+    scenario = QATScenario(
+        "pipeline-slow",
+        "Pipeline active stream",
+        3,
+        "security_canonical",
+        1,
+        "auto-security::blueteam",
+        kind="pipeline",
+        prompts=("say hello",),
+        timeout_s=0.01,
+    )
+    monkeypatch.setattr(
+        runner.OWUIClient,
+        "lookup_trace",
+        lambda self, **kwargs: {
+            "workspace": scenario.model_slug,
+            "model": runner.primary_model_for(scenario.model_slug),
+            "backend": "ollama-security",
+        },
+    )
+    result = runner._run_pipeline_chat(make_settings(tmp_path), scenario)
+    assert result.status is Status.PASS
+    assert captured["body"]["stream"] is True
+    assert result.evidence["turn_duration_s"] > scenario.timeout_s
+
+
+def test_stalled_pipeline_stream_fails_at_idle_timeout(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    real_client = httpx.Client
+
+    class StalledSSE(httpx.SyncByteStream):
+        def __iter__(self):
+            yield b'data: {"choices":[{"delta":{"content":"partial"}}]}\n\n'
+            raise httpx.ReadTimeout("no more response bytes")
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, headers={"content-type": "text/event-stream"}, stream=StalledSSE()
+        )
+
+    monkeypatch.setattr(
+        runner.httpx,
+        "Client",
+        lambda *args, **kwargs: real_client(
+            *args, transport=httpx.MockTransport(handler), **kwargs
+        ),
+    )
+    scenario = QATScenario(
+        "pipeline-stalled",
+        "Pipeline stalled stream",
+        3,
+        "security_canonical",
+        1,
+        "auto-security::blue",
+        kind="pipeline",
+        prompts=("say hello",),
+        timeout_s=0.01,
+    )
+    result = runner._run_pipeline_chat(make_settings(tmp_path), scenario)
+    assert result.status is Status.FAIL
+    assert result.evidence["stream_incomplete"] is True
+    assert result.evidence["turn_idle_timeout_s"] == 300.0
+    assert result.evidence["turn_duration_s"] >= 0.0
+
+
+def test_incomplete_stream_blocks_following_phase_before_cleanup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    settings = make_settings(tmp_path)
+    selected = [
+        QATScenario("stream-stalled", "stalled", 2, "phase-a", 1, "auto"),
+        QATScenario("next-phase", "next", 2, "phase-b", 2, "auto"),
+    ]
+    state = runner.RunState(settings, tmp_path, make_discovery())
+    executed: list[str] = []
+    gate_calls: list[str] = []
+
+    def execute_one(_settings, scenario, _state, _opts):
+        executed.append(scenario.scenario_id)
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            "stream stalled",
+            evidence={"stream_incomplete": True},
+        )
+
+    monkeypatch.setattr(runner, "_uses_gpu", lambda _scenario: False)
+    monkeypatch.setattr(runner, "_execute_one", execute_one)
+    monkeypatch.setattr(runner.gate, "run_gate", lambda _s, phase: gate_calls.append(phase))
+    runner._execute(settings, selected, state, runner.RunnerOptions({2}, set(), set()), {})
+
+    assert executed == ["stream-stalled"]
+    assert gate_calls == []
+    assert state.results[-1].status is Status.BLOCKED
+    assert "did not reach a terminal state" in state.results[-1].detail
+
+
+def test_stalled_owui_stream_fails_at_its_idle_bound() -> None:
+    settings = make_settings(Path("/tmp"), OWUI_API_KEY="qat-token")
+
+    class StalledChunks(httpx.SyncByteStream):
+        def __iter__(self):
+            time.sleep(0.02)
+            raise httpx.ReadTimeout("no more SSE bytes")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/chats/new":
+            return httpx.Response(201, json={"id": "chat-stalled"})
+        if request.url.path == "/api/chat/completions":
+            return httpx.Response(200, stream=StalledChunks())
+        return httpx.Response(404)
+
+    client = OWUIClient(settings, httpx.MockTransport(handler), idle_timeout_s=0.02)
+    chat_id = client.create_chat("qat-token", "auto", "stalled", prompt="hi")
+
+    with pytest.raises(TimeoutError, match="stalled") as raised:
+        client.send_turn("qat-token", chat_id, "auto", "hi")
+
+    assert raised.value.idle_timeout_s == 0.02
+    assert raised.value.elapsed_s >= 0.02

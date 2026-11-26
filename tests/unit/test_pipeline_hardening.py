@@ -40,6 +40,12 @@ from portal.platform.inference.router.tool_repeat import FINAL_ANSWER_REQUEST
 DONE = b"data: [DONE]\n\n"
 
 
+def test_non_stream_timeout_keeps_external_safety_headroom(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ns, "registry", SimpleNamespace(request_timeout=300.0))
+    assert ns._request_timeout_for(SimpleNamespace(type="ollama"), {}) == 900.0
+    assert ns._request_timeout_for(SimpleNamespace(type="omlx"), {}) == 900.0
+
+
 @pytest.fixture
 def api() -> typing.Iterator[typing.Any]:
     """FastAPI TestClient over the real app with a fake backend registry."""

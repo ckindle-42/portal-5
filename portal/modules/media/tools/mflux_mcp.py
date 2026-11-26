@@ -26,6 +26,7 @@ fallback for this engine.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import uuid
 from collections.abc import Awaitable, Callable
@@ -52,6 +53,7 @@ from portal.platform.mcp_host.workspace import get_generated_dir
 
 port = int(os.getenv("MFLUX_MCP_PORT", "8933"))
 mcp = MCPServer("mflux-generation")
+logger = logging.getLogger(__name__)
 
 # MCPServer.custom_route() has no return annotation upstream (mcp SDK), so mypy
 # sees its decorator result as Any and flags every routed handler with
@@ -239,9 +241,15 @@ async def _generate(
     proc = await asyncio.create_subprocess_exec(
         *built, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
+    started = asyncio.get_running_loop().time()
     try:
         _, err = await asyncio.wait_for(proc.communicate(), timeout=MFLUX_TIMEOUT)
     except TimeoutError:
+        logger.error(
+            "mflux renderer hit external safety ceiling after %.1fs (limit %ds); terminating child",
+            asyncio.get_running_loop().time() - started,
+            MFLUX_TIMEOUT,
+        )
         proc.kill()
         await proc.communicate()
         return {"success": False, "error": f"mflux timed out after {MFLUX_TIMEOUT}s"}

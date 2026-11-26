@@ -1,4 +1,4 @@
-"""Unit tests for per-tool dispatch timeout budgets (portal5/timeout_s + max bound)."""
+"""Unit tests for per-tool response-idle budgets (portal5/timeout_s + max bound)."""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ from portal.platform.inference.config import load_portal_config
 from portal.platform.inference.tool_registry import ToolDefinition, ToolRegistry, _tool_timeout
 
 
-def test_undeclared_tool_uses_default_60s() -> None:
+def test_undeclared_tool_uses_product_idle_default() -> None:
     assert _tool_timeout({"name": "fast_tool"}) is None
     assert _tool_timeout({"name": "fast_tool", "_meta": {}}) is None
-    assert tool_registry.TOOL_DISPATCH_TIMEOUT_S == 60.0
+    assert tool_registry.TOOL_DISPATCH_TIMEOUT_S == 300.0
 
 
 def test_declared_portal5_timeout_is_honored_and_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -66,7 +66,7 @@ async def test_dispatch_passes_effective_timeout_bounded_by_max(
     await reg.dispatch("too_long", {})
 
     assert recorded == [
-        ("undeclared", 60.0),
+        ("undeclared", 300.0),
         ("long_ok", 300.0),
         ("too_long", 750.0),
     ]
@@ -162,7 +162,7 @@ def test_sandbox_mcp_declares_timeout_meta_above_default() -> None:
     for name in ("execute_python", "execute_nodejs", "execute_bash", "execute_powershell"):
         assert name in tools
         meta = tools[name].meta or {}
-        assert meta.get("portal5/timeout_s", 0) > tool_registry.TOOL_DISPATCH_TIMEOUT_S, (
+        assert meta.get("portal5/timeout_s", 0) >= tool_registry.TOOL_DISPATCH_TIMEOUT_S, (
             name,
             meta,
         )

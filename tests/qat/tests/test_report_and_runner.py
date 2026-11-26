@@ -1007,7 +1007,12 @@ class TestPipelineChat:
             captured["body"] = json.loads(request.content.decode())
             captured["auth"] = request.headers.get("authorization", "")
             return httpx.Response(
-                200, json={"choices": [{"message": {"content": "T1566 then T1078"}}]}
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=(
+                    'data: {"choices":[{"delta":{"content":"T1566 then T1078"}}]}\n\n'
+                    "data: [DONE]\n\n"
+                ),
             )
 
         monkeypatch.setattr(rn.httpx, "Client", _client_factory(httpx.MockTransport(handler)))
@@ -1079,7 +1084,15 @@ class TestPipelineChat:
     ) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             content = "Traceback (most recent call last): oops"
-            return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=(
+                    'data: {"choices":[{"delta":{"content":'
+                    f"{json.dumps(content)}"
+                    "}}]}\n\ndata: [DONE]\n\n"
+                ),
+            )
 
         monkeypatch.setattr(rn.httpx, "Client", _client_factory(httpx.MockTransport(handler)))
         settings = make_settings(tmp_path)

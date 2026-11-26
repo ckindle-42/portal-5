@@ -7,8 +7,8 @@ back to /v1/models/loaded) and only resident models are unloaded. The unload
 itself is asynchronous (HTTP 202): the gate polls residency for
 OMLX_EVICT_SETTLE_S before reporting PASS, since Metal memory is reclaimed
 over the next seconds. Ollama keep_alive 0 is asynchronous too: /api/ps is
-polled for OLLAMA_EVICT_BUDGET_S while a request is in flight or a runner is
-still releasing. The retained MLX media services (mlx-speech :8918,
+polled until release progress stalls or confirms the model is gone. The retained
+MLX media services (mlx-speech :8918,
 mflux :8933, video-mlx :8935) are memory-pressure reporters only — never killed.
 """
 
@@ -34,21 +34,23 @@ MEDIA_SERVICES: tuple[tuple[str, str, int], ...] = (
     ("mflux", "http://localhost:8933/health", 8933),
     ("video-mlx", "http://localhost:8935/health", 8935),
 )
+# Idle windows for inter-phase resource admission. Each is reset by a resident
+# model leaving or by a measurable drop in host memory use. They are not total
+# wall-clock budgets for a gate that is still making progress.
 WAIT_BUDGET_S = 600.0
 POLL_S = 15.0
 EVICT_SETTLE_S = 2.0
-#: Over cap with nothing evictable: wait for relief this long, not the full
-#: WAIT_BUDGET_S (F9 operator call: cap the wait when nothing is evictable).
+#: Over cap with nothing resident: fail only after memory use has made no
+#: measurable progress for this idle window.
 MEMORY_HOLD_BUDGET_S = 120.0
 MEMORY_HOLD_POLL_S = 15.0
 #: Heuristic name match for engine-side RSS holders (ollama/oMLX/MLX media).
 ENGINE_PROC_PAT = re.compile(r"ollama|omlx|mlx|mflux|ltx|llama", re.IGNORECASE)
-#: oMLX 0.8.1's unload is async (HTTP 202): residency is polled for this window
-#: (in OMLX_EVICT_SETTLE_STEP_S steps) before the eviction gate reports PASS.
-OMLX_EVICT_SETTLE_S = 10.0
+#: Idle window for residency release after an accepted async unload.
+OMLX_EVICT_IDLE_TIMEOUT_S = 300.0
 OMLX_EVICT_SETTLE_STEP_S = 0.5
 #: Short /api/generate → loaded-runners drop, ollama.log n=78: p50 12.6s, p95 42.2s, max 50.2s.
-OLLAMA_EVICT_BUDGET_S = 60.0
+OLLAMA_EVICT_IDLE_TIMEOUT_S = 300.0
 OLLAMA_EVICT_POLL_S = 0.5
 
 
@@ -169,31 +171,33 @@ def omlx_residency(client: httpx.Client, settings: Settings) -> tuple[QATResult,
 
 
 def evict_ollama(client: httpx.Client, settings: Settings, resident: list[str]) -> QATResult:
-    """Unload residents and poll /api/ps through in-flight work, a release, or the budget."""
+    """Unload idle residents and stop waiting only after release progress stalls."""
+    active = [name for name in resident if _pipeline_ollama_in_flight(name)]
+    if active:
+        return QATResult(
+            "gate-evict",
+            Status.BLOCKED,
+            f"Ollama unload skipped while model requests are active: {active}",
+            evidence={"resident": active, "state": "in_flight"},
+        )
     started = time.monotonic()
-    deadline = started + OLLAMA_EVICT_BUDGET_S
-    blocked = _request_ollama_unload(client, settings, resident, deadline)
+    blocked = _request_ollama_unload(client, settings, resident)
     if isinstance(blocked, QATResult):
         return blocked
-    return _wait_ollama_unloaded(client, settings, resident, started, deadline, blocked)
+    return _wait_ollama_unloaded(client, settings, resident, started, blocked)
 
 
 def _request_ollama_unload(
-    client: httpx.Client, settings: Settings, resident: list[str], deadline: float
+    client: httpx.Client, settings: Settings, resident: list[str]
 ) -> QATResult | set[str]:
     """POST keep_alive 0. A timeout means the request is queued behind in-flight work."""
     blocked: set[str] = set()
-    attempted = False
     for name in resident:
-        if attempted and time.monotonic() >= deadline:
-            blocked.add(name)
-            continue
-        attempted = True
         try:
             response = client.post(
                 f"{settings.ollama_url}/api/generate",
                 json={"model": name, "keep_alive": 0},
-                timeout=min(15.0, max(deadline - time.monotonic(), 0.01)),
+                timeout=15.0,
             )
         except httpx.TimeoutException:
             blocked.add(name)
@@ -212,7 +216,6 @@ def _wait_ollama_unloaded(
     settings: Settings,
     resident: list[str],
     started: float,
-    deadline: float,
     blocked: set[str],
 ) -> QATResult:
     seen: set[str] = set()
@@ -221,6 +224,8 @@ def _wait_ollama_unloaded(
     last_state: dict[str, str] = dict.fromkeys(blocked, "in_flight")
     last_expiry: dict[str, str] = {}
     previous_expiry: dict[str, datetime] = {}
+    last_signature: tuple[tuple[str, str, str, bool], ...] | None = None
+    idle_deadline = time.monotonic() + OLLAMA_EVICT_IDLE_TIMEOUT_S
     while True:
         models, error = _read_ollama_ps(client, settings)
         if error is not None:
@@ -236,9 +241,23 @@ def _wait_ollama_unloaded(
             parsed = _expires_at(model.get("expires_at"))
             if parsed is not None:
                 previous_expiry[name] = parsed
-        if time.monotonic() >= deadline:
+        signature = tuple(
+            sorted(
+                (
+                    str(model.get("name") or ""),
+                    last_state.get(str(model.get("name") or ""), ""),
+                    last_expiry.get(str(model.get("name") or ""), ""),
+                    _pipeline_ollama_in_flight(str(model.get("name") or "")),
+                )
+                for model in models
+            )
+        )
+        if signature != last_signature:
+            last_signature = signature
+            idle_deadline = time.monotonic() + OLLAMA_EVICT_IDLE_TIMEOUT_S
+        if time.monotonic() >= idle_deadline:
             return _ollama_evict_stuck(models, last_state, last_expiry, time.monotonic() - started)
-        _poll_pause(min(OLLAMA_EVICT_POLL_S, max(0.0, deadline - time.monotonic())))
+        _poll_pause(OLLAMA_EVICT_POLL_S)
 
 
 def _read_ollama_ps(
@@ -281,11 +300,16 @@ def _ollama_release_state(
 
 def _pipeline_ollama_in_flight(name: str) -> bool:
     """True when a pipeline worker holds this model's load-guard activity lock."""
+    return _pipeline_model_in_flight("ollama", name)
+
+
+def _pipeline_model_in_flight(engine: str, name: str) -> bool:
+    """True when a pipeline worker holds this engine model's activity lock."""
     if not name:
         return False
     from portal.platform.inference.load_guard import LoadGuard
 
-    path = LoadGuard._activity_path("ollama", name)
+    path = LoadGuard._activity_path(engine, name)
     if not path.is_file():
         return False
     try:
@@ -332,7 +356,7 @@ def _ollama_evict_pass(count: int, elapsed: float, seen: set[str]) -> QATResult:
         evidence={
             "waited_s": round(elapsed, 3),
             "state": _state_summary(seen),
-            "budget_s": OLLAMA_EVICT_BUDGET_S,
+            "idle_timeout_s": OLLAMA_EVICT_IDLE_TIMEOUT_S,
         },
     )
 
@@ -349,15 +373,15 @@ def _ollama_evict_stuck(
         "gate-evict",
         Status.FAIL,
         (
-            f"Ollama models remain resident after {elapsed:.1f}s/"
-            f"{OLLAMA_EVICT_BUDGET_S:.0f}s ({summary}): {names}"
+            f"Ollama release made no progress for {OLLAMA_EVICT_IDLE_TIMEOUT_S:.0f}s "
+            f"after {elapsed:.1f}s ({summary}): {names}"
         ),
         evidence={
             "resident": names,
             "state": dict(last_state),
             "expires_at": dict(last_expiry),
             "waited_s": round(elapsed, 3),
-            "budget_s": OLLAMA_EVICT_BUDGET_S,
+            "idle_timeout_s": OLLAMA_EVICT_IDLE_TIMEOUT_S,
         },
     )
 
@@ -367,70 +391,103 @@ def _poll_pause(seconds: float) -> None:
         time.sleep(seconds)
 
 
-def evict_omlx(client: httpx.Client, settings: Settings, resident: list[str]) -> QATResult:
-    """Unload residency-confirmed models through the oMLX admin API, then wait out
-    oMLX 0.8.1's async unload (200/202/204): PASS only once residency confirms the
-    models are no longer loaded, not at the moment the unload is accepted."""
-    already_cold: list[str] = []
-    for name in resident:
-        encoded = quote(name, safe=":")
-        try:
-            r = client.post(
-                f"{settings.omlx_url}/admin/api/models/{encoded}/unload",
+def _unload_omlx_one(
+    client: httpx.Client, settings: Settings, name: str
+) -> tuple[QATResult | None, bool]:
+    """Issue one unload; return a failure row and whether 404 proved it cold."""
+    encoded = quote(name, safe=":")
+    try:
+        response = client.post(
+            f"{settings.omlx_url}/admin/api/models/{encoded}/unload",
+            headers=settings.omlx_headers(),
+            timeout=15.0,
+        )
+        if response.status_code == 404:
+            response = client.post(
+                f"{settings.omlx_url}/v1/models/{encoded}/unload",
                 headers=settings.omlx_headers(),
                 timeout=15.0,
             )
-            if r.status_code == 404:
-                r = client.post(
-                    f"{settings.omlx_url}/v1/models/{encoded}/unload",
-                    headers=settings.omlx_headers(),
-                    timeout=15.0,
-                )
-            if r.status_code == 404:
-                residency, names = omlx_residency(client, settings)
-                reason = r.text.strip() or "empty response body"
-                if residency.status is Status.FAIL:
-                    return QATResult(
-                        "gate-evict-omlx",
-                        Status.FAIL,
-                        f"unload {name}: HTTP 404 ({reason}); residency check failed: {residency.detail}",
-                    )
-                if name in names:
-                    return QATResult(
-                        "gate-evict-omlx",
-                        Status.FAIL,
-                        f"unload {name}: HTTP 404 ({reason}); model is still resident",
-                    )
-                already_cold.append(name)
-                continue
-            if r.status_code not in (200, 202, 204, 400):
-                reason = r.text.strip()
-                return QATResult(
+    except Exception as exc:
+        return QATResult("gate-evict-omlx", Status.FAIL, f"unload {name}: {exc}"), False
+    if response.status_code == 404:
+        residency, names = omlx_residency(client, settings)
+        reason = response.text.strip() or "empty response body"
+        if residency.status is Status.FAIL:
+            return (
+                QATResult(
                     "gate-evict-omlx",
                     Status.FAIL,
-                    f"unload {name}: HTTP {r.status_code}" + (f" ({reason})" if reason else ""),
-                )
-        except Exception as exc:
-            return QATResult("gate-evict-omlx", Status.FAIL, f"unload {name}: {exc}")
+                    f"unload {name}: HTTP 404 ({reason}); residency check failed: {residency.detail}",
+                ),
+                False,
+            )
+        if name in names:
+            return (
+                QATResult(
+                    "gate-evict-omlx",
+                    Status.FAIL,
+                    f"unload {name}: HTTP 404 ({reason}); model is still resident",
+                ),
+                False,
+            )
+        return None, True
+    if response.status_code not in (200, 202, 204, 400):
+        reason = response.text.strip()
+        detail = f"unload {name}: HTTP {response.status_code}"
+        return QATResult(
+            "gate-evict-omlx", Status.FAIL, detail + (f" ({reason})" if reason else "")
+        ), False
+    return None, False
+
+
+def evict_omlx(client: httpx.Client, settings: Settings, resident: list[str]) -> QATResult:
+    """Unload residency-confirmed models, then wait for async unload completion."""
+    already_cold: list[str] = []
+    for name in resident:
+        if _pipeline_model_in_flight("omlx", name):
+            return QATResult(
+                "gate-evict-omlx",
+                Status.BLOCKED,
+                f"oMLX unload skipped while a model request is active: {name}",
+                evidence={"resident": [name], "state": "in_flight"},
+            )
+        failure, was_cold = _unload_omlx_one(client, settings, name)
+        if failure is not None:
+            return failure
+        if was_cold:
+            already_cold.append(name)
     if not resident:
         return QATResult("gate-evict-omlx", Status.PASS, "oMLX already cold")
-    deadline = time.monotonic() + OMLX_EVICT_SETTLE_S
+    idle_deadline = time.monotonic() + OMLX_EVICT_IDLE_TIMEOUT_S
+    previous_state: tuple[Status, tuple[str, ...]] | None = None
     while True:
         result, names = omlx_residency(client, settings)
+        state = (result.status, tuple(names))
+        if state != previous_state:
+            previous_state = state
+            idle_deadline = time.monotonic() + OMLX_EVICT_IDLE_TIMEOUT_S
         stuck = [n for n in names if n in resident]
         if not stuck and result.status is not Status.FAIL:
             detail = f"evicted {len(resident)} oMLX model(s)"
             if already_cold:
                 detail += f"; 404 confirmed cold: {', '.join(already_cold)}"
             return QATResult("gate-evict-omlx", Status.PASS, detail)
-        if time.monotonic() >= deadline:
+        if time.monotonic() >= idle_deadline:
             detail = (
-                f"unload accepted but still resident after {OMLX_EVICT_SETTLE_S:.0f}s: {stuck}"
+                f"unload accepted but model still resident; residency made no progress for "
+                f"{OMLX_EVICT_IDLE_TIMEOUT_S:.0f}s: {stuck}"
                 if stuck
-                else f"eviction unconfirmed after {OMLX_EVICT_SETTLE_S:.0f}s (residency unreadable)"
+                else "eviction unconfirmed: residency is unreadable"
             )
             return QATResult(
-                "gate-evict-omlx", Status.FAIL, detail, evidence={"resident": resident}
+                "gate-evict-omlx",
+                Status.FAIL,
+                detail,
+                evidence={
+                    "resident": resident,
+                    "idle_timeout_s": OMLX_EVICT_IDLE_TIMEOUT_S,
+                },
             )
         time.sleep(OMLX_EVICT_SETTLE_STEP_S)
 
@@ -542,60 +599,106 @@ def media_pressure(client: httpx.Client) -> QATResult:
     return QATResult("gate-media-pressure", Status.PASS, detail)
 
 
+def _observe_gate_progress(
+    wait: bool,
+    now: float,
+    resident_state: tuple[str, ...],
+    used_pct: float,
+    previous_residents: tuple[str, ...] | None,
+    previous_used_pct: float | None,
+    wait_deadline: float,
+    hold_deadline: float,
+) -> tuple[float, float]:
+    """Restart both wait windows after observable residency or memory progress."""
+    resident_progress = previous_residents is not None and resident_state != previous_residents
+    memory_progress = (
+        previous_used_pct is not None
+        and previous_used_pct >= 0
+        and used_pct >= 0
+        and used_pct < previous_used_pct - 0.05
+    )
+    if wait and (resident_progress or memory_progress):
+        return now + WAIT_BUDGET_S, now + MEMORY_HOLD_BUDGET_S
+    return wait_deadline, hold_deadline
+
+
+def _evict_residents(
+    client: httpx.Client, settings: Settings, ollama: list[str], omlx: list[str]
+) -> tuple[list[QATResult], bool]:
+    """Attempt unloads for every resident engine and report whether work was issued."""
+    checks: list[QATResult] = []
+    if ollama:
+        checks.append(evict_ollama(client, settings, ollama))
+    if omlx:
+        checks.append(evict_omlx(client, settings, omlx))
+    return checks, bool(ollama or omlx)
+
+
 def _residency_loop(
     client: httpx.Client, settings: Settings, checks: list[QATResult], wait: bool, started: float
 ) -> tuple[list[QATResult], float, int, float]:
-    """Evict residents until clean; over cap with nothing evictable, wait for
-    relief within MEMORY_HOLD_BUDGET_S (F9), not the full eviction budget."""
+    """Evict residents until clean, failing waits only after observable progress stalls."""
     used_pct = -1.0
     resident_total = -1
     hold_waited_s = 0.0
     hold_start: float | None = None
     rerun_ids = ("gate-ollama", "gate-omlx", "gate-memory")
-    deadline = started + (WAIT_BUDGET_S if wait else 0.0)
-    hold_deadline = started + (MEMORY_HOLD_BUDGET_S if wait else 0.0)
+    now = max(started, time.monotonic())
+    wait_idle_deadline = now + (WAIT_BUDGET_S if wait else 0.0)
+    hold_idle_deadline = now + (MEMORY_HOLD_BUDGET_S if wait else 0.0)
+    previous_residents: tuple[str, ...] | None = None
+    previous_used_pct: float | None = None
     confirmed_once = False
     while True:
         ol, ol_resident = ollama_residency(client, settings)
         ox, ox_resident = omlx_residency(client, settings)
         mem = vm_memory()
         used_pct = _used_from_detail(mem.detail)
-        checks = [c for c in checks if c.scenario_id not in rerun_ids]
-        checks.extend([ol, ox, mem])
+        resident_state = tuple(sorted(ol_resident)) + tuple(sorted(ox_resident))
+        now = time.monotonic()
+        wait_idle_deadline, hold_idle_deadline = _observe_gate_progress(
+            wait,
+            now,
+            resident_state,
+            used_pct,
+            previous_residents,
+            previous_used_pct,
+            wait_idle_deadline,
+            hold_idle_deadline,
+        )
+        previous_residents = resident_state
+        previous_used_pct = used_pct
+        checks = [c for c in checks if c.scenario_id not in rerun_ids] + [ol, ox, mem]
         resident_total = len(ol_resident) + len(ox_resident)
         if not ol_resident and not ox_resident:
-            if used_pct < DEFAULT_MEM_CAP_PCT or time.monotonic() >= hold_deadline:
+            if used_pct < DEFAULT_MEM_CAP_PCT or not wait or now >= hold_idle_deadline:
                 if hold_start is not None:
-                    hold_waited_s = time.monotonic() - hold_start
+                    hold_waited_s = now - hold_start
                 break
             if hold_start is None:
-                hold_start = time.monotonic()
-            _poll_pause(min(MEMORY_HOLD_POLL_S, max(0.0, hold_deadline - time.monotonic())))
+                hold_start = now
+            _poll_pause(min(MEMORY_HOLD_POLL_S, max(0.0, hold_idle_deadline - now)))
             continue
-        evicted = False
-        if ol_resident:
-            checks.append(evict_ollama(client, settings, ol_resident))
-            evicted = True
-        if ox_resident:
-            checks.append(evict_omlx(client, settings, ox_resident))
-            evicted = True
+        eviction_checks, evicted = _evict_residents(client, settings, ol_resident, ox_resident)
+        checks.extend(eviction_checks)
         eviction_failures = [
             check
             for check in checks
             if check.scenario_id in ("gate-evict", "gate-evict-omlx")
-            and check.status is Status.FAIL
+            and check.status is not Status.PASS
         ]
         if eviction_failures:
             break
         if evicted and not confirmed_once:
-            # one confirmation read even with no wait budget, so the report
+            # one confirmation read even without a wait, so the report
             # reflects the post-eviction state
             confirmed_once = True
             time.sleep(EVICT_SETTLE_S)
             continue
-        if time.monotonic() >= deadline:
+        now = time.monotonic()
+        if not wait or now >= wait_idle_deadline:
             break
-        time.sleep(POLL_S)
+        time.sleep(min(POLL_S, max(0.0, wait_idle_deadline - now)))
     return checks, used_pct, resident_total, hold_waited_s
 
 
@@ -635,7 +738,7 @@ def run_gate(
     transport: httpx.BaseTransport | None = None,
     wait: bool = True,
 ) -> GateReport:
-    """One full inter-phase gate pass; evicts until memory is safe or budget out."""
+    """One gate pass; evict until safe or no residency/memory progress remains."""
     started = time.monotonic()
     checks: list[QATResult] = []
     budget_s = WAIT_BUDGET_S if wait else 0.0

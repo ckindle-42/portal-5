@@ -520,7 +520,7 @@ printf 200
         timeout=3,
     )
     assert interrupted.returncode == 1
-    assert "FAIL — stream did not terminate with [DONE]" in interrupted.stdout
+    assert "hit its external 30s safety ceiling" in interrupted.stdout
 
     completed = subprocess.run(
         ["bash", str(script)],

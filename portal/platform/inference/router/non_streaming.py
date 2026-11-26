@@ -1111,7 +1111,10 @@ def _request_timeout_for(backend: Any, workspace_config: dict[str, Any]) -> floa
     timeout = getattr(registry, "request_timeout", 300.0)
     if workspace_config.get("emits_reasoning") or backend.type == "omlx":
         timeout = max(timeout, 600.0)
-    return timeout
+    # stream:false does not expose token chunks while the backend generates, so
+    # its read-idle timeout is also the only available external safety ceiling.
+    # Keep it aligned with the router's streaming ceiling and log it if reached.
+    return max(timeout, 900.0)
 
 
 async def _try_non_streaming(
@@ -1781,12 +1784,13 @@ async def _try_non_streaming(
             workspace_id,
         )
         return None
-    except httpx.TimeoutException:
+    except httpx.TimeoutException as timeout_exc:
         # Before cascading, check whether the engine is still running the model.
         # A timeout on a reasoning model mid-generation is not a backend failure.
         logger.warning(
-            "Backend %s timed out for workspace=%s (%.0fs) — probing engine state",
+            "Backend %s timed out [%s] for workspace=%s (%.0fs; non-stream external safety/read-idle limit) — probing engine state",
             backend.id,
+            type(timeout_exc).__name__,
             workspace_id,
             _req_timeout,
         )

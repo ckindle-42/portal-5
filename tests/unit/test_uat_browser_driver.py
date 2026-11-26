@@ -518,7 +518,7 @@ class _ChatLocator:
             return self.page.tag
         return False
 
-    def fill(self, value: str) -> None:
+    def fill(self, value: str, **kw) -> None:
         self.page.input_value = value
         self.page.filled.append(value)
 
@@ -595,7 +595,7 @@ def test_send_turn_times_out_when_no_new_assistant(tmp_path: Path) -> None:
     page.submit = lambda: None  # Enter never renders a new assistant message
     ui._page = page
     with pytest.raises(TimeoutError):
-        ui.send_turn("question", max_wait_s=0.2)
+        ui.send_turn("question", idle_timeout_s=0.2)
 
 
 def test_download_artifact_resolves_filename_when_file_id_was_rewritten(tmp_path: Path) -> None:

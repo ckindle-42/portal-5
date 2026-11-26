@@ -312,7 +312,7 @@ def test_eviction_failure_fails_the_next_scenario_precondition(
     assert payload["git_sha"] == "abc"
 
 
-def test_slow_completed_turn_warns_and_a_fast_one_does_not(
+def test_slow_completed_turn_is_report_telemetry_not_a_warning(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     clock = {"now": 0.0}
@@ -334,9 +334,11 @@ def test_slow_completed_turn_warns_and_a_fast_one_does_not(
     state = runner.RunState(settings, tmp_path, make_discovery(), scenarios=plan)
     runner._execute(settings, plan, state, runner.RunnerOptions({2}, set(), set()), previous={})
     by_id = {row.scenario_id: row for row in state.results}
-    assert by_id["slow"].status is Status.WARN
-    assert "slow seat" in by_id["slow"].detail
+    assert by_id["slow"].status is Status.PASS
+    assert by_id["slow"].slow_seat_s == by_id["slow"].duration_s
+    assert by_id["slow"].detail == "ran"
     fast = QATResult("fast", Status.PASS, "ran")
     fast.duration_s = 30.0
-    runner._warn_slow_seat(fast)
+    runner._record_slow_seat(fast)
     assert fast.status is Status.PASS
+    assert fast.slow_seat_s is None
