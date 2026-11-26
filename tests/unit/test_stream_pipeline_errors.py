@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import subprocess
 import time
 import typing
 from pathlib import Path
@@ -473,14 +475,63 @@ async def test_client_disconnect_during_cold_load_ends_with_done(monkeypatch) ->
     assert any(note.get("turn_end_reason") == "client_disconnect" for note in notes)
 
 
-def test_cold_stream_smoke_timeout_exceeds_pipeline_stream_ceiling() -> None:
+def test_cold_stream_smoke_timeout_exceeds_pipeline_stream_ceiling(tmp_path: Path) -> None:
     script = Path(__file__).parents[2] / "scripts/smoke_stream.sh"
     text = script.read_text()
     timeout_line = next(line for line in text.splitlines() if line.startswith("TIMEOUT="))
     smoke_timeout_s = int(timeout_line.partition(":-")[2].partition("}")[0])
+    curl_stub = tmp_path / "curl"
+    curl_stub.write_text(
+        """#!/bin/sh
+output=
+timeout=0
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -o) output="$2"; shift 2 ;;
+        --max-time) timeout="$2"; shift 2 ;;
+        -w) shift 2 ;;
+        *) shift ;;
+    esac
+done
+if [ "$timeout" -le __SERVER_CEILING__ ]; then
+    printf 'data: {"choices":[{"delta":{"content":"PONG"}}]}\\n\\n' > "$output"
+    printf 200
+    exit 28
+fi
+printf 'data: {"choices":[{"delta":{"content":"PONG"}}]}\\n\\ndata: [DONE]\\n\\n' > "$output"
+printf 200
+""".replace("__SERVER_CEILING__", str(int(handlers._MAX_STREAM_DURATION_S))),
+        encoding="utf-8",
+    )
+    curl_stub.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{tmp_path}{os.pathsep}{env['PATH']}"
+    env.pop("SMOKE_STREAM_TIMEOUT", None)
 
     assert '--max-time "$TIMEOUT"' in text
     assert smoke_timeout_s > handlers._MAX_STREAM_DURATION_S
+
+    interrupted = subprocess.run(
+        ["bash", str(script)],
+        capture_output=True,
+        check=False,
+        env={**env, "SMOKE_STREAM_TIMEOUT": "30"},
+        text=True,
+        timeout=3,
+    )
+    assert interrupted.returncode == 1
+    assert "FAIL — stream did not terminate with [DONE]" in interrupted.stdout
+
+    completed = subprocess.run(
+        ["bash", str(script)],
+        capture_output=True,
+        check=False,
+        env=env,
+        text=True,
+        timeout=3,
+    )
+    assert completed.returncode == 0, completed.stdout
+    assert "[DONE] received" in completed.stdout
 
 
 @pytest.mark.anyio
