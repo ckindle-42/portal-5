@@ -476,6 +476,12 @@ class BackendRegistry:
         self._cached_healthy = [b for b in self._backends.values() if b.healthy]
         self._invalidate_candidate_cache()
 
+    def declared_groups(self, workspace_id: str) -> list[str]:
+        """The groups ``workspace_routing`` declares for this workspace (its synthetic
+        variant resolves to the base), or the fallback group when unknown."""
+        base = workspace_id.split("::", 1)[0]
+        return list(self._ws_group_cache.get(base, [self._fallback_group]))
+
     def get_backend_candidates(self, workspace_id: str) -> list[Backend]:
         """Return ordered list of healthy candidates for ``workspace_id``.
 

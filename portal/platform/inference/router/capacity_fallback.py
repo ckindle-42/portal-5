@@ -3,7 +3,9 @@
 When every candidate refused a chat-UI turn for host memory (HTTP 507 / capacity),
 the workspace's own declared variants are the seats it already sanctions: try the
 ones that fit right now, in declaration order, and prepend a visible note naming
-the seat that answered. A ``::model=`` pin, a chain or a council is an explicit
+the seat that answered. A variant only substitutes from a group the workspace's
+own routing declares — a stranger group's backend is another workspace's chain,
+not this seat's fallback. A ``::model=`` pin, a chain or a council is an explicit
 multi-model or single-model contract — those are never substituted, and the
 no-answer notice (``no_answer``) remains the last resort for every audience.
 API clients keep their real error status; this path is chat-UI only.
@@ -148,12 +150,18 @@ async def try_capacity_fallback(
     base_id = workspace_id.split("::", 1)[0]
     failed_model = no_answer.workspace_model(workspace_id, body)
     started = time.monotonic() if start_time is None else start_time
+    declared = set(registry.declared_groups(base_id))
     for name in _variant_names(workspace_id):
         synthetic_id = _register_variant(base_id, name)
         if synthetic_id is None:
             continue
         hint = str(WORKSPACES[synthetic_id].get("model_hint") or "")
         for backend in registry.get_backend_candidates(synthetic_id):
+            if getattr(backend, "group", "") not in declared:
+                # A variant served from a group the workspace never routes to is
+                # another workspace's chain, not this seat's fallback (2026-11-26:
+                # auto-documents' tiny extract variant answered from ollama-creative).
+                continue
             try:
                 if not await _seat_fits(backend, hint):
                     continue

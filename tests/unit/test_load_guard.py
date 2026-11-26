@@ -769,7 +769,9 @@ async def test_ollama_load_spares_a_protected_omlx_resident_when_idle_memory_fit
     release()
 
 
-async def test_ollama_load_does_not_evict_a_model_in_its_failover_window():
+async def test_an_ollama_load_spends_an_idle_omlx_failover_shield_that_buys_it():
+    """2026-11-26: the 25 GiB idle shield refused this load outright for its whole
+    window; now it is evicted last and the load is admitted."""
     e = Engines(
         tags={"target": int(20.48 * GIB)},
         omlx={"failover-source": {"size": 25 * GIB, "loaded": True}},
@@ -778,11 +780,31 @@ async def test_ollama_load_does_not_evict_a_model_in_its_failover_window():
     g = guard(e)
     g.protect(lg.OMLX, "failover-source", failover=True)
 
-    with pytest.raises(lg.LoadRefusedError):
+    release = await g.admit(OLLAMA_URL, "target")
+
+    assert release is not None
+    assert e.unloaded == ["failover-source"]
+    assert not e.omlx["failover-source"]["loaded"]
+    release()
+
+
+async def test_an_ollama_load_keeps_an_omlx_failover_shield_that_cannot_buy_it():
+    """A 3 GiB shield cannot cover the gap under this ceiling, so it stays and the
+    refusal names the bytes it held for the loaded seat."""
+    e = Engines(
+        tags={"target": int(20.48 * GIB)},
+        omlx={"failover-source": {"size": 3 * GIB, "loaded": True}},
+        ceiling=int(9 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OMLX, "failover-source", failover=True)
+
+    with pytest.raises(lg.LoadRefusedError) as err:
         await g.admit(OLLAMA_URL, "target")
 
     assert e.unloaded == []
     assert e.omlx["failover-source"]["loaded"]
+    assert "held for the loaded oMLX seat" in str(err.value)
 
 
 async def test_omlx_load_makes_room_from_ollama_and_keeps_its_copy_last():
@@ -1270,8 +1292,10 @@ def test_a_failure_drops_a_failover_shield_the_model_already_had():
     assert g.failover_protected(lg.OLLAMA) == set()
 
 
-async def test_a_protected_failed_model_refuses_the_healthy_seat(caplog):
-    """The live receipt, reproduced: 22.9 GiB "failover protected" against a 16.6 GiB seat."""
+async def test_an_idle_failover_shield_yields_and_the_healthy_seat_loads(caplog):
+    """The 2026-11-20 receipt's shape under the 2026-11-26 contract: the 22.9 GiB
+    resident was "failover protected" and idle, so it is evicted and the 16.6 GiB
+    seat loads instead of being refused for 300 s."""
     e = Engines(
         ollama={NEMOTRON: int(22.9 * GIB)},
         omlx={"Qwen3.8-27B-oQ4e-mtp": {"size": int(16.6 * GIB), "loaded": False}},
@@ -1281,14 +1305,32 @@ async def test_a_protected_failed_model_refuses_the_healthy_seat(caplog):
     g = guard(e)
     g.protect(lg.OLLAMA, NEMOTRON, failover=True)
 
-    with (
-        caplog.at_level(logging.WARNING, logger=lg.logger.name),
-        pytest.raises(lg.LoadRefusedError) as err,
-    ):
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        release = await g.admit_omlx("Qwen3.8-27B-oQ4e-mtp")
+
+    assert release is not None
+    assert e.unload_calls == {NEMOTRON: 1}
+    assert NEMOTRON not in e.ollama
+    release()
+
+
+async def test_a_failover_shield_that_cannot_buy_the_load_is_kept_and_named():
+    """Protection orders eviction but does not have to be spent: a 2 GiB shield cannot
+    cover the 7.4 GiB gap, so it stays resident and the refusal still names it."""
+    e = Engines(
+        ollama={NEMOTRON: int(2 * GIB)},
+        omlx={"Qwen3.8-27B-oQ4e-mtp": {"size": int(16.6 * GIB), "loaded": False}},
+        ceiling=int(14 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OLLAMA, NEMOTRON, failover=True)
+
+    with pytest.raises(lg.LoadRefusedError) as err:
         await g.admit_omlx("Qwen3.8-27B-oQ4e-mtp")
 
-    assert "(22.9 GiB, failover protected)" in str(err.value)
+    assert "(2.0 GiB, failover protected)" in str(err.value)
     assert e.unload_calls == {}
+    assert NEMOTRON in e.ollama
 
 
 async def test_the_model_that_just_failed_is_evicted_and_the_healthy_seat_loads():
@@ -1308,3 +1350,208 @@ async def test_the_model_that_just_failed_is_evicted_and_the_healthy_seat_loads(
     assert release is not None
     assert e.unload_calls == {NEMOTRON: 1}
     release()
+
+
+#: The 2026-11-26 canary receipt (~02:00Z): the shield had served a failover 300 s
+#: earlier and sat idle, and every oMLX seat after the first died on it.
+QWEN_GGUF = "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k"
+
+
+async def test_the_logged_sequence_the_shield_does_not_block_the_other_engine():
+    """The 2026-11-26 receipt: the idle 17.5 GiB failover shield left oMLX 11.4 GiB
+    against the 15.3 GiB QAT seat and refused it; now the shield is evicted and the
+    seat loads."""
+    e = Engines(
+        ollama={QWEN_GGUF: int(17.5 * GIB)},
+        omlx={"gemma-4-26b-a4b-it-QAT-4bit": {"size": int(15.3 * GIB), "loaded": False}},
+        ceiling=int(16.75 * GIB),  # 0.8 zone - 2 margin = the receipt's 11.4 GiB
+    )
+    e.hidden[QWEN_GGUF] = int(17.5 * GIB)
+    g = guard(e)
+    g.protect(lg.OLLAMA, QWEN_GGUF, failover=True)
+
+    release = await g.admit_omlx("gemma-4-26b-a4b-it-QAT-4bit")
+
+    assert release is not None
+    assert e.unload_calls == {QWEN_GGUF: 1}
+    assert QWEN_GGUF not in e.ollama
+    release()
+
+
+async def test_the_logged_ollama_refusal_now_counts_the_idle_shield():
+    """The second receipt line: "oMLX headroom 16.8 + idle Ollama 0.0 - margin 2"
+    refused a 14.9 GiB cold load while a 17.5 GiB idle shield sat resident. The
+    math now counts it, so the load is admitted without spending the shield."""
+    inkling = "portal5/orcarouter-inkling-2-mini-abliterated:mix16g-ctx32k"
+    e = Engines(
+        tags={inkling: int(14.9 * GIB)},
+        ollama={QWEN_GGUF: int(17.5 * GIB)},
+        omlx={},
+        ceiling=int(10 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OLLAMA, QWEN_GGUF, failover=True)
+
+    release = await g.admit(OLLAMA_URL, inkling)
+
+    assert release is not None
+    assert e.unload_calls == {}  # the shield was never needed
+    assert QWEN_GGUF in e.ollama
+    release()
+
+
+async def test_the_headroom_math_counts_idle_shields_of_both_kinds():
+    """Property 2: "idle Ollama 0.0" while a 17.5 GiB idle shield was resident is the
+    lie that produced the quiet refusal; idle shields are reclaimable, busy is not."""
+    g = lg.LoadGuard(omlx_url=lambda: None, pinned=lambda: "router")
+    resident = {QWEN_GGUF: int(17.5 * GIB), "router": int(6 * GIB)}
+    g.protect(lg.OLLAMA, QWEN_GGUF, failover=True)
+    g.protect(lg.OLLAMA, "keeper-seat", 300)
+
+    assert g._ollama_reclaimable(resident) == 17.5 * GIB  # the shield, not the pin
+    assert g._ollama_idle(resident) == 0.0  # ordinary passes still spare it
+    end = g.begin(lg.OLLAMA, QWEN_GGUF)
+    assert g._ollama_reclaimable(resident) == 0.0  # in flight is untouchable
+    end()
+
+
+async def test_host_free_bytes_counts_idle_shields_on_both_engines():
+    """Property 2's other half: an idle failover-protected oMLX resident is
+    reclaimable memory too, on both engines."""
+    e = Engines(
+        ollama={QWEN_GGUF: int(17.5 * GIB)},
+        omlx={"mlx-shield": {"size": 20 * GIB, "loaded": True}},
+        ceiling=int(50 * GIB),
+        omlx_memory=int(20 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OLLAMA, QWEN_GGUF, failover=True)
+    g.protect(lg.OMLX, "mlx-shield", failover=True)
+
+    # 30 GiB headroom + 17.5 GiB Ollama shield + 20 GiB oMLX shield
+    actual = await _REAL_HOST_FREE_BYTES(g, OLLAMA_URL)
+    assert actual is not None
+    assert actual == 30 * GIB + int(17.5 * GIB) + 20 * GIB
+
+
+async def test_the_shield_refusal_message_reports_the_real_idle_bytes():
+    g = lg.LoadGuard(omlx_url=lambda: None, pinned=lambda: "")
+    resident = {QWEN_GGUF: int(17.5 * GIB)}
+    idle = g._ollama_reclaimable(resident)
+    available = g._ollama_available(int(16.8 * GIB), resident, idle) - lg._MARGIN
+
+    err = lg.LoadGuard._ollama_refusal(
+        "inkling",
+        int(14.9 * GIB),
+        available,
+        int(16.8 * GIB),
+        idle,
+        quiet=True,
+        waited=0.0,
+    )
+
+    assert "(oMLX headroom 16.8 + idle Ollama 17.5 - margin 2)" in str(err)
+
+
+def test_the_yield_spends_keeper_shields_before_failover_shields():
+    """Protection ordering: the keeper's preferred resident yields first; the seat
+    that served a failover is the last resident asked to give up its memory."""
+    g = lg.LoadGuard(omlx_url=lambda: None, pinned=lambda: "")
+    g.protect(lg.OLLAMA, "keeper", 300)
+    g.protect(lg.OLLAMA, "shield", failover=True)
+    resident = {"keeper": int(8 * GIB), "shield": int(17.5 * GIB)}
+
+    names = [
+        n
+        for n in resident
+        if g._ollama_hold_reason(n) in ("protected", "failover protected")
+        and g._ollama_hold_reason(n, include_protected=True) is None
+    ]
+    names.sort(key=lambda n: g._ollama_hold_reason(n) != "protected")
+
+    assert names == ["keeper", "shield"]
+
+
+async def test_an_omlx_cold_load_spends_an_idle_omlx_failover_shield_that_buys_it():
+    """The shield on the same engine as the cold load: the ordinary pass spares it,
+    and just before the refusal it is the last thing that can buy the admission."""
+    e = Engines(
+        omlx={
+            "shield": {"size": 20 * GIB, "loaded": True},
+            "mlx": {"size": 14 * GIB, "loaded": False},
+        },
+        ceiling=int(22 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OMLX, "shield", failover=True)
+
+    release = await g.admit_omlx("mlx")
+
+    assert release is not None
+    assert e.unloaded == ["shield"]
+    assert not e.omlx["shield"]["loaded"]
+    release()
+
+
+async def test_an_omlx_cold_load_keeps_an_omlx_failover_shield_that_cannot_buy_it():
+    """A 1 GiB shield cannot cover the 2.8 GiB gap: it stays, and the refusal names
+    it "failover protected" — protection was never spent for nothing."""
+    e = Engines(
+        omlx={
+            "shield": {"size": 1 * GIB, "loaded": True},
+            "mlx": {"size": 16 * GIB, "loaded": False},
+        },
+        ceiling=int(20 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OMLX, "shield", failover=True)
+
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit_omlx("mlx")
+
+    assert e.unloaded == []
+    assert e.omlx["shield"]["loaded"]
+    assert "(1.0 GiB, failover protected)" in str(err.value)
+
+
+async def test_an_omlx_cold_load_frees_idle_residents_before_any_shield():
+    """Ordering: ordinary idle memory goes first; the shield only yields when
+    nothing else covers the shortage."""
+    e = Engines(
+        omlx={
+            "idle": {"size": 16 * GIB, "loaded": True, "last": 1},
+            "shield": {"size": 20 * GIB, "loaded": True, "last": 2},
+            "mlx": {"size": 14 * GIB, "loaded": False},
+        },
+        ceiling=int(40 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OMLX, "shield", failover=True)
+
+    release = await g.admit_omlx("mlx")
+
+    assert release is not None
+    assert e.unloaded == ["idle"]  # the shield was never needed
+    assert e.omlx["shield"]["loaded"]
+    release()
+
+
+async def test_a_busy_failover_shield_is_untouchable():
+    """Only in-flight work is untouchable, and it stays untouchable under shields:
+    a busy shield is never yielded and the refusal names it busy."""
+    e = Engines(
+        ollama={QWEN_GGUF: int(3 * GIB)},
+        omlx={"gemma-4-26b-a4b-it-QAT-4bit": {"size": int(15.3 * GIB), "loaded": False}},
+        ceiling=int(16.75 * GIB),
+    )
+    g = guard(e)
+    g.protect(lg.OLLAMA, QWEN_GGUF, failover=True)
+    end = g.begin(lg.OLLAMA, QWEN_GGUF)
+
+    with pytest.raises(lg.LoadRefusedError) as err:
+        await g.admit_omlx("gemma-4-26b-a4b-it-QAT-4bit")
+
+    end()
+    assert e.unload_calls == {}
+    assert QWEN_GGUF in e.ollama
+    assert "(3.0 GiB, busy)" in str(err.value)

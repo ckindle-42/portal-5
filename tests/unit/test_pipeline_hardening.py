@@ -798,7 +798,7 @@ async def test_auto_security_omlx_stream_error_falls_back_through_ollama_alias(m
         models=[gguf],
         aliases={hint: gguf},
     )
-    calls: list[tuple[str, str | None]] = []
+    calls: list[tuple[str, str | None, bool | None]] = []
 
     async def failed_stream(*_args, **_kwargs):
         yield b'data: {"error": "Backend returned HTTP 503: unavailable", "status": 503}\n\n'
@@ -808,7 +808,7 @@ async def test_auto_security_omlx_stream_error_falls_back_through_ollama_alias(m
 
     async def fallback(backend, _body, *_args, **_kwargs):
         resolved = backend.resolve_model(hint)
-        calls.append((backend.id, resolved))
+        calls.append((backend.id, resolved, _kwargs.get("enforce_hint")))
         return JSONResponse(
             {"choices": [{"message": {"role": "assistant", "content": "rescued"}}]},
             headers={"x-portal-route": f"auto-security;{backend.id};{resolved}"},
@@ -837,7 +837,7 @@ async def test_auto_security_omlx_stream_error_falls_back_through_ollama_alias(m
         )
     )
 
-    assert calls == [("ollama-security", gguf)]
+    assert calls == [("ollama-security", gguf, True)]
     assert _content(chunks) == "rescued"
 
 
@@ -1037,6 +1037,36 @@ async def test_no_wrong_model_substitution_after_hint_failed(monkeypatch, ns_env
 
 
 @pytest.mark.anyio
+async def test_non_streaming_dispatch_does_not_use_an_unrelated_last_backend(
+    monkeypatch, ns_env
+) -> None:
+    """A known seat with no healthy alias must end in an error, not another seat's model."""
+    from fastapi import HTTPException
+
+    import portal.platform.inference.router.handlers as handlers
+
+    client = _set_client(
+        monkeypatch,
+        httpx.Response(
+            200,
+            json={"choices": [{"message": {"role": "assistant", "content": "wrong seat"}}]},
+        ),
+    )
+    candidates = [
+        _backend("omlx-seat", url="http://omlx", models=["other-seat"]),
+        _backend("ollama-creative", url="http://creative", models=["gaston"]),
+    ]
+    monkeypatch.setattr(handlers, "_try_non_streaming", ns._try_non_streaming)
+    monkeypatch.setattr(handlers.no_answer, "chat_ui", lambda: False)
+
+    with pytest.raises(HTTPException) as exc:
+        await handlers._dispatch_non_streaming(candidates, {"messages": []}, ns_env, "", False, 0.0)
+
+    assert exc.value.status_code == 502
+    assert client.posts == []
+
+
+@pytest.mark.anyio
 async def test_malformed_request_raises_instead_of_cascading(monkeypatch, ns_env) -> None:
     _set_client(monkeypatch, httpx.Response(400, json={"error": {"message": "bad param"}}))
     with pytest.raises(ns.BackendRequestError) as exc:
@@ -1102,6 +1132,39 @@ async def test_free_ollama_for_omlx_without_registry_is_a_noop(monkeypatch) -> N
 
     monkeypatch.setattr(validation, "registry", None)
     assert await bi.free_ollama_for_omlx() == []
+
+
+def test_freeable_spends_a_failover_shield_but_not_a_keeper_protected_model() -> None:
+    """2026-11-26: the idle 17.5 GiB failover shield blocked oMLX here too — a shield
+    orders eviction last, it never holds memory; the keeper's preferred resident
+    stays, and so does anything in flight."""
+    import portal.platform.inference.router.backend_introspect as bi
+    from portal.platform.inference import load_guard as lg
+
+    g = lg.LoadGuard(omlx_url=lambda: None, pinned=lambda: "router")
+    g.protect(lg.OLLAMA, "shield", failover=True)
+    g.protect(lg.OLLAMA, "keeper", 300)
+    g.protect(lg.OLLAMA, "busy-shield", failover=True)
+    end = g.begin(lg.OLLAMA, "busy-shield")
+    old = lg.GUARD
+    lg.GUARD = g
+    try:
+        assert bi._freeable(["shield", "keeper", "busy-shield", "router"], "router") == ["shield"]
+    finally:
+        lg.GUARD = old
+        end()
+
+
+def test_declared_groups_resolves_a_variant_to_its_base_routing() -> None:
+    from portal.platform.inference.cluster_backends import BackendRegistry
+
+    reg = BackendRegistry(config_path="/nonexistent/backends.yaml")
+    reg._ws_group_cache = {"auto-documents": ["general", "coding"]}
+    reg._fallback_group = "general"
+
+    assert reg.declared_groups("auto-documents") == ["general", "coding"]
+    assert reg.declared_groups("auto-documents::extract-uncensored") == ["general", "coding"]
+    assert reg.declared_groups("unknown-ws") == ["general"]
 
 
 def test_is_capacity_error_matches_known_omlx_wording() -> None:
