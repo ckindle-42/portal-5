@@ -16,6 +16,7 @@ import asyncio
 import json
 import time
 import typing
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -470,6 +471,16 @@ async def test_client_disconnect_during_cold_load_ends_with_done(monkeypatch) ->
 
     _assert_terminal(chunks, "client disconnected")
     assert any(note.get("turn_end_reason") == "client_disconnect" for note in notes)
+
+
+def test_cold_stream_smoke_timeout_exceeds_pipeline_stream_ceiling() -> None:
+    script = Path(__file__).parents[2] / "scripts/smoke_stream.sh"
+    text = script.read_text()
+    timeout_line = next(line for line in text.splitlines() if line.startswith("TIMEOUT="))
+    smoke_timeout_s = int(timeout_line.partition(":-")[2].partition("}")[0])
+
+    assert '--max-time "$TIMEOUT"' in text
+    assert smoke_timeout_s > handlers._MAX_STREAM_DURATION_S
 
 
 @pytest.mark.anyio
