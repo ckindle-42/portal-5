@@ -35,6 +35,14 @@ def _turn(text: str, workspace: str = "", spans: list[dict] | None = None) -> ua
     return uat.UATTurn("user prompt", text, trace, (), ())
 
 
+def _hunt_tool_turn(text: str, *tool_results: dict[str, object]) -> uat.UATTurn:
+    spans = [
+        {"name": "tool.completed", "tool": item["tool"], "outcome": "ok"} for item in tool_results
+    ]
+    names = tuple(str(item["tool"]) for item in tool_results)
+    return uat.UATTurn("hunt prompt", text, {"spans": spans}, names, (), tuple(tool_results))
+
+
 def _png(color: tuple[int, int, int], pattern: bool = False) -> bytes:
     image = Image.new("RGB", (160, 160), color)
     if pattern:
@@ -151,6 +159,9 @@ def test_uat_discovery_uses_configured_workspaces_and_personas() -> None:
         "s5-cad-stl-render",
         "s5-daily-everyday-no-suggestion",
     } <= discovered_ids
+    hunt_case = next(case for case in cases if case.scenario_id == "s5-security-hunt-workflow")
+    assert hunt_case.expected_tools == ("hunt_sources", "hunt_start", "hunt_status")
+    assert "available indexes" in hunt_case.prompts[0]
     assert any(case.grader == "imbalance" for case in cases)
 
 
@@ -1100,8 +1111,20 @@ def test_sandbox_tool_results_come_from_the_turn_trace_not_prose(
             hunt,
             [
                 _turn("Source selected"),
-                _turn("Hunt status: complete"),
-                _turn("Leads: event 12345678"),
+                _hunt_tool_turn(
+                    "Hunt status: COMPLETE",
+                    {
+                        "tool": "hunt_status",
+                        "result": {"success": True, "stdout": '{"status":"COMPLETE"}'},
+                    },
+                ),
+                _hunt_tool_turn(
+                    "Leads: event 12345678",
+                    {
+                        "tool": "hunt_leads",
+                        "result": {"success": True, "stdout": '{"event_id":"12345678"}'},
+                    },
+                ),
             ],
             {},
         )[0]
@@ -1117,6 +1140,82 @@ def test_sandbox_tool_results_come_from_the_turn_trace_not_prose(
         )[0]
         == []
     )
+
+
+def test_hunt_grader_allows_running_job_without_leads() -> None:
+    hunt = uat.UATCase(
+        "hunt", "hunt", "security-reviewer", ("sources", "status", "leads"), "hunt_workflow"
+    )
+    turns = [
+        _hunt_tool_turn(
+            "Available source index selected; hunt job abcd1234 started.",
+            {"tool": "hunt_sources", "result": {"success": True}},
+            {"tool": "hunt_start", "result": {"success": True}},
+        ),
+        _hunt_tool_turn(
+            "Hunt status is RUNNING; job abcd1234 is still processing.",
+            {
+                "tool": "hunt_status",
+                "result": {"success": True, "stdout": ""},
+            },
+        ),
+        _turn("The hunt is still RUNNING; check again later."),
+    ]
+
+    assert uat.grade_case(hunt, turns, {})[0] == []
+    turns[2] = _hunt_tool_turn(
+        "The hunt is still RUNNING; check again later.",
+        {"tool": "hunt_leads", "result": {"success": True}},
+    )
+    assert (
+        "running hunt retrieved results before terminal status"
+        in uat.grade_case(hunt, turns, {})[0]
+    )
+
+
+def test_hunt_grader_requires_leads_tool_for_terminal_job() -> None:
+    hunt = uat.UATCase(
+        "hunt", "hunt", "security-reviewer", ("sources", "status", "leads"), "hunt_workflow"
+    )
+    turns = [
+        _turn("Source index selected and hunt job abcd1234 started."),
+        _hunt_tool_turn(
+            "Hunt status is COMPLETE; job abcd1234 finished.",
+            {
+                "tool": "hunt_status",
+                "result": {"success": True, "stdout": ""},
+            },
+        ),
+        _turn("Leads returned for event abcdef1234."),
+    ]
+
+    errors, _ = uat.grade_case(hunt, turns, {})
+    assert "terminal hunt did not retrieve leads" in errors
+
+
+def test_hunt_grader_accepts_terminal_job_with_successful_leads() -> None:
+    hunt = uat.UATCase(
+        "hunt", "hunt", "security-reviewer", ("sources", "status", "leads"), "hunt_workflow"
+    )
+    turns = [
+        _turn("Source index selected and hunt job abcd1234 started."),
+        _hunt_tool_turn(
+            "Hunt status is PARTIAL; job abcd1234 finished.",
+            {
+                "tool": "hunt_status",
+                "result": {"success": True, "stdout": ""},
+            },
+        ),
+        _hunt_tool_turn(
+            "Leads returned for event abcdef1234.",
+            {
+                "tool": "hunt_leads",
+                "result": {"success": True, "stdout": '{"event_id":"abcdef1234"}'},
+            },
+        ),
+    ]
+
+    assert uat.grade_case(hunt, turns, {})[0] == []
 
 
 @pytest.mark.parametrize(

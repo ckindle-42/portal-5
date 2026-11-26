@@ -601,12 +601,12 @@ def _advanced_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 "Security hunt: source, start, status, leads",
                 hunt,
                 (
-                    "Use hunt_sources to list the currently available sources. Choose one returned source and start a narrow defensive hunt for suspicious authentication behavior during the most recent available time window.",
+                    "Use hunt_sources to list the currently available indexes. Choose one returned index and start a narrow defensive hunt for suspicious authentication behavior during the most recent available time window.",
                     "Check the status of the hunt you just started. Use the exact job identifier returned by the tool.",
                     "If the same hunt is terminal, retrieve its leads and cite their exact event identifiers. If it is still running, report its status and do not retrieve leads yet. Do not invent activity.",
                 ),
                 "hunt_workflow",
-                expected_tools=tuple(sorted(hunt_tools)),
+                expected_tools=("hunt_sources", "hunt_start", "hunt_status"),
                 timeout_s=1800.0,
             )
         )
@@ -2068,12 +2068,50 @@ def _grade_hunt_case(
     errors = []
     if len(turns) != 3:
         errors.append("hunt workflow did not complete source, status, and leads turns")
-    for marker in ("source", "status", "lead"):
+    status = _reported_hunt_status(text)
+    for marker in ("source", "status"):
         if marker not in text.casefold():
             errors.append(f"hunt answer omitted the {marker} result")
+    if status in {"COMPLETE", "PARTIAL", "FAILED"}:
+        if not _hunt_tool_succeeded(turns, "hunt_leads"):
+            errors.append("terminal hunt did not retrieve leads")
+        if "lead" not in text.casefold():
+            errors.append("hunt answer omitted the lead result")
+    elif status == "RUNNING":
+        if any(
+            _hunt_tool_called(turns[2:], tool)
+            for tool in ("hunt_sources", "hunt_leads", "hunt_case")
+        ):
+            errors.append("running hunt retrieved results before terminal status")
+    else:
+        errors.append("hunt status result did not contain a recognized state")
     if not re.search(r"\b[a-f0-9]{8,}\b", text, re.IGNORECASE):
         errors.append("hunt summary omitted an exact event or job identifier")
     return errors
+
+
+def _reported_hunt_status(text: str) -> str:
+    matches = re.findall(r"\b(RUNNING|COMPLETE|PARTIAL|FAILED)\b", text, re.I)
+    return matches[-1].upper() if matches else ""
+
+
+def _hunt_tool_called(turns: list[UATTurn], name: str) -> bool:
+    return any(
+        isinstance(item, dict) and item.get("tool") == name
+        for turn in turns
+        for item in turn.tool_results
+    )
+
+
+def _hunt_tool_succeeded(turns: list[UATTurn], name: str) -> bool:
+    return any(
+        isinstance(item, dict)
+        and item.get("tool") == name
+        and isinstance(item.get("result"), dict)
+        and item["result"].get("success")
+        for turn in turns
+        for item in turn.tool_results
+    )
 
 
 def _grade_compliance_case(
