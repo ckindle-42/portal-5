@@ -626,6 +626,8 @@ async def _neighbors_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
         }, 200
     except KeyError as e:
         return {"error": f"missing arg: {e}"}, 400
+    except ValueError as e:
+        return {"error": str(e)}, 400
 
 
 async def _entity_timeline_impl(args: dict[str, Any]) -> tuple[dict[str, Any], int]:
@@ -658,6 +660,8 @@ async def _entity_timeline_impl(args: dict[str, Any]) -> tuple[dict[str, Any], i
         )
     except KeyError as e:
         return {"error": f"missing arg: {e}"}, 400
+    except ValueError as e:
+        return {"error": str(e)}, 400
 
 
 # ── REST routes: read the body's `arguments`, wrap the impl's (payload, status)

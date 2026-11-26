@@ -3,6 +3,7 @@
 import asyncio
 
 import httpx
+import pytest
 
 from portal.platform.memory import graph_memory
 
@@ -30,3 +31,11 @@ def test_extract_logs_and_counts_http_status_failure(monkeypatch, caplog):
     assert requests[0].url.path == "/ollama/api/chat"
     assert requests[0].headers["authorization"] == "Bearer memory-test-key"
     assert graph_memory._EXTRACT_FAILURES.labels(reason="http_404")._value.get() == before + 1
+
+
+@pytest.mark.parametrize("tool", [graph_memory._neighbors_impl, graph_memory._entity_timeline_impl])
+def test_graph_read_tools_reject_invalid_entity_names(tool):
+    result = asyncio.run(tool({"name": "O'Brien"}))
+
+    assert result[1] == 400
+    assert "invalid entity name" in result[0]["error"]
