@@ -33,6 +33,7 @@ import httpx
 
 from portal.platform.inference.model_cards import card_sampling
 from portal.platform.inference.router.context_budget import fit_prompt as fit_context
+from portal.platform.inference.router.correlation import workspace_request_kwargs
 
 logger = logging.getLogger(__name__)
 _STREAM_HEARTBEAT_S = 15.0
@@ -718,7 +719,11 @@ async def _post_model(
     _apply_think(payload, think, backend.type)
     try:
         fit_context(payload, workspace_id=workspace_id, model=model, engine=backend.type)
-        response = await _http_client.post(backend.chat_url, json=payload)
+        response = await _http_client.post(
+            backend.chat_url,
+            json=payload,
+            **workspace_request_kwargs(_http_client, workspace_id),
+        )
         response.raise_for_status()
         data = response.json()
         if not isinstance(data, dict):

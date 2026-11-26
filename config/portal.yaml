@@ -2886,10 +2886,15 @@ workspaces:
     module: security
     name: Portal Security Review Analyst
     description: Read-only, evidence-grounded reviews of indexed security telemetry. The analyst owns every verdict.
-    model_hint: granite4.1:8b-ctx16k
-    context_limit: 16384
+    model_hint: Inkling-2-Mini-oQ4e-mtp
+    context_limit: 262144
+    predict_limit: 32768
     max_tool_hops: 8
-    temperature: 0.0
+    keep_alive: 10m
+    reasoning_effort: low
+    temperature: 1.0
+    top_p: 0.95
+    emits_reasoning: true
     tools:
     - review_start
     - review_status

@@ -54,6 +54,9 @@ from portal.platform.inference.router.context_budget import fit_prompt as fit_co
 from portal.platform.inference.router.correlation import (
     get_correlation_id as _corr_id,
 )
+from portal.platform.inference.router.correlation import (
+    workspace_request_kwargs,
+)
 from portal.platform.inference.router.download_links import (
     DownloadLineFilter,
     missing_published_suffix,
@@ -944,7 +947,11 @@ async def _rescue_empty_hop(
     retry has nothing."""
     started = time.monotonic()
     try:
-        r = await _http_client.post(backend_url, json={**body, "stream": False})  # type: ignore[union-attr]
+        r = await _http_client.post(  # type: ignore[union-attr]
+            backend_url,
+            json={**body, "stream": False},
+            **workspace_request_kwargs(_http_client, workspace_id),
+        )
         if r.status_code != 200:
             return "", [], ""
         data = r.json()
@@ -1427,7 +1434,12 @@ async def _tool_loop_frames_impl(
             _retry_hop = False
             try:
                 trace_capture(backend_request=current_body)
-                async with _http_client.stream("POST", backend_url, json=current_body) as resp:  # type: ignore[union-attr]
+                async with _http_client.stream(  # type: ignore[union-attr]
+                    "POST",
+                    backend_url,
+                    json=current_body,
+                    **workspace_request_kwargs(_http_client, workspace_id),
+                ) as resp:
                     if resp.status_code != 200:
                         err = await resp.aread()
                         if not _freed_for_hop and (
@@ -2225,7 +2237,12 @@ async def _stream_from_backend_guarded_impl(
     try:
         _usage_recorded = False  # guard: only record TPS once per request
         trace_capture(backend_request=body)
-        async with _http_client.stream("POST", url, json=body) as resp:
+        async with _http_client.stream(
+            "POST",
+            url,
+            json=body,
+            **workspace_request_kwargs(_http_client, workspace_id),
+        ) as resp:
             if resp.status_code != 200:
                 err = await resp.aread()
                 if (

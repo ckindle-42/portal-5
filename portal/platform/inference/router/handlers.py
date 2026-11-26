@@ -26,7 +26,7 @@ from prometheus_client import generate_latest
 from prometheus_client import values as _prom_values
 
 from portal.platform.inference.cluster_backends import BackendRegistry
-from portal.platform.inference.config import ollama_url
+from portal.platform.inference.config import is_job_workspace, ollama_url
 from portal.platform.inference.router import no_answer, placement
 from portal.platform.inference.router.anthropic_compat import (
     anthropic_to_openai_body,
@@ -918,14 +918,19 @@ def _order_candidates(candidates: list[Any], workspace_id: str, registry: Any) -
     from portal.platform.inference.router.parallel_seat import prefer_batching_engine
 
     model_hint = WORKSPACES.get(workspace_id, {}).get("model_hint", "")
+    ordered = (
+        list(candidates)
+        if is_job_workspace(workspace_id)
+        else placement.protect_hot_seat(
+            candidates,
+            workspace_id,
+            model_hint,
+            getattr(registry, "hot_seat_protect_s", 0.0),
+        )
+    )
     return prefer_batching_engine(
         placement.prefer_ollama_for_compliance_council(
-            placement.protect_hot_seat(
-                candidates,
-                workspace_id,
-                model_hint,
-                getattr(registry, "hot_seat_protect_s", 0.0),
-            ),
+            ordered,
             workspace_id,
             model_hint,
         ),

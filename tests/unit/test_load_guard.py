@@ -367,27 +367,61 @@ async def test_reclaim_idle_memory_reports_resident_models_that_still_hold_memor
     ]
 
 
-async def test_reclaim_idle_memory_spares_a_seat_a_sibling_worker_just_served():
-    """2026-11-26 QAT: a 0.04 GiB job reclaim evicted granite4.1 0.2 s after its
-    tool-loop hop because recency was per-worker; the reclaim worker saw it as stale."""
+async def test_reclaim_idle_memory_can_evict_a_recent_idle_seat_for_a_job(caplog):
     e = Engines(ollama={"hot-seat": 6 * GIB})
     sibling = guard(e)
     sibling.begin(OLLAMA, "hot-seat")()
     g = guard(e)  # a different worker: no local _last_access for hot-seat
-    result = await g.reclaim_idle_memory(OLLAMA_URL, GIB // 25)
-    assert result["unloads"] == []
-    assert e.unload_calls == {}
-    assert "hot-seat" in e.ollama
+    g.protect(OLLAMA, "hot-seat", 900)
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        result = await g.reclaim_idle_memory(OLLAMA_URL, GIB // 25)
+    assert [item["model"] for item in result["unloads"]] == ["hot-seat"]
+    assert e.unload_calls == {"hot-seat": 1}
+    assert "evicted hot-seat for job media (idle, hot-seat override)" in caplog.text
 
 
-async def test_reclaim_idle_memory_spares_a_recently_served_omlx_seat():
+async def test_reclaim_idle_memory_evicts_an_idle_hot_omlx_seat_for_a_job(caplog):
     e = Engines(omlx={"hot-mlx": {"size": 5 * GIB, "loaded": True}})
     sibling = guard(e)
     sibling.begin(lg.OMLX, "hot-mlx")()
     g = guard(e)
-    result = await g.reclaim_idle_memory(OLLAMA_URL, GIB)
+    g.protect(lg.OMLX, "hot-mlx", 900)
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        result = await g.reclaim_idle_memory(OLLAMA_URL, GIB)
+    assert result["unloads"] == [{"engine": lg.OMLX, "model": "hot-mlx", "status": "unloaded"}]
+    assert e.unloaded == ["hot-mlx"]
+    assert "evicted hot-mlx for job media (idle, hot-seat override)" in caplog.text
+
+
+async def test_reclaim_idle_memory_never_evicts_an_active_omlx_seat_for_a_job():
+    e = Engines(omlx={"hot-mlx": {"size": 5 * GIB, "loaded": True}})
+    g = guard(e)
+    g.protect(lg.OMLX, "hot-mlx", 900)
+    end = g.begin(lg.OMLX, "hot-mlx")
+    try:
+        result = await g.reclaim_idle_memory(OLLAMA_URL, GIB)
+    finally:
+        end()
     assert result["unloads"] == []
     assert e.unloaded == []
+
+
+async def test_internal_job_admission_logs_the_hot_seat_override(caplog):
+    e = Engines(
+        omlx={
+            "hot-chat": {"size": 20 * GIB, "loaded": True},
+            "job-model": {"size": 14 * GIB, "loaded": False},
+        },
+        ceiling=22 * GIB,
+    )
+    g = guard(e)
+    g.protect(lg.OMLX, "hot-chat", 900)
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        release = await g.admit_omlx("job-model", workspace_id="hunt-reasoning")
+    assert release is not None
+    assert e.unloaded == ["hot-chat"]
+    assert "evicted hot-chat for job hunt-reasoning (idle, hot-seat override)" in caplog.text
+    release()
 
 
 async def test_ollama_idle_lru_orders_by_cross_worker_recency():

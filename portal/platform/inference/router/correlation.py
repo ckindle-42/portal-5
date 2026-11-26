@@ -14,7 +14,9 @@ import contextlib
 import logging
 import uuid
 from contextvars import ContextVar
+from typing import Any
 
+import httpx
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -34,6 +36,12 @@ def set_correlation_id(cid: str) -> None:
 
 def get_correlation_id() -> str:
     return _correlation_id.get()
+
+
+def workspace_request_kwargs(client: Any, workspace_id: str) -> dict[str, Any]:
+    if workspace_id and isinstance(client, httpx.AsyncClient):
+        return {"extensions": {"portal_workspace_id": workspace_id}}
+    return {}
 
 
 class CorrelationIdMiddleware:

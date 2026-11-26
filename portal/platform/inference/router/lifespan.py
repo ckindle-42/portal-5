@@ -594,6 +594,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             (b.url for b in registry.list_backends() if b.type == "ollama"), None
         ),
         counterpart=lambda engine, model: _cross_engine_copies(registry, engine, model),
+        hot_seat_protect_s=registry.hot_seat_protect_s,
     )
     _load_guard_mod.GUARD = _guard
     # Ollama backends are served from native /api/chat behind the unchanged
