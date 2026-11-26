@@ -22,6 +22,31 @@ from .artifacts import raw_tool_error_leak
 from .config import Settings
 
 POLL_INTERVAL_S = 2.0
+_AUDIO_UPLOAD_TYPES = {
+    ".wav": "audio/wav",
+    ".mp3": "audio/mpeg",
+    ".flac": "audio/flac",
+    ".ogg": "audio/ogg",
+}
+_SKIP_OWUI_PROCESS = frozenset({".wav", ".mp3", ".m4a", ".ogg", ".flac", ".webm", ".aac", ".mp4"})
+
+
+def _upload_content_type(filename: str) -> str:
+    suffix = Path(filename).suffix.lower()
+    return (
+        _AUDIO_UPLOAD_TYPES.get(suffix)
+        or mimetypes.guess_type(filename)[0]
+        or "application/octet-stream"
+    )
+
+
+def _upload_params(filename: str) -> dict[str, str] | None:
+    """process=false keeps OWUI from writing an STT JSON sidecar beside the audio."""
+    if Path(filename).suffix.lower() in _SKIP_OWUI_PROCESS:
+        return {"process": "false"}
+    return None
+
+
 ARTIFACT_URL_RE = re.compile(
     r"/api/v1/files/[0-9a-fA-F-]{8,}/content/(?:[^\s\]\"'<>()]|\([^\s\]\"'<>()]*\))+"
 )
@@ -381,23 +406,18 @@ class OWUIClient:
         path = Path(relative_path)
         if not path.is_absolute():
             path = self.settings.repo_root / path
-        content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        with path.open("rb") as stream, self._client(_remaining(deadline)) as client:
-            response = client.post(
-                f"{self.settings.owui_url}/api/v1/files/",
-                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
-                files={"file": (path.name, stream, content_type)},
-            )
-        return self._uploaded_file_id(response)
+        with path.open("rb") as stream:
+            return self.upload_attachment_bytes(token, path.name, stream.read(), deadline)
 
     def upload_attachment_bytes(
         self, token: str, filename: str, data: bytes, deadline: float | None = None
     ) -> dict[str, str]:
-        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        content_type = _upload_content_type(filename)
         with self._client(_remaining(deadline)) as client:
             response = client.post(
                 f"{self.settings.owui_url}/api/v1/files/",
                 headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+                params=_upload_params(filename),
                 files={"file": (filename, data, content_type)},
             )
         return self._uploaded_file_id(response)

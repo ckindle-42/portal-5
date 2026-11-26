@@ -207,6 +207,29 @@ def test_omitted_argument_auto_detects_latest_upload(uploads: Path) -> None:
     assert name == STORED
 
 
+def test_uuid_prefix_resolves_wav_not_newer_json_sidecar(uploads: Path) -> None:
+    """OWUI writes a newer <uuid>_<name>.json beside the WAV. Open the WAV."""
+    wav = _write_audio(uploads, STORED, age_s=30)
+    sidecar = uploads / f"{UUID}_sample_two_speakers.json"
+    sidecar.write_bytes(b'{"text":"Portal 5 Acceptance Check."}')
+    (uploads / f"{UUID}_sample_two_speakers.mp3").write_bytes(b"ID3")
+
+    path, name = transcribe._resolve_audio_input(UUID)
+    assert path == wav and name == STORED
+    path, name = transcribe._resolve_audio_input(sidecar.name)
+    assert path == wav and name == STORED
+    path, name = transcribe._resolve_audio_input(f"/workspace/uploads/{sidecar.name}")
+    assert path == wav and name == STORED
+    assert whisper_mcp._resolve_local_audio(UUID) == wav
+    assert whisper_mcp._resolve_local_audio(sidecar.name) == wav
+
+    lone = uploads / "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee_note.json"
+    lone.write_bytes(b'{"text":"x"}')
+    path, err = transcribe._resolve_audio_input(lone.name)
+    assert path is None and "not audio" in err
+    assert whisper_mcp._resolve_local_audio(lone.name) is None
+
+
 def test_empty_and_unknown_references_are_errors(uploads: Path) -> None:
     _write_audio(uploads, STORED)
     path, err = transcribe._resolve_audio_input("")

@@ -22,13 +22,15 @@ from urllib.parse import urlsplit
 import httpx
 import yaml
 
-from .artifacts import raw_tool_error_leak, validate_pdf
+from .artifacts import raw_tool_error_leak, validate_pdf, wav_magic_error
 from .browser_ui import BrowserUI, PlaywrightUnavailable
 from .config import PERSONA_DIR, REPO_ROOT, Discovery, Settings, workspace_tools_for
 from .models import DefectClass, QATResult, QATScenario, Status, classify_defect
 from .owui_client import ArtifactDownloadError, OWUIClient, artifact_urls
 
 UAT_PHASE = "human_grade"
+#: Committed 2-speaker WAV. Follow-up turns upload this, never a generated file.
+REAL_WAV_FIXTURE = "tests/fixtures/sample_two_speakers.wav"
 GENERATED_DOCX = "uat:upload-generated-docx"
 _ROUTE_MEMORY_SEED = (
     "Security incident response, CVE exploits, purple-team exercises, and firewall analysis."
@@ -2828,7 +2830,12 @@ def _status_result(
     chat_id: str = "",
     turns: list[UATTurn] | None = None,
 ) -> QATResult:
-    defect = classify_defect(tool_misbehaved="artifact" in error or "tool" in error)
+    infra = error.startswith("INFRA:")
+    defect = (
+        classify_defect(infra_hop_failed=True)
+        if infra
+        else classify_defect(tool_misbehaved="artifact" in error or "tool" in error)
+    )
     result = QATResult(
         scenario.scenario_id, Status.FAIL, error, defect_class=defect, chat_id=chat_id
     )
@@ -2972,6 +2979,9 @@ def _run_browser_sequence(
 
     transcript: list[UATTurn] = []
     chat_id = ""
+    infra = _scenario_wav_infra(case)
+    if infra:
+        return transcript, _status_result(scenario, infra, chat_id, transcript), chat_id
     for index, template in enumerate(case.prompts, start=1):
         prompt = template.replace("{{memory_key}}", memory_key)
         with tempfile.TemporaryDirectory(prefix="uat-browser-upload-") as tmp:
@@ -3012,6 +3022,37 @@ def _run_browser_sequence(
     return transcript, None, chat_id
 
 
+def _wav_followup(case: UATCase, index: int) -> Path | None:
+    """Real fixture for a WAV read-back turn. Generated audio is never re-uploaded."""
+    if index != case.generated_upload_turn:
+        return None
+    if str(case.expected.get("upload_kind") or "").lower() != "wav":
+        return None
+    return REPO_ROOT / REAL_WAV_FIXTURE
+
+
+def _scenario_wav_infra(case: UATCase) -> str | None:
+    """Magic-byte check before any turn. A bad WAV is harness infra, not a model miss."""
+    paths: list[Path] = []
+    if case.attachment.lower().endswith(".wav"):
+        path = Path(case.attachment)
+        paths.append(path if path.is_absolute() else REPO_ROOT / path)
+    if case.generated_upload_turn:
+        follow = _wav_followup(case, case.generated_upload_turn)
+        if follow is not None:
+            paths.append(follow)
+    for path in paths:
+        error = wav_magic_error(path)
+        if error:
+            return error
+    return None
+
+
+def _checked_wav(path: Path) -> tuple[Path | None, str | None]:
+    error = wav_magic_error(path)
+    return (None, error) if error else (path, None)
+
+
 def _browser_turn_upload(
     client: OWUIClient,
     token: str,
@@ -3022,12 +3063,17 @@ def _browser_turn_upload(
     tmp_dir: Path,
     deadline: float,
 ) -> tuple[Path | None, str | None]:
+    follow = _wav_followup(case, index)
+    if follow is not None:
+        return _checked_wav(follow)
     if index == 1 and case.attachment:
         path = Path(case.attachment)
         if not path.is_absolute():
             path = settings.repo_root / path
         if not path.is_file():
             return None, f"attachment not found: {path}"
+        if path.suffix.lower() == ".wav":
+            return _checked_wav(path)
         return path, None
     if index != case.generated_upload_turn:
         return None, None
@@ -3340,6 +3386,9 @@ def _run_sequence(
 
     transcript: list[UATTurn] = []
     branch: list[dict[str, str]] = []
+    infra = _scenario_wav_infra(case)
+    if infra:
+        return transcript, _status_result(scenario, infra, chat_id, transcript)
     for index, template in enumerate(case.prompts, start=1):
         prompt = template.replace("{{memory_key}}", memory_key)
         files, error = _turn_files(client, token, case, index, transcript, deadline)
@@ -3442,7 +3491,21 @@ def _required_tool_error(case: UATCase, turns: list[UATTurn]) -> str | None:
 def _turn_files(
     client: OWUIClient, token: str, case: UATCase, index: int, turns: list[UATTurn], deadline: float
 ) -> tuple[list[dict[str, str]] | None, str | None]:
+    follow = _wav_followup(case, index)
+    if follow is not None:
+        path, error = _checked_wav(follow)
+        if error or path is None:
+            return None, error
+        return [client.upload_attachment(token, str(path), deadline)], None
     if index == 1 and case.attachment:
+        path = Path(case.attachment)
+        if not path.is_absolute():
+            path = REPO_ROOT / path
+        if path.suffix.lower() == ".wav":
+            checked, error = _checked_wav(path)
+            if error or checked is None:
+                return None, error
+            return [client.upload_attachment(token, str(checked), deadline)], None
         return [client.upload_attachment(token, case.attachment, deadline)], None
     if index != case.generated_upload_turn:
         return None, None

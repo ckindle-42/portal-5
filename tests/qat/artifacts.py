@@ -93,6 +93,16 @@ def validate_wav(data: bytes) -> str | None:
     return None
 
 
+def wav_magic_error(path: Path) -> str | None:
+    """INFRA message when a WAV upload is missing or not RIFF/WAVE bytes."""
+    if not path.is_file():
+        return f"INFRA: wav upload missing: {path}"
+    error = validate_wav(path.read_bytes())
+    if error:
+        return f"INFRA: wav upload {path.name}: {error}"
+    return None
+
+
 def validate_mp3(data: bytes) -> str | None:
     if data[:3] == b"ID3":
         return None

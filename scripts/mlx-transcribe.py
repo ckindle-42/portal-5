@@ -67,6 +67,7 @@ if _inserted_script_dir:
 from portal.platform.mcp_host import eval_scope  # noqa: E402
 from portal.platform.mcp_host.owui_files import publish_file_sync  # noqa: E402
 from portal.platform.mcp_host.workspace import (  # noqa: E402
+    audio_beside,
     get_generated_dir,
     get_uploads_dir,
     get_workspace_root,
@@ -847,13 +848,21 @@ def _transcription_error(path: Path, error: Exception) -> str:
     return f"transcription failed for {path.name!r} ({audio_format}): {error}"
 
 
+def _resolved_audio(path: Path) -> tuple[Path | None, str]:
+    """Drop OWUI's newer JSON sidecar in favor of the audio file beside it."""
+    audio = audio_beside(path)
+    if audio is None:
+        return None, f"audio reference {path.name!r} is not audio"
+    return audio, audio.name
+
+
 def _resolve_audio_link(file: str) -> tuple[Path | None, str] | None:
     parsed = urlsplit(file)
     if parsed.scheme not in {"http", "https"} and not file.startswith("/api/v1/files/"):
         return None
     path = resolve_upload_path(file) or _generated_audio_path(file)
     if path is not None:
-        return path, path.name
+        return _resolved_audio(path)
     name = Path(unquote(parsed.path if parsed.scheme else file)).name
     return None, f"audio link does not resolve to a workspace file: {name or 'unknown filename'}"
 
@@ -948,16 +957,16 @@ def _resolve_audio_input(file: str | None) -> tuple[Path | None, str]:
     if file.startswith("/") or file.startswith("~"):
         for p in _absolute_path_candidates(file):
             if p.is_file():
-                return p, p.name
+                return _resolved_audio(p)
         by_name = resolve_upload_path(os.path.basename(file))
         if by_name is not None:
-            return by_name, by_name.name
+            return _resolved_audio(by_name)
         return None, f"file not found at path: {file}"
 
     # Try resolving as an upload reference (id or filename)
     p = resolve_upload_path(file)
     if p is not None:
-        return p, p.name
+        return _resolved_audio(p)
 
     # A named file that does not resolve is an error: transcribing whatever was uploaded last
     # would answer about the wrong audio. Only an omitted/placeholder argument auto-detects.

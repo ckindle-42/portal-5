@@ -167,4 +167,21 @@ async def test_dispatch_records_sandbox_error_type_without_the_error_text(monkey
         ("invalid_arguments", False, "tool_arg_parse"),
     ]
     assert "do-not-store" not in str(record)
+    assert spans[0]["error_head"] == "secret=<redacted>"
+    assert spans[0]["stderr_head"] == "boom"
+    assert spans[1]["error_head"].startswith("Invalid JSON arguments:")
     assert spans[1]["stdout_head"] == "" and spans[1]["stderr_head"] == ""
+
+
+def test_tool_error_head_is_capped_and_redacted() -> None:
+    from portal.platform.inference.router import trace
+
+    fields = trace.bounded_tool_result(
+        {"success": False, "error": "password=hunter2 " + ("e" * 600)}
+    )
+    assert fields["error_type"] == "tool_error"
+    assert fields["error_head"].startswith("password=<redacted> ")
+    assert "hunter2" not in fields["error_head"]
+    assert len(fields["error_head"]) == trace.TOOL_RESULT_HEAD_CHARS
+    assert fields["error_truncated"] is True
+    assert fields["stdout_head"] == "" and fields["stderr_head"] == ""

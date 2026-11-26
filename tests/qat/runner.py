@@ -1408,6 +1408,15 @@ def _chat_turn_extras(
         return None, red_square_png()
     if index != 1 or not scenario.attachment:
         return None, None
+    path = Path(scenario.attachment)
+    if not path.is_absolute():
+        path = client.settings.repo_root / path
+    if path.suffix.lower() == ".wav":
+        from .artifacts import wav_magic_error
+
+        error = wav_magic_error(path)
+        if error:
+            raise RuntimeError(error)
     return [client.upload_attachment(token, scenario.attachment, deadline)], None
 
 

@@ -530,20 +530,20 @@ def test_raw_http_error_inside_fenced_code_is_not_a_leak() -> None:
     assert artifacts.raw_tool_error_leak("The request failed with httpx.HTTPStatusError")
 
 
-def test_tts_followup_uploads_the_generated_wav_even_when_docx_is_stale() -> None:
+def test_tts_followup_uploads_the_real_wav_fixture_not_a_generated_file() -> None:
     class AttachmentClient:
         downloaded: list[str] = []
-        uploaded: list[tuple[str, bytes]] = []
+        uploaded: list[str] = []
 
         def download_artifact(self, token: str, url: str) -> bytes:
             self.downloaded.append(url)
-            return b"RIFF wav bytes"
+            return b'{"text":"not audio"}'
 
-        def upload_attachment_bytes(
-            self, token: str, filename: str, data: bytes, deadline: float
+        def upload_attachment(
+            self, token: str, relative_path: str, deadline: float | None = None
         ) -> dict[str, str]:
-            self.uploaded.append((filename, data))
-            return {"type": "file", "id": "generated-wav"}
+            self.uploaded.append(relative_path)
+            return {"type": "file", "id": "fixture-wav"}
 
     client = AttachmentClient()
     case = uat.UATCase(
@@ -560,10 +560,81 @@ def test_tts_followup_uploads_the_generated_wav_even_when_docx_is_stale() -> Non
     turns = [uat.UATTurn("speak", "audio ready", {}, (), (stale_docx, generated_wav))]
 
     files, error = uat._turn_files(client, "token", case, 2, turns, 60.0)
+    fixture = uat.REPO_ROOT / uat.REAL_WAV_FIXTURE
     assert error is None
-    assert client.downloaded == [generated_wav]
-    assert client.uploaded == [("uat-generated-wav.wav", b"RIFF wav bytes")]
-    assert files == [{"type": "file", "id": "generated-wav"}]
+    assert client.downloaded == []
+    assert client.uploaded == [str(fixture)]
+    assert fixture.read_bytes()[:4] == b"RIFF"
+    assert files == [{"type": "file", "id": "fixture-wav"}]
+
+
+def test_bad_wav_magic_fails_infra_before_the_scenario(tmp_path: Path) -> None:
+    bad = tmp_path / "sample_two_speakers.wav"
+    bad.write_bytes(b'{"text":"Portal 5 Acceptance Check."}')
+    case = uat.UATCase(
+        "tts",
+        "tts",
+        "auto-audio::music",
+        ("speak", "transcribe"),
+        "tts_quality",
+        attachment=str(bad),
+    )
+    error = uat._scenario_wav_infra(case)
+    assert error is not None and error.startswith("INFRA:")
+    scenario = QATScenario("s5-media-tts-speech", "tts", 5, "human_grade", 1, "auto-audio::music")
+    result = uat._status_result(scenario, error)
+    assert result.status is Status.FAIL
+    assert result.defect_class is DefectClass.INFRA_ENV_GAP
+
+
+def test_browser_tts_followup_points_at_the_fixture(tmp_path: Path) -> None:
+    class AttachmentClient:
+        def download_artifact(self, token: str, url: str) -> bytes:
+            raise AssertionError("generated audio must not be downloaded")
+
+    case = uat.UATCase(
+        "tts",
+        "tts",
+        "auto-audio::music",
+        ("speak", "transcribe"),
+        "tts_quality",
+        expected={"upload_kind": "wav"},
+        generated_upload_turn=2,
+    )
+    generated_wav = "http://owui/api/v1/files/87654321/content/generated.wav"
+    turns = [uat.UATTurn("speak", "audio ready", {}, (), (generated_wav,))]
+    path, error = uat._browser_turn_upload(
+        AttachmentClient(),
+        "token",
+        make_settings(tmp_path),
+        case,
+        2,
+        turns,
+        tmp_path,
+        60.0,
+    )
+    assert error is None and path is not None
+    assert path.name == "sample_two_speakers.wav"
+    assert path.read_bytes()[:4] == b"RIFF" and path.read_bytes()[8:12] == b"WAVE"
+
+
+def test_wav_upload_sends_audio_bytes_and_skips_owui_processing(tmp_path: Path) -> None:
+    seen: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        seen["body"] = request.read()
+        return httpx.Response(200, json={"id": "wav-1"})
+
+    client = OWUIClient(make_settings(tmp_path), httpx.MockTransport(handler))
+    uploaded = client.upload_attachment("token", uat.REAL_WAV_FIXTURE)
+    body = seen["body"]
+    assert uploaded == {"type": "file", "id": "wav-1"}
+    assert isinstance(body, bytes)
+    assert "process=false" in str(seen["url"])
+    assert b"audio/wav" in body
+    assert b"sample_two_speakers.wav" in body
+    assert b"RIFF" in body and b"WAVE" in body
 
 
 def test_model_catalog_lists_registered_openwebui_ids(tmp_path: Path) -> None:

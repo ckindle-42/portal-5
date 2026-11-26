@@ -170,3 +170,26 @@ def resolve_upload_path(file_id_or_name: str) -> Path | None:
         return candidates[0].resolve()
 
     return None
+
+
+_AUDIO_SUFFIXES = frozenset(
+    {".wav", ".mp3", ".m4a", ".ogg", ".opus", ".flac", ".webm", ".aac", ".mp4"}
+)
+
+
+def audio_beside(path: Path) -> Path | None:
+    """The WAV beside an OWUI sidecar, else path when it is already audio."""
+    wav = path.with_suffix(".wav")
+    if wav.is_file() and wav != path:
+        return wav
+    if path.suffix.lower() in _AUDIO_SUFFIXES:
+        return path
+    siblings = [
+        item
+        for item in path.parent.glob(f"{path.stem}.*")
+        if item.is_file() and item.suffix.lower() in _AUDIO_SUFFIXES
+    ]
+    wavs = [item for item in siblings if item.suffix.lower() == ".wav"]
+    if wavs:
+        return wavs[0]
+    return max(siblings, key=lambda item: item.stat().st_mtime) if siblings else None

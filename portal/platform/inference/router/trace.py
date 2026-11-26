@@ -59,7 +59,7 @@ MAX_RECORDS: int = _env_int("PORTAL_TRACE_MAX", 200)
 MAX_RECORD_BYTES: int = max(512, _env_int("PORTAL_TRACE_MAX_BYTES", 32768))
 #: Characters of each captured message kept verbatim; the rest is a size and a hash.
 HEAD_CHARS: int = 160
-#: Always-on tool stdout/stderr kept on ``tool.completed``. Full bodies stay opt-in.
+#: Always-on tool error/stdout/stderr heads on ``tool.completed``. Full bodies stay opt-in.
 TOOL_RESULT_HEAD_CHARS: int = 512
 _SECRET_ASSIGN = re.compile(
     r"(?i)\b((?:authorization|api[_-]?key|password|secret|access[_-]?token|token|bearer)"
@@ -130,6 +130,17 @@ def _clip_head(text: str) -> tuple[str, bool]:
     return text[:TOOL_RESULT_HEAD_CHARS], True
 
 
+def _error_message(parsed: dict[str, Any] | None) -> str:
+    """The tool's own error string, when the payload carries one."""
+    if not isinstance(parsed, dict):
+        return ""
+    for key in ("error", "message", "detail"):
+        value = parsed.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return ""
+
+
 def _tool_status(parsed: dict[str, Any] | None, error_type: str) -> tuple[bool, str]:
     if error_type:
         return False, error_type[:80]
@@ -153,12 +164,19 @@ def bounded_tool_result(result: Any, *, error_type: str = "") -> dict[str, Any]:
     stdout_head, stdout_cut = _clip_head(_stream_text((parsed or {}).get("stdout")))
     stderr_head, stderr_cut = _clip_head(_stream_text((parsed or {}).get("stderr")))
     success, etype = _tool_status(parsed, error_type)
+    message = _error_message(parsed)
+    if not message and not success and isinstance(result, str):
+        message = result
+    error_head, error_cut = _clip_head(_stream_text(message))
     fields: dict[str, Any] = {
         "success": success,
         "error_type": etype,
+        "error_head": error_head,
         "stdout_head": stdout_head,
         "stderr_head": stderr_head,
     }
+    if error_cut:
+        fields["error_truncated"] = True
     if stdout_cut:
         fields["stdout_truncated"] = True
     if stderr_cut:

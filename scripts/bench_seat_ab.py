@@ -28,11 +28,13 @@ from scripts import prodpath
 from scripts.bench_security_qat import TASKS as SECURITY_TASKS
 from scripts.bench_security_qat import Turn, grade_purple_jndi_sigma, grade_s3_refusal_preservation
 from scripts.council_bench import DEFAULT_CASES, build_request, load_cases, score_case
+from tests.qat.artifacts import wav_magic_error
 from tests.qat.config import Settings
 from tests.qat.models import QATScenario, RubricCriterion
 from tests.qat.owui_client import OWUIClient, artifact_urls, red_square_png
 from tests.qat.runner import _adversarial_error, _tool_validation_error, build_plan
 from tests.qat.uat_behavioral import (
+    REAL_WAV_FIXTURE,
     UATCase,
     UATTurn,
     _required_tool_error,
@@ -784,6 +786,40 @@ def _upload_descriptor(client: OWUIClient, token: str, name: str, payload: bytes
     }
 
 
+def _checked_upload(client: OWUIClient, token: str, path: Path) -> dict[str, Any]:
+    if path.suffix.lower() == ".wav":
+        error = wav_magic_error(path)
+        if error:
+            raise RuntimeError(error)
+    payload = path.read_bytes()
+    if (mimetypes.guess_type(path.name)[0] or "").startswith("image/"):
+        return {"inline_image": payload}
+    return {"file": _upload_descriptor(client, token, path.name, payload)}
+
+
+def _generated_uat_upload(
+    case: UATCase,
+    prior_turns: list[dict[str, Any]],
+    client: OWUIClient,
+    token: str,
+) -> dict[str, Any]:
+    suffix = str(case.expected.get("upload_kind") or "docx").lower()
+    if suffix == "wav":
+        path = REPO / REAL_WAV_FIXTURE
+        error = wav_magic_error(path)
+        if error:
+            raise RuntimeError(error)
+        return {"file": _upload_descriptor(client, token, path.name, path.read_bytes())}
+    urls = [url for turn in prior_turns for url in turn.get("artifact_urls", [])]
+    url = next((value for value in urls if value.lower().split("?")[0].endswith(f".{suffix}")), "")
+    if not url:
+        raise RuntimeError(f"generated {suffix.upper()} was not surfaced before read-back")
+    payload = client.download_artifact(token, url)
+    if not payload:
+        raise RuntimeError(f"generated {suffix.upper()} download returned no bytes")
+    return {"file": _upload_descriptor(client, token, f"uat-generated-note.{suffix}", payload)}
+
+
 def _attachment_for_turn(
     case: BenchCase,
     index: int,
@@ -806,24 +842,11 @@ def _attachment_for_turn(
         path = Path(case.uat.attachment)
         if not path.is_absolute():
             path = REPO / path
-        payload = path.read_bytes()
-        if (mimetypes.guess_type(path.name)[0] or "").startswith("image/"):
-            return {"inline_image": payload}
-        return {"file": _upload_descriptor(client, token, path.name, payload)}
+        return _checked_upload(client, token, path)
     if case.kind == "uat" and case.uat and index == case.uat.generated_upload_turn:
         if client is None:
             raise RuntimeError("generated document upload needs an OWUI client")
-        suffix = str(case.uat.expected.get("upload_kind") or "docx").lower()
-        urls = [url for turn in prior_turns for url in turn.get("artifact_urls", [])]
-        url = next(
-            (value for value in urls if value.lower().split("?")[0].endswith(f".{suffix}")), ""
-        )
-        if not url:
-            raise RuntimeError(f"generated {suffix.upper()} was not surfaced before read-back")
-        payload = client.download_artifact(token, url)
-        if not payload:
-            raise RuntimeError(f"generated {suffix.upper()} download returned no bytes")
-        return {"file": _upload_descriptor(client, token, f"uat-generated-note.{suffix}", payload)}
+        return _generated_uat_upload(case.uat, prior_turns, client, token)
     return None
 
 

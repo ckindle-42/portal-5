@@ -433,7 +433,11 @@ async def _dispatch_tool_call(
     except json.JSONDecodeError:
         _record_error(workspace_id, "tool_arg_parse")
         _trace_tool_completed(
-            tool_name, tool_call_id, "invalid_arguments", error_type="tool_arg_parse"
+            tool_name,
+            tool_call_id,
+            "invalid_arguments",
+            {"error": f"Invalid JSON arguments: {arguments_str[:200]}"},
+            error_type="tool_arg_parse",
         )
         return {
             "role": "tool",
@@ -447,7 +451,13 @@ async def _dispatch_tool_call(
     # Whitelist enforcement
     if not allowed:
         _record_error(workspace_id, "tool_not_allowed")
-        _trace_tool_completed(tool_name, tool_call_id, "not_allowed", error_type="tool_not_allowed")
+        _trace_tool_completed(
+            tool_name,
+            tool_call_id,
+            "not_allowed",
+            {"error": f"Tool '{tool_name}' not available for {persona}"},
+            error_type="tool_not_allowed",
+        )
         logger.warning(
             "Tool %s called but not in workspace=%s persona=%s whitelist; rejected",
             tool_name,
@@ -467,12 +477,13 @@ async def _dispatch_tool_call(
         result = await tool_registry.dispatch(
             tool_name, arguments, request_id=request_id, workspace_id=workspace_id
         )
-    except Exception:
+    except Exception as exc:
         elapsed = time.monotonic() - t0
         _trace_tool_completed(
             tool_name,
             tool_call_id,
             "exception",
+            {"error": f"{type(exc).__name__}: {exc}"},
             error_type="exception",
             duration_ms=round(elapsed * 1000, 1),
         )

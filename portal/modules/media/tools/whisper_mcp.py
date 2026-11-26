@@ -14,7 +14,7 @@ from typing import Any, cast
 import httpx
 
 from portal.platform.mcp_host.owui_files import publish_file
-from portal.platform.mcp_host.workspace import get_generated_dir, resolve_upload_path
+from portal.platform.mcp_host.workspace import audio_beside, get_generated_dir, resolve_upload_path
 
 logger = logging.getLogger(__name__)
 
@@ -168,11 +168,13 @@ def get_model() -> Any:
 def _resolve_local_audio(file_path: str) -> Path | None:
     """Container-side fallback lookup: the path as given, else the same OWUI
     upload reference forms the host accepts (bare name, ``<uuid>_<name>``, or
-    an id) through the shared uploads directory."""
+    an id) through the shared uploads directory. A JSON sidecar resolves to the
+    audio file beside it."""
     path = Path(file_path)
-    if path.exists():
-        return path
-    return resolve_upload_path(file_path)
+    if path.is_file():
+        return audio_beside(path)
+    found = resolve_upload_path(file_path)
+    return audio_beside(found) if found is not None else None
 
 
 @mcp.tool(meta={"portal5/timeout_s": WHISPER_PROXY_TIMEOUT})
