@@ -250,11 +250,6 @@ def hunt_start(
     index: str,
     start: float | None = None,
     end: float | None = None,
-    query_seconds: float = 30.0,
-    job_seconds: float = 1260.0,
-    request_budget: int = 2000,
-    cell_budget: int = 10000,
-    event_budget: int = 5000,
     judge: bool = False,
 ) -> dict[str, Any]:
     """Start an R2 Stage 1 hunt, optionally annotating its top leads with the judge."""
@@ -267,13 +262,6 @@ def hunt_start(
             index,
             start_t,
             end_t,
-            {
-                "query_seconds": query_seconds,
-                "job_seconds": job_seconds,
-                "requests": request_budget,
-                "cells": cell_budget,
-                "events": event_budget,
-            },
             judge_enabled=judge,
         )
         nxt = (

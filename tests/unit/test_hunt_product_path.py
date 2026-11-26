@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
 import yaml
 
 from portal.modules.security.core.hunt import product_jobs
@@ -384,6 +385,67 @@ def test_stage_plan_preserves_relation_time_and_spends_released_ranking_time() -
         "relate": 120.0,
         "judge": 60.0,
     }
+
+
+def test_start_clamps_short_job_budget_to_minimum_viable_plan(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    monkeypatch.setattr(product_jobs, "model_from_env", lambda: (object(), "hunt-model"))
+    monkeypatch.setattr(product_jobs, "_configured_knowledge", lambda: (None, None))
+
+    class DormantThread:
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr(product_jobs.threading, "Thread", DormantThread)
+    job_id = product_jobs.start(
+        object(),
+        "index",
+        100.0,
+        200.0,
+        {"job_seconds": 60.0},  # type: ignore[arg-type]
+    )
+
+    job = product_jobs.load(job_id)
+    assert job is not None
+    assert job["cost"]["remaining_s"] == product_jobs.MIN_VIABLE_JOB_SECONDS
+
+
+def test_zero_budget_stage_is_refused_before_action(tmp_path: Path, monkeypatch: Any) -> None:
+    clock = _FakeClock()
+    monkeypatch.setattr(product_jobs.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    effort = HuntBudget(dict(product_jobs.R2_DEFAULT_BUDGETS) | {"job_seconds": 180.0})
+    effort.started = clock.now
+    job_id = "hunt-r2-zero-budget-stage"
+    product_jobs._write(job_id, {"job_id": job_id, "status": "RUNNING"})
+    called: list[str] = []
+    actions = tuple(
+        (stage, lambda stage=stage: called.append(stage))
+        for stage in ("cards", "behaviours", "notables", "relate")
+    )
+
+    with pytest.raises(
+        product_jobs.HuntBudgetExceededError, match="cards_stage_budget_unavailable"
+    ):
+        product_jobs._execute_stages(
+            actions,
+            job_id,
+            {"stage_plan": []},
+            threading.RLock(),
+            tmp_path,
+            effort,
+        )
+
+    job = product_jobs.load(job_id)
+    assert called == []
+    assert job is not None
+    assert job["stage_plan"][0]["budget_s"] == 0.0
+    assert job["stage_plan"][0]["refused_reason"] == "cards_stage_budget_unavailable"
 
 
 def test_stage_deadline_bounds_a_request_without_replacing_the_job_deadline() -> None:

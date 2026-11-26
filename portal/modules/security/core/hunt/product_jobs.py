@@ -47,6 +47,8 @@ STAGE_ESTIMATES = {
     "judge": 60.0,
     "relate": 120.0,
 }
+PREFLIGHT_BUDGET_SECONDS = DEFAULT_BUDGETS["query_seconds"]
+MIN_VIABLE_JOB_SECONDS = sum(STAGE_ESTIMATES.values()) + PREFLIGHT_BUDGET_SECONDS
 STAGE_ORDER = STAGES
 LEADS_LIMIT = 10
 LEADS_VIEW_LIMIT = 3
@@ -103,6 +105,7 @@ def _limits(values: Mapping[str, float] | None) -> dict[str, float]:
         limits.update({key: float(value) for key, value in values.items()})
     if any(value <= 0 for value in limits.values()):
         raise ValueError("hunt effort budgets must be positive")
+    limits["job_seconds"] = max(limits["job_seconds"], MIN_VIABLE_JOB_SECONDS)
     if limits["query_seconds"] > limits["job_seconds"]:
         raise ValueError("query budget cannot exceed the job budget")
     return limits
@@ -215,6 +218,21 @@ def _enter_stage(
         effort.exhausted = "job_deadline_exceeded"
         raise HuntBudgetExceededError(effort.exhausted)
     plan = _stage_plan(name, effort.job_remaining(), stage_order=stage_order)
+    if plan["budget_s"] <= 0:
+        reason = f"{name}_stage_budget_unavailable"
+        plan["refused_reason"] = reason
+        plan["complete"] = False
+        plan["exhausted_reason"] = reason
+        effort.exhausted = reason
+        with state_lock:
+            state.setdefault("stage_plan", []).append(plan)
+            state.update(
+                stage=name,
+                progress={"current": effort.snapshot(), "stages": _stage_receipts(out)},
+            )
+            state["cost"] = _cost(state["progress"]["stages"], state["progress"]["current"])
+            _write(job_id, state)
+        raise HuntBudgetExceededError(reason)
     effort.set_stage_deadline(name, plan["budget_s"])
     effort.phase = name
     effort.update(phase=name)
