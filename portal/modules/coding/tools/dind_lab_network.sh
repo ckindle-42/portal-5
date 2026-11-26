@@ -9,25 +9,6 @@ status_file="$status_dir/lab-network-status"
 mkdir -p "$status_dir"
 rm -f "$status_file"
 
-dockerd-entrypoint.sh dockerd &
-dockerd_pid=$!
-stop_dockerd() {
-    kill "$dockerd_pid" 2>/dev/null || true
-    wait "$dockerd_pid" 2>/dev/null || true
-}
-trap stop_dockerd EXIT INT TERM
-
-attempt=0
-until docker info >/dev/null 2>&1; do
-    attempt=$((attempt + 1))
-    if [ "$attempt" -ge 60 ]; then
-        printf 'unavailable\n' >"$status_file"
-        echo "ERROR: DinD did not become ready" >&2
-        wait "$dockerd_pid"
-    fi
-    sleep 1
-done
-
 setup_lab_network() {
     [ -n "$LAB_TARGET_NETWORK" ] || return 1
     case "$LAB_TARGET_NETWORK" in
@@ -138,15 +119,29 @@ setup_lab_network() {
         "$LAB_TARGET_NETWORK" "$network_id" "$bridge" >"$status_file"
 }
 
-if [ "${SANDBOX_LAB_EXEC:-false}" = true ]; then
-    if setup_lab_network; then
-        echo "Lab exec firewall ready: $LAB_TARGET_NETWORK via $LAB_EXEC_NETWORK"
-    else
-        printf 'unavailable\n' >"$status_file"
-        echo "ERROR: lab exec firewall setup failed; lab executor will be disabled" >&2
-    fi
-else
-    printf 'disabled\n' >"$status_file"
-fi
+initialize_lab_network() {
+    attempt=0
+    until docker info >/dev/null 2>&1; do
+        attempt=$((attempt + 1))
+        if [ "$attempt" -ge 60 ]; then
+            printf 'daemon-unavailable\n' >"$status_file"
+            echo "ERROR: DinD did not become ready" >&2
+            return 1
+        fi
+        sleep 1
+    done
 
-wait "$dockerd_pid"
+    if [ "${SANDBOX_LAB_EXEC:-false}" = true ]; then
+        if setup_lab_network; then
+            echo "Lab exec firewall ready: $LAB_TARGET_NETWORK via $LAB_EXEC_NETWORK"
+        else
+            printf 'unavailable\n' >"$status_file"
+            echo "ERROR: lab exec firewall setup failed; lab executor will be disabled" >&2
+        fi
+    else
+        printf 'disabled\n' >"$status_file"
+    fi
+}
+
+initialize_lab_network &
+exec dockerd-entrypoint.sh "$@"

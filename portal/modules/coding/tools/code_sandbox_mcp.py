@@ -22,6 +22,8 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
+import time
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
@@ -60,16 +62,21 @@ _route: Callable[
 
 @_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
+    executor_status = _executor_status_snapshot()
+    general_executor = executor_status["executors"]["general"]
+    lab_executor = executor_status["executors"]["lab"]
     return JSONResponse(
         {
-            "status": "ok",
+            "status": executor_status["status"],
             "service": "sandbox-mcp",
-            "general_exec_available": GENERAL_EXEC_AVAILABLE,
-            "lab_exec_active": SANDBOX_LAB_EXEC and LAB_EXEC_AVAILABLE,
+            "general_exec_available": general_executor["available"],
+            "lab_exec_active": SANDBOX_LAB_EXEC and lab_executor["available"],
             "lab_image": SANDBOX_LAB_IMAGE or None,
             "general_network": "none",
-            "lab_network": LAB_EXEC_NETWORK if LAB_EXEC_AVAILABLE else None,
-        }
+            "lab_network": LAB_EXEC_NETWORK if lab_executor["available"] else None,
+            "executors": executor_status["executors"],
+        },
+        status_code=200 if executor_status["status"] == "ok" else 503,
     )
 
 
@@ -138,8 +145,16 @@ SANDBOX_LAB_META3_USER = os.getenv("LAB_META3_USER", "vagrant")
 SANDBOX_LAB_META3_PASS = os.getenv("LAB_META3_PASS", "vagrant")
 LAB_EXEC_NETWORK = "portal5-labexec"
 LAB_EXEC_STATUS_FILE = Path(os.getenv("SANDBOX_LAB_EXEC_STATUS", "/run/portal5/lab-network-status"))
-GENERAL_EXEC_AVAILABLE = True
+GENERAL_EXEC_AVAILABLE = False
 LAB_EXEC_AVAILABLE = False
+GENERAL_EXEC_STATE = "starting"
+LAB_EXEC_STATE = "starting" if SANDBOX_LAB_EXEC else "disabled"
+GENERAL_EXEC_ERROR = "executor startup checks have not completed"
+LAB_EXEC_ERROR = "lab execution is not enabled"
+EXECUTOR_STATE_LOCK = threading.Lock()
+EXECUTOR_IMAGE_PULL_RETRIES = 3
+EXECUTOR_IMAGE_PULL_TIMEOUT = 120
+EXECUTOR_RECHECK_MAX_SECONDS = 30
 # vulhub's own clone ships a real, working poc.py/exploit.py alongside ~38 of
 # its ~1,234 environments' READMEs (scripts/lab_setup.py clones it to
 # $LAB_DIR/vulhub) -- these are the exact scripts vulhub's own documentation
@@ -177,33 +192,124 @@ def _get_docker_env() -> dict[str, str]:
     return env
 
 
+class ExecutorNotReadyError(RuntimeError):
+    """The daemon or executor image is not ready to verify yet."""
+
+
+class ExecutorIsolationError(RuntimeError):
+    """An executor failed a confirmed network isolation policy check."""
+
+
+def _executor_image_refs() -> tuple[str, ...]:
+    images = [PYTHON_IMAGE, NODE_IMAGE, BASH_IMAGE, PS_IMAGE]
+    if SANDBOX_LAB_EXEC and SANDBOX_LAB_IMAGE:
+        images.append(SANDBOX_LAB_IMAGE)
+    return tuple(dict.fromkeys(images))
+
+
+def _set_executor_state(executor: str, state: str, error: str) -> None:
+    global GENERAL_EXEC_AVAILABLE, GENERAL_EXEC_STATE, GENERAL_EXEC_ERROR
+    global LAB_EXEC_AVAILABLE, LAB_EXEC_STATE, LAB_EXEC_ERROR
+    with EXECUTOR_STATE_LOCK:
+        if executor == "general":
+            GENERAL_EXEC_STATE = state
+            GENERAL_EXEC_AVAILABLE = state == "ready"
+            GENERAL_EXEC_ERROR = error
+        else:
+            LAB_EXEC_STATE = state
+            LAB_EXEC_AVAILABLE = state == "ready"
+            LAB_EXEC_ERROR = error
+
+
+def _executor_status_snapshot() -> dict[str, Any]:
+    with EXECUTOR_STATE_LOCK:
+        executors = {
+            "general": {
+                "state": GENERAL_EXEC_STATE,
+                "available": GENERAL_EXEC_AVAILABLE,
+                "error": GENERAL_EXEC_ERROR or None,
+            },
+            "lab": {
+                "enabled": SANDBOX_LAB_EXEC,
+                "state": LAB_EXEC_STATE,
+                "available": SANDBOX_LAB_EXEC and LAB_EXEC_AVAILABLE,
+                "error": LAB_EXEC_ERROR or None,
+            },
+        }
+    required_states = [executors["general"]["state"]]
+    if SANDBOX_LAB_EXEC:
+        required_states.append(executors["lab"]["state"])
+    if "disabled" in required_states:
+        status = "degraded"
+    elif "starting" in required_states:
+        status = "starting"
+    else:
+        status = "ok"
+    return {"status": status, "executors": executors}
+
+
+def _run_docker_command(command: Sequence[str], timeout: int) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            ["docker", *command],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=_get_docker_env(),
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ExecutorNotReadyError(
+            f"Docker command could not verify readiness: {command[0]}"
+        ) from exc
+
+
+def _provision_executor_images() -> None:
+    daemon = _run_docker_command(["info"], timeout=10)
+    if daemon.returncode != 0:
+        raise ExecutorNotReadyError("Docker daemon is not ready")
+    for image in _executor_image_refs():
+        inspected = _run_docker_command(["image", "inspect", image], timeout=30)
+        if inspected.returncode == 0:
+            continue
+        if image.startswith("portal5-"):
+            raise ExecutorNotReadyError(
+                f"local executor image {image} is awaiting launch provisioning"
+            )
+        error = inspected.stderr.strip() or f"image {image} is missing"
+        for attempt in range(EXECUTOR_IMAGE_PULL_RETRIES):
+            try:
+                pulled = _run_docker_command(["pull", image], timeout=EXECUTOR_IMAGE_PULL_TIMEOUT)
+                if pulled.returncode == 0:
+                    break
+                error = pulled.stderr.strip() or f"pull of {image} failed"
+            except ExecutorNotReadyError as exc:
+                error = str(exc)
+            if attempt + 1 < EXECUTOR_IMAGE_PULL_RETRIES:
+                time.sleep(2**attempt)
+        else:
+            raise ExecutorNotReadyError(f"executor image {image} is not ready: {error}")
+
+
 def _verify_general_network_isolation() -> None:
     """Verify that the daemon honors network=none for general code."""
     container_id = ""
     try:
-        created = subprocess.run(
-            ["docker", "create", "--network", "none", PYTHON_IMAGE],
-            capture_output=True,
-            text=True,
-            check=True,
-            env=_get_docker_env(),
-            timeout=30,
-        )
+        created = _run_docker_command(["create", "--network", "none", PYTHON_IMAGE], timeout=30)
+        if created.returncode != 0:
+            raise ExecutorNotReadyError("Docker could not create the isolation check container")
         container_id = created.stdout.strip()
         if not container_id:
-            raise RuntimeError("sandbox network isolation check returned no container id")
-        inspected = subprocess.run(
-            ["docker", "inspect", "--format", "{{.HostConfig.NetworkMode}}", container_id],
-            capture_output=True,
-            text=True,
-            check=True,
-            env=_get_docker_env(),
-            timeout=30,
+            raise ExecutorNotReadyError("sandbox isolation check returned no container id")
+        inspected = _run_docker_command(
+            ["inspect", "--format", "{{.HostConfig.NetworkMode}}", container_id], timeout=30
         )
+        if inspected.returncode != 0:
+            raise ExecutorNotReadyError("Docker could not inspect the isolation check container")
         if inspected.stdout.strip() != "none":
-            raise RuntimeError("sandbox network isolation check did not apply network=none")
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise RuntimeError("sandbox network isolation check failed") from exc
+            raise ExecutorIsolationError(
+                "sandbox network isolation check did not apply network=none"
+            )
     finally:
         if container_id:
             try:
@@ -233,11 +339,16 @@ def _verify_lab_network_isolation() -> None:
             or target.prefixlen < 16
             or not any(target.subnet_of(network) for network in private_ranges)
         ):
-            raise ValueError("lab target must be an RFC1918 IPv4 CIDR with prefix /16 or longer")
+            raise ExecutorIsolationError(
+                "lab network isolation check rejected a target outside RFC1918 /16-or-longer"
+            )
         status = LAB_EXEC_STATUS_FILE.read_text(encoding="utf-8").splitlines()
-        inspected = subprocess.run(
+        if status == ["daemon-unavailable"]:
+            raise ExecutorNotReadyError("DinD lab network setup has not completed")
+        if status == ["unavailable"]:
+            raise ExecutorIsolationError("DinD could not install the lab network firewall")
+        inspected = _run_docker_command(
             [
-                "docker",
                 "network",
                 "inspect",
                 "--format",
@@ -247,12 +358,10 @@ def _verify_lab_network_isolation() -> None:
                 "{{range .IPAM.Config}}{{.Subnet}}{{end}}",
                 LAB_EXEC_NETWORK,
             ],
-            capture_output=True,
-            text=True,
-            check=True,
-            env=_get_docker_env(),
             timeout=30,
         )
+        if inspected.returncode != 0:
+            raise ExecutorNotReadyError("Docker lab network is not ready to inspect")
         network_id, driver, internal, lab_label, target_label, inter_container, subnet_text = (
             inspected.stdout.strip().split("|", maxsplit=6)
         )
@@ -268,29 +377,81 @@ def _verify_lab_network_isolation() -> None:
             or subnet.overlaps(target)
             or status != ["portal5-labexec-v1", str(target), network_id, bridge]
         ):
-            raise ValueError("dedicated bridge or egress firewall receipt did not match")
-    except (OSError, ValueError, subprocess.SubprocessError) as exc:
-        raise RuntimeError("lab network isolation check failed") from exc
+            raise ExecutorIsolationError(
+                "lab network isolation check found a mismatched bridge receipt"
+            )
+    except OSError as exc:
+        raise ExecutorNotReadyError("DinD lab network receipt is not ready") from exc
+    except ValueError as exc:
+        raise ExecutorIsolationError(
+            "lab network isolation check returned invalid network data"
+        ) from exc
 
 
 def _verify_network_isolation() -> None:
-    """Verify both executors independently and disable only a failed policy."""
-    global GENERAL_EXEC_AVAILABLE, LAB_EXEC_AVAILABLE
+    """Provision executor images and update readiness for both network policies."""
+    try:
+        _provision_executor_images()
+    except ExecutorNotReadyError as exc:
+        _set_executor_state("general", "starting", str(exc))
+        if SANDBOX_LAB_EXEC:
+            _set_executor_state("lab", "starting", str(exc))
+        else:
+            _set_executor_state("lab", "disabled", "lab execution is not enabled")
+        logger.info("Sandbox executors are starting: %s", exc)
+        return
+
     try:
         _verify_general_network_isolation()
-        GENERAL_EXEC_AVAILABLE = True
-    except RuntimeError:
-        GENERAL_EXEC_AVAILABLE = False
+        _set_executor_state("general", "ready", "")
+    except ExecutorNotReadyError as exc:
+        _set_executor_state("general", "starting", str(exc))
+        logger.info("General sandbox executor is starting: %s", exc)
+    except RuntimeError as exc:
+        _set_executor_state("general", "disabled", str(exc))
         logger.exception("GENERAL CODE EXECUTION DISABLED: network=none verification failed")
     if not SANDBOX_LAB_EXEC:
-        LAB_EXEC_AVAILABLE = False
+        _set_executor_state("lab", "disabled", "lab execution is not enabled")
         return
     try:
         _verify_lab_network_isolation()
-        LAB_EXEC_AVAILABLE = True
-    except RuntimeError:
-        LAB_EXEC_AVAILABLE = False
+        _set_executor_state("lab", "ready", "")
+    except ExecutorNotReadyError as exc:
+        _set_executor_state("lab", "starting", str(exc))
+        logger.info("Lab sandbox executor is starting: %s", exc)
+    except RuntimeError as exc:
+        _set_executor_state("lab", "disabled", str(exc))
         logger.exception("LAB EXECUTION DISABLED: dedicated lab network verification failed")
+
+
+def _executor_monitor_loop(stop_event: threading.Event | None = None) -> None:
+    delay = 1
+    while stop_event is None or not stop_event.is_set():
+        try:
+            _verify_network_isolation()
+        except Exception:
+            logger.exception("Sandbox executor readiness check failed unexpectedly")
+            _set_executor_state("general", "starting", "executor check failed unexpectedly")
+            if SANDBOX_LAB_EXEC:
+                _set_executor_state("lab", "starting", "executor check failed unexpectedly")
+        snapshot = _executor_status_snapshot()
+        if "starting" in [
+            item["state"] for item in snapshot["executors"].values() if item.get("enabled", True)
+        ]:
+            wait_seconds = delay
+            delay = min(delay * 2, EXECUTOR_RECHECK_MAX_SECONDS)
+        else:
+            wait_seconds = EXECUTOR_RECHECK_MAX_SECONDS
+            delay = 1
+        if stop_event is None:
+            time.sleep(wait_seconds)
+        else:
+            stop_event.wait(wait_seconds)
+
+
+def _start_executor_monitor() -> None:
+    thread = threading.Thread(target=_executor_monitor_loop, name="sandbox-readiness", daemon=True)
+    thread.start()
 
 
 def _lab_exec_requested() -> bool:
@@ -302,14 +463,21 @@ def _lab_exec_requested() -> bool:
 
 def _executor_unavailable(lab_exec: bool) -> dict[str, Any] | None:
     """Return a refusal when the requested executor failed its startup check."""
-    available = LAB_EXEC_AVAILABLE if lab_exec else GENERAL_EXEC_AVAILABLE
-    if available:
-        return None
     executor = "lab" if lab_exec else "general"
-    reason = f"{executor} executor is disabled because its network isolation check failed"
+    snapshot = _executor_status_snapshot()["executors"][executor]
+    if snapshot["available"]:
+        return None
+    state = snapshot["state"]
+    detail = snapshot["error"] or "network isolation has not been verified"
+    reason = f"{executor} executor is {state}: {detail}"
+    error_type = (
+        f"{executor}_executor_starting"
+        if state == "starting"
+        else f"{executor}_executor_unavailable"
+    )
     return {
         "success": False,
-        "error_type": f"{executor}_executor_unavailable",
+        "error_type": error_type,
         "error": reason,
         "stdout": "",
         "stderr": reason,
@@ -1160,14 +1328,19 @@ async def sandbox_status() -> dict[str, Any]:
     except (FileNotFoundError, TimeoutError):
         docker_available = False
 
+    executor_status = _executor_status_snapshot()
+    general_executor = executor_status["executors"]["general"]
+    lab_executor = executor_status["executors"]["lab"]
     return {
+        "status": executor_status["status"],
+        "executors": executor_status["executors"],
         "docker_available": docker_available,
         "docker_host": DOCKER_HOST or "unix:///var/run/docker.sock",
         "sandbox_enabled": os.getenv("SANDBOX_ENABLED", "false").lower() == "true",
-        "general_exec_available": GENERAL_EXEC_AVAILABLE,
-        "lab_exec_active": SANDBOX_LAB_EXEC and LAB_EXEC_AVAILABLE,
+        "general_exec_available": general_executor["available"],
+        "lab_exec_active": SANDBOX_LAB_EXEC and lab_executor["available"],
         "general_network": "none",
-        "lab_network": LAB_EXEC_NETWORK if LAB_EXEC_AVAILABLE else None,
+        "lab_network": LAB_EXEC_NETWORK if lab_executor["available"] else None,
         "lab_image": SANDBOX_LAB_IMAGE or None,
         "python_image": PYTHON_IMAGE,
         "node_image": NODE_IMAGE,
@@ -1308,5 +1481,5 @@ align_native_tools(mcp, TOOLS_MANIFEST)
 
 if __name__ == "__main__":
     port = int(os.getenv("SANDBOX_MCP_PORT", "8914"))
-    _verify_network_isolation()
+    _start_executor_monitor()
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

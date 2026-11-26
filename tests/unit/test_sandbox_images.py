@@ -125,6 +125,13 @@ def test_required_images_omit_the_lab_image_while_lab_exec_is_off(tmp_path):
     ]
 
 
+def test_up_restores_local_executor_images_before_the_health_gate():
+    launch = (_ROOT / "launch.sh").read_text(encoding="utf-8")
+    up_body = launch.split("  up)", 1)[1].split("\n    ;;", 1)[0]
+
+    assert up_body.index("_ensure_sandbox_images") < up_body.index("_wait_up_health")
+
+
 def test_up_rebuilds_a_missing_sandbox_image_and_loads_it_into_dind(tmp_path):
     state = _state(tmp_path, host=["portal5-pwsh:latest"], dind=["portal5-pwsh:latest"])
     result = _run(tmp_path, state, "_ensure_sandbox_images")

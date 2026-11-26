@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -28,9 +30,10 @@ def _lab_network_inspect(
     subnet="172.30.0.0/24",
 ):
     return SimpleNamespace(
+        returncode=0,
         stdout="|".join(
             (network_id, driver, internal, lab_label, target_label, inter_container, subnet)
-        )
+        ),
     )
 
 
@@ -50,6 +53,8 @@ async def test_general_code_stays_offline_when_lab_mode_is_enabled(
     monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", True)
     monkeypatch.setattr(sandbox, "GENERAL_EXEC_AVAILABLE", True)
     monkeypatch.setattr(sandbox, "LAB_EXEC_AVAILABLE", True)
+    monkeypatch.setattr(sandbox, "GENERAL_EXEC_STATE", "ready")
+    monkeypatch.setattr(sandbox, "LAB_EXEC_STATE", "ready")
     token = sandbox.WORKSPACE_ID.set(workspace)
     monkeypatch.setattr(sandbox.asyncio, "create_subprocess_exec", create_subprocess_exec)
     try:
@@ -73,6 +78,7 @@ async def test_exec_variant_uses_the_lab_network(monkeypatch, tmp_path):
     monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", True)
     monkeypatch.setattr(sandbox, "SANDBOX_LAB_IMAGE", "portal5-attack:latest")
     monkeypatch.setattr(sandbox, "LAB_EXEC_AVAILABLE", True)
+    monkeypatch.setattr(sandbox, "LAB_EXEC_STATE", "ready")
     monkeypatch.setattr(sandbox.asyncio, "create_subprocess_exec", create_subprocess_exec)
     token = sandbox.WORKSPACE_ID.set("auto-security::purpleteam-exec")
     try:
@@ -106,10 +112,10 @@ def test_general_self_check_accepts_none_even_when_lab_mode_is_enabled(monkeypat
     def run(command, **_kwargs):
         calls.append(command)
         if command[1] == "create":
-            return SimpleNamespace(stdout="container-id\n")
+            return SimpleNamespace(returncode=0, stdout="container-id\n")
         if command[1] == "inspect":
-            return SimpleNamespace(stdout="none\n")
-        return SimpleNamespace(stdout="")
+            return SimpleNamespace(returncode=0, stdout="none\n")
+        return SimpleNamespace(returncode=0, stdout="")
 
     monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", True)
     monkeypatch.setattr(sandbox, "SANDBOX_ALLOW_NETWORK", False)
@@ -124,10 +130,10 @@ def test_general_self_check_accepts_none_even_when_lab_mode_is_enabled(monkeypat
 def test_general_self_check_rejects_a_networked_container(monkeypatch):
     def run(command, **_kwargs):
         if command[1] == "create":
-            return SimpleNamespace(stdout="container-id\n")
+            return SimpleNamespace(returncode=0, stdout="container-id\n")
         if command[1] == "inspect":
-            return SimpleNamespace(stdout="bridge\n")
-        return SimpleNamespace(stdout="")
+            return SimpleNamespace(returncode=0, stdout="bridge\n")
+        return SimpleNamespace(returncode=0, stdout="")
 
     monkeypatch.setattr(sandbox.subprocess, "run", run)
 
@@ -139,6 +145,7 @@ def test_startup_disables_only_general_executor_when_none_is_not_applied(monkeyp
     monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", True)
     monkeypatch.setattr(sandbox, "GENERAL_EXEC_AVAILABLE", True)
     monkeypatch.setattr(sandbox, "LAB_EXEC_AVAILABLE", False)
+    monkeypatch.setattr(sandbox, "_provision_executor_images", lambda: None)
     monkeypatch.setattr(
         sandbox,
         "_verify_general_network_isolation",
@@ -156,6 +163,7 @@ def test_startup_disables_only_lab_executor_when_lab_firewall_check_fails(monkey
     monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", True)
     monkeypatch.setattr(sandbox, "GENERAL_EXEC_AVAILABLE", True)
     monkeypatch.setattr(sandbox, "LAB_EXEC_AVAILABLE", True)
+    monkeypatch.setattr(sandbox, "_provision_executor_images", lambda: None)
     monkeypatch.setattr(sandbox, "_verify_general_network_isolation", lambda: None)
     monkeypatch.setattr(
         sandbox,
@@ -174,6 +182,7 @@ def test_startup_keeps_both_executors_when_both_policies_pass(monkeypatch):
     monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", True)
     monkeypatch.setattr(sandbox, "GENERAL_EXEC_AVAILABLE", False)
     monkeypatch.setattr(sandbox, "LAB_EXEC_AVAILABLE", False)
+    monkeypatch.setattr(sandbox, "_provision_executor_images", lambda: None)
     monkeypatch.setattr(
         sandbox,
         "_verify_general_network_isolation",
@@ -192,6 +201,164 @@ def test_startup_keeps_both_executors_when_both_policies_pass(monkeypatch):
     assert sandbox.LAB_EXEC_AVAILABLE is True
 
 
+def test_executor_images_are_provisioned_before_isolation_checks(monkeypatch):
+    calls: list[str] = []
+
+    def run(command, **_kwargs):
+        calls.append(" ".join(command))
+        if command[1:3] == ["image", "inspect"] and command[-1] == "node:20-alpine":
+            return SimpleNamespace(returncode=1, stdout="", stderr="missing")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", True)
+    monkeypatch.setattr(sandbox, "SANDBOX_LAB_IMAGE", "portal5-attack:latest")
+    monkeypatch.setattr(sandbox.subprocess, "run", run)
+    monkeypatch.setattr(
+        sandbox, "_verify_general_network_isolation", lambda: calls.append("general check")
+    )
+    monkeypatch.setattr(sandbox, "_verify_lab_network_isolation", lambda: None)
+
+    sandbox._verify_network_isolation()
+
+    assert "docker pull node:20-alpine" in calls
+    assert calls.index("docker pull node:20-alpine") < calls.index("general check")
+    for image in (sandbox.PYTHON_IMAGE, sandbox.NODE_IMAGE, sandbox.BASH_IMAGE, sandbox.PS_IMAGE):
+        assert f"docker image inspect {image}" in calls
+    assert "docker image inspect portal5-attack:latest" in calls
+
+
+def test_missing_executor_image_pull_uses_bounded_backoff(monkeypatch):
+    pull_attempts = 0
+    waits: list[float] = []
+
+    def run(command, **_kwargs):
+        nonlocal pull_attempts
+        if command[1:3] == ["image", "inspect"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="missing")
+        if command[1] == "pull":
+            pull_attempts += 1
+            return SimpleNamespace(
+                returncode=0 if pull_attempts == 3 else 1,
+                stdout="",
+                stderr="registry unavailable",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    for name in ("PYTHON_IMAGE", "NODE_IMAGE", "BASH_IMAGE", "PS_IMAGE"):
+        monkeypatch.setattr(sandbox, name, "python:3.11-slim")
+    monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", False)
+    monkeypatch.setattr(sandbox.subprocess, "run", run)
+    monkeypatch.setattr(sandbox.time, "sleep", waits.append)
+
+    sandbox._provision_executor_images()
+
+    assert pull_attempts == 3
+    assert waits == [1, 2]
+
+
+def test_missing_local_portal_image_waits_for_launcher_provisioning(monkeypatch):
+    commands: list[list[str]] = []
+
+    def run(command, **_kwargs):
+        commands.append(command)
+        if command[1] == "info":
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return SimpleNamespace(returncode=1, stdout="", stderr="missing")
+
+    for name in ("PYTHON_IMAGE", "NODE_IMAGE", "BASH_IMAGE", "PS_IMAGE"):
+        monkeypatch.setattr(sandbox, name, "portal5-sandbox-data:latest")
+    monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", False)
+    monkeypatch.setattr(sandbox.subprocess, "run", run)
+
+    with pytest.raises(sandbox.ExecutorNotReadyError, match="awaiting launch provisioning"):
+        sandbox._provision_executor_images()
+
+    assert not any(command[1] == "pull" for command in commands)
+
+
+def test_daemon_not_ready_leaves_executor_starting_until_a_later_check(monkeypatch):
+    daemon_ready = False
+    checked: list[str] = []
+
+    def run(command, **_kwargs):
+        if command[1] == "info" and not daemon_ready:
+            return SimpleNamespace(returncode=1, stdout="", stderr="Cannot connect")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", False)
+    monkeypatch.setattr(sandbox.subprocess, "run", run)
+    monkeypatch.setattr(
+        sandbox, "_verify_general_network_isolation", lambda: checked.append("general")
+    )
+    monkeypatch.setattr(sandbox, "_verify_lab_network_isolation", lambda: None)
+
+    sandbox._verify_network_isolation()
+
+    assert sandbox.GENERAL_EXEC_STATE == "starting"
+    assert sandbox.GENERAL_EXEC_AVAILABLE is False
+    assert sandbox._executor_unavailable(False)["error_type"] == "general_executor_starting"
+    response = asyncio.run(sandbox.health_check(None))
+    assert response.status_code == 503
+    assert json.loads(response.body)["executors"]["general"]["state"] == "starting"
+    assert checked == []
+
+    daemon_ready = True
+    sandbox._verify_network_isolation()
+
+    assert sandbox.GENERAL_EXEC_STATE == "ready"
+    assert sandbox.GENERAL_EXEC_AVAILABLE is True
+    assert checked == ["general"]
+
+
+def test_isolation_violation_disables_executor_and_degrades_health(monkeypatch):
+    monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", False)
+    monkeypatch.setattr(sandbox, "_provision_executor_images", lambda: None)
+    monkeypatch.setattr(
+        sandbox,
+        "_verify_general_network_isolation",
+        lambda: (_ for _ in ()).throw(sandbox.ExecutorIsolationError("network mode is bridge")),
+    )
+
+    sandbox._verify_network_isolation()
+    response = asyncio.run(sandbox.health_check(None))
+    payload = json.loads(response.body)
+
+    assert sandbox.GENERAL_EXEC_STATE == "disabled"
+    assert sandbox._executor_unavailable(False)["error_type"] == "general_executor_unavailable"
+    assert response.status_code == 503
+    assert payload["status"] == "degraded"
+    assert payload["executors"]["general"]["state"] == "disabled"
+
+
+def test_monitor_rechecks_disabled_executor_and_recovers(monkeypatch):
+    class StopAfterTwoWaits:
+        waits = 0
+
+        def is_set(self):
+            return self.waits >= 2
+
+        def wait(self, _timeout):
+            self.waits += 1
+
+    checks = 0
+
+    def check():
+        nonlocal checks
+        checks += 1
+        if checks == 1:
+            sandbox.GENERAL_EXEC_STATE = "disabled"
+            sandbox.GENERAL_EXEC_AVAILABLE = False
+        else:
+            sandbox.GENERAL_EXEC_STATE = "ready"
+            sandbox.GENERAL_EXEC_AVAILABLE = True
+
+    monkeypatch.setattr(sandbox, "_verify_network_isolation", check)
+    sandbox._executor_monitor_loop(StopAfterTwoWaits())
+
+    assert checks == 2
+    assert sandbox.GENERAL_EXEC_STATE == "ready"
+
+
 def test_lab_self_check_accepts_only_firewalled_dedicated_network(monkeypatch, tmp_path):
     network_id = "a" * 64
     bridge = f"br-{network_id[:12]}"
@@ -205,6 +372,26 @@ def test_lab_self_check_accepts_only_firewalled_dedicated_network(monkeypatch, t
     monkeypatch.setattr(sandbox.subprocess, "run", lambda *_args, **_kwargs: _lab_network_inspect())
 
     sandbox._verify_lab_network_isolation()
+
+
+@pytest.mark.parametrize(
+    ("receipt", "expected_state"),
+    [("daemon-unavailable", "starting"), ("unavailable", "disabled")],
+)
+def test_lab_receipt_distinguishes_daemon_startup_from_firewall_failure(
+    monkeypatch, tmp_path, receipt, expected_state
+):
+    status_file = tmp_path / "lab-network-status"
+    status_file.write_text(f"{receipt}\n", encoding="utf-8")
+    monkeypatch.setattr(sandbox, "SANDBOX_LAB_EXEC", True)
+    monkeypatch.setattr(sandbox, "SANDBOX_LAB_TARGET_NETWORK", "192.168.56.0/24")
+    monkeypatch.setattr(sandbox, "LAB_EXEC_STATUS_FILE", status_file)
+    monkeypatch.setattr(sandbox, "_provision_executor_images", lambda: None)
+    monkeypatch.setattr(sandbox, "_verify_general_network_isolation", lambda: None)
+
+    sandbox._verify_network_isolation()
+
+    assert expected_state == sandbox.LAB_EXEC_STATE
 
 
 @pytest.mark.parametrize("target", ["", "0.0.0.0/0", "8.8.8.0/24", "10.0.0.0/8"])
@@ -248,10 +435,16 @@ def test_dind_lab_startup_installs_target_only_firewall_rules(tmp_path):
     rule_log = tmp_path / "rules.log"
     status_dir = tmp_path / "status"
     commands = {
-        "dockerd-entrypoint.sh": "#!/bin/sh\nexit 0\n",
+        "dockerd-entrypoint.sh": '#!/bin/sh\nprintf \'%s\\n\' "$@" >"$ENTRYPOINT_ARGS_FILE"\n'
+        'until [ -s "$PORTAL5_LAB_STATUS_DIR/lab-network-status" ]; do sleep 0.01; done\n',
         "docker": """#!/bin/sh
 case "$1:$2" in
-    info:) exit 0 ;;
+    info:)
+        count=0
+        [ -f "$DOCKER_INFO_COUNT" ] && count=$(cat "$DOCKER_INFO_COUNT")
+        count=$((count + 1))
+        echo "$count" >"$DOCKER_INFO_COUNT"
+        [ "$count" -ge 3 ] ;;
     network:ls) echo 'bridge host none portal5-labexec' ;;
     network:inspect)
         [ "$3" = '--format' ] || exit 0
@@ -306,16 +499,34 @@ esac
             "PORTAL5_LAB_STATUS_DIR": str(status_dir),
             "RULE_LOG": str(rule_log),
             "RULE6_LOG": str(tmp_path / "rules6.log"),
+            "DOCKER_INFO_COUNT": str(tmp_path / "docker-info-count"),
             "SANDBOX_LAB_EXEC": "true",
             "LAB_TARGET_NETWORK": "192.168.56.0/24",
+            "ENTRYPOINT_ARGS_FILE": str(tmp_path / "entrypoint-args"),
         }
     )
     script = Path("portal/modules/coding/tools/dind_lab_network.sh")
     result = subprocess.run(
-        ["sh", str(script)], capture_output=True, text=True, env=env, timeout=10
+        [
+            "sh",
+            str(script),
+            "dockerd",
+            "--host=unix:///var/run/docker.sock",
+            "--host=tcp://0.0.0.0:2375",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
     )
 
     assert result.returncode == 0, result.stderr
+    assert (tmp_path / "docker-info-count").read_text(encoding="utf-8").strip() == "3"
+    assert (tmp_path / "entrypoint-args").read_text(encoding="utf-8").splitlines() == [
+        "dockerd",
+        "--host=unix:///var/run/docker.sock",
+        "--host=tcp://0.0.0.0:2375",
+    ]
     assert (status_dir / "lab-network-status").read_text(encoding="utf-8").splitlines() == [
         "portal5-labexec-v1",
         "192.168.56.0/24",

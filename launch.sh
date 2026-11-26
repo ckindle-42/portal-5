@@ -180,11 +180,9 @@ case "${1:-up}" in
         docker compose run --rm openwebui-init &
     fi
 
-    # Pruning is one step: the sandbox images are ensured first (a manual prune
-    # can leave one absent), then _disk_hygiene after the health gate below
-    # (a failed start keeps the old images for rollback).
-    _wait_up_health
+    # Restore local sandbox executor images before their readiness gate.
     _ensure_sandbox_images
+    _wait_up_health
     _disk_hygiene
 
     echo "[portal-5] Stack started."
