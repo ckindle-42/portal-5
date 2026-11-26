@@ -264,6 +264,77 @@ class TestVideoStartLifecycle:
         reply = await video_mcp.video_status("nosuchjob", wait_s=0.0)
         assert reply["status"] == "unknown"
 
+    @pytest.mark.asyncio
+    async def test_default_frame_is_the_measured_512_bucket(self, monkeypatch):
+        keys: list[str] = []
+
+        async def fake_admit(key: str) -> None:
+            keys.append(key)
+
+        async def fake_gen(*_a: Any, **_k: Any) -> dict[str, Any]:
+            return {"success": True}
+
+        monkeypatch.setattr(video_mcp, "admit", fake_admit)
+        monkeypatch.setattr(video_mcp, "_generate", fake_gen)
+        start = await video_mcp.video_start(prompt="waves")
+        assert start["width"] == 512 and start["height"] == 320
+        assert "video_mlx:ltx-2.5-q4-512" in keys
+        assert "render budget" in start["message"]
+
+    @pytest.mark.asyncio
+    async def test_oversized_frame_renders_at_512_when_704_does_not_fit(self, monkeypatch):
+        rendered: list[tuple[int, int]] = []
+
+        async def fake_admit(key: str) -> dict[str, Any] | None:
+            if key.endswith("-704"):
+                return {
+                    "success": False,
+                    "retryable": True,
+                    "error": "Not enough free memory right now: 704",
+                }
+            return None
+
+        async def fake_gen(
+            _prompt: str,
+            _model: str,
+            _frames: int,
+            width: int,
+            height: int,
+            *_a: Any,
+            **_k: Any,
+        ) -> dict[str, Any]:
+            rendered.append((width, height))
+            return {"success": True, "download_url": "http://x/v.mp4", "url": "http://x/v.mp4"}
+
+        monkeypatch.setattr(video_mcp, "admit", fake_admit)
+        monkeypatch.setattr(video_mcp, "_generate", fake_gen)
+        start = await video_mcp.video_start(prompt="waves", width=704, height=480)
+        assert start["success"] is True
+        assert start["width"] == 512 and start["height"] == 320
+        done = await video_mcp.video_status(start["job_id"], wait_s=2.0)
+        assert done["status"] == "done"
+        assert rendered == [(512, 320)]
+        assert "512x320" in done["resolution_note"]
+        assert done["download_url"] == "http://x/v.mp4"
+
+    @pytest.mark.asyncio
+    async def test_memory_refusal_is_terminal_and_starts_no_job(self, monkeypatch):
+        async def fake_admit(_key: str) -> dict[str, Any]:
+            return {
+                "success": False,
+                "retryable": True,
+                "error": "Not enough free memory right now: test",
+            }
+
+        monkeypatch.setattr(video_mcp, "admit", fake_admit)
+        reply = await video_mcp.video_start(prompt="waves", width=704, height=480)
+        assert reply["success"] is False
+        assert reply["retryable"] is False
+        assert "job_id" not in reply
+        assert "No video was started" in reply["error"]
+        assert "Do not call video_start again" in reply["error"]
+        assert reply["user_error"] == reply["error"]
+
 
 class TestVideoModels:
     @pytest.mark.asyncio

@@ -20,6 +20,7 @@ fallback for this engine. Output is preview-grade and practically capped at
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import uuid
 from collections.abc import Awaitable, Callable
@@ -41,6 +42,8 @@ from portal.platform.mcp_host import assert_public_http_url, resolve_upload_path
 from portal.platform.mcp_host.eval_scope import bind_native_context
 from portal.platform.mcp_host.owui_files import publish_file
 from portal.platform.mcp_host.workspace import get_generated_dir
+
+logger = logging.getLogger(__name__)
 
 port = int(os.getenv("VIDEO_MLX_MCP_PORT", "8935"))
 mcp = MCPServer("video-mlx-generation")
@@ -135,6 +138,11 @@ def _cached_pack(repo_id: str) -> Path | None:
     return pack if any(pack.glob("*.safetensors")) else None
 
 
+# Measured LTX frame. 704x480 is an unmeasured ~25GB estimate and is often refused.
+_MEASURED_LTX_WIDTH = 512
+_MEASURED_LTX_HEIGHT = 320
+
+
 def _media_model_key(model: str, width: int, height: int) -> str:
     """Size-aware admission key: the LTX peak scales with resolution (measured
     15.8GiB at 512x320, estimated ~25GB at 704x480), Wan2.2-5B does not."""
@@ -143,6 +151,47 @@ def _media_model_key(model: str, width: int, height: int) -> str:
         return f"video_mlx:{key}"
     bucket = "512" if width * height <= 512 * 320 else "704"
     return f"video_mlx:{key}-{bucket}"
+
+
+def _terminal_memory_refusal(refusal: dict[str, Any]) -> dict[str, Any]:
+    """A same-turn retry cannot free the model serving the turn, so the refusal is final."""
+    error = str(refusal.get("error") or "Not enough free memory to start a video.")
+    text = (
+        f"{error} No video was started; this check finished immediately. "
+        f"A started render is limited to {VIDEO_MLX_TIMEOUT}s and video_status waits up to "
+        f"{int(DEFAULT_STATUS_WAIT_S)}s. Do not call video_start again in this turn; "
+        "repeat this error to the user."
+    )
+    logger.warning("video_start memory refusal: %s", error)
+    return {**refusal, "success": False, "retryable": False, "error": text, "user_error": text}
+
+
+async def _admit_size(
+    model: str, width: int, height: int
+) -> tuple[str, int, int, dict[str, Any] | None]:
+    """Admit the requested frame, or the measured 512x320 LTX frame when the larger one does not fit."""
+    width, height = int(width), int(height)
+    key = _media_model_key(model, width, height)
+    refusal = await admit(key)
+    if not refusal:
+        return key, width, height, None
+    if (
+        _engine_cfg(model)["engine"] == "ltx"
+        and width * height > _MEASURED_LTX_WIDTH * _MEASURED_LTX_HEIGHT
+    ):
+        safe_key = _media_model_key(model, _MEASURED_LTX_WIDTH, _MEASURED_LTX_HEIGHT)
+        safe_refusal = await admit(safe_key)
+        if not safe_refusal:
+            logger.info(
+                "video_start shrinking %sx%s to %sx%s after admission refusal",
+                width,
+                height,
+                _MEASURED_LTX_WIDTH,
+                _MEASURED_LTX_HEIGHT,
+            )
+            return safe_key, _MEASURED_LTX_WIDTH, _MEASURED_LTX_HEIGHT, None
+        refusal = safe_refusal
+    return key, width, height, _terminal_memory_refusal(refusal)
 
 
 def _round_frames(frames: int, step: int) -> int:
@@ -314,20 +363,72 @@ async def _generate(
     }
 
 
+def _note_shrunk(
+    result: dict[str, Any], requested: tuple[int, int], size: tuple[int, int]
+) -> dict[str, Any]:
+    """Record when admission rendered a smaller frame than the one requested."""
+    if result.get("success") and size != requested:
+        result["resolution_note"] = (
+            f"Rendered at {size[0]}x{size[1]} because {requested[0]}x{requested[1]} "
+            "did not fit in free memory."
+        )
+        result["width"] = size[0]
+        result["height"] = size[1]
+    return result
+
+
+async def _render_admitted(
+    progress: Any,
+    *,
+    prompt: str,
+    resolved: str,
+    frames: int,
+    requested: tuple[int, int],
+    render_w: int,
+    render_h: int,
+    seed: int,
+    fps: int,
+    quality: str,
+    src: Path | None,
+) -> dict[str, Any]:
+    """Re-check memory, render, and note a shrink from the requested frame."""
+    progress(1, "Checking memory before model load…")
+    _late_key, late_w, late_h, late = await _admit_size(resolved, render_w, render_h)
+    if late:
+        return late
+    engine = _engine_cfg(resolved)["engine"]
+    rounded = _round_frames(int(frames), 4 if engine == "wan" else 8)
+    progress(
+        2, f"Rendering video ({resolved}, {rounded} frames, {late_w}x{late_h}, quality={quality})…"
+    )
+    result = await _generate(
+        prompt,
+        resolved,
+        int(frames),
+        late_w,
+        late_h,
+        int(seed),
+        int(fps),
+        image_path=src,
+        quality=quality,
+    )
+    return _note_shrunk(result, requested, (late_w, late_h))
+
+
 @mcp.tool()
 async def video_start(
     prompt: str,
     model: str = VIDEO_MLX_DEFAULT_MODEL,
     frames: int = 97,
-    width: int = 704,
-    height: int = 480,
+    width: int = _MEASURED_LTX_WIDTH,
+    height: int = _MEASURED_LTX_HEIGHT,
     seed: int = 42,
     fps: int = 24,
     image_url: str | None = None,
     quality: str = VIDEO_MLX_QUALITY,
     duration_seconds: float | None = None,
 ) -> dict[str, Any]:
-    """Start a video job; duration_seconds requests seconds (default 4s, max 6s) and overrides frames."""
+    """Start a video job. duration_seconds overrides frames; a frame that does not fit renders at 512x320."""
     if not prompt:
         return {"success": False, "error": "prompt is required"}
     if quality not in ("fast", "hq"):
@@ -335,9 +436,10 @@ async def video_start(
     if duration_seconds is not None:
         frames = min(145, max(25, int(round(duration_seconds * fps)) + 1))
     resolved = _model_key(model)
-    model_key = _media_model_key(resolved, width, height)
+    requested = (int(width), int(height))
+    render_w, render_h = requested
     if not _JOBS.is_busy:
-        refusal = await admit(model_key)
+        _key, render_w, render_h, refusal = await _admit_size(resolved, *requested)
         if refusal:
             return refusal
     src: Path | None = None
@@ -348,35 +450,44 @@ async def video_start(
             return {"success": False, "error": str(e)}
 
     async def _run(progress: Any) -> dict[str, Any]:
-        progress(1, "Checking memory before model load…")
-        late_refusal = await admit(model_key)
-        if late_refusal:
-            return late_refusal
-        engine = _engine_cfg(resolved)["engine"]
-        rounded = _round_frames(int(frames), 4 if engine == "wan" else 8)
-        progress(2, f"Rendering video ({resolved}, {rounded} frames, quality={quality})…")
-        return await _generate(
-            prompt,
-            resolved,
-            int(frames),
-            int(width),
-            int(height),
-            int(seed),
-            int(fps),
-            image_path=src,
+        return await _render_admitted(
+            progress,
+            prompt=prompt,
+            resolved=resolved,
+            frames=int(frames),
+            requested=requested,
+            render_w=render_w,
+            render_h=render_h,
+            seed=int(seed),
+            fps=int(fps),
             quality=quality,
+            src=src,
         )
 
     job_id = _JOBS.start(
         _run, extra_fields={"model": resolved, "seed": int(seed), "quality": quality}
     )
+    logger.info(
+        "video job %s queued model=%s %sx%s quality=%s budget=%ss",
+        job_id,
+        resolved,
+        render_w,
+        render_h,
+        quality,
+        VIDEO_MLX_TIMEOUT,
+    )
     return start_reply(
         job_id,
         "video_status",
-        f"model={resolved}, quality={quality}",
+        (
+            f"model={resolved}, quality={quality}, {render_w}x{render_h}, "
+            f"render budget {VIDEO_MLX_TIMEOUT}s"
+        ),
         model=resolved,
         seed=int(seed),
         quality=quality,
+        width=render_w,
+        height=render_h,
     )
 
 

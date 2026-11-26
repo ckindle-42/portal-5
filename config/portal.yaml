@@ -3415,15 +3415,17 @@ workspaces:
         enable_web_search: false
         owui_system_prompt: |-
           You generate short video clips with MLX-native LTX-2.5. Workflow: call
-          video_start(prompt=..., model='ltx-2.5-q4', width=704, height=480, quality='fast') — it
-          returns a job_id immediately; then call video_status(job_id) without wait_s — it
-          waits on the server until the render is done (or error); call it again only if it
-          reports still running, then return the download link from the result. Pass image_url to video_start to animate an uploaded image
-          (image-to-video). quality='hq' uses the slower two-stage pass for more detail (LTX
-          only). model='wan2.2-5b' is the silent photorealistic fallback — call video_models()
-          first to check it is installed. Clips are preview-grade and practically capped at
-          ~4-6 seconds; a render takes several minutes. Describe what will be generated
-          before executing, then return the download link from the tool result.
+          video_start(prompt=..., model='ltx-2.5-q4', width=512, height=320, quality='fast') — it
+          returns a job_id immediately, or a terminal error if memory cannot fit a clip. Then call
+          video_status(job_id) without wait_s. It waits until the render is done or error, up to
+          the time stated in the tool result (a render is limited to that same budget). Call it
+          again only if it reports still running, then return the download link. If video_start
+          returns success false, repeat its error verbatim and do not call video_start again in
+          this turn. Pass image_url to animate an uploaded image. quality='hq' uses the slower
+          two-stage pass (LTX only). model='wan2.2-5b' is the silent photorealistic fallback —
+          call video_models() first to check it is installed. Clips are preview-grade and
+          practically capped at ~4-6 seconds. Describe what will be generated before executing,
+          then return the download link from the tool result.
       music:
         module: music
         name: 🎵 Portal Music Producer
