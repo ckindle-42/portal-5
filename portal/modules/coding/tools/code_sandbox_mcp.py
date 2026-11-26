@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import ipaddress
 import json
 import logging
@@ -152,6 +153,7 @@ LAB_EXEC_STATE = "starting" if SANDBOX_LAB_EXEC else "disabled"
 GENERAL_EXEC_ERROR = "executor startup checks have not completed"
 LAB_EXEC_ERROR = "lab execution is not enabled"
 EXECUTOR_STATE_LOCK = threading.Lock()
+SESSION_DIR_LOCK = threading.Lock()
 EXECUTOR_IMAGE_PULL_RETRIES = 3
 EXECUTOR_IMAGE_PULL_TIMEOUT = 120
 EXECUTOR_RECHECK_MAX_SECONDS = 30
@@ -500,13 +502,28 @@ def _resolve_image(default_image: str, lab_exec: bool = False) -> str:
 
 
 def _safe_session_id(session_id: str) -> str:
-    """Return the filesystem-safe canonical form of a session identifier."""
-    return "".join(c for c in session_id if c.isalnum() or c in ("-", "_"))[:48] or "default"
+    """Return a fixed-length filesystem-safe key for a session identifier."""
+    return hashlib.sha256(session_id.encode("utf-8")).hexdigest()
 
 
 def _session_dir(session_id: str) -> Path:
-    d = SANDBOX_SESSIONS_DIR / _safe_session_id(session_id)
-    d.mkdir(parents=True, exist_ok=True)
+    root = SANDBOX_SESSIONS_DIR / "v2"
+    key = _safe_session_id(session_id)
+    d = root / key
+    owner_file = root / f"{key}.owner"
+    with SESSION_DIR_LOCK:
+        d.mkdir(parents=True, exist_ok=True)
+        if not owner_file.exists():
+            temp_file = root / f".{key}.{uuid.uuid4().hex}.tmp"
+            temp_file.write_text(session_id, encoding="utf-8")
+            try:
+                os.link(temp_file, owner_file)
+            except FileExistsError:
+                pass
+            finally:
+                temp_file.unlink(missing_ok=True)
+        if owner_file.read_text(encoding="utf-8") != session_id:
+            raise RuntimeError("session identifier key collision")
     return d
 
 
@@ -546,21 +563,34 @@ def _publish_artifacts(out_dir: Path) -> list[dict[str, Any]]:
 
 
 def _list_sessions() -> list[dict[str, Any]]:
-    if not SANDBOX_SESSIONS_DIR.is_dir():
+    root = SANDBOX_SESSIONS_DIR / "v2"
+    if not root.is_dir():
         return []
-    return [
-        {"session_id": d.name, "bytes": _directory_size(d)}
-        for d in sorted(SANDBOX_SESSIONS_DIR.iterdir())
-        if d.is_dir()
-    ]
+    sessions = []
+    for directory in sorted(root.iterdir()):
+        if not directory.is_dir():
+            continue
+        owner_file = root / f"{directory.name}.owner"
+        try:
+            session_id = owner_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        sessions.append({"session_id": session_id, "bytes": _directory_size(directory)})
+    return sessions
 
 
 def _reset_session(session_id: str) -> dict[str, Any]:
     safe = _safe_session_id(session_id)
-    d = SANDBOX_SESSIONS_DIR / safe
-    if d.is_dir():
-        shutil.rmtree(d)
-    return {"session_id": safe, "reset": True}
+    root = SANDBOX_SESSIONS_DIR / "v2"
+    d = root / safe
+    owner_file = root / f"{safe}.owner"
+    with SESSION_DIR_LOCK:
+        if d.is_dir():
+            if not owner_file.is_file() or owner_file.read_text(encoding="utf-8") != session_id:
+                raise RuntimeError("session identifier key collision")
+            shutil.rmtree(d)
+            owner_file.unlink()
+    return {"session_id": session_id, "reset": True}
 
 
 async def _install_packages(
