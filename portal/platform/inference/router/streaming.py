@@ -65,7 +65,7 @@ from portal.platform.inference.router.eval_gate import (
     apply_bite_tool_scope,
     apply_eval_scope,
     filter_bite_client_tools,
-    offered_tool_names,
+    note_tools_exposed,
     resolve_bite_tool_pool,
 )
 from portal.platform.inference.router.metrics import (
@@ -118,6 +118,7 @@ from portal.platform.inference.router.tools import (
     _select_explicit_required_tools,
     format_tool_result_carry,
     partition_tool_calls,
+    scope_offer_tools,
 )
 from portal.platform.inference.router.trace import (
     StreamMeasurement,
@@ -2978,6 +2979,7 @@ async def _build_streaming_request(
     _client_tools_only = bool(backend_body.pop("portal_client_tools_only", False))
     if _client_tools_only or backend_body.get("tool_choice") == "none":
         effective_tools = []  # client-only tools, or a turn that asks for no tools
+    _eval_scoped = "portal_eval" in backend_body
     effective_tools = apply_eval_scope(backend_body, effective_tools)
     effective_tools, _bite_allowlist = apply_bite_tool_scope(backend_body, effective_tools)
     # Per-model supports_tools lookup for both backend types — see
@@ -3016,7 +3018,9 @@ async def _build_streaming_request(
             target_model,
         )
 
+    _tools_scope = "none"
     if _has_tools and _client_tools_only:
+        _tools_scope = "client"
         backend_body["tool_choice"] = backend_body.get("tool_choice") or "auto"
     elif _has_tools:
         from portal.platform.inference.tool_registry import tool_registry
@@ -3047,6 +3051,17 @@ async def _build_streaming_request(
             effective_tools,
             tool_registry.list_tool_names(),
         )
+        _tools_scope = "required" if _required_tools else "full"
+        if not _required_tools:
+            _offer_tools, _tools_scope = scope_offer_tools(
+                backend_body,
+                effective_tools,
+                WORKSPACES.get(workspace_id, {}),
+                _resolve_persona_tool_choice(persona_data),
+                eval_scoped=_eval_scoped,
+                bite_scoped=_bite_allowlist is not None,
+                registered_names=tool_registry.list_tool_names(),
+            )
         tools_array = tool_registry.get_openai_tools(_offer_tools)
         # Merge client-injected tools with workspace tools — clients
         # (e.g. bench blue/purple) may inject domain-specific tools
@@ -3070,17 +3085,18 @@ async def _build_streaming_request(
                 or "auto"
             )
             logger.info(
-                "Tool-call: workspace=%s persona=%s exposed %d tools (merged)",
+                "Tool-call: workspace=%s persona=%s exposed %d tools (merged, scope=%s)",
                 workspace_id,
                 persona,
                 len(tools_array),
+                _tools_scope,
             )
         else:
             _has_tools = False
 
     if not _has_tools:
         backend_body.pop("portal_bite_max_hops", None)
-    trace_note(tools_offered=offered_tool_names(backend_body))
+    note_tools_exposed(backend_body, _tools_scope)
     return backend_body, effective_tools, _has_tools, _portal_no_tools
 
 
