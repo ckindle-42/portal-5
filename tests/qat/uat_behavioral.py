@@ -19,16 +19,88 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+import httpx
 import yaml
 
 from .artifacts import raw_tool_error_leak, validate_pdf
 from .browser_ui import BrowserUI, PlaywrightUnavailable
 from .config import PERSONA_DIR, REPO_ROOT, Discovery, Settings, workspace_tools_for
-from .models import QATResult, QATScenario, Status, classify_defect
-from .owui_client import OWUIClient, artifact_urls
+from .models import DefectClass, QATResult, QATScenario, Status, classify_defect
+from .owui_client import ArtifactDownloadError, OWUIClient, artifact_urls
 
 UAT_PHASE = "human_grade"
 GENERATED_DOCX = "uat:upload-generated-docx"
+#: The product STT path: the host MLX transcribe service OWUI itself calls (:8924).
+TRANSCRIBE_URL = "http://127.0.0.1:8924/v1/audio/transcriptions"
+#: Harness-ASR vs transcript word-overlap floor for stt_accuracy (not human WER).
+_ASR_WORD_OVERLAP_FLOOR = 0.8
+_NUMBER_WORDS = {
+    "zero": "0",
+    "one": "1",
+    "two": "2",
+    "three": "3",
+    "four": "4",
+    "five": "5",
+    "six": "6",
+    "seven": "7",
+    "eight": "8",
+    "nine": "9",
+}
+
+
+def transcribe_wav(data: bytes, filename: str = "artifact.wav") -> str:
+    """Transcribe audio bytes through the platform STT path (host :8924)."""
+    with httpx.Client(timeout=600.0) as client:
+        response = client.post(TRANSCRIBE_URL, files={"file": (filename, data, "audio/wav")})
+    if response.status_code != 200:
+        raise RuntimeError(f"transcribe service returned HTTP {response.status_code}")
+    return str(response.json().get("text", "")).strip()
+
+
+def _spoken_words(text: str) -> list[str]:
+    words = re.findall(r"[a-z0-9]+", text.casefold())
+    return [_NUMBER_WORDS.get(word, word) for word in words]
+
+
+def _missing_speech_words(requested: str, heard: str) -> list[str]:
+    heard_words = set(_spoken_words(heard))
+    return [word for word in _spoken_words(requested) if word not in heard_words]
+
+
+def _word_overlap(gold: str, candidate: str) -> float:
+    words = set(_spoken_words(gold))
+    if not words:
+        return 1.0
+    present = words & set(_spoken_words(candidate))
+    return len(present) / len(words)
+
+
+def _docx_text(data: bytes) -> str:
+    try:
+        from docx import Document
+
+        document = Document(io.BytesIO(data))
+        return "\n".join(
+            [p.text for p in document.paragraphs]
+            + [c.text for t in document.tables for r in t.rows for c in r.cells]
+        )
+    except Exception:
+        return ""
+
+
+def _gold_transcript(attachment: str) -> str:
+    """Harness ASR of the fixture audio; "" when no fixture or service is available."""
+    if not attachment:
+        return ""
+    path = Path(attachment)
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    if not path.is_file():
+        return ""
+    try:
+        return transcribe_wav(path.read_bytes(), path.name)
+    except Exception:
+        return ""
 
 
 @dataclass(frozen=True)
@@ -108,9 +180,6 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
     math = _variant_preset(discovery, "math")
     daily = _workspace_preset(discovery, "general", ("daily",))
     if coding:
-        expected: dict[str, object] = {"target": coding}
-        if daily:
-            expected["followup_targets"] = list(dict.fromkeys((coding, daily)))
         cases.append(
             _case(
                 discovery,
@@ -125,21 +194,10 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                     "as the target service account?",
                 ),
                 "route",
-                expected,
+                {"target": coding},
             )
         )
     if security:
-        destinations = tuple(
-            dict.fromkeys(
-                preset
-                for preset in (
-                    _workspace_preset(discovery, "general", ("daily",)),
-                    _workspace_preset(discovery, "reasoning"),
-                    security,
-                )
-                if preset
-            )
-        )
         security_workspace = discovery.workspaces.get(security)
         cases.append(
             _case(
@@ -156,7 +214,7 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 ),
                 "route_security_handoff",
                 {
-                    "targets": list(destinations),
+                    "targets": [security],
                     "handoff_target": security,
                     "handoff_name": security_workspace.name if security_workspace else security,
                 },
@@ -436,7 +494,10 @@ def _media_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                         "I uploaded the WAV you just generated. Use transcribe_audio and report the words you can hear.",
                     ),
                     "tts_quality",
-                    expected={"upload_kind": "wav"},
+                    expected={
+                        "upload_kind": "wav",
+                        "speech": "Portal five acceptance check. The sample access code is blue seven.",
+                    },
                     expected_tools=("speak", "transcribe_audio"),
                     artifact_kind="wav",
                     timeout_s=900.0,
@@ -454,6 +515,7 @@ def _media_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                         "Use clone_voice with the attached two-speaker sample to create a one-off voice that says: 'Portal five voice check complete.' Return the generated WAV link. Do not invent or report a transcript of the source clip.",
                     ),
                     "voice_clone_quality",
+                    expected={"speech": "Portal five voice check complete."},
                     expected_tools=("clone_voice",),
                     artifact_kind="wav",
                     attachment="tests/fixtures/sample_two_speakers.wav",
@@ -1525,6 +1587,15 @@ def _grade_security_route_case(
     return errors
 
 
+def _asserts_integral_result(lowered: str) -> bool:
+    """An e-2 occurrence counts unless every one is preceded by a negation."""
+    for match in re.finditer(r"(?<![a-z0-9])e\s*(?:-|−)\s*2(?![a-z0-9])", lowered):
+        prefix = lowered[max(0, match.start() - 24) : match.start()]
+        if not re.search(r"\b(?:not|n't|never|isn't|cannot|can't)\b", prefix):
+            return True
+    return False
+
+
 def _grade_math_case(
     case: UATCase,
     turns: list[UATTurn],
@@ -1534,10 +1605,10 @@ def _grade_math_case(
 ) -> list[str]:
     errors = _grade_route_case(case, turns, payloads, text, evidence)
     lowered = text.casefold()
-    if not ("e - 2" in lowered or "e−2" in lowered or "e-2" in lowered):
-        errors.append("answer omitted the exact integral result e - 2")
-    if "derivative" not in lowered or not re.search(r"\b0\.\d{3}\b", lowered):
-        errors.append("follow-up omitted the derivative check or three-place decimal")
+    if not _asserts_integral_result(lowered):
+        errors.append("answer omitted or denied the exact integral result e - 2")
+    if "derivative" not in lowered or not re.search(r"\b0\.718\b", lowered):
+        errors.append("follow-up omitted the derivative check or the three-place decimal 0.718")
     return errors
 
 
@@ -1564,6 +1635,37 @@ def _grade_daily_case(
     return errors
 
 
+_CAUSAL_AFFIRMATION = (
+    re.compile(r"\bcaused?\s+the\s+increase\b"),
+    re.compile(r"\bfeature\s+(?:did\s+|does\s+|must\s+have\s+)?caused?\b"),
+    re.compile(r"\b(?:implies|proves|confirms|establishes|means)\s+causation\b"),
+    re.compile(r"\bcausation\s+(?:is\s+)?(?:established|confirmed|proven)\b"),
+    re.compile(r"\brelationship\s+is\s+causal\b"),
+)
+_NEGATION = re.compile(r"\b(?:not|n't|never|cannot|can't|unable|no evidence)\b")
+
+
+def _asserts_causation(answer: str) -> bool:
+    for pattern in _CAUSAL_AFFIRMATION:
+        for match in pattern.finditer(answer):
+            prefix = answer[max(0, match.start() - 24) : match.start()]
+            if not _NEGATION.search(prefix):
+                return True
+    return False
+
+
+def _spreadsheet_shows_computed_c1(answer: str) -> bool:
+    lowered = answer.casefold()
+    if re.search(r"\|\s*1\s*\|\s*2\s*\|\s*3\s*\|", lowered):
+        return True
+    if re.search(r"sum\s*\(\s*a1\s*[^)]*b1\s*\)\s*(?:=|is|:|→)\s*3\b", lowered):
+        return True
+    return all(
+        re.search(rf"\b{cell}\b[^0-9]{{0,20}}{value}\b", lowered)
+        for cell, value in (("a1", "1"), ("b1", "2"), ("c1", "3"))
+    )
+
+
 def _grade_persona_case(
     case: UATCase,
     turns: list[UATTurn],
@@ -1586,7 +1688,9 @@ def _grade_persona_case(
             )
             and any(word in answer for word in ("confirm", "backup", "authorization", "approval"))
         ),
-        "correlation": lambda answer: "correlation does not imply causation" in answer,
+        "correlation": lambda answer: (
+            "correlation does not imply causation" in answer and not _asserts_causation(answer)
+        ),
         "imbalance": lambda answer: (
             "class imbalance" in answer
             and any(word in answer for word in ("precision", "recall", "pr-auc", "pr auc"))
@@ -1600,7 +1704,7 @@ def _grade_persona_case(
         "terminal_contract": lambda answer: (
             answer.startswith("```") and "uat_terminal_42" in answer
         ),
-        "spreadsheet_contract": lambda answer: answer.startswith("|") and "3" in answer,
+        "spreadsheet_contract": _spreadsheet_shows_computed_c1,
     }
     check = checks.get(case.grader)
     return (
@@ -1685,25 +1789,24 @@ def _grade_audio_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del turns
+    del turns, text
     minimum = 8.0 if case.grader == "music_quality" else 1.0
     errors = _grade_wav(payloads, minimum)
     wav_data = _first(payloads, "wav")
     if wav_data:
         _, metrics = validate_wav_quality(wav_data, minimum)
         evidence["audio_metrics"] = metrics
-    if case.grader == "tts_quality":
-        lowered = text.casefold()
-        if not (
-            "acceptance check" in lowered
-            and "portal" in lowered
-            and re.search(r"\b(?:five|5)\b", lowered)
-            and "blue" in lowered
-            and re.search(r"\b(?:seven|7)\b", lowered)
-        ):
-            errors.append(
-                "transcribed speech did not preserve the requested check phrase and access code"
-            )
+    requested = str(case.expected.get("speech") or "")
+    if requested and wav_data:
+        try:
+            heard = transcribe_wav(wav_data)
+        except Exception as exc:
+            errors.append(f"speech artifact could not be verified by transcribe: {exc}")
+        else:
+            evidence["asr_text"] = heard
+            missing = _missing_speech_words(requested, heard)
+            if missing:
+                errors.append(f"transcribed audio did not preserve: {', '.join(missing)}")
     return errors
 
 
@@ -1731,13 +1834,27 @@ def _grade_stt_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del case, turns
+    del turns
     evidence["operator_review_required"] = True
-    evidence["accuracy_limit"] = "No gold transcript is available for the fixture audio"
-    errors = [] if _first(payloads, "docx") else ["no transcript DOCX was returned"]
-    speakers = re.findall(r"\bspeaker(?:\s*[12]|[_ ]?0[01])\b", text, flags=re.IGNORECASE)
+    evidence["accuracy_limit"] = (
+        "Harness ASR overlap is a floor; exact word accuracy needs operator review"
+    )
+    docx = _first(payloads, "docx")
+    errors = [] if docx else ["no transcript DOCX was returned"]
+    transcript_text = _docx_text(docx) if docx else ""
+    speakers_source = transcript_text or text
+    speakers = re.findall(
+        r"\bspeaker(?:\s*[12]|[_ ]?0[01])\b", speakers_source, flags=re.IGNORECASE
+    )
     if len({name.casefold() for name in speakers}) < 2:
         errors.append("transcript did not label both speakers")
+    gold = _gold_transcript(case.attachment)
+    if gold:
+        evidence["gold_asr_words"] = len(_spoken_words(gold))
+        overlap = _word_overlap(gold, transcript_text or text)
+        evidence["asr_word_overlap"] = round(overlap, 3)
+        if overlap < _ASR_WORD_OVERLAP_FLOOR:
+            errors.append("transcript does not match the harness ASR of the fixture audio")
     return errors
 
 
@@ -1847,6 +1964,22 @@ def _grade_markers_case(
     return errors
 
 
+def _grade_sandbox_lifecycle_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    errors = _grade_markers_case(case, turns, payloads, text, evidence)
+    session_b = turns[1].text.casefold() if len(turns) > 1 else ""
+    if "undefined" not in session_b:
+        errors.append("session B did not report undefined as the isolated output")
+    if "uat_leak_55" in session_b:
+        errors.append("session B observed the leaked global; sessions are not isolated")
+    return errors
+
+
 def _grade_documents_readback_case(
     case: UATCase,
     turns: list[UATTurn],
@@ -1908,6 +2041,39 @@ def _grade_documents_convert_case(
     return errors
 
 
+_REMOVAL_LANGUAGE = (
+    "gone",
+    "removed",
+    "deleted",
+    "forgotten",
+    "no longer",
+    "no memories",
+    "empty",
+    "absent",
+)
+_PERSISTENCE_LANGUAGE = (
+    "still",
+    "remains",
+    "remained",
+    "not been removed",
+    "not been deleted",
+)
+
+
+def _marker_fully_removed(marker: str, final: str) -> bool:
+    """The marker must be gone from the final text; any mention must sit next to
+    removal language and never next to persistence language — the old
+    `marker absent OR any absence phrase anywhere` let "X is still stored" pass."""
+    occurrences = list(re.finditer(re.escape(marker), final)) if marker else []
+    for match in occurrences:
+        window = final[max(0, match.start() - 60) : match.end() + 60]
+        if any(word in window for word in _PERSISTENCE_LANGUAGE):
+            return False
+        if not any(word in window for word in _REMOVAL_LANGUAGE):
+            return False
+    return True
+
+
 def _grade_memory_admin_case(
     case: UATCase,
     turns: list[UATTurn],
@@ -1926,8 +2092,7 @@ def _grade_memory_admin_case(
     if marker not in second and "forget" not in second:
         errors.append("admin turn neither listed the marker nor confirmed forget")
     final = turns[-1].text.casefold()
-    absence = ("no memories", "empty", "gone", "removed", "deleted", "no longer", "0 memories")
-    cleaned = marker not in final or any(phrase in final for phrase in absence)
+    cleaned = _marker_fully_removed(marker, final)
     if not cleaned:
         errors.append("final list_memories still shows the forgotten marker")
     evidence["cleanup_verified"] = cleaned
@@ -2033,7 +2198,7 @@ def _grade_data_sql_case(
     lowered = text.casefold()
     for key in ("total", "north"):
         value = str(case.expected.get(key) or "")
-        if value and value not in lowered:
+        if value and not re.search(rf"(?<![\d.]){re.escape(value)}(?!\d)", lowered):
             errors.append(f"SQL answer omitted the exact {key} total {value}")
     if "orders" not in lowered:
         errors.append("SQL answer did not name the orders table")
@@ -2058,6 +2223,7 @@ _CASE_GRADERS: dict[str, GradeHandler] = {
         _grade_persona_case,
     ),
     "sandbox": _grade_sandbox_case,
+    "sandbox_lifecycle": _grade_sandbox_lifecycle_case,
     "office_content": _grade_office_case,
     "docx_readback": _grade_readback_case,
     "image_quality": _grade_image_case,
@@ -2076,7 +2242,6 @@ _CASE_GRADERS: dict[str, GradeHandler] = {
             "persona_role_fit",
             "web_research",
             "obscura_navigate",
-            "sandbox_lifecycle",
             "media_metadata",
             "security_toolbelt",
             "security_cve_triage",
@@ -2514,11 +2679,14 @@ def _stamp_served(result: QATResult, turns: list[UATTurn]) -> QATResult:
     return result
 
 
+_INFRA_HTTP_STATUSES = frozenset({401, 404, 429})
+
+
 def _http_status_failure(
     scenario: QATScenario, status_code: int, chat_id: str, turns: list[UATTurn]
 ) -> QATResult:
-    """5xx is the engine or proxy; other HTTP failures stay product defects."""
-    infra = status_code >= 500
+    """5xx, 401, 404 and 429 are engine/proxy/auth; other 4xx stay product defects."""
+    infra = status_code >= 500 or status_code in _INFRA_HTTP_STATUSES
     result = QATResult(
         scenario.scenario_id,
         Status.FAIL,
@@ -2959,15 +3127,17 @@ def _finalize_turns(
     extra_evidence: dict[str, object] | None = None,
 ) -> QATResult:
     """Download artifacts, run every grader, and archive — shared by both drivers."""
-    payloads, download_error = _download_payloads(client, token, turns)
+    payloads, download_error, download_defect = _download_payloads(client, token, turns)
     if download_error:
+        result = QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            download_error,
+            defect_class=download_defect,
+            chat_id=chat_id,
+        )
         return _archive_chat(
-            client,
-            token,
-            chat_id,
-            scenario,
-            options,
-            _status_result(scenario, download_error, chat_id, turns),
+            client, token, chat_id, scenario, options, _stamp_served(result, turns)
         )
     errors = _grade_payload_types(case, payloads)
     quality_errors, evidence = grade_case(case, turns, payloads)
@@ -3155,21 +3325,32 @@ def _turn_files(
 
 def _download_payloads(
     client: OWUIClient, token: str, turns: list[UATTurn]
-) -> tuple[dict[str, list[bytes]], str | None]:
+) -> tuple[dict[str, list[bytes]], str | None, DefectClass | None]:
+    """Download surfaced artifacts; failures carry their own defect class (F14):
+    transport/5xx deaths are infra, a missing (4xx) or empty (HTTP 200, 0 bytes)
+    artifact is the product's."""
     payloads: dict[str, list[bytes]] = {}
     empty_by_kind: list[tuple[str, str]] = []
     urls = list(dict.fromkeys(url for turn in turns for url in turn.artifact_urls))
     for url in urls:
         kind = Path(urlsplit(url).path).suffix.lower().lstrip(".")
-        data = client.download_artifact(token, url)
+        try:
+            data = client.download_artifact(token, url)
+        except ArtifactDownloadError as exc:
+            infra = exc.status_code == 0 or exc.status_code >= 500
+            return (
+                payloads,
+                f"artifact download failed: {exc}",
+                DefectClass.INFRA_ENV_GAP if infra else DefectClass.PRODUCT_BUG,
+            )
         if data:
             payloads.setdefault(kind, []).append(data)
         else:
             empty_by_kind.append((kind, url))
     for kind, url in empty_by_kind:
         if not payloads.get(kind):
-            return payloads, f"artifact download was empty: {url}"
-    return payloads, None
+            return payloads, f"artifact download was empty: {url}", DefectClass.PRODUCT_BUG
+    return payloads, None, None
 
 
 def _tool_names_from_calls(

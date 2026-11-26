@@ -234,23 +234,24 @@ def test_route_grader_reads_resolved_route_span() -> None:
     assert uat.grade_case(case, [routed], {})[0] == []
 
 
-def test_route_followup_allows_daily_for_conceptual_question() -> None:
+def test_route_followup_stays_on_the_routed_workspace() -> None:
     discovered = uat.discover_cases(discover())
     rbac = next(item for item in discovered if item.scenario_id == "s5-route-kubernetes-rbac")
-    assert rbac.expected == {
-        "target": "auto-coding",
-        "followup_targets": ["auto-coding", "auto-daily"],
-    }
+    assert rbac.expected == {"target": "auto-coding"}
     case = uat.UATCase(
         "rbac",
         "rbac",
         "auto",
         ("manifest", "follow-up"),
         "route",
-        {"target": "auto-coding", "followup_targets": ["auto-coding", "auto-daily"]},
+        dict(rbac.expected),
     )
-    turns = [_turn("Manifest", "auto-coding"), _turn("Conceptual explanation", "auto-daily")]
+    turns = [_turn("Manifest", "auto-coding"), _turn("Follow-up detail", "auto-coding")]
     assert uat.grade_case(case, turns, {})[0] == []
+    turns[1] = _turn("Follow-up detail", "auto-daily")
+    assert any(
+        "turn 2 expected route auto-coding" in error for error in uat.grade_case(case, turns, {})[0]
+    )
     turns[0] = _turn("Manifest", "auto-daily")
     assert any(
         "turn 1 expected route auto-coding" in error for error in uat.grade_case(case, turns, {})[0]
@@ -304,26 +305,34 @@ def test_security_route_checks_allowed_destination_and_manual_handoff() -> None:
     )
     allowed = case.expected["targets"]
     assert case.grader == "route_security_handoff"
-    assert isinstance(allowed, list) and "auto-daily" in allowed
-    assert set(allowed) <= set(discovery.presets)
+    assert allowed == ["auto-security"]
 
     turns = [
         _turn(
             "For security analysis, select the auto-security workspace, Portal Security Analyst.",
-            "auto-daily",
+            "auto-security",
         ),
-        _turn("Check SNI and the firewall path before changing either.", "auto-daily"),
+        _turn("Check SNI and the firewall path before changing either.", "auto-security"),
     ]
     assert uat.grade_case(case, turns, {})[0] == []
-    turns[0] = _turn("Check the certificate chain and subnet route.", "auto-daily")
+    turns[0] = _turn("Check the certificate chain and subnet route.", "auto-security")
     assert any("select auto-security" in error for error in uat.grade_case(case, turns, {})[0])
     turns[0] = _turn(
         "Select a safe diagnostic and mention the auto-security workspace separately.",
-        "auto-daily",
+        "auto-security",
     )
     assert any("select auto-security" in error for error in uat.grade_case(case, turns, {})[0])
     turns[0] = _turn("Select the auto-security workspace for security analysis.", "auto-security")
     assert uat.grade_case(case, turns, {})[0] == []
+    # the diagnosis itself must resolve to the security workspace, not a general one
+    turns[0] = _turn(
+        "For security analysis, select the auto-security workspace, Portal Security Analyst.",
+        "auto-daily",
+    )
+    assert any(
+        "turn 1 expected route auto-security" in error
+        for error in uat.grade_case(case, turns, {})[0]
+    )
     turns[1] = _turn("Follow-up", "auto-coding")
     assert any("expected route" in error for error in uat.grade_case(case, turns, {})[0])
 
@@ -337,9 +346,9 @@ def test_security_handoff_strips_markdown_and_leading_emoji() -> None:
     turns = [
         _turn(
             "Please select the **🔒 Portal Security Analyst** workspace from the list and re‑send your request.",
-            "auto-daily",
+            "auto-security",
         ),
-        _turn("Check SNI and the firewall path before changing either.", "auto-daily"),
+        _turn("Check SNI and the firewall path before changing either.", "auto-security"),
     ]
     assert uat.grade_case(case, turns, {})[0] == []
 
@@ -529,11 +538,28 @@ def test_persona_contract_graders() -> None:
             "CIP-007-6 R2 Part 2.2; this is not enough evidence to determine compliance, subject to SME review.",
         ),
         ("terminal_contract", "```text\nUAT_TERMINAL_42\n```"),
-        ("spreadsheet_contract", "| 1 | 2 | 3 |"),
+        ("spreadsheet_contract", "| A | B | C |\n| 1 | 2 | 3 |"),
     ]
     for grader, response in cases:
         case = uat.UATCase(grader, grader, "persona", ("prompt",), grader)
         assert uat.grade_case(case, [_turn(response)], {})[0] == []
+
+    correlation = uat.UATCase("c", "c", "persona", ("prompt",), "correlation")
+    slogan = (
+        "Yes, the feature caused the increase. "
+        "correlation does not imply causation is just a slogan."
+    )
+    assert uat.grade_case(correlation, [_turn(slogan)], {})[0]
+    hedged = (
+        "No — you cannot say the feature caused the increase; "
+        "correlation does not imply causation. Seasonality and customer mix may explain it."
+    )
+    assert uat.grade_case(correlation, [_turn(hedged)], {})[0] == []
+
+    spreadsheet = uat.UATCase("s", "s", "persona", ("prompt",), "spreadsheet_contract")
+    assert uat.grade_case(spreadsheet, [_turn("| note |\n| 3 |")], {})[0]
+    assert uat.grade_case(spreadsheet, [_turn("A1 = 1, B1 = 2, C1 = SUM(A1:B1) = 3")], {})[0] == []
+    assert uat.grade_case(spreadsheet, [_turn("| A1 | B1 | C1 |\n| 1 | 2 | 3 |")], {})[0] == []
 
     compliance_guard = uat.UATCase(
         "compliance", "compliance", "persona", ("prompt",), "compliance_guard"
@@ -575,7 +601,9 @@ def test_office_artifact_graders_inspect_content() -> None:
     assert uat.grade_case(case, [_turn("Artifacts ready")], {"docx": [], "xlsx": [], "pptx": []})[0]
 
 
-def test_media_graders_reject_blank_short_and_silent_artifacts() -> None:
+def test_media_graders_reject_blank_short_and_silent_artifacts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert uat.validate_png_quality(_png((80, 80, 80))) is not None
     assert uat.validate_png_quality(_png((0, 0, 0), pattern=True)) is None
 
@@ -615,18 +643,52 @@ def test_media_graders_reject_blank_short_and_silent_artifacts() -> None:
     assert error is None and metrics["duration_s"] >= 8.0 and metrics["rms"] > 0.001
     assert uat.validate_wav_quality(_wav(1.0, silent=False), 8.0)[0].startswith("WAV duration")
 
-    tts = uat.UATCase("tts", "tts", "auto-audio::music", ("speak", "transcribe"), "tts_quality")
-    turns = [_turn("Created WAV"), _turn("Portal five acceptance check. Access code blue seven.")]
-    assert uat.grade_case(tts, turns, {"wav": [_wav(1.5, silent=False)]})[0] == []
-    assert uat.grade_case(tts, turns, {"wav": [_wav(1.5, silent=False)]}, "Portal 5. Blue 7.")[0]
+    tts = uat.UATCase(
+        "tts",
+        "tts",
+        "auto-audio::music",
+        ("speak", "transcribe"),
+        "tts_quality",
+        expected={
+            "upload_kind": "wav",
+            "speech": "Portal five acceptance check. The sample access code is blue seven.",
+        },
+    )
+    reply = [_turn("Created WAV"), _turn("Portal five acceptance check. Access code blue seven.")]
+    heard = "portal 5 acceptance check. the sample access code is blue 7."
+    monkeypatch.setattr(uat, "transcribe_wav", lambda *_a, **_k: heard)
+    assert uat.grade_case(tts, reply, {"wav": [_wav(1.5, silent=False)]})[0] == []
 
-    voice = uat.UATCase("voice", "voice", "auto-audio::music", ("clone",), "voice_clone_quality")
+    # a model claim no longer grades: garbled audio fails even with a perfect reply
+    monkeypatch.setattr(uat, "transcribe_wav", lambda *_a, **_k: "unintelligible noise")
+    garbled = uat.grade_case(tts, reply, {"wav": [_wav(1.5, silent=False)]})[0]
+    assert any("did not preserve" in error for error in garbled)
+
+    # an unreachable transcribe service cannot be replaced by duration and level
+    def unreachable(*_a: object, **_k: object) -> str:
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr(uat, "transcribe_wav", unreachable)
+    errors = uat.grade_case(tts, reply, {"wav": [_wav(1.5, silent=False)]})[0]
+    assert any("transcribe" in error for error in errors)
+
+    voice = uat.UATCase(
+        "voice",
+        "voice",
+        "auto-audio::music",
+        ("clone",),
+        "voice_clone_quality",
+        expected={"speech": "Portal five voice check complete."},
+    )
+    monkeypatch.setattr(uat, "transcribe_wav", lambda *_a, **_k: "portal 5 voice check complete")
     assert uat.grade_case(voice, [_turn("Audio generated")], {"wav": [_wav(1.5, False)]})[0] == []
     assert uat.grade_case(
         voice,
         [_turn("The source audio says hello")],
         {"wav": [_wav(1.5, False)]},
     )[0]
+    monkeypatch.setattr(uat, "transcribe_wav", lambda *_a, **_k: "different words entirely")
+    assert uat.grade_case(voice, [_turn("Audio generated")], {"wav": [_wav(1.5, False)]})[0]
 
 
 def test_multiturn_transcript_and_tool_grading() -> None:
@@ -797,6 +859,52 @@ def test_stt_transcript_is_marked_for_human_accuracy_review() -> None:
     assert uat.grade_case(case, [_turn(alternate)], {"docx": [b"docx"]})[0] == []
 
 
+def test_stt_transcript_is_checked_against_the_fixture_asr(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fixture = tmp_path / "sample_two_speakers.wav"
+    fixture.write_bytes(b"RIFF fixture")
+    gold = (
+        "hello this is the first speaker testing diarization. "
+        "yes this is the second speaker responding clearly to the first speaker."
+    )
+    monkeypatch.setattr(uat, "transcribe_wav", lambda *_a, **_k: gold)
+    doc = Document()
+    doc.add_paragraph("SPEAKER_00: Hello, this is the first speaker testing diarization.")
+    doc.add_paragraph("SPEAKER_01: Yes, this is the second speaker responding clearly.")
+    stream = io.BytesIO()
+    doc.save(stream)
+    docx_bytes = stream.getvalue()
+    case = uat.UATCase(
+        "s", "s", "auto-audio", ("transcribe",), "stt_accuracy", attachment=str(fixture)
+    )
+    response = (
+        "Speaker 1: Hello, this is the first speaker testing diarization. "
+        "Speaker 2: Yes, this is the second speaker responding clearly."
+    )
+    errors, evidence = uat.grade_case(case, [_turn(response)], {"docx": [docx_bytes]})
+    assert errors == []
+    assert evidence["asr_word_overlap"] >= 0.8
+
+    monkeypatch.setattr(
+        uat, "transcribe_wav", lambda *_a, **_k: "a completely different recipe for pasta"
+    )
+    mismatch = uat.grade_case(case, [_turn(response)], {"docx": [docx_bytes]})[0]
+    assert any("does not match" in error for error in mismatch)
+
+
+def test_stt_speaker_labels_are_read_from_the_transcript_artifact() -> None:
+    doc = Document()
+    doc.add_paragraph("SPEAKER_00: Hello there.")
+    doc.add_paragraph("SPEAKER_01: And a second voice answers.")
+    stream = io.BytesIO()
+    doc.save(stream)
+    case = uat.UATCase("s", "s", "auto-audio", ("transcribe",), "stt_accuracy")
+    unlabeled_reply = "Here is the transcript document you asked for."
+    errors = uat.grade_case(case, [_turn(unlabeled_reply)], {"docx": [stream.getvalue()]})[0]
+    assert errors == []
+
+
 def _trace_client(tmp_path: Path, summaries: list[dict], details: dict[str, dict]) -> OWUIClient:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/v1/trace":
@@ -952,3 +1060,176 @@ def test_stage5_http_5xx_is_infra_not_a_product_bug() -> None:
     assert failure is not None and failure.status is Status.FAIL
     assert failure.defect_class is DefectClass.INFRA_ENV_GAP
     assert "HTTP 502" in failure.detail
+
+
+def _stage5_http_failure(status_code: int) -> uat.QATResult:
+    class _Response:
+        is_success = False
+        headers: dict[str, str] = {}
+
+        def __init__(self) -> None:
+            self.status_code = status_code
+
+    class _Client:
+        def send_turn(self, *args: object, **kwargs: object) -> _Response:
+            return _Response()
+
+    scenario = _scenario("s5-route", 5, "auto")
+    case = uat.UATCase("s5-route", "route", "auto", ("hello",), "route")
+    _turns, failure = uat._run_sequence(_Client(), "token", "chat-1", scenario, case, 10_000.0)
+    assert failure is not None
+    return failure
+
+
+@pytest.mark.parametrize("status_code", [401, 404, 429, 500, 502])
+def test_stage5_http_infra_statuses_are_not_model_misses(status_code: int) -> None:
+    failure = _stage5_http_failure(status_code)
+    assert failure.status is Status.FAIL
+    assert failure.defect_class is DefectClass.INFRA_ENV_GAP
+
+
+@pytest.mark.parametrize("status_code", [400, 422])
+def test_stage5_http_other_4xx_stays_product(status_code: int) -> None:
+    failure = _stage5_http_failure(status_code)
+    assert failure.status is Status.FAIL
+    assert failure.defect_class is DefectClass.PRODUCT_BUG
+
+
+def test_artifact_download_failures_classify_by_evidence() -> None:
+    url = "http://owui/api/v1/files/12345678/content/clip.wav"
+    turns = [uat.UATTurn("p", "t", {}, (), (url,))]
+
+    def client_raising(status_code: int = 0) -> object:
+        def download_artifact(*_a: object) -> bytes:
+            detail = (
+                f"artifact download failed: HTTP {status_code}"
+                if status_code
+                else "artifact download failed: refused"
+            )
+            raise uat.ArtifactDownloadError(detail, status_code)
+
+        return type("C", (), {"download_artifact": staticmethod(download_artifact)})()
+
+    for status_code, expected in ((503, DefectClass.INFRA_ENV_GAP), (404, DefectClass.PRODUCT_BUG)):
+        _payloads, error, defect = uat._download_payloads(
+            client_raising(status_code), "token", turns
+        )
+        assert defect is expected and "download failed" in (error or "")
+
+    _payloads, error, defect = uat._download_payloads(client_raising(), "token", turns)
+    assert defect is DefectClass.INFRA_ENV_GAP and "download failed" in (error or "")
+
+    class _Empty:
+        def download_artifact(self, *_a: object) -> bytes:
+            return b""
+
+    _payloads, error, defect = uat._download_payloads(_Empty(), "token", turns)
+    assert defect is DefectClass.PRODUCT_BUG and "download was empty" in (error or "")
+
+    class _Ok:
+        def download_artifact(self, *_a: object) -> bytes:
+            return b"data"
+
+    payloads, error, defect = uat._download_payloads(_Ok(), "token", turns)
+    assert payloads["wav"] == [b"data"] and error is None and defect is None
+
+
+def test_sandbox_lifecycle_requires_undefined_in_session_b() -> None:
+    case = uat.UATCase(
+        "sb",
+        "sb",
+        "auto-coding",
+        ("a", "b", "c"),
+        "sandbox_lifecycle",
+        expected={
+            "markers": ["uat_nodejs_87", "uat_py_session_91", "undefined"],
+            "any_markers": ["docker"],
+        },
+    )
+    good = [
+        _turn("stdout was uat_nodejs_87 and docker is available"),
+        _turn("the exact output is undefined"),
+        _turn("uat_py_session_91 printed"),
+    ]
+    assert uat.grade_case(case, good, {})[0] == []
+
+    leaked = [
+        _turn("stdout was uat_nodejs_87 and the node image is undefined"),
+        _turn("it printed uat_leak_55"),
+        _turn("uat_py_session_91 printed"),
+    ]
+    errors = uat.grade_case(case, leaked, {})[0]
+    assert any("did not report undefined" in error for error in errors)
+    assert any("sessions are not isolated" in error for error in errors)
+
+
+def test_data_sql_totals_match_on_number_boundaries() -> None:
+    case = uat.UATCase(
+        "sql", "sql", "auto-data", ("a", "b", "c"), "data_sql", {"total": "133", "north": "76"}
+    )
+    good = [
+        _turn("attach orders"),
+        _turn("The orders total is 133 and the north total is 76 from the orders table."),
+        _turn("orders session confirmed"),
+    ]
+    assert uat.grade_case(case, good, {})[0] == []
+    padded = [
+        _turn("attach"),
+        _turn("row count 1330, north share 760 in the orders table."),
+        _turn("session ok"),
+    ]
+    errors = uat.grade_case(case, padded, {})[0]
+    assert any("total 133" in error for error in errors)
+    assert any("north total 76" in error for error in errors)
+
+
+def test_memory_admin_marker_must_leave_the_final_list() -> None:
+    case = uat.UATCase(
+        "ma",
+        "ma",
+        "pa",
+        ("remember", "forget", "list"),
+        "memory_admin",
+        {"marker": "qat-memadmin-7c1"},
+    )
+    removed = [
+        _turn("stored qat-memadmin-7c1 with id 4c1a"),
+        _turn("forgot qat-memadmin-7c1"),
+        _turn("the tag list is empty; qat-memadmin-7c1 was removed"),
+    ]
+    assert uat.grade_case(case, removed, {})[0] == []
+    absent = [
+        _turn("stored qat-memadmin-7c1"),
+        _turn("forget"),
+        _turn("no memories with tag qat-uat remain"),
+    ]
+    assert uat.grade_case(case, absent, {})[0] == []
+    still = [
+        _turn("stored"),
+        _turn("forget"),
+        _turn("qat-memadmin-7c1 is still stored. The risk is not gone."),
+    ]
+    errors = uat.grade_case(case, still, {})[0]
+    assert any("final list_memories still shows" in error for error in errors)
+
+
+def test_math_grader_rejects_denied_result_and_wrong_decimal() -> None:
+    math_case = uat.UATCase(
+        "m",
+        "m",
+        "auto",
+        ("first", "second"),
+        "route_math",
+        {"targets": ["auto-reasoning", "auto-reasoning::math"]},
+    )
+    denied = [
+        _turn("The exact result is not e - 2.", "auto-reasoning"),
+        _turn("Derivative check gives 0.718", "auto-reasoning"),
+    ]
+    assert uat.grade_case(math_case, denied, {})[0]
+    wrong_decimal = [
+        _turn("The exact result is e - 2.", "auto-reasoning"),
+        _turn("The derivative check gives 0.000", "auto-reasoning::math"),
+    ]
+    errors = uat.grade_case(math_case, wrong_decimal, {})[0]
+    assert any("0.718" in error for error in errors)
