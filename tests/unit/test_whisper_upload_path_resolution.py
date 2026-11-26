@@ -127,6 +127,9 @@ def test_owui_download_link_resolves_upload_file_id(uploads: Path) -> None:
 def test_generated_pcm_wav_keeps_its_observed_sample_rate(
     monkeypatch: pytest.MonkeyPatch, uploads: Path
 ) -> None:
+    pytest.importorskip(
+        "miniaudio"
+    )  # host-only decoder (mlx transcribe extra); CI has no miniaudio
     generated = _write_pcm_wav(uploads.parent / "generated" / "speech" / "speak_sample.wav")
     monkeypatch.setattr(shutil, "which", lambda _name: pytest.fail("ffmpeg should not run"))
 
