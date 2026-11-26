@@ -2276,6 +2276,85 @@ def _owui_v0125_replay(
     ]
 
 
+@pytest.mark.anyio
+async def test_role_slash_persona_is_recorded_in_route_trace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from starlette.requests import Request
+
+    import portal.platform.inference.router.handlers as handlers_mod
+
+    body = {
+        "model": "auto-spl",
+        "messages": [{"role": "user", "content": "/codereviewer review this"}],
+    }
+    backend = SimpleNamespace(id="test-backend", type="ollama")
+    notes: list[dict[str, typing.Any]] = []
+
+    class _Slot:
+        async def acquire_workspace(self, _workspace: str) -> None:
+            return None
+
+        def mark_active(self) -> None:
+            return None
+
+    async def parse_and_guard(_request):
+        return body
+
+    async def prepare_context(_original_model_id, _workspace_id, request_body):
+        return request_body
+
+    async def prefer_warm(candidates, _workspace_id, _model_hint):
+        return candidates
+
+    async def resolve_auto(workspace, _messages):
+        return workspace
+
+    monkeypatch.setattr(
+        handlers_mod,
+        "registry",
+        SimpleNamespace(get_backend_candidates=lambda _: [backend]),
+    )
+    monkeypatch.setattr(handlers_mod, "_parse_and_guard_body", parse_and_guard)
+    monkeypatch.setattr(handlers_mod, "_resolve_auto_routing", resolve_auto)
+    monkeypatch.setattr(handlers_mod, "_prepare_request_context", prepare_context)
+    monkeypatch.setattr(handlers_mod, "_reject_disabled_workspace", lambda _workspace: None)
+    monkeypatch.setattr(
+        handlers_mod, "apply_backend_pin", lambda _body, candidates, _hint: candidates
+    )
+    monkeypatch.setattr(
+        handlers_mod,
+        "_order_candidates",
+        lambda candidates, _workspace, _registry: candidates,
+    )
+    monkeypatch.setattr(handlers_mod, "_prefer_warm_ollama_if_omlx_busy", prefer_warm)
+    monkeypatch.setattr(handlers_mod.no_answer, "is_chat_ui", lambda _headers, _body: False)
+    monkeypatch.setattr(handlers_mod, "_record_daily_request", lambda *_args: None)
+    monkeypatch.setattr(handlers_mod, "_request_count", {})
+    monkeypatch.setattr(
+        handlers_mod,
+        "_requests_total",
+        SimpleNamespace(labels=lambda **_labels: SimpleNamespace(inc=lambda: None)),
+    )
+    monkeypatch.setattr(handlers_mod, "trace_note", lambda **fields: notes.append(fields))
+    monkeypatch.setattr(handlers_mod, "trace_span", lambda *_args, **_fields: None)
+    monkeypatch.setattr(handlers_mod, "trace_capture", lambda **_fields: None)
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/",
+            "headers": [],
+            "query_string": b"",
+        }
+    )
+    resolved = await handlers_mod._resolve_request_route(request, _Slot())
+
+    assert resolved[3] == "codereviewer"
+    assert notes[-1]["persona"] == "codereviewer"
+
+
 def _stream_tool_calls(chunks: list[bytes]) -> list[dict[str, typing.Any]]:
     return [
         call

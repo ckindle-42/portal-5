@@ -853,7 +853,7 @@ async def _resolve_request_route(
 
     # Phase 3: Content-aware routing for 'auto' — LLM intent classification,
     # falling back to weighted keyword scoring.
-    _route_body, _ = _apply_role_slash(body)
+    _route_body, role_slug = _apply_role_slash(body)
     workspace_id = await _resolve_auto_routing(workspace_id, _route_body.get("messages", []))
 
     # Phase 4: auto-vision text-only fallback — reroute to auto-reasoning when
@@ -939,9 +939,8 @@ async def _resolve_request_route(
     _requests_total.labels(workspace=workspace_id).inc()
     slot.mark_active()
 
-    # The request's "model" field is the persona (workspace id) the user picked; its
-    # usage is recorded once the turn is served, with the model that served it.
-    persona = body.get("model") or "auto"
+    # A slash-command role is the selected persona within the chosen workspace.
+    persona = role_slug or body.get("model") or "auto"
 
     candidates = registry.get_backend_candidates(workspace_id)
     if not candidates:
