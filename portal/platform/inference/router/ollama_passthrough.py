@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import AsyncIterator, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -20,6 +21,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 import portal.platform.inference.load_guard as load_guard
 from portal.platform.inference.load_guard import OLLAMA, LoadRefusedError, set_load_wait
+from portal.platform.inference.router import safety_guard
 from portal.platform.inference.router.auth import _verify_key
 from portal.platform.inference.router.disconnect import cancel_on_disconnect
 from portal.platform.inference.router.power import _record_engine_call
@@ -28,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 _registry: Any = None
 _client: httpx.AsyncClient | None = None
+_model_config_registry: Any = None
+_uncensored_models: set[str] = set()
 
 #: Synthetic workspaces for native calls, which carry no workspace id of their own.
 PASSTHROUGH_WORKSPACE = "native-passthrough"
@@ -74,6 +78,80 @@ def _model(body: bytes) -> str:
         return ""
     value = decoded.get("model", "") if isinstance(decoded, dict) else ""
     return value if isinstance(value, str) else str(value or "")
+
+
+def _configured_uncensored_models() -> set[str]:
+    global _model_config_registry, _uncensored_models
+    if _registry is _model_config_registry:
+        return _uncensored_models
+    from portal.platform.inference.config import load_portal_config
+
+    config = load_portal_config()
+    hints: set[str] = set()
+    for workspace_id, workspace in config.workspaces.items():
+        base_marked = (
+            workspace.guardrail == "uncensored"
+            or "uncensored" in workspace_id.casefold()
+            or "abliterated" in workspace_id.casefold()
+        )
+        if base_marked and workspace.model_hint:
+            hints.add(workspace.model_hint)
+        for variant, values in workspace.variants.items():
+            hint = values.get("model_hint") or workspace.model_hint
+            marked = (
+                base_marked
+                or values.get("guardrail") == "uncensored"
+                or "uncensored" in variant.casefold()
+                or "abliterated" in variant.casefold()
+                or bool(
+                    hint
+                    and any(marker in hint.casefold() for marker in ("uncensored", "abliterated"))
+                )
+            )
+            if marked and hint:
+                hints.add(hint)
+    backends = getattr(_registry, "_backends", {})
+    if not isinstance(backends, dict):
+        return set()
+    markers = ("uncensored", "abliterated")
+    models = set(hints)
+    for backend in backends.values():
+        if getattr(backend, "type", "") != OLLAMA:
+            continue
+        models.update(
+            str(tag)
+            for tag in getattr(backend, "models", ())
+            if str(tag) in hints or any(marker in str(tag).casefold() for marker in markers)
+        )
+        aliases = getattr(backend, "aliases", {})
+        if not isinstance(aliases, dict):
+            continue
+        for alias, target in aliases.items():
+            if (
+                alias in hints
+                or target in hints
+                or any(
+                    marker in str(tag).casefold() for marker in markers for tag in (alias, target)
+                )
+            ):
+                models.update((str(alias), str(target)))
+    _model_config_registry = _registry
+    _uncensored_models = models
+    return models
+
+
+def _native_refusal(native_path: str, model: str, hit: safety_guard.GuardHit) -> JSONResponse:
+    payload: dict[str, Any] = {
+        "model": model,
+        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "done": True,
+        "done_reason": "stop",
+    }
+    if native_path == "chat":
+        payload["message"] = {"role": "assistant", "content": hit.text}
+    else:
+        payload["response"] = hit.text
+    return JSONResponse(content=payload, headers={"x-portal-safety-guard": hit.kind})
 
 
 def _close_callbacks(*callbacks: Callable[[], None] | None) -> None:
@@ -146,6 +224,18 @@ async def _proxy(
 
     body = await request.body() if request.method != "GET" else b""
     model = _model(body)
+    if (
+        inference
+        and native_path in {"chat", "generate"}
+        and model.casefold() in {tag.casefold() for tag in _configured_uncensored_models()}
+    ):
+        try:
+            decoded_body = json.loads(body) if body else {}
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            decoded_body = {}
+        hit = safety_guard.check_body(decoded_body)
+        if hit is not None:
+            return _native_refusal(native_path, model, hit)
     headers = {
         key: value for key, value in request.headers.items() if key.lower() in _REQUEST_HEADERS
     }
