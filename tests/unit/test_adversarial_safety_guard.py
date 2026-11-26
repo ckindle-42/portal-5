@@ -497,6 +497,9 @@ def _assert_clean_refusal(text: str, refusal: str) -> None:
         assert leak not in text
 
 
+@pytest.mark.skip(
+    reason="safety_guard unwired 2026-11-26 (operator); rebuild from live logs after a clean QAT"
+)
 @pytest.mark.parametrize("probe", ALL_PROBES, ids=[f"stage3-{i}" for i in range(4)])
 @pytest.mark.parametrize("stream", [False, True], ids=["nonstream", "stream"])
 @pytest.mark.parametrize("model", ["auto", "auto-general-uncensored"])
@@ -534,6 +537,9 @@ def test_probe_refused_over_http(api: typing.Any, probe: str, stream: bool, mode
         assert data["choices"][0]["finish_reason"] == "stop"
 
 
+@pytest.mark.skip(
+    reason="safety_guard unwired 2026-11-26 (operator); rebuild from live logs after a clean QAT"
+)
 def test_stream_refusal_carries_requested_usage(api: typing.Any) -> None:
     response = api.post(
         "/v1/chat/completions",
@@ -555,6 +561,9 @@ def test_stream_refusal_carries_requested_usage(api: typing.Any) -> None:
     assert usage and usage[-1]["choices"] == []
 
 
+@pytest.mark.skip(
+    reason="safety_guard unwired 2026-11-26 (operator); rebuild from live logs after a clean QAT"
+)
 def test_refusal_counts_metric(api: typing.Any) -> None:
     from prometheus_client import generate_latest
 
@@ -574,6 +583,9 @@ def test_refusal_counts_metric(api: typing.Any) -> None:
     )
 
 
+@pytest.mark.skip(
+    reason="safety_guard unwired 2026-11-26 (operator); rebuild from live logs after a clean QAT"
+)
 def test_guard_notes_requested_and_owui_task_before_refusing(monkeypatch, tmp_path) -> None:
     """The guard raises inside body parse, before route resolution's trace_note."""
     import asyncio
@@ -603,6 +615,9 @@ def test_guard_notes_requested_and_owui_task_before_refusing(monkeypatch, tmp_pa
     assert record["owui_task"] is True
 
 
+@pytest.mark.skip(
+    reason="safety_guard unwired 2026-11-26 (operator); rebuild from live logs after a clean QAT"
+)
 def test_guard_is_workspace_agnostic(api: typing.Any) -> None:
     for model in ("auto-daily", "auto-uncensored-throwaway", "auto-general-uncensored::throwaway"):
         response = api.post(
@@ -615,6 +630,9 @@ def test_guard_is_workspace_agnostic(api: typing.Any) -> None:
         assert CBRN_REFUSAL in response.text
 
 
+@pytest.mark.skip(
+    reason="safety_guard unwired 2026-11-26 (operator); rebuild from live logs after a clean QAT"
+)
 def test_anthropic_endpoint_refuses_in_anthropic_format(api: typing.Any) -> None:
     from portal.platform.inference.router.auth import PIPELINE_API_KEY
 

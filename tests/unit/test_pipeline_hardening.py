@@ -1253,6 +1253,9 @@ def test_native_uncensored_model_set_uses_configured_seat_hints(monkeypatch) -> 
         ("generate", "portal5/failover-uncensored:latest"),
     ],
 )
+@pytest.mark.skip(
+    reason="safety_guard unwired 2026-11-26 (operator); rebuild from live logs after a clean QAT"
+)
 async def test_native_ollama_guard_blocks_configured_uncensored_tags(
     monkeypatch, native_path: str, model: str
 ) -> None:

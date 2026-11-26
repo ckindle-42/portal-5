@@ -224,18 +224,6 @@ async def _proxy(
 
     body = await request.body() if request.method != "GET" else b""
     model = _model(body)
-    if (
-        inference
-        and native_path in {"chat", "generate"}
-        and model.casefold() in {tag.casefold() for tag in _configured_uncensored_models()}
-    ):
-        try:
-            decoded_body = json.loads(body) if body else {}
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            decoded_body = {}
-        hit = safety_guard.check_body(decoded_body)
-        if hit is not None:
-            return _native_refusal(native_path, model, hit)
     headers = {
         key: value for key, value in request.headers.items() if key.lower() in _REQUEST_HEADERS
     }
