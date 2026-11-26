@@ -630,6 +630,10 @@ def _trace_row_matches(
 ) -> bool:
     if not model_slugs:
         return False
+    if row.get("owui_task"):
+        # An OWUI title/tag task is a trace of its own on the same workspace:
+        # it must never match the graded turn.
+        return False
     identity = {str(row.get(key) or "") for key in ("workspace", "requested", "persona")}
     return (
         bool(model_slugs & identity) and _started_at(row.get("started_at")) >= turn_started_at - 5.0

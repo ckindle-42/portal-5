@@ -70,7 +70,7 @@ _writeback_tasks: set[asyncio.Task[Any]] = set()
 
 def _last_user_text(messages: list[dict[str, Any]], limit: int) -> str:
     for m in reversed(messages or []):
-        if m.get("role") == "user":
+        if isinstance(m, dict) and m.get("role") == "user":
             c = m.get("content")
             if isinstance(c, str):
                 return c[:limit]

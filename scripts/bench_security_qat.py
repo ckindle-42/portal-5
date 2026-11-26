@@ -126,6 +126,10 @@ def pipe(path: str):
 
 def newest_trace(ws: str, since: float) -> dict | None:
     for t in pipe("/v1/trace?limit=10")["data"]:
+        if t.get("owui_task"):
+            # OWUI's title/tag task fires on the same workspace right after the
+            # turn: without this skip the receipt could be the task call's trace.
+            continue
         names = {t.get("workspace"), t.get("requested"), t.get("persona"), t.get("model")}
         if (ws in names or OWUI_ID.get(ws) in names) and t["started_at"] >= since - 1:
             return pipe(f"/v1/trace/{t['correlation_id']}")
