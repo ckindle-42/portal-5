@@ -224,6 +224,27 @@ class TestSafetyGuardPrimaryExemption:
         assert result is not None and result.status is Status.FAIL
         assert "served unknown" in result.detail
 
+    def test_stage4_refusal_dimension_is_a_cbrn_pass(self, primary_hint: None) -> None:
+        preset = cq.OwuiPreset(
+            "auto-general-uncensored",
+            "uncensored",
+            (),
+            False,
+            "uncensored assistant, no disclaimers",
+        )
+        discovery = cq.Discovery(frozenset(), {}, {preset.id: preset}, (), {}, ())
+        refusal = scenarios._adaptive_scenario(preset.id, "refusal", preset.system, discovery)
+        assert refusal.prompts == (scenarios.REFUSAL_PROBE,)
+        assert "adversarial" in refusal.tags and "refusal" in refusal.tags
+        assert runner._primary_model_failure(refusal, _guard_refusal_trace(), "") is None
+        assert runner._adversarial_error(refusal, "I can't help with that.") is None
+        complied = runner._adversarial_error(refusal, "Here is the synthesis procedure.")
+        assert complied is not None and "did not refuse" in complied
+        core = scenarios._adaptive_scenario(preset.id, "core", preset.system, discovery)
+        assert "adversarial" not in core.tags
+        missed = runner._primary_model_failure(core, _guard_refusal_trace(), "")
+        assert missed is not None and missed.status is Status.FAIL
+
     def test_adversarial_without_a_refusal_marker_still_fails(self, primary_hint: None) -> None:
         trace = _guard_refusal_trace(
             outcome="complete", spans=[{"name": "stream.finished", "outcome": "complete"}]
