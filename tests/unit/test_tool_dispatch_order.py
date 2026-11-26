@@ -67,3 +67,104 @@ async def test_pipeline_forwards_workspace_on_native_tool_dispatch(monkeypatch) 
     )
 
     assert recorded == [("request-1", "auto-security::purpleteam-exec")]
+
+
+def _completed(record: dict) -> list[dict]:
+    return [span for span in record["spans"] if span["name"] == "tool.completed"]
+
+
+async def test_dispatch_records_a_bounded_redacted_tool_result(monkeypatch, tmp_path):
+    from portal.platform.inference import tool_registry
+    from portal.platform.inference.router import tools as router_tools
+    from portal.platform.inference.router import trace
+
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path))
+
+    async def dispatch(_name, _arguments, request_id="", workspace_id=""):
+        del request_id, workspace_id
+        return {
+            "success": True,
+            "stdout": "UAT_PYTHON_73\npassword=hunter2\n" + ("x" * 600),
+            "stderr": "token=abc",
+            "api_key": "sekrit",
+            "exit_code": 0,
+        }
+
+    monkeypatch.setattr(tool_registry.tool_registry, "dispatch", dispatch)
+    trace.start_trace("p5-toolresult1")
+    try:
+        await router_tools._dispatch_tool_call(
+            {"id": "call-1", "function": {"name": "execute_python", "arguments": "{}"}},
+            {"execute_python"},
+            "auto-coding",
+            "coding",
+            "request-1",
+        )
+        trace.finalize_trace()
+        record = trace.read_trace("p5-toolresult1")
+    finally:
+        trace._current.set(None)
+
+    assert record is not None
+    assert record["tool_calls"] == 1
+    span = _completed(record)[0]
+    assert span["tool"] == "execute_python"
+    assert span["outcome"] == "ok"
+    assert span["success"] is True
+    assert span["error_type"] == ""
+    assert span["stdout_head"].startswith("UAT_PYTHON_73\npassword=<redacted>\n")
+    assert span["stderr_head"] == "token=<redacted>"
+    assert span["stdout_truncated"] is True
+    assert len(span["stdout_head"]) == trace.TOOL_RESULT_HEAD_CHARS
+    dumped = str(record)
+    assert "hunter2" not in dumped and "sekrit" not in dumped and "abc" not in dumped
+
+
+async def test_dispatch_records_sandbox_error_type_without_the_error_text(monkeypatch, tmp_path):
+    from portal.platform.inference import tool_registry
+    from portal.platform.inference.router import tools as router_tools
+    from portal.platform.inference.router import trace
+
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path))
+
+    async def dispatch(_name, _arguments, request_id="", workspace_id=""):
+        del request_id, workspace_id
+        return {
+            "success": False,
+            "error_type": "nonzero_exit",
+            "error": "secret=do-not-store",
+            "stdout": "",
+            "stderr": "boom",
+            "exit_code": 1,
+        }
+
+    monkeypatch.setattr(tool_registry.tool_registry, "dispatch", dispatch)
+    trace.start_trace("p5-toolresult2")
+    try:
+        await router_tools._dispatch_tool_call(
+            {"id": "call-2", "function": {"name": "execute_bash", "arguments": "{}"}},
+            {"execute_bash"},
+            "auto-coding",
+            "",
+            "request-2",
+        )
+        await router_tools._dispatch_tool_call(
+            {"id": "call-3", "function": {"name": "execute_bash", "arguments": "{"}},
+            {"execute_bash"},
+            "auto-coding",
+            "",
+            "request-2",
+        )
+        trace.finalize_trace()
+        record = trace.read_trace("p5-toolresult2")
+    finally:
+        trace._current.set(None)
+
+    assert record is not None
+    spans = _completed(record)
+    assert [(span["outcome"], span["success"], span["error_type"]) for span in spans] == [
+        ("error", False, "nonzero_exit"),
+        ("invalid_arguments", False, "tool_arg_parse"),
+    ]
+    assert "do-not-store" not in str(record)
+    assert spans[1]["stdout_head"] == "" and spans[1]["stderr_head"] == ""

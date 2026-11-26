@@ -14,7 +14,6 @@ import unicodedata
 import uuid
 import wave
 from collections.abc import Callable
-from contextlib import suppress
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -1779,63 +1778,47 @@ def _grade_sandbox_network_probes(stdout: str, evidence: dict[str, object]) -> l
     return errors
 
 
-def _sandbox_tool_results(chat: dict[str, Any]) -> tuple[dict[str, object], ...]:
-    """Read code-tool outputs from the persisted Open WebUI conversation."""
-    entries = _sandbox_chat_messages(chat)
-    names_by_call_id = _sandbox_tool_names_by_call_id(entries)
-    return tuple(
-        result
-        for message in entries
-        if (result := _sandbox_tool_result(message, names_by_call_id)) is not None
-    )
+def _observed_turn(
+    prompt: str,
+    text: str,
+    trace: dict[str, object],
+    names: tuple[str, ...],
+    urls: tuple[str, ...],
+) -> UATTurn:
+    return UATTurn(prompt, text, trace, names, urls, _tool_results_from_trace(trace))
 
 
-def _sandbox_chat_messages(chat: dict[str, Any]) -> list[Any]:
-    chat_data = chat.get("chat", chat)
-    history = chat_data.get("history", {}) if isinstance(chat_data, dict) else {}
-    messages = history.get("messages", []) if isinstance(history, dict) else []
-    if isinstance(messages, dict):
-        return list(messages.values())
-    return messages if isinstance(messages, list) else []
+def _tool_results_from_trace(trace: dict[str, object]) -> tuple[dict[str, object], ...]:
+    """Executed results from this turn's trace. An OWUI task row is never the graded turn."""
+    if not isinstance(trace, dict) or trace.get("owui_task"):
+        return ()
+    spans = trace.get("spans")
+    if not isinstance(spans, list):
+        return ()
+    results: list[dict[str, object]] = []
+    for span in spans:
+        parsed = _completed_tool_result(span)
+        if parsed is not None:
+            results.append(parsed)
+    return tuple(results)
 
 
-def _sandbox_tool_names_by_call_id(entries: list[Any]) -> dict[str, str]:
-    names_by_call_id: dict[str, str] = {}
-    for message in entries:
-        if not isinstance(message, dict):
-            continue
-        info = message.get("info") if isinstance(message.get("info"), dict) else {}
-        calls = message.get("tool_calls") or info.get("tool_calls") or []
-        for call in calls if isinstance(calls, list) else []:
-            if not isinstance(call, dict):
-                continue
-            function = call.get("function") if isinstance(call.get("function"), dict) else {}
-            name = str(function.get("name") or call.get("name") or "")
-            call_id = str(call.get("id") or call.get("tool_call_id") or "")
-            if name and call_id:
-                names_by_call_id[call_id] = name
-    return names_by_call_id
-
-
-def _sandbox_tool_result(
-    message: Any, names_by_call_id: dict[str, str]
-) -> dict[str, object] | None:
-    if not isinstance(message, dict) or message.get("role") != "tool":
+def _completed_tool_result(span: object) -> dict[str, object] | None:
+    if not isinstance(span, dict) or span.get("name") != "tool.completed":
         return None
-    call_id = str(message.get("tool_call_id") or message.get("tool_callId") or "")
-    name = str(message.get("name") or message.get("tool_name") or names_by_call_id.get(call_id, ""))
-    if name not in {"execute_python", "execute_bash"}:
+    if "success" not in span:
         return None
-    content = message.get("content", "")
-    if isinstance(content, list):
-        content = "\n".join(str(part.get("text", "")) for part in content if isinstance(part, dict))
-    if isinstance(content, str):
-        with suppress(json.JSONDecodeError):
-            content = json.loads(content)
-    return {
-        "tool": name,
-        "result": content if isinstance(content, dict) else {"content": content},
+    name = str(span.get("tool") or "")
+    if not name:
+        return None
+    result: dict[str, object] = {
+        "success": bool(span.get("success")),
+        "stdout": str(span.get("stdout_head") or ""),
+        "stderr": str(span.get("stderr_head") or ""),
     }
+    if span.get("error_type"):
+        result["error_type"] = span.get("error_type")
+    return {"tool": name, "result": result}
 
 
 def _grade_office_case(
@@ -2955,7 +2938,7 @@ def _run_browser_sequence(
         urls = _browser_artifact_urls(ui, text)
         leak = raw_tool_error_leak(text)
         if leak:
-            leaked = UATTurn(prompt, text, trace, (), urls)
+            leaked = _observed_turn(prompt, text, trace, (), urls)
             return (
                 transcript,
                 _status_result(
@@ -2963,10 +2946,9 @@ def _run_browser_sequence(
                 ),
                 chat_id,
             )
-        transcript.append(UATTurn(prompt, text, trace, _tool_names_from_calls((), trace), urls))
-    if case.grader == "sandbox" and chat_id and transcript:
-        detail = client.chat_detail(token, chat_id, deadline=deadline)
-        transcript[-1].tool_results = _sandbox_tool_results(detail)
+        transcript.append(
+            _observed_turn(prompt, text, trace, _tool_names_from_calls((), trace), urls)
+        )
     tool_error = _required_tool_error(case, transcript)
     if tool_error:
         return transcript, _status_result(scenario, tool_error, chat_id, transcript), chat_id
@@ -3209,9 +3191,6 @@ def _run_chat_case(
         if error:
             error.chat_id = chat_id
             return _archive_chat(client, token, chat_id, scenario, options, error)
-        if case.grader == "sandbox" and turns:
-            detail = client.chat_detail(token, chat_id, deadline=deadline)
-            turns[-1].tool_results = _sandbox_tool_results(detail)
         return _finalize_turns(client, token, chat_id, scenario, case, options, turns)
     except Exception as exc:
         return QATResult(
@@ -3341,7 +3320,7 @@ def _run_sequence(
         if failure:
             return transcript, failure
         if outcome.leak_marker:
-            leaked = UATTurn(prompt, outcome.text, outcome.trace, (), outcome.artifact_urls)
+            leaked = _observed_turn(prompt, outcome.text, outcome.trace, (), outcome.artifact_urls)
             return transcript, _status_result(
                 scenario,
                 f"raw tool error leaked: {outcome.leak_marker}",
@@ -3350,7 +3329,7 @@ def _run_sequence(
             )
         names = _tool_names_from_calls(outcome.tool_calls, outcome.trace)
         transcript.append(
-            UATTurn(prompt, outcome.text, outcome.trace, names, outcome.artifact_urls)
+            _observed_turn(prompt, outcome.text, outcome.trace, names, outcome.artifact_urls)
         )
         branch.extend(
             ({"role": "user", "content": prompt}, {"role": "assistant", "content": outcome.text})

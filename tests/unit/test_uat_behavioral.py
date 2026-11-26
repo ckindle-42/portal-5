@@ -129,6 +129,58 @@ def test_cross_session_runner_requires_tools_per_chat(monkeypatch) -> None:
     assert result.status is Status.PASS
 
 
+def test_sandbox_tool_results_come_from_the_turn_trace_not_prose(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from portal.platform.inference.router import trace
+
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path))
+    stdout = (
+        "UAT_PYTHON_73\n"
+        "UAT_EXTERNAL_URL_BLOCKED:URLError\n"
+        "UAT_INTERNAL_SERVICE_BLOCKED:URLError\n"
+        "UAT_DNS_BLOCKED:gaierror\n"
+    )
+    trace.start_trace("p5-sandboxtool")
+    try:
+        trace.span(
+            "tool.completed",
+            tool="execute_python",
+            outcome="ok",
+            **trace.bounded_tool_result({"success": True, "stdout": stdout, "stderr": ""}),
+        )
+        trace.finalize_trace()
+        record = trace.read_trace("p5-sandboxtool")
+        trace.start_trace("p5-owuitask01")
+        trace.note(owui_task=True)
+        trace.span(
+            "tool.completed",
+            tool="execute_bash",
+            outcome="ok",
+            **trace.bounded_tool_result({"success": True, "stdout": "UAT_BASH_48", "stderr": ""}),
+        )
+        trace.finalize_trace()
+        task_row = trace.read_trace("p5-owuitask01")
+    finally:
+        trace._current.set(None)
+    assert isinstance(record, dict) and isinstance(task_row, dict)
+    assert uat._tool_results_from_trace(record) == (
+        {"tool": "execute_python", "result": {"success": True, "stdout": stdout, "stderr": ""}},
+    )
+    assert uat._tool_results_from_trace(task_row) == ()
+    prose = stdout + "UAT_BASH_48"
+    sandbox = uat.UATCase("sandbox", "sandbox", "auto-coding", ("run", "bash"), "sandbox")
+    errors, _evidence = uat.grade_case(
+        sandbox,
+        [
+            uat.UATTurn("run", prose, record, (), (), uat._tool_results_from_trace(record)),
+            uat.UATTurn("bash", prose, task_row, (), (), uat._tool_results_from_trace(task_row)),
+        ],
+        {},
+    )
+    assert "sandbox execution result is missing" in errors
+
+
 def test_agent_orchestrator_prompt_requires_clarification_before_speculation() -> None:
     persona = yaml.safe_load(Path("config/personas/agentorchestrator.yaml").read_text())
     prompt = persona["system_prompt"]

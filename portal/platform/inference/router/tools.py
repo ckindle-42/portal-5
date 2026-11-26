@@ -24,6 +24,7 @@ from portal.platform.inference.router.metrics import (
 from portal.platform.inference.router.state import _record_error
 from portal.platform.inference.router.trace import (
     add_tool_time,
+    bounded_tool_result,
 )
 from portal.platform.inference.router.trace import (
     capture as trace_capture,
@@ -335,6 +336,26 @@ def split_embedded_call(name: str, arguments: str, offered: set[str]) -> tuple[s
     return name, arguments
 
 
+def _trace_tool_completed(
+    tool_name: str,
+    tool_call_id: str,
+    outcome: str,
+    result: Any = None,
+    *,
+    error_type: str = "",
+    duration_ms: float | None = None,
+) -> None:
+    fields: dict[str, Any] = {
+        "tool": tool_name,
+        "tool_call_id": tool_call_id,
+        "outcome": outcome,
+        **bounded_tool_result(result, error_type=error_type),
+    }
+    if duration_ms is not None:
+        fields["duration_ms"] = duration_ms
+    trace_span("tool.completed", **fields)
+
+
 async def _dispatch_tool_call(
     tool_call: dict[str, Any],
     effective_tools: set[str],
@@ -413,11 +434,8 @@ async def _dispatch_tool_call(
         arguments = json.loads(arguments_str) if arguments_str else {}
     except json.JSONDecodeError:
         _record_error(workspace_id, "tool_arg_parse")
-        trace_span(
-            "tool.completed",
-            tool=tool_name,
-            tool_call_id=tool_call_id,
-            outcome="invalid_arguments",
+        _trace_tool_completed(
+            tool_name, tool_call_id, "invalid_arguments", error_type="tool_arg_parse"
         )
         return {
             "role": "tool",
@@ -431,12 +449,7 @@ async def _dispatch_tool_call(
     # Whitelist enforcement
     if not allowed:
         _record_error(workspace_id, "tool_not_allowed")
-        trace_span(
-            "tool.completed",
-            tool=tool_name,
-            tool_call_id=tool_call_id,
-            outcome="not_allowed",
-        )
+        _trace_tool_completed(tool_name, tool_call_id, "not_allowed", error_type="tool_not_allowed")
         logger.warning(
             "Tool %s called but not in workspace=%s persona=%s whitelist; rejected",
             tool_name,
@@ -458,22 +471,22 @@ async def _dispatch_tool_call(
         )
     except Exception:
         elapsed = time.monotonic() - t0
-        trace_span(
-            "tool.completed",
-            tool=tool_name,
-            tool_call_id=tool_call_id,
-            outcome="exception",
+        _trace_tool_completed(
+            tool_name,
+            tool_call_id,
+            "exception",
+            error_type="exception",
             duration_ms=round(elapsed * 1000, 1),
         )
         trace_note(portal_timings=add_tool_time(elapsed))
         raise
     elapsed = time.monotonic() - t0
     dispatch_error = isinstance(result, dict) and "error" in result
-    trace_span(
-        "tool.completed",
-        tool=tool_name,
-        tool_call_id=tool_call_id,
-        outcome="error" if dispatch_error else "ok",
+    _trace_tool_completed(
+        tool_name,
+        tool_call_id,
+        "error" if dispatch_error else "ok",
+        result,
         duration_ms=round(elapsed * 1000, 1),
     )
     trace_note(portal_timings=add_tool_time(elapsed))

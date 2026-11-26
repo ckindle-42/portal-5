@@ -14,8 +14,9 @@ cross-process problem ``PROMETHEUS_MULTIPROC_DIR`` already solves for metrics.
 Records go to a tmpfs directory shared by every worker in the container.
 
 Capture is metadata by default: workspace resolution chain, backend and model,
-tool names with durations and outcomes. Message and tool-argument bodies are
-captured only when ``PORTAL_TRACE_BODIES`` is set, because prompts are user
+tool names with durations and outcomes, plus one bounded result per execution
+(success, error type, stdout/stderr heads). Message and tool-argument bodies
+are captured only when ``PORTAL_TRACE_BODIES`` is set, because prompts are user
 content and this store is readable by anyone holding the pipeline key.
 
 Every public helper swallows its own exceptions. A trace failure must never
@@ -58,6 +59,12 @@ MAX_RECORDS: int = _env_int("PORTAL_TRACE_MAX", 200)
 MAX_RECORD_BYTES: int = max(512, _env_int("PORTAL_TRACE_MAX_BYTES", 32768))
 #: Characters of each captured message kept verbatim; the rest is a size and a hash.
 HEAD_CHARS: int = 160
+#: Always-on tool stdout/stderr kept on ``tool.completed``. Full bodies stay opt-in.
+TOOL_RESULT_HEAD_CHARS: int = 512
+_SECRET_ASSIGN = re.compile(
+    r"(?i)\b((?:authorization|api[_-]?key|password|secret|access[_-]?token|token|bearer)"
+    r"\s*[:=]\s*)(\S+)"
+)
 
 # Correlation ids are minted as ``p5-<hex12>`` but may be supplied by a client
 # through X-Correlation-ID, so the id is a filename component we do not trust.
@@ -96,6 +103,67 @@ def redact(mapping: dict[str, Any]) -> dict[str, Any]:
         lowered = str(key).lower()
         out[key] = "<redacted>" if _is_credential_key(lowered) else _redact_value(value)
     return out
+
+
+def _redact_secret_text(text: str) -> str:
+    return _SECRET_ASSIGN.sub(r"\1<redacted>", text)
+
+
+def _parse_tool_payload(result: Any) -> dict[str, Any] | None:
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(result, dict):
+        return None
+    return redact(result)
+
+
+def _stream_text(value: Any) -> str:
+    return _redact_secret_text(value) if isinstance(value, str) else ""
+
+
+def _clip_head(text: str) -> tuple[str, bool]:
+    if len(text) <= TOOL_RESULT_HEAD_CHARS:
+        return text, False
+    return text[:TOOL_RESULT_HEAD_CHARS], True
+
+
+def _tool_status(parsed: dict[str, Any] | None, error_type: str) -> tuple[bool, str]:
+    if error_type:
+        return False, error_type[:80]
+    if not isinstance(parsed, dict):
+        return True, ""
+    declared = parsed.get("error_type")
+    etype = declared[:80] if isinstance(declared, str) else ""
+    if not etype and parsed.get("timed_out"):
+        etype = "timeout"
+    elif not etype and "error" in parsed:
+        etype = "tool_error"
+    success = bool(parsed.get("success")) if "success" in parsed else not etype
+    if parsed.get("timed_out"):
+        success = False
+    return success, etype
+
+
+def bounded_tool_result(result: Any, *, error_type: str = "") -> dict[str, Any]:
+    """Tool name stays on the span. This is the capped, redacted execution receipt."""
+    parsed = _parse_tool_payload(result)
+    stdout_head, stdout_cut = _clip_head(_stream_text((parsed or {}).get("stdout")))
+    stderr_head, stderr_cut = _clip_head(_stream_text((parsed or {}).get("stderr")))
+    success, etype = _tool_status(parsed, error_type)
+    fields: dict[str, Any] = {
+        "success": success,
+        "error_type": etype,
+        "stdout_head": stdout_head,
+        "stderr_head": stderr_head,
+    }
+    if stdout_cut:
+        fields["stdout_truncated"] = True
+    if stderr_cut:
+        fields["stderr_truncated"] = True
+    return fields
 
 
 class TurnTrace:

@@ -796,36 +796,56 @@ def test_sandbox_hunt_and_rag_behavior_graders() -> None:
     assert "sandbox execution result is missing" in uat.grade_case(sandbox, turns, {})[0]
 
 
-def test_sandbox_tool_results_are_read_from_the_openwebui_chat_history() -> None:
-    chat = {
-        "chat": {
-            "history": {
-                "messages": {
-                    "assistant": {
-                        "role": "assistant",
-                        "tool_calls": [
-                            {
-                                "id": "python-1",
-                                "function": {"name": "execute_python"},
-                            }
-                        ],
-                    },
-                    "python-result": {
-                        "role": "tool",
-                        "tool_call_id": "python-1",
-                        "content": '{"success": true, "stdout": "UAT_EXTERNAL_URL_BLOCKED:URLError"}',
-                    },
-                }
-            }
-        }
-    }
+def test_sandbox_tool_results_come_from_the_turn_trace_not_prose(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from portal.platform.inference.router import trace
 
-    assert uat._sandbox_tool_results(chat) == (
-        {
-            "tool": "execute_python",
-            "result": {"success": True, "stdout": "UAT_EXTERNAL_URL_BLOCKED:URLError"},
-        },
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path))
+    stdout = (
+        "UAT_PYTHON_73\n"
+        "UAT_EXTERNAL_URL_BLOCKED:URLError\n"
+        "UAT_INTERNAL_SERVICE_BLOCKED:URLError\n"
+        "UAT_DNS_BLOCKED:gaierror\n"
     )
+    trace.start_trace("p5-sandboxtool")
+    try:
+        trace.span(
+            "tool.completed",
+            tool="execute_python",
+            outcome="ok",
+            **trace.bounded_tool_result({"success": True, "stdout": stdout, "stderr": ""}),
+        )
+        trace.finalize_trace()
+        record = trace.read_trace("p5-sandboxtool")
+        trace.start_trace("p5-owuitask01")
+        trace.note(owui_task=True)
+        trace.span(
+            "tool.completed",
+            tool="execute_bash",
+            outcome="ok",
+            **trace.bounded_tool_result({"success": True, "stdout": "UAT_BASH_48", "stderr": ""}),
+        )
+        trace.finalize_trace()
+        task_row = trace.read_trace("p5-owuitask01")
+    finally:
+        trace._current.set(None)
+    assert record is not None and task_row is not None
+    assert uat._tool_results_from_trace(record) == (
+        {"tool": "execute_python", "result": {"success": True, "stdout": stdout, "stderr": ""}},
+    )
+    assert uat._tool_results_from_trace(task_row) == ()
+    prose = stdout + "UAT_BASH_48"
+    sandbox = uat.UATCase("sandbox", "sandbox", "auto-coding", ("run", "bash"), "sandbox")
+    errors, _evidence = uat.grade_case(
+        sandbox,
+        [
+            uat.UATTurn("run", prose, record, (), (), uat._tool_results_from_trace(record)),
+            uat.UATTurn("bash", prose, task_row, (), (), uat._tool_results_from_trace(task_row)),
+        ],
+        {},
+    )
+    assert "sandbox execution result is missing" in errors
 
     hunt = uat.UATCase(
         "hunt", "hunt", "security-reviewer", ("sources", "status", "leads"), "hunt_workflow"
