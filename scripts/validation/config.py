@@ -39,7 +39,11 @@ def check_rule_6() -> tuple[str, str, list[dict]]:
     """
     import yaml
 
-    from portal.platform.inference.config import _eval_enabled, load_portal_config
+    from portal.platform.inference.config import (
+        TASK_MODEL_WORKSPACE,
+        _eval_enabled,
+        load_portal_config,
+    )
     from portal.platform.inference.router.workspaces import WORKSPACES
     from portal.platform.wiki.adapters.modules import enabled_modules
 
@@ -48,7 +52,11 @@ def check_rule_6() -> tuple[str, str, list[dict]]:
     ws_all = set(load_portal_config(include_bench=True).workspaces.keys())
     eval_on = _eval_enabled()
     live_mods = set(enabled_modules()) | ({"eval"} if eval_on else set())
-    ws_yaml = {wid for wid, spec in cfg.workspaces.items() if spec.module in live_mods}
+    ws_yaml = {
+        wid
+        for wid, spec in cfg.workspaces.items()
+        if spec.module in live_mods or wid == TASK_MODEL_WORKSPACE
+    }
     ws_router = set(WORKSPACES.keys())
 
     backends_path = REPO_ROOT / "config" / "backends.yaml"
