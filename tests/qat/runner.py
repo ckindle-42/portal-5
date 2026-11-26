@@ -515,10 +515,17 @@ def run_selected(settings: Settings, opts: RunnerOptions) -> RunState:
         if opts.emit_worksheets:
             _emit_worksheets(run_dir, selected)
         return state
-    if any(scenario.kind == "uat" for scenario in selected):
-        client = client or OWUIClient(settings)
-        token = token or client.signin()
-        _run_with_clean_owui_memories(client, token, settings, selected, state, opts, previous)
+    if not selected:
+        raise SystemExit("QAT selection resolved to 0 scenarios; nothing to run")
+    # Every live selection runs from a known OWUI memory state, not only Stage 5 (13cdf8587
+    # gated execution on a UAT row being selected, so stage 0-4 selections silently ran nothing).
+    client = client or OWUIClient(settings)
+    token = token or client.signin()
+    _run_with_clean_owui_memories(client, token, settings, selected, state, opts, previous)
+    if not state.results:
+        raise SystemExit(
+            f"QAT selected {len(selected)} scenarios but executed 0; see run_meta.json"
+        )
     return state
 
 
