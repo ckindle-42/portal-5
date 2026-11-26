@@ -2348,7 +2348,7 @@ def _receipt_count(receipts: list[dict[str, object]], keys: tuple[str, ...]) -> 
 
 
 def _reported_count(text: str, metric: str) -> int | None:
-    match = re.search(rf"\b([\d,]+)\s+(?:splunk\s+)?{metric}s?\b", text, re.IGNORECASE)
+    match = re.search(rf"\b(\d[\d,]*)\s+(?:splunk\s+)?{metric}s?\b", text, re.IGNORECASE)
     if not match:
         return None
     return int(match.group(1).replace(",", ""))

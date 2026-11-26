@@ -2308,3 +2308,10 @@ def test_rag_period_and_source_must_match_retrieved_receipt() -> None:
         {"title": "Backup Guide", "text": "The retention period is 90 days."},
     )
     assert any("does not match" in error for error in uat.grade_case(case, [wrong], {})[0])
+
+
+def test_reported_count_ignores_bare_commas() -> None:
+    from tests.qat import uat_behavioral as ub
+
+    assert ub._reported_count("sources, requests pending", "request") is None
+    assert ub._reported_count("ran 1,204 splunk requests", "request") == 1204
