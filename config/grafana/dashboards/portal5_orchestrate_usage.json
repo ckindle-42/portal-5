@@ -7,7 +7,7 @@
     "cost"
   ],
   "schemaVersion": 38,
-  "version": 7,
+  "version": 8,
   "editable": true,
   "refresh": "5m",
   "time": {
@@ -229,7 +229,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(orchestrate_burn_idle_capacity == 1)"
+          "expr": "sum(orchestrate_drill_item{kind=\"idle\",state=\"idle\"})"
         }
       ],
       "fieldConfig": {
@@ -250,7 +250,14 @@
           },
           "color": {
             "mode": "thresholds"
-          }
+          },
+          "links": [
+            {
+              "title": "Show items",
+              "url": "/d/portal5-orchestrate-drilldown/items?orgId=1&var-kind=idle&var-state=idle&var-plan=All",
+              "targetBlank": false
+            }
+          ]
         },
         "overrides": []
       },
@@ -278,7 +285,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(orchestrate_rate_limit_retry_timestamp > time())",
+          "expr": "sum(orchestrate_drill_item{kind=\"quota_alert\",state=\"rate_limit\"})",
           "legendFormat": "fenced pools"
         }
       ],
@@ -299,7 +306,14 @@
                 "color": "red"
               }
             ]
-          }
+          },
+          "links": [
+            {
+              "title": "Show items",
+              "url": "/d/portal5-orchestrate-drilldown/items?orgId=1&var-kind=quota_alert&var-state=rate_limit&var-plan=All",
+              "targetBlank": false
+            }
+          ]
         }
       },
       "id": 122
@@ -1137,7 +1151,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "orchestrate_backlog_items",
+              "expr": "sum by (state) (orchestrate_drill_item{kind=\"backlog\"})",
               "legendFormat": "{{state}}",
               "instant": true
             }
@@ -1148,7 +1162,14 @@
               "min": 0,
               "color": {
                 "mode": "palette-classic"
-              }
+              },
+              "links": [
+                {
+                  "title": "Show items",
+                  "url": "/d/portal5-orchestrate-drilldown/items?orgId=1&var-kind=backlog&var-state=${__field.labels.state}&var-plan=All",
+                  "targetBlank": false
+                }
+              ]
             },
             "overrides": []
           },
@@ -2223,7 +2244,14 @@
             "defaults": {
               "custom": {
                 "align": "right"
-              }
+              },
+              "links": [
+                {
+                  "title": "Show items",
+                  "url": "/d/portal5-orchestrate-drilldown/items?orgId=1&var-kind=failure&var-state=All&var-plan=All",
+                  "targetBlank": false
+                }
+              ]
             },
             "overrides": [
               {
@@ -4084,12 +4112,258 @@
       ]
     },
     {
+      "id": 200,
+      "type": "row",
+      "title": "Lane Drilldown",
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 27
+      },
+      "panels": [
+        {
+          "id": 201,
+          "type": "stat",
+          "title": "Lanes running",
+          "description": "Sum of orchestrate_drill_item rows in this state. A finished stall or timeout drops off when a later run exists or it is older than 6h.",
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 0,
+            "y": 0
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(orchestrate_drill_item{kind=\"lane\",state=\"running\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "decimals": 0,
+              "color": {
+                "mode": "thresholds"
+              },
+              "links": [
+                {
+                  "title": "Show items",
+                  "url": "/d/portal5-orchestrate-drilldown/items?orgId=1&var-kind=lane&var-state=running&var-plan=All",
+                  "targetBlank": false
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#199e70",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          }
+        },
+        {
+          "id": 202,
+          "type": "stat",
+          "title": "Lanes stalled",
+          "description": "Sum of orchestrate_drill_item rows in this state. A finished stall or timeout drops off when a later run exists or it is older than 6h.",
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 6,
+            "y": 0
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(orchestrate_drill_item{kind=\"lane\",state=\"stalled\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "decimals": 0,
+              "color": {
+                "mode": "thresholds"
+              },
+              "links": [
+                {
+                  "title": "Show items",
+                  "url": "/d/portal5-orchestrate-drilldown/items?orgId=1&var-kind=lane&var-state=stalled&var-plan=All",
+                  "targetBlank": false
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#199e70",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          }
+        },
+        {
+          "id": 203,
+          "type": "stat",
+          "title": "Lanes in timeout",
+          "description": "Sum of orchestrate_drill_item rows in this state. A finished stall or timeout drops off when a later run exists or it is older than 6h.",
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 12,
+            "y": 0
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(orchestrate_drill_item{kind=\"lane\",state=\"timeout\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "decimals": 0,
+              "color": {
+                "mode": "thresholds"
+              },
+              "links": [
+                {
+                  "title": "Show items",
+                  "url": "/d/portal5-orchestrate-drilldown/items?orgId=1&var-kind=lane&var-state=timeout&var-plan=All",
+                  "targetBlank": false
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#199e70",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          }
+        },
+        {
+          "id": 204,
+          "type": "stat",
+          "title": "Lanes failed",
+          "description": "Sum of orchestrate_drill_item rows in this state. A finished stall or timeout drops off when a later run exists or it is older than 6h.",
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 18,
+            "y": 0
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(orchestrate_drill_item{kind=\"lane\",state=\"failed\"})"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "decimals": 0,
+              "color": {
+                "mode": "thresholds"
+              },
+              "links": [
+                {
+                  "title": "Show items",
+                  "url": "/d/portal5-orchestrate-drilldown/items?orgId=1&var-kind=lane&var-state=failed&var-plan=All",
+                  "targetBlank": false
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#199e70",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          }
+        }
+      ]
+    },
+    {
       "type": "row",
       "id": 112,
       "title": "Archive & Data Notes",
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 28,
         "w": 24,
         "h": 1
       },

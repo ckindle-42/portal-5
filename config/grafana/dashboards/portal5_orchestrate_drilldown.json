@@ -1,0 +1,246 @@
+{
+  "uid": "portal5-orchestrate-drilldown",
+  "title": "Portal 5 \u2014 Orchestrate count drilldown",
+  "tags": [
+    "portal5",
+    "orchestrate"
+  ],
+  "schemaVersion": 38,
+  "version": 1,
+  "editable": true,
+  "refresh": "1m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "utc",
+  "description": "Rows behind a count on the usage dashboard. The log cell is a file link. The result column is the dispatch.py result command.",
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "label": "kind",
+        "multi": false,
+        "name": "kind",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "lane",
+            "value": "lane"
+          },
+          {
+            "selected": false,
+            "text": "backlog",
+            "value": "backlog"
+          },
+          {
+            "selected": false,
+            "text": "idle",
+            "value": "idle"
+          },
+          {
+            "selected": false,
+            "text": "quota_alert",
+            "value": "quota_alert"
+          },
+          {
+            "selected": false,
+            "text": "failure",
+            "value": "failure"
+          }
+        ],
+        "query": "lane,backlog,idle,quota_alert,failure",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "label": "state",
+        "multi": false,
+        "name": "state",
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "running",
+            "value": "running"
+          },
+          {
+            "selected": false,
+            "text": "stalled",
+            "value": "stalled"
+          },
+          {
+            "selected": false,
+            "text": "timeout",
+            "value": "timeout"
+          },
+          {
+            "selected": false,
+            "text": "failed",
+            "value": "failed"
+          },
+          {
+            "selected": false,
+            "text": "ready",
+            "value": "ready"
+          },
+          {
+            "selected": false,
+            "text": "assigned",
+            "value": "assigned"
+          },
+          {
+            "selected": false,
+            "text": "held",
+            "value": "held"
+          },
+          {
+            "selected": false,
+            "text": "reported",
+            "value": "reported"
+          },
+          {
+            "selected": false,
+            "text": "idle",
+            "value": "idle"
+          },
+          {
+            "selected": false,
+            "text": "rate_limit",
+            "value": "rate_limit"
+          },
+          {
+            "selected": false,
+            "text": "stall",
+            "value": "stall"
+          },
+          {
+            "selected": false,
+            "text": "harness_error",
+            "value": "harness_error"
+          },
+          {
+            "selected": false,
+            "text": "quota_refusal",
+            "value": "quota_refusal"
+          }
+        ],
+        "query": "running,stalled,timeout,failed,ready,assigned,held,reported,idle,rate_limit,stall,harness_error,quota_refusal",
+        "type": "custom"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(orchestrate_drill_item, plan)",
+        "includeAll": true,
+        "label": "plan",
+        "multi": false,
+        "name": "plan",
+        "query": {
+          "query": "label_values(orchestrate_drill_item, plan)",
+          "refId": "A"
+        },
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Items behind the count",
+      "gridPos": {
+        "h": 18,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "ITEM",
+          "expr": "orchestrate_drill_item{kind=~\"$kind\",state=~\"$state\",plan=~\"$plan\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "AGE",
+          "expr": "orchestrate_drill_age_seconds{kind=~\"$kind\",state=~\"$state\",plan=~\"$plan\"}",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "log"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open log",
+                    "url": "file://${__value.raw}",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "age_s",
+            "desc": false
+          }
+        ]
+      }
+    }
+  ]
+}
