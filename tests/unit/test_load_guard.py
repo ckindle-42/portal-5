@@ -367,6 +367,42 @@ async def test_reclaim_idle_memory_reports_resident_models_that_still_hold_memor
     ]
 
 
+async def test_reclaim_idle_memory_spares_a_seat_a_sibling_worker_just_served():
+    """2026-11-26 QAT: a 0.04 GiB job reclaim evicted granite4.1 0.2 s after its
+    tool-loop hop because recency was per-worker; the reclaim worker saw it as stale."""
+    e = Engines(ollama={"hot-seat": 6 * GIB})
+    sibling = guard(e)
+    sibling.begin(OLLAMA, "hot-seat")()
+    g = guard(e)  # a different worker: no local _last_access for hot-seat
+    result = await g.reclaim_idle_memory(OLLAMA_URL, GIB // 25)
+    assert result["unloads"] == []
+    assert e.unload_calls == {}
+    assert "hot-seat" in e.ollama
+
+
+async def test_reclaim_idle_memory_spares_a_recently_served_omlx_seat():
+    e = Engines(omlx={"hot-mlx": {"size": 5 * GIB, "loaded": True}})
+    sibling = guard(e)
+    sibling.begin(lg.OMLX, "hot-mlx")()
+    g = guard(e)
+    result = await g.reclaim_idle_memory(OLLAMA_URL, GIB)
+    assert result["unloads"] == []
+    assert e.unloaded == []
+
+
+async def test_ollama_idle_lru_orders_by_cross_worker_recency():
+    """The eviction order claimed 'idle LRU' but sorted by this worker's stamps only:
+    a sibling worker's fresher seat could be evicted before a truly stale one."""
+    e = Engines(ollama={"aaa-fresh": 4 * GIB, "zzz-stale": 4 * GIB})
+    sibling = guard(e)
+    sibling.begin(OLLAMA, "aaa-fresh")()
+    stale = time.time() - 300  # outside the reclaim shield, newer than zzz-stale's "never"
+    lg.LoadGuard._activity_path(OLLAMA, "aaa-fresh").write_text(f"{stale:.6f}")
+    g = guard(e)
+    result = await g.reclaim_idle_memory(OLLAMA_URL, 3 * GIB)
+    assert [u["model"] for u in result["unloads"]] == ["zzz-stale"]
+
+
 def test_has_activity_covers_cross_worker_admission_and_request_leases():
     g = lg.LoadGuard(omlx_url=lambda: None)
     admission = g._shared_process_lock("admissions.lock")
