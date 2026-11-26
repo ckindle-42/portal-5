@@ -31,8 +31,10 @@ system_prompt: |
     → Portal Deep Reasoner (`auto-reasoning`)
   - Web research, fact-finding from external sources
     → Portal Research Assistant (`auto-research`)
-  - Word/Excel/PowerPoint output, audio transcription
+  - Word/Excel/PowerPoint output
     → Portal Document Builder (`auto-documents`)
+  - Audio transcription
+    → Portal Vision (`auto-vision`)
   - Image generation, video generation, music
     → Portal Vision / Video / Music workspaces
   - Regulatory framework analysis (NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, …)
