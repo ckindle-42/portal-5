@@ -22,8 +22,10 @@ from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
 from portal.modules.media.tools._jobs import (
+    DEFAULT_STATS_DIR,
     DEFAULT_STATUS_WAIT_S,
     STATUS_TOOL_TIMEOUT_S,
+    JobDurationStats,
     MediaJobManager,
     start_reply,
 )
@@ -65,10 +67,19 @@ def release_idle() -> bool:
     return not _weights_resident
 
 
+_STATS = JobDurationStats(DEFAULT_STATS_DIR / "job_durations_music.json")
+
 _JOBS = MediaJobManager(
     idle_timeout_s=float(os.environ.get("MUSIC_IDLE_TIMEOUT_S", "180")),
     on_idle=release_idle,
+    stats=_STATS,
 )
+
+# Bootstrap ETAs until measured durations exist for a key.
+_ETA_DEFAULT_S = {
+    "acestep": float(os.environ.get("MUSIC_ETA_ACESTEP_DEFAULT_S", "300")),
+    "minimax": float(os.environ.get("MUSIC_ETA_MINIMAX_DEFAULT_S", "600")),
+}
 
 
 def admission_key(engine: str) -> str:
@@ -251,7 +262,11 @@ async def music_start(
         }
         return await _finish(spec, progress)
 
-    job_id = _JOBS.start(_run, extra_fields={"engine": engine, "seed": chosen})
+    eta_key = f"music:{engine}:{int(bounded_s)}s"
+    eta_s = _STATS.eta_s(eta_key, _ETA_DEFAULT_S.get(engine, 300.0))
+    job_id = _JOBS.start(
+        _run, extra_fields={"engine": engine, "seed": chosen}, eta_key=eta_key, eta_s=eta_s
+    )
     holder["id"] = job_id
     return start_reply(
         job_id,
@@ -259,6 +274,7 @@ async def music_start(
         f"engine={engine}, task={task_type}, {int(bounded_s)}s, {bounded_steps} steps",
         engine=engine,
         seed=chosen,
+        eta_s=eta_s,
     )
 
 

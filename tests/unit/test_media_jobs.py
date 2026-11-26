@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from portal.modules.media.tools import _jobs
-from portal.modules.media.tools._jobs import MediaJobManager, start_reply
+from portal.modules.media.tools._jobs import JobDurationStats, MediaJobManager, start_reply
 from portal.platform.inference.router.tool_repeat import is_read_only
 
 
@@ -28,6 +28,86 @@ def test_media_start_reply_defers_polling_to_a_later_turn() -> None:
     assert "later turn" in reply["message"]
     assert "do not poll in this turn" in reply["message"].lower()
     assert "music_status" in reply["next_action"]
+
+
+def test_media_start_reply_states_the_eta() -> None:
+    reply = start_reply("job-123", "music_status", "model=acestep", eta_s=250.4)
+
+    assert reply["eta_s"] == 250
+    assert "250s" in reply["message"]
+    assert "continues asynchronously" in reply["message"]
+    assert "do not poll in this turn" in reply["message"].lower()
+
+
+def test_duration_stats_eta_uses_measured_durations_with_a_margin(tmp_path: Path) -> None:
+    stats = JobDurationStats(tmp_path / "stats.json")
+    assert stats.eta_s("music:acestep:30s", 300.0) == 300.0
+    stats.observe("music:acestep:30s", 100.0)
+    assert stats.eta_s("music:acestep:30s", 300.0) == 100.0 * _jobs.ETA_MARGIN
+    reloaded = JobDurationStats(tmp_path / "stats.json")
+    assert reloaded.eta_s("music:acestep:30s", 300.0) == stats.eta_s("music:acestep:30s", 300.0)
+
+
+@pytest.mark.asyncio
+async def test_single_status_call_after_start_delivers_the_artifact(tmp_path: Path) -> None:
+    stats = JobDurationStats(tmp_path / "stats.json")
+    mgr = MediaJobManager(default_wait_s=0.0, max_wait_s=5.0, stats=stats)
+
+    async def runner(progress: Any) -> dict[str, Any]:
+        progress(2, "Generating (acestep, 8 steps)…")
+        await asyncio.sleep(0.25)
+        return {"success": True, "download_url": "http://x/song.wav", "url": "http://x/song.wav"}
+
+    job_id = mgr.start(runner, eta_key="music:acestep:30s", eta_s=0.4)
+    res = await mgr.status(job_id, wait_s=0.0)  # the ETA alone must carry one call to done
+    assert res["status"] == "done"
+    assert res["download_url"] == "http://x/song.wav"
+    assert "http://x/song.wav" in res["message"]
+    assert stats.eta_s("music:acestep:30s", 300.0) < 5.0  # measured duration replaced default
+
+
+@pytest.mark.asyncio
+async def test_status_without_eta_returns_running_without_waiting() -> None:
+    mgr = MediaJobManager(default_wait_s=0.0, max_wait_s=5.0)
+    gate = asyncio.Event()
+
+    async def runner(_progress: Any) -> dict[str, Any]:
+        await gate.wait()
+        return {"success": True}
+
+    job_id = mgr.start(runner)
+    t0 = time.monotonic()
+    res = await mgr.status(job_id, wait_s=0.0)
+    assert res["status"] == "running"
+    assert time.monotonic() - t0 < 0.5
+    gate.set()
+
+
+@pytest.mark.asyncio
+async def test_failed_job_is_reported_as_a_failure_not_still_running() -> None:
+    mgr = MediaJobManager(default_wait_s=1.0, max_wait_s=1.0)
+
+    async def runner(_progress: Any) -> dict[str, Any]:
+        return {"success": False, "error": "insufficient memory"}
+
+    res = await mgr.status(mgr.start(runner))
+    assert res["status"] == "error"
+    assert res["error"] == "insufficient memory"
+    assert res["message"] == "Job failed: insufficient memory"
+    assert "Report this failure" in res["next_action"]
+
+
+@pytest.mark.asyncio
+async def test_crashed_job_is_reported_as_a_failure() -> None:
+    mgr = MediaJobManager(default_wait_s=1.0, max_wait_s=1.0)
+
+    async def runner(_progress: Any) -> dict[str, Any]:
+        raise ValueError("boom")
+
+    res = await mgr.status(mgr.start(runner))
+    assert res["status"] == "error"
+    assert res["message"] == "Job failed: boom"
+    assert "Report this failure" in res["next_action"]
 
 
 @pytest.mark.asyncio

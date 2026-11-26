@@ -32,8 +32,10 @@ from starlette.responses import JSONResponse, Response
 
 from portal.modules.media.tools._admission import admit
 from portal.modules.media.tools._jobs import (
+    DEFAULT_STATS_DIR,
     DEFAULT_STATUS_WAIT_S,
     STATUS_TOOL_TIMEOUT_S,
+    JobDurationStats,
     MediaJobManager,
     start_reply,
 )
@@ -65,7 +67,10 @@ VIDEO_MLX_DEFAULT_MODEL = os.environ.get("VIDEO_MLX_DEFAULT_MODEL", "ltx-2.5-q4"
 VIDEO_MLX_TIMEOUT = int(os.environ.get("VIDEO_MLX_TIMEOUT", "1800"))
 VIDEO_MLX_LOW_RAM = os.environ.get("VIDEO_MLX_LOW_RAM", "1") not in ("", "0", "false", "no")
 VIDEO_MLX_QUALITY = os.environ.get("VIDEO_MLX_QUALITY", "fast")
-_JOBS = MediaJobManager()
+_STATS = JobDurationStats(DEFAULT_STATS_DIR / "job_durations_video.json")
+_JOBS = MediaJobManager(stats=_STATS)
+# Bootstrap ETA until measured durations exist for a key.
+_ETA_DEFAULT_S = float(os.environ.get("VIDEO_ETA_DEFAULT_S", "900"))
 
 # What a model emits when it means "whatever the roster default is". Sent on as a
 # `--model` value it is a HF repo id, and the lookup 404s (2026-11-19:
@@ -463,8 +468,14 @@ async def video_start(
             src=src,
         )
 
+    engine = _engine_cfg(resolved)["engine"]
+    eta_key = f"video:{engine}:{_round_frames(int(frames), 4 if engine == 'wan' else 8)}f:{quality}"
+    eta_s = _STATS.eta_s(eta_key, _ETA_DEFAULT_S)
     job_id = _JOBS.start(
-        _run, extra_fields={"model": resolved, "seed": int(seed), "quality": quality}
+        _run,
+        extra_fields={"model": resolved, "seed": int(seed), "quality": quality},
+        eta_key=eta_key,
+        eta_s=eta_s,
     )
     logger.info(
         "video job %s queued model=%s %sx%s quality=%s budget=%ss",
@@ -487,6 +498,7 @@ async def video_start(
         quality=quality,
         width=render_w,
         height=render_h,
+        eta_s=eta_s,
     )
 
 

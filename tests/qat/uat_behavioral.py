@@ -3058,7 +3058,7 @@ def run_case(settings: Settings, scenario: QATScenario, state: Any, options: Any
         return _run_browser_case(settings, scenario, case, state, options)
     if case.cross_session:
         return _run_memory_case(settings, scenario, case, options)
-    return _run_chat_case(settings, scenario, case, options)
+    return _run_chat_case(settings, scenario, case, options, _ports_of(state))
 
 
 def _run_browser_case(
@@ -3131,7 +3131,7 @@ def _run_browser_chat(
     gui_tools = ui.inspect_and_manage_tools(case.expected_tools)
     deadline = time.monotonic() + case.timeout_s
     turns, error, chat_id = _run_browser_sequence(
-        ui, client, token, settings, scenario, case, deadline
+        ui, client, token, settings, scenario, case, deadline, fleet_ports=_ports_of(state)
     )
     extra = _browser_evidence(ui, scenario)
     extra["gui_tools"] = gui_tools
@@ -3157,6 +3157,7 @@ def _run_browser_sequence(
     case: UATCase,
     deadline: float,
     memory_key: str = "",
+    fleet_ports: dict[str, int] | None = None,
 ) -> tuple[list[UATTurn], QATResult | None, str]:
     from . import runner
 
@@ -3166,8 +3167,10 @@ def _run_browser_sequence(
     if infra:
         return transcript, _status_result(scenario, infra, chat_id, transcript), chat_id
     prompts = list(case.prompts)
+    poll_wake_at = 0.0
     for index, template in enumerate(prompts, start=1):
         prompt = template.replace("{{memory_key}}", memory_key)
+        sleep_before_poll(prompt, poll_wake_at, deadline)
         with tempfile.TemporaryDirectory(prefix="uat-browser-upload-") as tmp:
             upload_path, error = _browser_turn_upload(
                 client, token, settings, case, index, transcript, Path(tmp), deadline
@@ -3200,9 +3203,10 @@ def _run_browser_sequence(
         transcript.append(
             _observed_turn(prompt, text, trace, _tool_names_from_calls((), trace), urls)
         )
-        poll_prompt = _media_job_followup_prompt(case, transcript)
-        if poll_prompt and time.monotonic() + 25 < deadline:
-            prompts.append(poll_prompt)
+        plan = plan_media_poll(case, transcript, fleet_ports)
+        if plan and time.monotonic() + plan.sleep_s + 25 < deadline:
+            poll_wake_at = time.monotonic() + plan.sleep_s
+            prompts.append(plan.prompt)
     tool_error = _required_tool_error(case, transcript)
     if tool_error:
         return transcript, _status_result(scenario, tool_error, chat_id, transcript), chat_id
@@ -3477,7 +3481,11 @@ def _finish_browser_memory(
 
 
 def _run_chat_case(
-    settings: Settings, scenario: QATScenario, case: UATCase, options: Any
+    settings: Settings,
+    scenario: QATScenario,
+    case: UATCase,
+    options: Any,
+    fleet_ports: dict[str, int] | None = None,
 ) -> QATResult:
     client = OWUIClient(settings)
     try:
@@ -3486,7 +3494,15 @@ def _run_chat_case(
             token, case.model_slug, f"UAT: {case.scenario_id}", case.prompts[0]
         )
         deadline = time.monotonic() + case.timeout_s
-        turns, error = _run_sequence(client, token, chat_id, scenario, case, deadline)
+        turns, error = _run_sequence(
+            client,
+            token,
+            chat_id,
+            scenario,
+            case,
+            deadline,
+            fleet_ports=fleet_ports,
+        )
         if error:
             error.chat_id = chat_id
             return _archive_chat(client, token, chat_id, scenario, options, error)
@@ -3577,6 +3593,7 @@ def _run_sequence(
     case: UATCase,
     deadline: float,
     memory_key: str = "",
+    fleet_ports: dict[str, int] | None = None,
 ) -> tuple[list[UATTurn], QATResult | None]:
     from . import runner
 
@@ -3586,8 +3603,10 @@ def _run_sequence(
     if infra:
         return transcript, _status_result(scenario, infra, chat_id, transcript)
     prompts = list(case.prompts)
+    poll_wake_at = 0.0
     for index, template in enumerate(prompts, start=1):
         prompt = template.replace("{{memory_key}}", memory_key)
+        sleep_before_poll(prompt, poll_wake_at, deadline)
         files, error = _turn_files(client, token, case, index, transcript, deadline)
         if error:
             return transcript, _status_result(scenario, error, chat_id, transcript)
@@ -3637,9 +3656,10 @@ def _run_sequence(
         branch.extend(
             ({"role": "user", "content": prompt}, {"role": "assistant", "content": outcome.text})
         )
-        poll_prompt = _media_job_followup_prompt(case, transcript)
-        if poll_prompt and time.monotonic() + 25 < deadline:
-            prompts.append(poll_prompt)
+        plan = plan_media_poll(case, transcript, fleet_ports)
+        if plan and time.monotonic() + plan.sleep_s + 25 < deadline:
+            poll_wake_at = time.monotonic() + plan.sleep_s
+            prompts.append(plan.prompt)
     tool_error = _required_tool_error(case, transcript)
     if tool_error:
         return transcript, _status_result(scenario, tool_error, chat_id, transcript)
@@ -3665,6 +3685,160 @@ _MEDIA_JOB_TOOLS = {
     "music_start": "music_status",
 }
 
+# The MCP service (fleet id) that owns each status tool's job records.
+_MEDIA_JOB_SERVERS = {
+    "image_status": "mflux",
+    "video_status": "video_mlx",
+    "music_status": "music",
+}
+
+_JOB_ID_RE = re.compile(r"\b[0-9a-f]{12}\b")
+_POLL_PREFIX = "QAT media status poll:"
+# Grace past 2x the job's own ETA before the row stops polling and fails grading.
+_MEDIA_POLL_GRACE_S = 120.0
+_MEDIA_ARTIFACT_EXTENSIONS = {
+    "audio": {".wav", ".mp3"},
+    "mp3": {".mp3"},
+    "mp4": {".mp4"},
+    "png": {".png"},
+    "wav": {".wav"},
+}
+
+
+def _ports_of(state: Any) -> dict[str, int] | None:
+    ports = getattr(state, "fleet_ports", None)
+    return ports if isinstance(ports, dict) else None
+
+
+@dataclass(frozen=True)
+class MediaPollPlan:
+    """One scheduled status/fetch turn: the prompt to send and the wait before it."""
+
+    prompt: str
+    sleep_s: float = 0.0
+
+
+def _expected_artifact_extensions(case: object) -> set[str] | None:
+    return _MEDIA_ARTIFACT_EXTENSIONS.get(str(getattr(case, "artifact_kind", "")).casefold())
+
+
+def _artifact_delivered(case: object, turns: list[UATTurn]) -> bool:
+    expected_extensions = _expected_artifact_extensions(case)
+    if not expected_extensions:
+        return False
+    return any(
+        Path(urlsplit(url).path).suffix.casefold() in expected_extensions
+        for turn in turns
+        for url in turn.artifact_urls
+    )
+
+
+def _started_media_job(turns: list[UATTurn]) -> tuple[str, str] | None:
+    """(status_tool, job_id) for the first started media job; job_id may be empty."""
+    start = next(
+        (name for name in _MEDIA_JOB_TOOLS if any(name in _successful_tools(t) for t in turns)),
+        None,
+    )
+    if start is None:
+        return None
+    job_id = ""
+    for turn in turns:
+        match = _JOB_ID_RE.search(turn.text)
+        if match:
+            job_id = match.group(0)
+            break
+    return _MEDIA_JOB_TOOLS[start], job_id
+
+
+def probe_media_job(port: int, status_tool: str, job_id: str) -> dict[str, Any] | None:
+    """Read one job record straight from the MCP service that owns it (wait_s=0)."""
+    import asyncio
+
+    from portal.platform.inference.mcp_http import call_tool, map_tool_result
+
+    async def _call() -> Any:
+        async with httpx.AsyncClient() as client:
+            result = await call_tool(
+                client,
+                f"http://localhost:{port}",
+                status_tool,
+                {"job_id": job_id, "wait_s": 0.0},
+                20.0,
+            )
+            return map_tool_result(result)
+
+    try:
+        payload = asyncio.run(_call())
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def sleep_before_poll(prompt: str, wake_at: float, deadline: float) -> None:
+    """Hold a scheduled poll turn until the job's ETA; explicit prompts never wait."""
+    if not prompt.startswith(_POLL_PREFIX) or wake_at <= 0.0:
+        return
+    remaining = min(wake_at - time.monotonic(), max(0.0, deadline - time.monotonic() - 25))
+    if remaining > 0:
+        time.sleep(remaining)
+
+
+def _poll_prompt(status_tool: str, job_id: str, wait_s: int) -> str:
+    ident = f"job_id='{job_id}'" if job_id else "the job_id from the earlier turn"
+    return (
+        f"{_POLL_PREFIX} Use {status_tool} with {ident} and wait_s={wait_s}. If it is done, "
+        "return the download_url in your reply. If it failed, repeat the error exactly and "
+        "stop. If it is still queued or running, report current progress and include exactly "
+        "MEDIA_JOB_RUNNING."
+    )
+
+
+def plan_media_poll(
+    case: object,
+    turns: list[UATTurn],
+    fleet_ports: dict[str, int] | None = None,
+) -> MediaPollPlan | None:
+    """Plan the next status/fetch turn: after the job's own ETA, bounded by 2x ETA + grace."""
+    if _expected_artifact_extensions(case) is None or _artifact_delivered(case, turns):
+        return None
+    started = _started_media_job(turns)
+    if started is None:
+        return None
+    status_tool, job_id = started
+    poll_turns = [turn for turn in turns if turn.prompt.startswith(_POLL_PREFIX)]
+    port = int((fleet_ports or {}).get(_MEDIA_JOB_SERVERS.get(status_tool, ""), 0))
+    probe = probe_media_job(port, status_tool, job_id) if job_id and port else None
+    if probe is None:
+        prompt = _media_job_followup_prompt(case, turns)
+        return MediaPollPlan(prompt) if prompt else None
+    return _plan_from_probe(status_tool, job_id, probe, poll_turns)
+
+
+def _plan_from_probe(
+    status_tool: str, job_id: str, probe: dict[str, Any], poll_turns: list[UATTurn]
+) -> MediaPollPlan | None:
+    status = str(probe.get("status") or "")
+    if status in {"done", "error", "unknown"}:
+        # One fetch/report turn through the user path; grading then reads the artifact.
+        if poll_turns:
+            return None
+        return MediaPollPlan(_poll_prompt(status_tool, job_id, 20 if status == "done" else 0))
+    eta = float(probe.get("eta_s") or 0.0)
+    if eta <= 0:
+        return MediaPollPlan(_poll_prompt(status_tool, job_id, 300))
+    created = float(probe.get("created_at") or time.time())
+    now = time.time()
+    hard_deadline = created + 2.0 * eta + _MEDIA_POLL_GRACE_S
+    if now >= hard_deadline:
+        return None
+    due = created + eta
+    if poll_turns:
+        sleep_s = max(0.0, min(eta * 0.5, hard_deadline - now))
+    else:
+        sleep_s = max(0.0, due - now - 5.0)
+    wait_s = int(min(300, max(60, due + 60 - (now + sleep_s))))
+    return MediaPollPlan(_poll_prompt(status_tool, job_id, wait_s), sleep_s)
+
 
 def _has_media_job(turns: list[UATTurn]) -> bool:
     return any(start in _successful_tools(turn) for start in _MEDIA_JOB_TOOLS for turn in turns)
@@ -3672,28 +3846,12 @@ def _has_media_job(turns: list[UATTurn]) -> bool:
 
 def _media_job_followup_prompt(case: object, turns: list[UATTurn]) -> str | None:
     """Schedule a separate status turn until a started media job returns a file link."""
-    expected_extensions = {
-        "audio": {".wav", ".mp3"},
-        "mp3": {".mp3"},
-        "mp4": {".mp4"},
-        "png": {".png"},
-        "wav": {".wav"},
-    }.get(str(getattr(case, "artifact_kind", "")).casefold())
-    if not expected_extensions:
+    if _expected_artifact_extensions(case) is None or _artifact_delivered(case, turns):
         return None
-    if any(
-        Path(urlsplit(url).path).suffix.casefold() in expected_extensions
-        for turn in turns
-        for url in turn.artifact_urls
-    ):
+    started = _started_media_job(turns)
+    if started is None:
         return None
-    start = next(
-        (name for name in _MEDIA_JOB_TOOLS if any(name in _successful_tools(t) for t in turns)),
-        None,
-    )
-    if start is None:
-        return None
-    status_tool = _MEDIA_JOB_TOOLS[start]
+    status_tool = started[0]
     prompt = (
         f"QAT media status poll: Use {status_tool} with the job_id from the earlier turn and "
         "wait_s=20. If it is queued or still running, report current progress and include exactly "

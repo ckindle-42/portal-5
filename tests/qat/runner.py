@@ -1309,7 +1309,7 @@ def _run_chat(
         )
         deadline = time.monotonic() + scenario.timeout_s
         outcome, error, all_spans, all_calls = _run_chat_turns(
-            client, token, chat_id, scenario, deadline
+            client, token, chat_id, scenario, deadline, state.fleet_ports
         )
         if error:
             error.chat_id = chat_id
@@ -1479,7 +1479,12 @@ def _run_tts(settings: Settings, scenario: QATScenario, state: RunState) -> QATR
 
 
 def _run_chat_turns(
-    client: OWUIClient, token: str, chat_id: str, scenario: QATScenario, deadline: float
+    client: OWUIClient,
+    token: str,
+    chat_id: str,
+    scenario: QATScenario,
+    deadline: float,
+    fleet_ports: dict[str, int] | None = None,
 ) -> tuple[TurnOutcome | None, QATResult | None, list[dict[str, object]], list[object]]:
     branch: list[dict[str, str]] = []
     outcome: TurnOutcome | None = None
@@ -1487,7 +1492,9 @@ def _run_chat_turns(
     all_calls: list[object] = []
     turns: list[uat_behavioral.UATTurn] = []
     prompts = list(scenario.prompts)
+    poll_wake_at = 0.0
     for index, prompt in enumerate(prompts, start=1):
+        uat_behavioral.sleep_before_poll(prompt, poll_wake_at, deadline)
         files, image_png = _chat_turn_extras(client, token, scenario, index, deadline)
         started_at = time.time()
         response = client.send_turn(
@@ -1579,9 +1586,10 @@ def _run_chat_turns(
         branch.extend(
             ({"role": "user", "content": prompt}, {"role": "assistant", "content": outcome.text})
         )
-        poll_prompt = uat_behavioral._media_job_followup_prompt(scenario, turns)
-        if poll_prompt and time.monotonic() + 25 < deadline:
-            prompts.append(poll_prompt)
+        plan = uat_behavioral.plan_media_poll(scenario, turns, fleet_ports)
+        if plan and time.monotonic() + plan.sleep_s + 25 < deadline:
+            poll_wake_at = time.monotonic() + plan.sleep_s
+            prompts.append(plan.prompt)
     return outcome, None, all_spans, all_calls
 
 
