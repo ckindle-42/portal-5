@@ -89,6 +89,7 @@ from portal.platform.inference.router.non_streaming import (
 )
 from portal.platform.inference.router.parallel_seat import release_omlx_fallback
 from portal.platform.inference.router.state import _record_error
+from portal.platform.inference.router.text_repeat import LineRepetitionGuard
 from portal.platform.inference.router.text_tool_calls import (
     TextToolCallHoldback,
     drop_unparsed_markup,
@@ -517,6 +518,39 @@ def _stream_error_frames(request_id: str, workspace_id: str, message: str) -> li
     if _CASCADE_ERRORS.get():
         return [f"data: {json.dumps({'error': message})}\n\n".encode()]
     return _error_terminal_frames(request_id, workspace_id, message)
+
+
+#: Opens the content notice that ends a degenerate line-repetition loop.
+_REPETITION_STOP_NOTICE = "\n\n[Pipeline stopped this reply — repetition loop: "
+
+
+def _repetition_stop_frames(
+    request_id: str, workspace_id: str, guard: LineRepetitionGuard, hop: int | None = None
+) -> list[bytes]:
+    """Log, metric, trace receipt and the client-visible ending for a repetition trip.
+
+    Never an error envelope (``_CASCADE_ERRORS`` is not consulted): a repetition
+    trip is content-borne, so a fallback driver must pass the ending through
+    instead of cascading a retry of the same prompt.
+    """
+    logger.warning(
+        "Repetition guard ended the stream: workspace=%s hop=%s line repeated %dx: %.120r",
+        workspace_id,
+        hop,
+        guard.tripped_count,
+        guard.tripped_line,
+    )
+    _record_error(workspace_id, "repetition_stop")
+    trace_note(
+        repetition_stop={
+            "line_repeats": guard.tripped_count,
+            "sample": (guard.tripped_line or "")[:120],
+            "hop": hop,
+        }
+    )
+    return _error_terminal_frames(
+        request_id, workspace_id, guard.stop_message(), notice=_REPETITION_STOP_NOTICE
+    )
 
 
 async def _backend_error_ending(
@@ -1291,6 +1325,7 @@ async def _tool_loop_frames_impl(
     carry_tool_calls: list[dict[str, Any]] = []
     carry_results: list[dict[str, Any]] = []
     _repeat_guard = ToolRepeatGuard()
+    _line_guard = LineRepetitionGuard()  # per turn, like the QAT grader's whole-answer count
     _tool_byte_budget = tool_result_byte_budget(workspace_context_limit(workspace_id))
     _tool_result_bytes = 0
     _call_limit = _configured_tool_calls(workspace_id)
@@ -1544,6 +1579,12 @@ async def _tool_loop_frames_impl(
                         )
                         if isinstance(_visible, str):
                             _content_buf += _visible
+                        if isinstance(_visible, str) and _visible and _line_guard.feed(_visible):
+                            for _f in _repetition_stop_frames(
+                                request_id, workspace_id, _line_guard, hop
+                            ):
+                                yield _f
+                            return
                         if _thinking_allowed and _inline:
                             _reasoning_buf += _inline
                         _timing_measurement.observe(
@@ -2179,6 +2220,7 @@ async def _stream_from_backend_guarded_impl(
     _usage_chunk: bytes | None = None
     _finish_reason: str | None = None
     _think_filter = ThinkTagFilter()
+    _line_guard = LineRepetitionGuard()
     _thinking_allowed = _thinking_enabled(body)
     _timing_measurement = StreamMeasurement()
     try:
@@ -2347,6 +2389,12 @@ async def _stream_from_backend_guarded_impl(
                             ),
                         )
                         _answer_emitted = _answer_emitted or emitted
+                        if isinstance(visible, str) and visible and _line_guard.feed(visible):
+                            for _f in _repetition_stop_frames(
+                                f"chatcmpl-{workspace_id}", workspace_id, _line_guard
+                            ):
+                                yield _f
+                            return
                         if rewritten is not None:
                             yield rewritten
                         elif finish:
