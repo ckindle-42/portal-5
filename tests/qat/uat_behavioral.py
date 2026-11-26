@@ -2514,6 +2514,21 @@ def _stamp_served(result: QATResult, turns: list[UATTurn]) -> QATResult:
     return result
 
 
+def _http_status_failure(
+    scenario: QATScenario, status_code: int, chat_id: str, turns: list[UATTurn]
+) -> QATResult:
+    """5xx is the engine or proxy; other HTTP failures stay product defects."""
+    infra = status_code >= 500
+    result = QATResult(
+        scenario.scenario_id,
+        Status.FAIL,
+        f"OWUI returned HTTP {status_code}",
+        defect_class=classify_defect(infra_hop_failed=infra),
+        chat_id=chat_id,
+    )
+    return _stamp_served(result, turns)
+
+
 def _status_result(
     scenario: QATScenario,
     error: str,
@@ -3031,8 +3046,8 @@ def _run_sequence(
             deadline=deadline,
         )
         if not response.is_success:
-            return transcript, _status_result(
-                scenario, f"OWUI returned HTTP {response.status_code}", chat_id, transcript
+            return transcript, _http_status_failure(
+                scenario, response.status_code, chat_id, transcript
             )
         outcome = client.poll_turn(
             token,

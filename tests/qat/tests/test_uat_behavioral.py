@@ -23,7 +23,7 @@ from tests.qat import config as cq
 from tests.qat import uat_behavioral as uat
 from tests.qat.__main__ import parse_stages
 from tests.qat.config import Discovery, OwuiPreset, PersonaDef, discover
-from tests.qat.models import QATScenario, Status
+from tests.qat.models import DefectClass, QATScenario, Status
 from tests.qat.owui_client import OWUIClient
 
 from .test_config_and_scenarios import make_settings
@@ -934,3 +934,21 @@ def test_failed_stage5_rows_record_served_model_and_backend() -> None:
     assert graded.served_model == "coding-primary" and graded.backend == "omlx-general"
     assert graded.artifacts == ("http://localhost/a.docx",)
     assert graded.evidence == {"grade": "fail"}
+
+
+def test_stage5_http_5xx_is_infra_not_a_product_bug() -> None:
+    class _Response:
+        is_success = False
+        status_code = 502
+        headers: dict[str, str] = {}
+
+    class _Client:
+        def send_turn(self, *args: object, **kwargs: object) -> _Response:
+            return _Response()
+
+    scenario = _scenario("s5-route", 5, "auto")
+    case = uat.UATCase("s5-route", "route", "auto", ("hello",), "route")
+    _turns, failure = uat._run_sequence(_Client(), "token", "chat-1", scenario, case, 10_000.0)
+    assert failure is not None and failure.status is Status.FAIL
+    assert failure.defect_class is DefectClass.INFRA_ENV_GAP
+    assert "HTTP 502" in failure.detail
