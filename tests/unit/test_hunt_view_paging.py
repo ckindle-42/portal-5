@@ -113,10 +113,19 @@ def test_shortened_lead_fields_are_marked_and_full_values_are_retrievable(tmp_pa
 
 
 def test_worst_case_detail_is_the_single_item_error_case(tmp_path: Path) -> None:
-    job_id = _store("hunt-r2-lead-fat-detail", tmp_path, {"notables.jsonl": _lead_rows(1)})
+    # The limit scales with the reviewer seat's context, so size the row from it.
+    fat = "f" * LIMIT
+    row = {
+        "notable_id": "notable-00",
+        "generator": "alerts",
+        "source_id": "hb_kyoushi_s1:src",
+        "why": "reason 00 " + fat,
+        "evidence": [{"line": "line", "query": "search index=ix " + fat}],
+    }
+    job_id = _store("hunt-r2-lead-fat-detail", tmp_path, {"notables.jsonl": [row]})
     detail = product_jobs.lead_detail(job_id, None, "notable-00")
-    assert detail["why"] == "reason 00 " + FAT
-    assert detail["evidence_query"] == "search index=ix " + FAT
+    assert detail["why"] == "reason 00 " + fat
+    assert detail["evidence_query"] == "search index=ix " + fat
     page = review_mcp.hunt_leads(job_id=job_id, notable_id="notable-00")
     assert page["error"] == "hunt response exceeds the configured tool-loop result limit"
     assert page["max_bytes"] == LIMIT
