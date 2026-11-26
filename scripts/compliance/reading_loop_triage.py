@@ -433,7 +433,7 @@ def _public_row(row: dict[str, Any], private_path: Path) -> dict[str, Any]:
         "answer_chars": len(result.get("answer") or ""),
         "route": result.get("route", ""),
         "route_backend": trace.get("backend", ""),
-        "served_model": trace.get("served_model", ""),
+        "served_model": trace.get("model", ""),
         "correlation_id": result.get("correlation_id", ""),
         "finish_reason": result.get("finish_reason", ""),
         "status_code": result.get("status_code"),

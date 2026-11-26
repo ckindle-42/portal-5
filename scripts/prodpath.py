@@ -287,6 +287,8 @@ def select_trace(
             str(trace.get(key) or "") for key in ("workspace", "requested", "persona", "model")
         )
         and _epoch(trace.get("started_at")) >= started_at - 2
+        # OWUI's title/tag task call fires on the same workspace right after the turn.
+        and not trace.get("owui_task")
     ]
     return min(
         matches,

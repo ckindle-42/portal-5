@@ -348,10 +348,12 @@ def recent_traces(limit: int = 20) -> list[dict[str, Any]]:
                     "started_at",
                     "duration_ms",
                     "workspace",
+                    "requested",
                     "persona",
                     "backend",
                     "model",
                     "outcome",
+                    "owui_task",
                     "tool_calls",
                 )
             }

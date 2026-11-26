@@ -73,3 +73,55 @@ async def test_dispatch_failure_falls_through_to_the_notice() -> None:
         raise OSError("engine down")
 
     assert await cf.try_capacity_fallback(WS, BODY, [GUARD_DETAIL], dispatch=dispatch) is None
+
+
+async def test_served_variant_leaves_a_receipt_on_the_trace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The record must name the seat that answered, not end with no outcome at all.
+
+    Without the receipt a trace consumer reading ``backend``/``model``/``outcome``
+    (bench_security_qat.trace_failures) sees a turn that WAS served as an unnamed,
+    outcome-less record.
+    """
+    from fastapi.responses import JSONResponse
+
+    notes: list[dict[str, typing.Any]] = []
+    spans: list[dict[str, typing.Any]] = []
+    monkeypatch.setattr(cf, "trace_note", lambda **fields: notes.append(fields))
+    monkeypatch.setattr(
+        cf, "trace_span", lambda name, **fields: spans.append({"name": name, **fields})
+    )
+    synthetic = f"{WS}::lite"
+    monkeypatch.setattr(cf, "_variant_names", lambda _ws: ["lite"])
+    monkeypatch.setattr(cf, "_register_variant", lambda _base, _name: synthetic)
+    monkeypatch.setitem(WORKSPACES, synthetic, {"model_hint": "lite-hint"})
+
+    async def dispatch(_backend: typing.Any, _body: typing.Any, ws_id: str, *_a: typing.Any, **_k):
+        assert ws_id == synthetic
+        return JSONResponse(
+            {"choices": [{"message": {"role": "assistant", "content": "lite answer"}}]},
+            headers={"x-portal-route": f"{ws_id};fake;lite-hint"},
+        )
+
+    result = await cf.try_capacity_fallback(WS, BODY, [GUARD_DETAIL], dispatch=dispatch)
+
+    assert result is not None
+    assert notes == [
+        {
+            "backend": "fake",
+            "model": "lite-hint",
+            "workspace": synthetic,
+            "outcome": "ok",
+            "capacity_fallback": "lite",
+        }
+    ]
+    assert spans == [
+        {
+            "name": "backend.selected",
+            "backend": "fake",
+            "model": "lite-hint",
+            "fallback": True,
+            "capacity_fallback": "lite",
+        }
+    ]

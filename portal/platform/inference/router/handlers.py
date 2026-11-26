@@ -39,6 +39,7 @@ from portal.platform.inference.router.concurrency import (
     RequestSlot,
 )
 from portal.platform.inference.router.context_inject import (
+    _is_owui_task_prompt,
     inject_recalled_memory,
     inject_retrieved_context,
 )
@@ -839,6 +840,13 @@ async def _resolve_request_route(
     body = await _parse_and_guard_body(request)
     workspace_id = body.get("model") or "auto"
     _original_model_id = workspace_id
+    _messages = body.get("messages")
+    if isinstance(_messages, list) and _is_owui_task_prompt(_messages):
+        # OWUI's title/tag/follow-up generation is an ordinary chat turn on the same
+        # workspace, seconds after the real one: mark it so a trace matched by
+        # workspace + recency (bench_security_qat.newest_trace, qat _trace_row_matches)
+        # cannot grade the task call instead of the turn.
+        trace_note(owui_task=True)
     # Phase 2: Resolve persona slug → workspace_model (e.g. "dailydriver" → "auto-daily")
     workspace_id = _resolve_persona_workspace(workspace_id)
     stream = body.get("stream", False)
@@ -1088,6 +1096,7 @@ async def _give_up(
     text = await no_answer.chat_reply(
         workspace_id, no_answer.workspace_model(workspace_id, body), reasons, path="non_streaming"
     )
+    trace_note(outcome="no_answer")
     return JSONResponse(
         content=no_answer.completion(workspace_id, text),
         headers={"x-portal-route": f"{workspace_id};;"},

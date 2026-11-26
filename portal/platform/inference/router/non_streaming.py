@@ -306,12 +306,16 @@ def resolve_hop_target(
             body = _inject_ollama_options(body, workspace_id)
         elif b.type == "omlx":
             body = _inject_omlx_options(body, workspace_id)
+        # The hop's served engine and model, so the turn's record does not leave the
+        # later hops attributed to the primary seat alone.
+        trace_span("chain.hop", requested=hop_model, backend=b.id, model=native)
         return b.chat_url, body
     logger.warning(
         "Chain hop model %s is not served by any healthy backend (workspace=%s)",
         hop_model,
         workspace_id,
     )
+    trace_span("chain.hop", requested=hop_model, backend=None, model=hop_model, unresolved=True)
     return primary_url, hop_body
 
 
