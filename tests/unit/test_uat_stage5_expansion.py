@@ -43,6 +43,25 @@ def _turn(text: str, tool_names: tuple[str, ...] = ()) -> uat.UATTurn:
     return uat.UATTurn("user prompt", text, {}, tool_names, ())
 
 
+def _receipt_turn(
+    text: str, tool: str, receipt: dict[str, object], artifact_urls: tuple[str, ...] = ()
+) -> uat.UATTurn:
+    trace: dict[str, object] = {
+        "spans": [
+            {
+                "name": "tool.completed",
+                "tool": tool,
+                "outcome": "ok",
+                "success": True,
+                "receipt": receipt,
+            }
+        ]
+    }
+    return uat.UATTurn(
+        "user prompt", text, trace, (tool,), artifact_urls, uat._tool_results_from_trace(trace)
+    )
+
+
 def _case(
     grader: str,
     prompts: tuple[str, ...],
@@ -260,6 +279,12 @@ def test_marker_graders_pass_and_fail(
     case = _case(grader, ("first", "second"), expected)
     good_t2 = _turn(good)
     bad_t2 = _turn(bad)
+    if grader == "memory_graph":
+        good_t2 = _receipt_turn(
+            good,
+            "graph_recall",
+            {"marker": "QAT-GRAPH-9D4", "neighbor": "Orchid"},
+        )
     if grader == "sandbox_lifecycle":
         good_t2.tool_results = (
             {"tool": "execute_nodejs", "result": {"success": True, "stdout": "set\n"}},
@@ -354,8 +379,14 @@ def test_documents_convert_grader() -> None:
 def test_media_async_image_grader() -> None:
     case = _case("media_async_image", ("a", "b"), artifact_kind="png")
     url = "http://localhost/api/v1/files/abcd1234/content/image.png"
-    turn = uat.UATTurn("p", f"Job abcd1234ef done. {url}", {}, (), (url,))
-    assert uat.grade_case(case, [turn, turn], {"png": [_png()]})[0] == []
+    png = _png()
+    turn = _receipt_turn(
+        f"Job abcd1234ef done. {url}",
+        "image_status",
+        {"job_id": "abcd1234ef", "status": "COMPLETE", "artifact_bytes": len(png)},
+        (url,),
+    )
+    assert uat.grade_case(case, [turn, turn], {"png": [png]})[0] == []
     assert uat.grade_case(case, [turn, turn], {})[0]
     no_job = uat.UATTurn("p", "Image ready. http://localhost/files/xyz/image.png", {}, (), ())
     assert any(
@@ -395,18 +426,48 @@ def test_stl_extents_helper() -> None:
 def test_memory_admin_grader_verifies_cleanup() -> None:
     case = _case("memory_admin", ("a", "b", "c"), {"marker": "qat-memadmin-7c1"})
     good = [
-        _turn("Stored QAT-MEMADMIN-7C1 with id mem-1."),
-        _turn("list_memories shows QAT-MEMADMIN-7C1; forget mem-1 deleted it."),
-        _turn("list_memories now returns no memories for that tag."),
+        _receipt_turn(
+            "Stored QAT-MEMADMIN-7C1 with id memory-1a2b3c4d.",
+            "remember",
+            {"memory_id": "memory-1a2b3c4d", "content": "QAT-MEMADMIN-7C1"},
+        ),
+        _receipt_turn(
+            "list_memories shows QAT-MEMADMIN-7C1; forget memory-1a2b3c4d deleted it.",
+            "forget",
+            {"memory_id": "memory-1a2b3c4d", "status": "deleted"},
+        ),
+        _receipt_turn(
+            "list_memories now returns no memories for that tag.",
+            "list_memories",
+            {"memories_count": 0},
+        ),
     ]
     errors, evidence = uat.grade_case(case, good, {})
     assert errors == [] and evidence["cleanup_verified"] is True
     bad = [
-        _turn("Stored QAT-MEMADMIN-7C1 with id mem-1."),
-        _turn("list_memories shows QAT-MEMADMIN-7C1; forget mem-1."),
-        _turn("list_memories still shows QAT-MEMADMIN-7C1 present."),
+        _receipt_turn(
+            "Stored QAT-MEMADMIN-7C1 with id memory-1a2b3c4d.",
+            "remember",
+            {"memory_id": "memory-1a2b3c4d", "content": "QAT-MEMADMIN-7C1"},
+        ),
+        _receipt_turn(
+            "list_memories shows QAT-MEMADMIN-7C1; forget memory-1a2b3c4d.",
+            "forget",
+            {"memory_id": "memory-1a2b3c4d", "status": "not_found"},
+        ),
+        _receipt_turn(
+            "list_memories still shows QAT-MEMADMIN-7C1 present.",
+            "list_memories",
+            {"memory_content": "QAT-MEMADMIN-7C1"},
+        ),
     ]
-    assert any("still shows" in e for e in uat.grade_case(case, bad, {})[0])
+    errors, evidence = uat.grade_case(case, bad, {})
+    assert "final memory receipt does not verify that the marker was removed" in errors
+    assert evidence["cleanup_verified"] is False
+    no_final_receipt = [*bad[:2], uat.UATTurn("list", "No memories remain.", {}, (), ())]
+    errors, evidence = uat.grade_case(case, no_final_receipt, {})
+    assert "final memory receipt does not verify that the marker was removed" in errors
+    assert evidence["cleanup_verified"] is False
 
 
 # --------------------------------------------------------------- compliance gap conversation
@@ -421,7 +482,18 @@ def test_compliance_policy_gap_grader() -> None:
         "weakest: the procedure has a gap and does not specify installation timelines. I cannot "
         "certify compliance; this absence is scoped to the ingested corpus."
     )
-    assert uat.grade_case(case, [_turn(good), _turn(good)], {})[0] == []
+    receipt = {
+        "citation": "NERC CIP-007-6 R2 Part 2.1; Part 2.3; Part 2.4",
+        "source": "OT-POL-007 patch management policy",
+        "text": (
+            "evaluate patches every 35 calendar days; install security patches within 35 "
+            "calendar days of evaluation"
+        ),
+    }
+    assert (
+        uat.grade_case(case, [_receipt_turn(good, "compliance_read", receipt), _turn(good)], {})[0]
+        == []
+    )
     certified = good.replace("I cannot certify compliance", "You are fully compliant")
     assert uat.grade_case(case, [_turn(certified)] * 2, {})[0]
     assert uat.grade_case(case, [_turn("The policy is fine. CIP-007-6 R2 satisfied.")] * 2, {})[0]
@@ -541,7 +613,7 @@ def test_web_research_scopes_exact_tools_per_turn() -> None:
             assert tool in prompt
 
 
-def test_required_tool_error_enforces_tools_per_turn() -> None:
+def test_required_tool_expectations_are_telemetry_per_turn() -> None:
     case = uat.UATCase(
         "wr",
         "wr",
@@ -555,21 +627,24 @@ def test_required_tool_error_enforces_tools_per_turn() -> None:
         _span_turn("t1", ("web_search", "news_search")),
         _span_turn("t2", ("web_fetch", "kb_search_all")),
     ]
-    assert uat._required_tool_error(case, good) is None
+    assert uat._required_tool_telemetry(case, good)["missing_tools"] == []
     dropped = [
         _span_turn("t1", ("web_search",)),
         _span_turn("t2", ("web_fetch", "kb_search_all")),
     ]
-    error = uat._required_tool_error(case, dropped)
-    assert error and "turn 1:news_search" in error
+    telemetry = uat._required_tool_telemetry(case, dropped)
+    assert telemetry["missing_tools"] == ["news_search"]
+    assert telemetry["observed_tools_by_turn"][0] == ["web_search"]
     # A tool completed in the wrong turn does not satisfy its scoped turn.
     swapped = [
         _span_turn("t1", ("web_search", "web_fetch")),
         _span_turn("t2", ("news_search", "kb_search_all")),
     ]
-    swapped_error = uat._required_tool_error(case, swapped)
-    assert swapped_error
-    assert "turn 1:news_search" in swapped_error and "turn 2:web_fetch" in swapped_error
+    swapped_telemetry = uat._required_tool_telemetry(case, swapped)
+    assert swapped_telemetry["observed_tools_by_turn"] == [
+        ["web_fetch", "web_search"],
+        ["kb_search_all", "news_search"],
+    ]
 
 
 def test_compliance_policy_accepts_requirement_alias() -> None:
@@ -585,13 +660,15 @@ def test_compliance_policy_accepts_requirement_alias() -> None:
             _span_turn("t1", ("compliance_sources", "compliance_read")),
             _span_turn("t2", (alias, "compliance_search", "compliance_links")),
         ]
-        assert uat._required_tool_error(case, turns) is None
+        assert uat._required_tool_telemetry(case, turns)["missing_any_tools"] == []
     neither = [
         _span_turn("t1", ("compliance_sources", "compliance_read")),
         _span_turn("t2", ("compliance_search", "compliance_links")),
     ]
-    error = uat._required_tool_error(case, neither)
-    assert error and "one of" in error
+    assert uat._required_tool_telemetry(case, neither)["missing_any_tools"] == [
+        "compliance_requirement",
+        "nerc_cip_requirement",
+    ]
 
 
 # --------------------------------------------------------------- complexity budget

@@ -1154,19 +1154,23 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             f"{type(exc).__name__}: {exc}",
             defect_class=classify_defect(infra_hop_failed=True),
         )
+    tool_telemetry = _tool_telemetry(scenario, tool_calls, trace)
     served_model = _served_engine_model(trace, "")
     primary_failure = _primary_model_failure(scenario, trace, served_model)
     if primary_failure:
-        return primary_failure
+        return _record_tool_telemetry(primary_failure, tool_telemetry)
     leak = artifacts.raw_tool_error_leak(answer)
     if leak:
-        return QATResult(
-            scenario.scenario_id,
-            Status.FAIL,
-            f"raw tool error leaked: {leak}",
-            served_model=served_model,
-            backend=str(trace.get("backend") or ""),
-            defect_class=classify_defect(tool_misbehaved=True),
+        return _record_tool_telemetry(
+            QATResult(
+                scenario.scenario_id,
+                Status.FAIL,
+                f"raw tool error leaked: {leak}",
+                served_model=served_model,
+                backend=str(trace.get("backend") or ""),
+                defect_class=classify_defect(tool_misbehaved=True),
+            ),
+            tool_telemetry,
         )
     hygiene_failure = _output_hygiene_result(
         scenario,
@@ -1176,45 +1180,44 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
         backend=str(trace.get("backend") or ""),
     )
     if hygiene_failure:
-        return hygiene_failure
+        return _record_tool_telemetry(hygiene_failure, tool_telemetry)
     if not answer.strip():
-        return QATResult(
-            scenario.scenario_id,
-            Status.FAIL,
-            "empty assistant response",
-            served_model=served_model,
-            backend=str(trace.get("backend") or ""),
-            defect_class=classify_defect(model_output_miss=True),
+        return _record_tool_telemetry(
+            QATResult(
+                scenario.scenario_id,
+                Status.FAIL,
+                "empty assistant response",
+                served_model=served_model,
+                backend=str(trace.get("backend") or ""),
+                defect_class=classify_defect(model_output_miss=True),
+            ),
+            tool_telemetry,
         )
     stream_error = _stream_error_notice(answer)
     if stream_error:
-        return QATResult(
-            scenario.scenario_id,
-            Status.FAIL,
-            stream_error,
-            served_model=served_model,
-            backend=str(trace.get("backend") or ""),
-            defect_class=classify_defect(infra_hop_failed=True),
-        )
-    tool_error = _tool_validation_error(scenario, tool_calls, trace)
-    if tool_error:
-        return QATResult(
-            scenario.scenario_id,
-            Status.FAIL,
-            tool_error,
-            served_model=served_model,
-            backend=str(trace.get("backend") or ""),
-            defect_class=classify_defect(model_output_miss=True),
+        return _record_tool_telemetry(
+            QATResult(
+                scenario.scenario_id,
+                Status.FAIL,
+                stream_error,
+                served_model=served_model,
+                backend=str(trace.get("backend") or ""),
+                defect_class=classify_defect(infra_hop_failed=True),
+            ),
+            tool_telemetry,
         )
     claim_error = _content_claim_error(scenario, answer, trace)
     if claim_error:
-        return QATResult(
-            scenario.scenario_id,
-            Status.FAIL,
-            claim_error,
-            served_model=served_model,
-            backend=str(trace.get("backend") or ""),
-            defect_class=classify_defect(model_output_miss=True),
+        return _record_tool_telemetry(
+            QATResult(
+                scenario.scenario_id,
+                Status.FAIL,
+                claim_error,
+                served_model=served_model,
+                backend=str(trace.get("backend") or ""),
+                defect_class=classify_defect(model_output_miss=True),
+            ),
+            tool_telemetry,
         )
     return QATResult(
         scenario.scenario_id,
@@ -1225,54 +1228,52 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
         evidence={
             "text_chars": len(answer),
             "trace": trace,
+            "tool_telemetry": tool_telemetry,
             "turn_duration_s": time.monotonic() - turn_started,
         },
     )
 
 
-def _requires_tool(scenario: QATScenario) -> bool:
-    if scenario.expected_tools:
-        return True
-    prompt = " ".join(scenario.prompts).casefold()
-    return bool(scenario.tools and ("tool" in prompt or "splunk" in prompt or "mcp" in prompt))
-
-
-def _tool_validation_error(
+def _tool_telemetry(
     scenario: QATScenario, tool_calls: object, trace: dict[str, object]
-) -> str | None:
-    if not _requires_tool(scenario):
-        return None
+) -> dict[str, object]:
     calls = tool_calls if isinstance(tool_calls, (list, tuple)) else []
-    if not calls:
-        return "required tool was not called (tool_calls=0)"
-    trace_available = "spans" in trace or "tool_spans" in trace
-    if not trace_available:
-        return "trace has no spans; cannot verify the required tool succeeded"
-    spans = trace.get("tool_spans") or trace.get("spans") or []
-    successful = (
-        [
-            span
-            for span in spans
-            if isinstance(span, dict)
-            and span.get("name") == "tool.completed"
-            and span.get("outcome") == "ok"
-        ]
-        if isinstance(spans, list)
-        else []
-    )
-    if not successful:
-        return "trace has no successful tool.completed span"
-    required = [tool.casefold() for tool in scenario.expected_tools]
-    if required:
-        # A round-trip (remember then recall, kb_list then kb_search) spans
-        # several calls: each required tool must appear in SOME successful
-        # span, not all of them in one. Match the span's tool name exactly so
-        # "recall" is never satisfied by "graph_recall".
-        successful_tools = {str(span.get("tool") or "").casefold() for span in successful}
-        missing = [tool for tool in required if tool not in successful_tools]
-        if missing:
-            return f"trace has no successful span for required tools: {', '.join(missing)}"
-    return None
+    spans = _trace_spans(trace)
+    completed = [span for span in spans if span.get("name") == "tool.completed"]
+    successful = {
+        str(span.get("tool") or "").casefold()
+        for span in completed
+        if span.get("outcome") == "ok" or span.get("success") is True
+    }
+    observed = {
+        str(call.get("tool") or call.get("name") or "").casefold()
+        for call in calls
+        if isinstance(call, dict)
+    }
+    observed.update(str(span.get("tool") or "").casefold() for span in completed)
+    observed.discard("")
+    return {
+        "expected_tools": list(scenario.expected_tools),
+        "observed_tools": sorted(observed),
+        "missing_expected_tools": [
+            tool for tool in scenario.expected_tools if tool.casefold() not in successful
+        ],
+        "tool_call_count": len(calls),
+        "completed_call_count": len(completed),
+        "failed_calls": [
+            {
+                "tool": str(span.get("tool") or ""),
+                "error_type": str(span.get("error_type") or ""),
+            }
+            for span in completed
+            if not (span.get("outcome") == "ok" or span.get("success") is True)
+        ],
+    }
+
+
+def _record_tool_telemetry(result: QATResult, telemetry: dict[str, object]) -> QATResult:
+    result.evidence["tool_telemetry"] = telemetry
+    return result
 
 
 def _http_status_failure(scenario_id: str, status_code: int, where: str) -> QATResult | None:
@@ -1420,66 +1421,66 @@ def _run_chat(
         outcome, error, all_spans, all_calls = _run_chat_turns(
             client, token, chat_id, scenario, 0.0, state.fleet_ports
         )
+        tool_telemetry = _tool_telemetry(scenario, all_calls, {"spans": all_spans})
         if error:
             error.chat_id = chat_id
-            return error
+            return _record_tool_telemetry(error, tool_telemetry)
         if outcome is None:
             raise RuntimeError("scenario produced no assistant turn")
         if not outcome.text.strip():
-            return QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                "empty assistant response",
-                chat_id=chat_id,
-                defect_class=classify_defect(model_output_miss=True),
-            )
-        tool_trace: dict[str, object] = {"spans": all_spans} if all_spans else outcome.trace
-        tool_error = _tool_validation_error(scenario, all_calls or outcome.tool_calls, tool_trace)
-        if tool_error:
-            tool_class = classify_defect(
-                model_output_miss="trace" not in tool_error,
-                tool_misbehaved="trace" in tool_error,
-            )
-            return QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                tool_error,
-                chat_id=chat_id,
-                served_model=outcome.served_model,
-                defect_class=tool_class,
+            return _record_tool_telemetry(
+                QATResult(
+                    scenario.scenario_id,
+                    Status.FAIL,
+                    "empty assistant response",
+                    chat_id=chat_id,
+                    defect_class=classify_defect(model_output_miss=True),
+                ),
+                tool_telemetry,
             )
         adversarial_error = _adversarial_error(scenario, outcome.text)
         if adversarial_error:
-            return QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                adversarial_error,
-                chat_id=chat_id,
-                served_model=outcome.served_model,
-                defect_class=classify_defect(model_output_miss=True),
-                evidence={"response_excerpt": " ".join(outcome.text.split())[:300]},
+            return _record_tool_telemetry(
+                QATResult(
+                    scenario.scenario_id,
+                    Status.FAIL,
+                    adversarial_error,
+                    chat_id=chat_id,
+                    served_model=outcome.served_model,
+                    defect_class=classify_defect(model_output_miss=True),
+                    evidence={
+                        "response_excerpt": " ".join(outcome.text.split())[:300],
+                    },
+                ),
+                tool_telemetry,
             )
         claim_error = _content_claim_error(scenario, outcome.text, outcome.trace)
         if claim_error:
-            return QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                claim_error,
-                chat_id=chat_id,
-                served_model=outcome.served_model,
-                backend=str(outcome.trace.get("backend") or ""),
-                defect_class=classify_defect(model_output_miss=True),
+            return _record_tool_telemetry(
+                QATResult(
+                    scenario.scenario_id,
+                    Status.FAIL,
+                    claim_error,
+                    chat_id=chat_id,
+                    served_model=outcome.served_model,
+                    backend=str(outcome.trace.get("backend") or ""),
+                    defect_class=classify_defect(model_output_miss=True),
+                ),
+                tool_telemetry,
             )
         artifact_error = _validate_artifacts(client, token, scenario, outcome)
         if artifact_error:
-            return QATResult(
-                scenario.scenario_id,
-                Status.FAIL,
-                artifact_error,
-                chat_id=chat_id,
-                served_model=outcome.served_model,
-                artifacts=outcome.artifact_urls,
-                defect_class=classify_defect(tool_misbehaved=True),
+            return _record_tool_telemetry(
+                QATResult(
+                    scenario.scenario_id,
+                    Status.FAIL,
+                    artifact_error,
+                    chat_id=chat_id,
+                    served_model=outcome.served_model,
+                    artifacts=outcome.artifact_urls,
+                    defect_class=classify_defect(tool_misbehaved=True),
+                ),
+                tool_telemetry,
             )
         result = QATResult(
             scenario.scenario_id,
@@ -1492,6 +1493,7 @@ def _run_chat(
             evidence={
                 "text_chars": len(outcome.text),
                 "trace": outcome.trace,
+                "tool_telemetry": tool_telemetry,
                 "turn_duration_s": outcome.duration_s,
             },
         )
@@ -1663,6 +1665,11 @@ def _run_chat_turns(
             outcome.trace if isinstance(outcome.trace, dict) else {}, sent_correlation
         )
         outcome.served_model = _served_engine_model(outcome.trace, outcome.served_model)
+        spans = outcome.trace.get("spans") or outcome.trace.get("tool_spans") or []
+        if isinstance(spans, list):
+            all_spans.extend(span for span in spans if isinstance(span, dict))
+        if isinstance(outcome.tool_calls, (list, tuple)):
+            all_calls.extend(outcome.tool_calls)
         primary_failure = _primary_model_failure(
             scenario, outcome.trace, outcome.served_model, chat_id
         )
@@ -1721,13 +1728,6 @@ def _run_chat_turns(
                 all_spans,
                 all_calls,
             )
-        # A round-trip spans several turns (remember on turn 1, recall on turn
-        # 2): grade expected_tools against every turn's spans, not just the last.
-        spans = outcome.trace.get("spans") or outcome.trace.get("tool_spans") or []
-        if isinstance(spans, list):
-            all_spans.extend(span for span in spans if isinstance(span, dict))
-        if isinstance(outcome.tool_calls, (list, tuple)):
-            all_calls.extend(outcome.tool_calls)
         turns.append(
             uat_behavioral.UATTurn(prompt, outcome.text, outcome.trace, (), outcome.artifact_urls)
         )

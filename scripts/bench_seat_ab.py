@@ -32,12 +32,11 @@ from tests.qat.artifacts import wav_magic_error
 from tests.qat.config import Settings
 from tests.qat.models import QATScenario, RubricCriterion
 from tests.qat.owui_client import OWUIClient, artifact_urls, red_square_png
-from tests.qat.runner import _adversarial_error, _tool_validation_error, build_plan
+from tests.qat.runner import _adversarial_error, _tool_telemetry, build_plan
 from tests.qat.uat_behavioral import (
     REAL_WAV_FIXTURE,
     UATCase,
     UATTurn,
-    _required_tool_error,
     check_output_hygiene,
     discover_cases,
     grade_case,
@@ -1062,11 +1061,30 @@ def _qat_grade_errors(case: BenchCase, turns: list[dict[str, Any]]) -> list[str]
     errors = []
     if len(turns) != len(case.prompts):
         errors.append(f"received {len(turns)} of {len(case.prompts)} expected turns")
-    all_calls = [call for turn in turns for call in turn.get("tool_calls", [])]
-    traces = [turn.get("trace") for turn in turns if isinstance(turn.get("trace"), dict)]
+    for index, turn in enumerate(turns):
+        text = str(turn.get("text") or "")
+        if not text.strip():
+            errors.append(f"turn {index + 1}: empty answer")
+        prompt = case.prompts[index] if index < len(case.prompts) else ""
+        errors.extend(f"turn {index + 1}: {error}" for error in check_output_hygiene(prompt, text))
+        if "continuity" in case.qat.tags and index == 1 and "orchid-9" not in text.casefold():
+            errors.append("continuity turn 2 did not return ORCHID-9")
+        if "adversarial" in case.qat.tags:
+            error = _adversarial_error(case.qat, text)
+            if error:
+                errors.append(f"turn {index + 1}: {error}")
+    return errors
+
+
+def _qat_tool_telemetry(case: BenchCase, turns: list[dict[str, Any]]) -> dict[str, object]:
+    if case.qat is None:
+        return {}
+    calls = [call for turn in turns for call in turn.get("tool_calls", [])]
     spans = [
         span
-        for trace in traces
+        for turn in turns
+        for trace in [turn.get("trace")]
+        if isinstance(trace, dict)
         for span in (trace.get("spans") or trace.get("tool_spans") or [])
         if isinstance(span, dict)
     ]
@@ -1084,22 +1102,7 @@ def _qat_grade_errors(case: BenchCase, turns: list[dict[str, Any]]) -> list[str]
         )
         if expected_tools:
             scenario = replace(scenario, expected_tools=expected_tools)
-    tool_error = _tool_validation_error(scenario, all_calls, {"spans": spans})
-    if tool_error:
-        errors.append(tool_error)
-    for index, turn in enumerate(turns):
-        text = str(turn.get("text") or "")
-        if not text.strip():
-            errors.append(f"turn {index + 1}: empty answer")
-        prompt = case.prompts[index] if index < len(case.prompts) else ""
-        errors.extend(f"turn {index + 1}: {error}" for error in check_output_hygiene(prompt, text))
-        if "continuity" in case.qat.tags and index == 1 and "orchid-9" not in text.casefold():
-            errors.append("continuity turn 2 did not return ORCHID-9")
-        if "adversarial" in case.qat.tags:
-            error = _adversarial_error(case.qat, text)
-            if error:
-                errors.append(f"turn {index + 1}: {error}")
-    return errors
+    return _tool_telemetry(scenario, calls, {"spans": spans})
 
 
 def _grade(
@@ -1129,7 +1132,12 @@ def _grade(
                 text=str(turn.get("text") or ""),
                 trace=turn.get("trace") or {},
                 tool_names=tuple(
-                    sorted({str(call.get("name") or "") for call in turn.get("tool_calls", [])})
+                    sorted(
+                        {
+                            str(call.get("name") or call.get("tool") or "")
+                            for call in turn.get("tool_calls", [])
+                        }
+                    )
                 ),
                 artifact_urls=tuple(turn.get("artifact_urls") or []),
             )
@@ -1146,10 +1154,7 @@ def _grade(
                     payloads.setdefault(suffix, []).append(payload)
                 elif suffix:
                     download_errors.append(f"{suffix} artifact download returned no bytes")
-        tool_error = _required_tool_error(case.uat, records)
         errors, evidence = grade_case(case.uat, records, payloads)
-        if tool_error:
-            errors.append(tool_error)
         errors.extend(download_errors)
         return ("PASS" if not errors else "FAIL"), {
             "errors": errors,
@@ -1173,6 +1178,7 @@ def _grade_qat(
         "judge": judgment,
         "expected": case.qat.expected if case.qat else "",
         "tool_calls": sum(len(turn.get("tool_calls", [])) for turn in turns),
+        "tool_telemetry": _qat_tool_telemetry(case, turns),
         "cited_urls": _URL_IN_TEXT.findall(text),
     }
 

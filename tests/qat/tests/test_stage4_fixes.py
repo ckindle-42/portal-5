@@ -97,7 +97,6 @@ class TestStage4ToolPrompts:
             s = by_id[f"s4-{pid.replace('::', '-')}-tools"]
             assert tool in s.prompts[0], pid
             assert tool in cq.workspace_tools_for(pid), pid
-            assert runner._requires_tool(s), pid
 
     def test_audio_tools_attaches_the_stt_fixture(self, tmp_path: Path) -> None:
         by_id = _stage4(tmp_path, _tools_discovery())

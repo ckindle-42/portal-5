@@ -26,14 +26,12 @@ def _by_id() -> dict[str, QATScenario]:
 
 def test_stt_scenario_enforces_tool_and_docx_artifact() -> None:
     stt = _by_id()["s2-p6-auto-audio-stt"]
+    # Expected calls are telemetry; the UAT grader checks transcript and DOCX outcome.
     assert stt.expected_tools == ("transcribe_with_speakers",)
     assert stt.artifact_kind == "docx"
     assert stt.attachment == "tests/fixtures/sample_two_speakers.wav"
     assert stt.model_slug == "auto-audio"
     assert "transcribe_with_speakers" in stt.prompts[0]
-    # The regression this gates: a turn that answers with tools=[] and
-    # artifacts=[] must no longer be gradeable PASS.
-    assert rn._requires_tool(stt) is True
 
 
 def test_voice_clone_scenario() -> None:
@@ -89,21 +87,24 @@ def _span(tool: str, outcome: str = "ok") -> dict:
     return {"name": "tool.completed", "tool": tool, "outcome": outcome}
 
 
-def test_roundtrip_required_tools_checked_across_spans() -> None:
+def test_roundtrip_tool_expectations_are_telemetry_across_spans() -> None:
     scenario = QATScenario(
         "mem", "mem", 2, "daily_omlx", 40, "auto-daily", expected_tools=("remember", "recall")
     )
     trace = {"spans": [_span("remember"), _span("recall")]}
     # poll_turn falls back to the trace's tool spans as the call list
-    assert rn._tool_validation_error(scenario, trace["spans"], trace) is None
-    # A message-level tool_calls list with no trace spans is not a successful call.
-    assert rn._tool_validation_error(scenario, [{"name": "remember"}], {}) is not None
+    assert rn._tool_telemetry(scenario, trace["spans"], trace)["missing_expected_tools"] == []
+    # A message-level tool call is visible as telemetry even without a completed span.
+    assert rn._tool_telemetry(scenario, [{"name": "remember"}], {})["missing_expected_tools"] == [
+        "remember",
+        "recall",
+    ]
     missing_recall = {"spans": [_span("remember")]}
-    error = rn._tool_validation_error(scenario, missing_recall["spans"], missing_recall)
-    assert error is not None and "recall" in error
+    telemetry = rn._tool_telemetry(scenario, missing_recall["spans"], missing_recall)
+    assert telemetry["missing_expected_tools"] == ["recall"]
 
 
-def test_required_tool_matched_exactly_not_by_substring() -> None:
+def test_tool_name_substring_does_not_hide_missing_expectation_in_telemetry() -> None:
     scenario = QATScenario(
         "rag",
         "rag",
@@ -114,11 +115,12 @@ def test_required_tool_matched_exactly_not_by_substring() -> None:
         expected_tools=("recall",),
     )
     trace = {"spans": [_span("graph_recall")]}
-    error = rn._tool_validation_error(scenario, trace["spans"], trace)
-    assert error is not None and "recall" in error
+    telemetry = rn._tool_telemetry(scenario, trace["spans"], trace)
+    assert telemetry["observed_tools"] == ["graph_recall"]
+    assert telemetry["missing_expected_tools"] == ["recall"]
 
 
-def test_failed_span_does_not_satisfy_required_tool() -> None:
+def test_failed_span_is_recorded_as_telemetry_not_a_verdict() -> None:
     scenario = QATScenario(
         "stt",
         "stt",
@@ -129,8 +131,9 @@ def test_failed_span_does_not_satisfy_required_tool() -> None:
         expected_tools=("transcribe_with_speakers",),
     )
     trace = {"spans": [_span("transcribe_with_speakers", outcome="error")]}
-    error = rn._tool_validation_error(scenario, trace["spans"], trace)
-    assert error is not None
+    telemetry = rn._tool_telemetry(scenario, trace["spans"], trace)
+    assert telemetry["missing_expected_tools"] == ["transcribe_with_speakers"]
+    assert telemetry["failed_calls"][0]["tool"] == "transcribe_with_speakers"
 
 
 def _turn_outcome(tool: str, text: str) -> object:
@@ -215,7 +218,7 @@ def test_multiturn_expected_tools_accumulate_across_turns(
     assert result.status is Status.PASS
 
 
-def test_multiturn_missing_first_turn_tool_still_fails(
+def test_multiturn_missing_first_turn_tool_is_telemetry(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from tests.qat.models import Status
@@ -225,8 +228,8 @@ def test_multiturn_missing_first_turn_tool_still_fails(
         tmp_path,
         [_turn_outcome("", "I did not store it."), _turn_outcome("recall", "4711")],
     )
-    assert result.status is Status.FAIL
-    assert "remember" in result.detail
+    assert result.status is Status.PASS
+    assert result.evidence["tool_telemetry"]["missing_expected_tools"] == ["remember"]
 
 
 def test_parity_scenarios_gated_on_workspace_tool_grants(

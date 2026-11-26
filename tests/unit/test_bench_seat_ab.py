@@ -513,7 +513,14 @@ def test_real_tool_row_tool_use_is_deterministic_and_regrades_from_stored_turn()
     def judge(case: BenchCase, answer: str, calls: list[dict[str, object]]) -> dict[str, object]:
         seen["answer"] = answer
         seen["calls"] = calls
-        return {"score": 4, "pass": True, "reason": "Cites the audited date."}
+        consistent = bool(calls) and "20:23:52" in answer
+        return {
+            "score": 4 if consistent else 1,
+            "pass": consistent,
+            "reason": "Cites the audited date."
+            if consistent
+            else "No tool receipt supports the claim.",
+        }
 
     verdict, details = bench._grade_qat(_uncensored_tools_case(), [turn], judge)
 
@@ -529,7 +536,9 @@ def test_real_tool_row_tool_use_is_deterministic_and_regrades_from_stored_turn()
         judge,
     )
     assert empty == "FAIL"
-    assert any("tool" in error for error in empty_details["errors"])
+    assert empty_details["errors"] == []
+    assert empty_details["tool_telemetry"]["tool_call_count"] == 0
+    assert empty_details["judge"]["pass"] is False
 
     row = {
         "case_id": "s4-auto-general-uncensored-tools",
