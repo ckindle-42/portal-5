@@ -999,6 +999,53 @@ async def test_tool_loop_waits_for_a_sibling_ollama_resident_then_evicts_it(monk
     assert "nothing in flight" not in response.text
 
 
+async def test_tool_loop_retries_omlx_eviction_after_a_sibling_lease_drains(monkeypatch, caplog):
+    """GLM receipt: the shared resident is idle by the quiet pass after its sibling drains."""
+    model = "glm-4.7-flash:Q4_K_M-ctx24k"
+    idle = "idle-omlx"
+    need = 29.4 * GIB
+    resident = 21.0 * GIB
+    e = Engines(
+        tags={model: int(need / lg._FACTOR)},
+        omlx={idle: {"size": int(resident), "loaded": True}},
+        ceiling=int(11.1 * GIB + resident),
+        omlx_memory=resident,
+        unload_counter_drops={idle: resident},
+        immediate_counter_drops={idle},
+    )
+    g = guard(e)
+    sibling = g._activity_lock(lg.OMLX, idle)
+    assert sibling is not None
+    waits = 0
+
+    async def release_sibling(_timeout: float) -> None:
+        nonlocal waits
+        waits += 1
+        g._release_activity_lock(sibling)
+
+    monkeypatch.setattr(g, "_wait_change", release_sibling)
+    lg.set_load_wait("30")
+    transport = OllamaNativeTransport(
+        httpx.MockTransport(e.handler), is_ollama=lambda _base: True, guard=g
+    )
+    with caplog.at_level(logging.INFO, logger=lg.logger.name):
+        async with httpx.AsyncClient(transport=transport) as client:
+            response = await client.post(
+                f"{OLLAMA_URL}/v1/chat/completions",
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "stream": False,
+                },
+            )
+
+    assert waits >= 1
+    assert response.status_code == 200, response.text
+    assert e.unload_calls == {idle: 1}
+    assert e.chats == [model]
+    assert f"load_guard: eviction pass for {model}" in caplog.text
+
+
 async def test_a_resident_omlx_seat_frees_idle_ollama_that_ate_its_prefill_share():
     """2026-11-19 auto-coding: the seat was already resident, so admission never measured;
     oMLX then aborted mid-prefill inside the room Ollama's idle residents had taken."""

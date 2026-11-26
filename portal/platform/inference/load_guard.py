@@ -637,6 +637,7 @@ class _YieldCarry:
     __slots__ = (
         "free_attempted",
         "last_used",
+        "last_reclaimable_available",
         "pending_omlx_used",
         "protected_free_attempted",
         "yield_models",
@@ -647,6 +648,7 @@ class _YieldCarry:
         self.yield_models: set[str] = set()
         self.pending_omlx_used = 0.0
         self.last_used: float | None = None
+        self.last_reclaimable_available = 0.0
         self.protected_free_attempted = False
 
 
@@ -1177,10 +1179,16 @@ class LoadGuard:
     def _ollama_size(self, name: str, size: int) -> int:
         return max(size, self._observed.get((OLLAMA, model_key(name)), 0))
 
-    def _ollama_available(self, headroom: float, resident: dict[str, int], idle: float) -> float:
+    def _ollama_available(
+        self,
+        headroom: float,
+        resident: dict[str, int],
+        idle: float,
+        idle_omlx: float = 0.0,
+    ) -> float:
         if _CEILING > 0:
             headroom -= sum(self._ollama_size(name, size) for name, size in resident.items())
-        return headroom + idle
+        return headroom + idle + idle_omlx
 
     async def _omlx_idle_models(
         self,
@@ -1786,6 +1794,7 @@ class LoadGuard:
         used: float,
         need: float,
         available: float,
+        reclaimable_available: float,
         carry: _YieldCarry,
         pending_omlx: dict[str, _Free],
         pending_ollama: dict[str, _Free],
@@ -1805,12 +1814,17 @@ class LoadGuard:
 
                 YIELD.pin()
                 _ADMIT_YIELD_PIN.set(True)
+        reclaimable_increased = reclaimable_available > carry.last_reclaimable_available
         if (
             need > available
             and carry.free_attempted
-            and self._idle_became_freeable(carry, idle, pending_ollama, pending_omlx)
+            and (
+                reclaimable_increased
+                or self._idle_became_freeable(carry, idle, pending_ollama, pending_omlx)
+            )
         ):
             carry.free_attempted = False
+        carry.last_reclaimable_available = reclaimable_available
         if need <= available or carry.free_attempted:
             return False
         carry.free_attempted = True
@@ -2395,9 +2409,13 @@ class LoadGuard:
             headroom, used = capacity
             carry.last_used, recheck = self._track_counter(used, carry.last_used, recheck)
             idle = self._ollama_reclaimable(resident)
+            status = _ADMIT_OMLX_STATUS.get() or {}
+            seat_copies = self._counterpart_models(OLLAMA, model)
+            idle_omlx = self._omlx_idle_bytes(status, exclude=seat_copies, failover=True)
             available = self._ollama_available(headroom, resident, idle) - _MARGIN
-            available, reserved = self._hold_seat_prefill_room(
-                _ADMIT_OMLX_STATUS.get(), model, available
+            available, reserved = self._hold_seat_prefill_room(status, model, available)
+            reclaimable_available = (
+                self._ollama_available(headroom, resident, idle, idle_omlx) - _MARGIN - reserved
             )
             _record_headroom(available)
             if await self._free_or_yield_parallel(
@@ -2408,6 +2426,7 @@ class LoadGuard:
                 used,
                 need,
                 available,
+                reclaimable_available,
                 carry,
                 pending_omlx,
                 pending_ollama,
