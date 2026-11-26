@@ -61,7 +61,8 @@ jobs:
         run: python scripts/complexity_report.py --gate
 
       - name: Run test suite
-        run: pytest tests portal -n auto --tb=short -v
+        # browser-marked tests need a running Open WebUI + chromium: live-only
+        run: pytest tests portal -n auto --tb=short -v -m "not browser"
 
       - name: Upload coverage on failure
         if: failure()
