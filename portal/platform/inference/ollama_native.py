@@ -624,6 +624,7 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
             return await self._inner.handle_async_request(request)
 
         body = json.loads(await request.aread() or b"{}")
+        workspace_id = str(request.extensions.get("portal_workspace_id") or "")
         can_think, renderer = await self._show(base, str(body.get("model", "")), request.extensions)
         native = to_native_request(body, can_think, renderer)
         native_req = httpx.Request(
@@ -634,7 +635,9 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
         end: Callable[[], None] | None = None
         if self._guard is not None:
             try:
-                release, end = await self._guard.admit_and_begin_ollama(base, model)
+                release, end = await self._guard.admit_and_begin_ollama(
+                    base, model, workspace_id=workspace_id
+                )
             except LoadRefusedError as e:
                 return _refused(request, e)
         try:
@@ -672,6 +675,7 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
         """Pass an oMLX chat through. A guard counts it in flight; logprobs must come back."""
         wants_logprobs = False
         model = ""
+        workspace_id = str(request.extensions.get("portal_workspace_id") or "")
         try:
             parsed = json.loads(await request.aread() or b"{}")
             if isinstance(parsed, dict):
@@ -683,7 +687,7 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
         end: Callable[[], None] | None = None
         if guard is not None:
             try:
-                release, end = await guard.admit_and_begin_omlx(model)
+                release, end = await guard.admit_and_begin_omlx(model, workspace_id=workspace_id)
             except LoadRefusedError as e:
                 return _refused(request, e)
             # Hot-seat bookkeeping (P5-OMLX-PREFIX-CACHE-001): every guarded oMLX chat passes here.

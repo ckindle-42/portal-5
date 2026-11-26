@@ -711,6 +711,18 @@ def get_workspace_dict(config: PortalConfig) -> dict[str, dict[str, Any]]:
     return result
 
 
+def is_job_workspace(workspace_id: str) -> bool:
+    """Whether config marks this workspace as internal rather than user-facing."""
+    base, separator, variant = workspace_id.partition("::")
+    workspace = load_portal_config().workspaces.get(base)
+    if workspace is None:
+        return False
+    variant_config = workspace.variants.get(variant) if separator else None
+    if variant_config is not None and "expose_to_owui" in variant_config:
+        return variant_config["expose_to_owui"] is False
+    return not workspace.expose_to_owui
+
+
 def get_pipeline_mcp_servers(config: PortalConfig) -> dict[str, str]:
     """Return ``{id: base_url}`` for all pipeline-exposed HTTP MCP servers.
 

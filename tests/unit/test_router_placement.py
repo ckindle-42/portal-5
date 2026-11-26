@@ -6,14 +6,16 @@ built from a tmp ``backends.yaml`` stand in for the fleet.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
 
 from portal.platform.inference import load_guard
 from portal.platform.inference.cluster_backends import Backend, BackendRegistry
-from portal.platform.inference.router import handlers
+from portal.platform.inference.router import handlers, placement
 from portal.platform.inference.router.placement import (
     HotSeatTracker,
     engine_key,
@@ -258,6 +260,46 @@ class TestProtectHotSeat:
             candidates, "auto-coding", CODER_HINT, 900, tracker=_hot_tracker(now=100.0), now=1_001.0
         )
         assert _ids(out) == _ids(candidates)
+
+    def test_internal_job_keeps_its_backend_head_while_chat_keeps_hot_seat_protection(
+        self, monkeypatch
+    ):
+        from portal.platform.inference.config import is_job_workspace
+
+        assert is_job_workspace("hunt-reasoning")
+        assert is_job_workspace("auto-security::blueteam-council")
+        assert not is_job_workspace("security-reviewer")
+        monkeypatch.setitem(handlers.WORKSPACES, "hunt-reasoning", {})
+        monkeypatch.setitem(handlers.WORKSPACES, "public-chat", {})
+        candidates = [
+            Backend(
+                id="omlx-security",
+                type="omlx",
+                url=OMLX_URL,
+                group="security",
+                models=["different-model"],
+            ),
+            Backend(
+                id="ollama-security",
+                type="ollama",
+                url=OLLAMA_URL,
+                group="security",
+                models=["chat-model"],
+            ),
+        ]
+        tracker = HotSeatTracker()
+        tracker.touch(engine_key(OMLX_URL), HOT_NATIVE, now=time.monotonic())
+        monkeypatch.setattr(placement, "TRACKER", tracker)
+        registry = SimpleNamespace(hot_seat_protect_s=900)
+
+        assert _ids(handlers._order_candidates(candidates, "public-chat", registry)) == [
+            "ollama-security",
+            "omlx-security",
+        ]
+        assert _ids(handlers._order_candidates(candidates, "hunt-reasoning", registry)) == [
+            "omlx-security",
+            "ollama-security",
+        ]
 
     def test_pinned_model_hint_unchanged(self) -> None:
         # ``?model=`` / persona model_pin builds a ``::model=`` synthetic workspace.

@@ -125,9 +125,6 @@ _FREE_SETTLE_EXPECTED_S = 4.6
 #: 0.8.3's slower async Metal reclaim.
 _OMLX_SETTLE_S = float(os.environ.get("LOAD_GUARD_OMLX_SETTLE_S", "12"))
 _OMLX_SETTLE_STEP_S = float(os.environ.get("LOAD_GUARD_OMLX_SETTLE_STEP_S", "0.5"))
-#: A job reclaim never yanks a seat some worker served within this window (2026-11-26
-#: QAT: a 0.04 GiB reclaim evicted granite4.1 0.2 s after its tool-loop hop finished).
-_JOB_RECLAIM_RECENT_S = 120.0
 _CTX_TAG = re.compile(r"(?:^|[-_])ctx(\d+)([km]?)", re.IGNORECASE)
 #: The engine settings file as mounted into portal5-pipeline (docker-compose.yml);
 #: the container-side fallback when the env vars launch.sh exports are absent.
@@ -241,10 +238,42 @@ def _log_startup_summary() -> None:
 _ADMIT_YIELD_PIN: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "admit_yield_pin", default=False
 )
+_ADMIT_JOB_WORKSPACE: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "admit_job_workspace", default=""
+)
 #: The status read ``_headroom`` just took, so a yield decision does not read it again.
 _ADMIT_OMLX_STATUS: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
     "admit_omlx_status", default=None
 )
+
+
+def _configured_job_workspace(workspace_id: str) -> str:
+    """Return the configured internal workspace identity, or empty for chat."""
+    from portal.platform.inference.config import is_job_workspace
+
+    return workspace_id if workspace_id and is_job_workspace(workspace_id) else ""
+
+
+def _log_eviction(
+    model: str,
+    engine: str,
+    size: float,
+    reason: str,
+    job_workspace: str = "",
+    override: bool = False,
+) -> None:
+    if job_workspace and override:
+        logger.info(
+            "load_guard: evicted %s for job %s (idle, hot-seat override)", model, job_workspace
+        )
+    else:
+        logger.info(
+            "load_guard: evicted %s on %s, %.1f GiB freed (reason=%s)",
+            model,
+            engine,
+            size / _GIB,
+            reason,
+        )
 
 
 def _show_values(show: dict[str, Any]) -> dict[str, Any]:
@@ -690,10 +719,12 @@ class LoadGuard:
         client: Callable[[], httpx.AsyncClient] = lambda: httpx.AsyncClient(timeout=10.0),
         ollama_url: Callable[[], str | None] = lambda: None,
         counterpart: Callable[[str, str], str | set[str] | None] | None = None,
+        hot_seat_protect_s: float = 0.0,
     ) -> None:
         self._omlx_url = omlx_url
         self._ollama_url = ollama_url
         self._counterpart = counterpart or (lambda _engine, model: model)
+        self._hot_seat_protect_s = max(0.0, float(hot_seat_protect_s))
         self._protected: dict[tuple[str, str], float] = {}  # (engine, model) -> monotonic deadline
         self._failover_protected: dict[tuple[str, str], float] = {}
         self._failed: dict[tuple[str, str], float] = {}  # evicted before any other resident
@@ -719,6 +750,20 @@ class LoadGuard:
         if isinstance(counterpart, str):
             return {counterpart} if counterpart else set()
         return set(counterpart or ())
+
+    def _hot_omlx_seat(self, base: str) -> str | None:
+        if self._hot_seat_protect_s <= 0:
+            return None
+        from portal.platform.inference.router.placement import TRACKER, engine_key
+
+        return TRACKER.hot_model(engine_key(base), self._hot_seat_protect_s)
+
+    def _log_omlx_eviction(
+        self, model: str, size: float, reason: str, hot_seat: str | None
+    ) -> None:
+        job_workspace = _ADMIT_JOB_WORKSPACE.get()
+        override = job_workspace and (model == hot_seat or model in self.keeper_protected(OMLX))
+        _log_eviction(model, OMLX, size, reason, job_workspace, bool(override))
 
     # ── in-flight tracking ────────────────────────────────────────────────
 
@@ -1389,6 +1434,7 @@ class LoadGuard:
             idle = [
                 m for m in idle if not self._recently_served(OMLX, str(m["id"]), recent_shield_s)
             ]
+            hot_seat = self._hot_omlx_seat(url) if _ADMIT_JOB_WORKSPACE.get() else None
             protected = self.protected(OMLX)
             failover = self.failover_protected(OMLX)
             failed = self.failed(OMLX)
@@ -1445,13 +1491,7 @@ class LoadGuard:
                 from portal.platform.inference.router.placement import clear_omlx_activity
 
                 clear_omlx_activity(url, str(m["id"]))
-                logger.info(
-                    "load_guard: evicted %s on %s, %.1f GiB freed (reason=%s)",
-                    m["id"],
-                    OMLX,
-                    size / _GIB,
-                    reason,
-                )
+                self._log_omlx_eviction(str(m["id"]), size, reason, hot_seat)
             if not any_post:
                 return 0.0, queued, None, 0.0, unloads
             after = await self._omlx_used(client)
@@ -1540,12 +1580,14 @@ class LoadGuard:
                 if model_key(name) in protected
                 else "idle LRU"
             )
-            logger.info(
-                "load_guard: evicted %s on %s, %.1f GiB freed (reason=%s)",
+            job_workspace = _ADMIT_JOB_WORKSPACE.get()
+            _log_eviction(
                 name,
                 OLLAMA,
-                requested[name].size / _GIB,
+                requested[name].size,
                 reason,
+                job_workspace,
+                bool(job_workspace and model_key(name) in self.keeper_protected(OLLAMA)),
             )
         return requested
 
@@ -1755,6 +1797,20 @@ class LoadGuard:
                 recent_shield_s=recent_shield_s,
             )
             covered += sum(free.size for free in ollama_requested.values())
+        if _ADMIT_JOB_WORKSPACE.get() and covered < shortage:
+            before = set(ollama_requested)
+            await self._yield_protected_idle(
+                client,
+                base,
+                resident,
+                shortage - covered,
+                0.0,
+                ollama_requested,
+                last_models={model} if model else None,
+            )
+            covered += sum(
+                free.size for name, free in ollama_requested.items() if name not in before
+            )
         if not omlx_freed and not omlx_queued and covered < shortage:
             # Idle failover-protected oMLX residents are the last source: a shield
             # orders eviction, and this load is otherwise refused (2026-11-26).
@@ -2155,7 +2211,9 @@ class LoadGuard:
 
     # ── admission ─────────────────────────────────────────────────────────
 
-    async def admit(self, base: str, model: str) -> Callable[[], None] | None:
+    async def admit(
+        self, base: str, model: str, *, workspace_id: str = ""
+    ) -> Callable[[], None] | None:
         """Admit an Ollama request. Return the lock's release callable when this is
         a cold load (also released automatically once the model is resident), None
         when no lock is needed. Raises LoadRefusedError."""
@@ -2164,12 +2222,14 @@ class LoadGuard:
         deadline = time.monotonic() + load_wait_s()
         _admit_waited.set(False)
         held: list[_Release] = []
+        job_token = _ADMIT_JOB_WORKSPACE.set(_configured_job_workspace(workspace_id))
         activity = self._shared_process_lock("admissions.lock")
         try:
             release, defer_yield = await self._admit_ollama_yielding(base, model, deadline, held)
         finally:
             if activity is not None:
                 self._release_activity_lock(activity)
+            _ADMIT_JOB_WORKSPACE.reset(job_token)
         if release is None:
             return None
         _record_admission(OLLAMA, _admit_waited.get())
@@ -2222,7 +2282,7 @@ class LoadGuard:
             YIELD.release()
 
     async def admit_and_begin_ollama(
-        self, base: str, model: str
+        self, base: str, model: str, *, workspace_id: str = ""
     ) -> tuple[Callable[[], None] | None, Callable[[], None]]:
         """Admit then lease the model through request completion across workers."""
         if not self.enabled() or not model:
@@ -2231,7 +2291,7 @@ class LoadGuard:
         release: Callable[[], None] | None = None
         activity_lock = None
         try:
-            release = await self.admit(base, model)
+            release = await self.admit(base, model, workspace_id=workspace_id)
             while True:
                 activity_lock = await self._acquire_activity(
                     OLLAMA, model, time.monotonic() + load_wait_s()
@@ -2258,7 +2318,7 @@ class LoadGuard:
                     return release, end
                 self._release_activity_lock(activity_lock)
                 activity_lock = None
-                release = await self.admit(base, model)
+                release = await self.admit(base, model, workspace_id=workspace_id)
         except BaseException:
             if activity_lock is not None:
                 self._release_activity_lock(activity_lock)
@@ -2270,7 +2330,7 @@ class LoadGuard:
                 self._release_activity_lock(admission)
 
     async def admit_and_begin_omlx(
-        self, model: str
+        self, model: str, *, workspace_id: str = ""
     ) -> tuple[Callable[[], None] | None, Callable[[], None]]:
         """Keep admission visible until the oMLX request lease is installed."""
         if not self.enabled() or not model:
@@ -2278,7 +2338,7 @@ class LoadGuard:
         admission = self._shared_process_lock("admissions.lock")
         release: Callable[[], None] | None = None
         try:
-            release = await self.admit_omlx(model)
+            release = await self.admit_omlx(model, workspace_id=workspace_id)
             end = self.begin(OMLX, model)
             return release, end
         except BaseException:
@@ -2917,13 +2977,14 @@ class LoadGuard:
                 exclude=self._counterpart_models(OMLX, model),
             )
 
-    async def admit_omlx(self, model: str) -> Callable[[], None] | None:
+    async def admit_omlx(self, model: str, *, workspace_id: str = "") -> Callable[[], None] | None:
         """Serialise the cold load; free idle oMLX residents, then Ollama's, when short."""
         if not self.enabled() or not model:
             return None
         deadline = time.monotonic() + load_wait_s()
         _admit_waited.set(False)
         release: _Release | None = None
+        job_token = _ADMIT_JOB_WORKSPACE.set(_configured_job_workspace(workspace_id))
         activity = self._shared_process_lock("admissions.lock")
         try:
             try:
@@ -2957,6 +3018,7 @@ class LoadGuard:
         finally:
             if activity is not None:
                 self._release_activity_lock(activity)
+            _ADMIT_JOB_WORKSPACE.reset(job_token)
 
     async def _free_for_resident_omlx(
         self, client: httpx.AsyncClient, model: str, deadline: float
@@ -3200,27 +3262,20 @@ class LoadGuard:
         }
 
     async def reclaim_idle_memory(self, ollama_base: str, need: float) -> dict[str, Any]:
-        """Unload idle residents through the same path used for cold-load admission.
-
-        A background job never preempts a seat a worker served within
-        ``_JOB_RECLAIM_RECENT_S``: it waits and retries instead.
-        """
+        """Unload idle residents through the same path used for cold-load admission."""
         if need <= 0:
             return {"unloads": [], "residents": []}
-        deadline = time.monotonic() + load_wait_s()
-        release = await self._acquire(OLLAMA, deadline, "job memory reclaim")
+        job_token = _ADMIT_JOB_WORKSPACE.set("media")
+        release = None
         try:
+            deadline = time.monotonic() + load_wait_s()
+            release = await self._acquire(OLLAMA, deadline, "job memory reclaim")
             async with self._client() as client:
                 resident = await self._resident(client, ollama_base)
                 capacity = await self._headroom(client)
                 idle = self._ollama_idle(resident)
                 if capacity is None:
-                    requested = await self._free_ollama(
-                        client,
-                        ollama_base,
-                        resident,
-                        recent_shield_s=_JOB_RECLAIM_RECENT_S,
-                    )
+                    requested = await self._free_ollama(client, ollama_base, resident)
                     unloads = [
                         {"engine": OLLAMA, "model": name, "status": "requested"}
                         for name in requested
@@ -3234,14 +3289,15 @@ class LoadGuard:
                         idle,
                         used,
                         need,
-                        recent_shield_s=_JOB_RECLAIM_RECENT_S,
                     )
                 return {
                     "unloads": unloads,
                     "residents": await self._memory_residents(client, ollama_base),
                 }
         finally:
-            release()
+            if release is not None:
+                release()
+            _ADMIT_JOB_WORKSPACE.reset(job_token)
 
     async def _memory_residents(
         self, client: httpx.AsyncClient, ollama_base: str

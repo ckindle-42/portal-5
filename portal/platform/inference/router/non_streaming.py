@@ -26,7 +26,10 @@ from portal.platform.inference.router.backend_introspect import (
 from portal.platform.inference.router.client_tools import merge_client_tools
 from portal.platform.inference.router.context_budget import ContextOverflowError
 from portal.platform.inference.router.context_budget import fit_prompt as fit_context
-from portal.platform.inference.router.correlation import get_correlation_id
+from portal.platform.inference.router.correlation import (
+    get_correlation_id,
+    workspace_request_kwargs,
+)
 from portal.platform.inference.router.download_links import (
     missing_published_suffix,
     offers_file_creation,
@@ -376,7 +379,12 @@ async def _run_non_streaming_chain(
                 model=str(hop_body.get("model") or hop_model),
                 engine=_backend_type_for_url(hop_url),
             )
-            async with _http_client.stream("POST", hop_url, json=hop_body) as resp:
+            async with _http_client.stream(
+                "POST",
+                hop_url,
+                json=hop_body,
+                **workspace_request_kwargs(_http_client, workspace_id),
+            ) as resp:
                 resp.raise_for_status()
                 hop_served = True
                 async for line in resp.aiter_lines():
@@ -982,7 +990,12 @@ async def _post_fitted(
         model=str(body.get("model") or ""),
         engine=_backend_type_for_url(url),
     )
-    response: httpx.Response = await client.post(url, json=body, timeout=timeout)
+    response: httpx.Response = await client.post(
+        url,
+        json=body,
+        timeout=timeout,
+        **workspace_request_kwargs(client, workspace_id),
+    )
     return response
 
 
