@@ -368,6 +368,23 @@ class TestRegistry:
         seeded = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
         assert next(s for s in seeded if s.scenario_id == "s2-p2-auto-council").enabled is True
 
+    def test_persona_sweep_cap_counts_only_eligible(self) -> None:
+        models = ["aaa-ghost", "bbb-ghost"] + sorted({pid for pid in PRESET_IDS if "::" not in pid})
+        personas = tuple(
+            PersonaDef(
+                slug=f"p{i:02d}", name=f"P{i}", workspace_model=wm, category="x", model_pin=""
+            )
+            for i, wm in enumerate(models)
+        )
+        d = make_discovery(personas=personas)
+        rows = [
+            s
+            for s in sc.build_registry(make_settings(Path("/tmp")), d)
+            if s.phase == "personas_pin_sweep"
+        ]
+        assert len(rows) == sc.PERSONA_SWEEP_MAX
+        assert all(r.model_slug in d.presets for r in rows)
+
     def test_media_artifact_kinds(self) -> None:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
         kinds = {s.scenario_id: s.artifact_kind for s in registry if s.phase == "media_heavy"}

@@ -695,14 +695,26 @@ def _omlx_groups(s: Settings) -> set[str]:
     return {str(b.get("group", "")) for b in data.get("backends") or [] if b.get("type") == "omlx"}
 
 
+def _persona_sweep_eligible(p, d: Discovery) -> bool:
+    if p.workspace_model == "":
+        return True
+    return p.workspace_model in d.presets and p.workspace_model not in CLI_ONLY_PRESETS
+
+
 def _phase_personas(_s: Settings, d: Discovery) -> list[QATScenario]:
     if not d.personas:
         return []
-    pinned = [p for p in d.personas if p.model_pin]
+    # Filter before the cap: an ineligible persona must not consume a sweep slot.
+    pinned = [p for p in d.personas if p.model_pin and _persona_sweep_eligible(p, d)]
     sampled: list = list(pinned)
     for slug in sorted({p.workspace_model for p in d.personas}):
         first = next(
-            (p for p in sorted(d.personas, key=lambda x: x.slug) if p.workspace_model == slug), None
+            (
+                p
+                for p in sorted(d.personas, key=lambda x: x.slug)
+                if p.workspace_model == slug and _persona_sweep_eligible(p, d)
+            ),
+            None,
         )
         if first and first not in sampled:
             sampled.append(first)
@@ -723,8 +735,6 @@ def _phase_personas(_s: Settings, d: Discovery) -> list[QATScenario]:
             tags=("persona",) + (("pin", p.model_pin) if p.model_pin else ()),
         )
         for p in sampled[:PERSONA_SWEEP_MAX]
-        if (p.workspace_model in d.presets and p.workspace_model not in CLI_ONLY_PRESETS)
-        or p.workspace_model == ""
     ]
 
 
