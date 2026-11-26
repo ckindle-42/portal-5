@@ -319,6 +319,63 @@ async def test_turn_deadline_closes_stalled_stream_and_records_reason(monkeypatc
 
 
 @pytest.mark.anyio
+async def test_turn_deadline_resets_after_each_active_chunk(monkeypatch) -> None:
+    _silence_trace(monkeypatch)
+
+    async def active() -> typing.AsyncIterator[bytes]:
+        for _ in range(4):
+            await asyncio.sleep(0.02)
+            yield b'data: {"choices":[{"delta":{"content":"active"}}]}\n\n'
+        yield b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n'
+        yield DONE
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            active(),
+            workspace_id="auto-coding",
+            start_time=time.monotonic(),
+            timeout_s=0.03,
+        )
+    )
+
+    _assert_well_formed(chunks)
+    assert b"".join(chunks).count(b'content":"active"') == 4
+
+
+@pytest.mark.anyio
+async def test_turn_deadline_keeps_absolute_ceiling(monkeypatch) -> None:
+    closed = False
+    spans: list[tuple[str, dict[str, typing.Any]]] = []
+
+    async def active() -> typing.AsyncIterator[bytes]:
+        nonlocal closed
+        try:
+            while True:
+                await asyncio.sleep(0.04)
+                yield b'data: {"choices":[{"delta":{"content":"active"}}]}\n\n'
+        finally:
+            closed = True
+
+    monkeypatch.setattr(handlers, "_MAX_STREAM_DURATION_S", 0.18)
+    monkeypatch.setattr(handlers, "trace_note", lambda **_fields: None)
+    monkeypatch.setattr(handlers, "trace_span", lambda name, **fields: spans.append((name, fields)))
+    monkeypatch.setattr(handlers, "finalize_trace", lambda: None)
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            active(),
+            workspace_id="auto-coding",
+            start_time=time.monotonic(),
+            timeout_s=0.1,
+        )
+    )
+
+    _assert_terminal(chunks, "turn deadline")
+    assert closed
+    assert ("stream.deadline", {"reason": "request_timeout", "timeout_s": 0.18}) in spans
+
+
+@pytest.mark.anyio
 async def test_turn_deadline_stops_after_backend_terminal_marker(monkeypatch) -> None:
     closed = False
     deadlines: list[dict[str, typing.Any]] = []

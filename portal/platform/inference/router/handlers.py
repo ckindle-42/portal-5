@@ -212,6 +212,9 @@ def _response_with_handoff_notice(response: Any) -> Any:
     return response
 
 
+_MAX_STREAM_DURATION_S = 900.0
+
+
 def _stream_with_request_deadline(
     source: AsyncIterable[str | bytes | memoryview],
     start_time: float | None,
@@ -220,7 +223,7 @@ def _stream_with_request_deadline(
     if timeout_s is None:
         return source
     start = time.monotonic() if start_time is None else start_time
-    return _with_stream_deadline(source, start + timeout_s)
+    return _with_stream_deadline(source, start + _MAX_STREAM_DURATION_S, timeout_s)
 
 
 async def _with_portal_timings(
@@ -256,8 +259,8 @@ async def _with_portal_timings(
         try:
             async for frame in _forward_stream_until_done(source_iter, _closing_frames, seen):
                 yield frame
-        except _TurnDeadlineExceededError:
-            async for frame in _turn_timeout_frames(workspace_id, timeout_s, _closing_frames):
+        except _TurnDeadlineExceededError as exc:
+            async for frame in _turn_timeout_frames(workspace_id, exc.timeout_s, _closing_frames):
                 yield frame
             seen["done"] = True
         except asyncio.CancelledError:
@@ -284,7 +287,10 @@ async def _with_portal_timings(
 
 
 class _TurnDeadlineExceededError(Exception):
-    """The response body exceeded its end-to-end request budget."""
+    """The response body exceeded its idle or absolute turn budget."""
+
+    def __init__(self, timeout_s: float) -> None:
+        self.timeout_s = timeout_s
 
 
 async def _forward_stream_until_done(
@@ -366,15 +372,22 @@ async def _close_async_iterator(source: Any) -> None:
 
 
 async def _with_stream_deadline(
-    source: AsyncIterable[str | bytes | memoryview], deadline: float
+    source: AsyncIterable[str | bytes | memoryview], deadline: float, idle_timeout_s: float
 ) -> AsyncIterator[str | bytes | memoryview]:
     iterator = source.__aiter__()
     try:
         async with asyncio.timeout_at(deadline):
-            async for chunk in iterator:
+            while True:
+                try:
+                    async with asyncio.timeout(idle_timeout_s):
+                        chunk = await anext(iterator)
+                except StopAsyncIteration:
+                    return
+                except TimeoutError as exc:
+                    raise _TurnDeadlineExceededError(idle_timeout_s) from exc
                 yield chunk
     except TimeoutError as exc:
-        raise _TurnDeadlineExceededError from exc
+        raise _TurnDeadlineExceededError(_MAX_STREAM_DURATION_S) from exc
     finally:
         await _close_async_iterator(iterator)
 
