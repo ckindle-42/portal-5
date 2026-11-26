@@ -50,3 +50,31 @@ def test_recent_traces_summary_carries_requested_and_owui_task(monkeypatch, tmp_
     rows = {row["correlation_id"]: row for row in trace.recent_traces(limit=5)}
     assert rows["p5-aaaaaaaaaaaa"]["requested"] == "sec-analyst"
     assert rows["p5-bbbbbbbbbbbb"]["owui_task"] is True
+
+
+def test_every_trace_record_carries_requested(monkeypatch, tmp_path):
+    from portal.platform.inference.router import trace
+
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path))
+    opened = trace.start_trace("p5-requested01")
+    assert opened is not None
+    trace.finalize_trace()
+    record = trace.read_trace("p5-requested01")
+    assert record is not None and "requested" in record and record["requested"] is None
+
+
+def test_refusal_records_requested_before_routing(monkeypatch, tmp_path):
+    from portal.platform.inference.router import safety_guard, trace
+
+    monkeypatch.setenv("PORTAL_TRACE_DIR", str(tmp_path))
+    trace.start_trace("p5-refusalreq1")
+    hit = safety_guard.GuardHit("injection", safety_guard.INJECTION_REFUSAL)
+    safety_guard.record_refusal(
+        safety_guard.SafetyRefusalError(hit, model="auto", stream=False, usage_wanted=False)
+    )
+    trace.finalize_trace()
+    record = trace.read_trace("p5-refusalreq1")
+    assert record is not None
+    assert record["requested"] == "auto"
+    assert record["outcome"] == "safety_refusal"
+    assert not record.get("model")

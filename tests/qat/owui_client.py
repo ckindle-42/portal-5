@@ -663,8 +663,25 @@ def _trace_candidates(
         if matched is not None:
             return [matched]
     candidates = [row for row in rows if _trace_row_matches(row, model_slugs, turn_started_at)]
+    candidates = _prefer_served_trace(candidates)
     candidates.sort(key=lambda row: _started_at(row.get("started_at")), reverse=True)
     return candidates
+
+
+def _prefer_served_trace(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """A pre-route safety refusal shares the requested slug and has no served model.
+
+    ``record_refusal`` stores the client model in ``workspace``, so identity
+    matching treats it as the graded turn. When a turn that actually served is
+    also in the window, that turn is the one to grade. A lone refusal stays,
+    which is the adversarial row's only trace.
+    """
+    served = [
+        row
+        for row in rows
+        if str(row.get("model") or "") and str(row.get("outcome") or "") != "safety_refusal"
+    ]
+    return served or rows
 
 
 def _started_at(value: object) -> float:

@@ -116,7 +116,8 @@ class TurnTrace:
         self.started_at = time.time()
         self._t0 = time.monotonic()
         self._spans: list[dict[str, Any]] = []
-        self._meta: dict[str, Any] = {}
+        # Present on every record, including turns that return before routing.
+        self._meta: dict[str, Any] = {"requested": None}
         self._bodies: dict[str, Any] = {}
         self._seen = 0
 

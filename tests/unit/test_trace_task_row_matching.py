@@ -44,3 +44,29 @@ def test_qat_row_matcher_skips_the_owui_task_row() -> None:
     assert match(TASK, {"auto-security"}, 50.0) is False
     assert match(TURN, {"auto-security"}, 50.0) is True
     assert match({"workspace": "other", "started_at": 100.0}, {"auto-security"}, 50.0) is False
+
+
+def test_identity_match_prefers_the_served_turn_over_a_newer_refusal() -> None:
+    """s2-p1-auto: the guard row has workspace ``auto`` and no model, so newest-wins
+    bound it and the served trace (requested ``auto``, model set) was missed."""
+    started = 1_700_000_000.0
+    refusal = {
+        "correlation_id": "p5-refusal",
+        "workspace": "auto",
+        "requested": None,
+        "model": None,
+        "outcome": "safety_refusal",
+        "started_at": started + 2,
+    }
+    served = {
+        "correlation_id": "p5-served",
+        "workspace": "auto-general-uncensored",
+        "requested": "auto",
+        "model": "Inkling-2-Mini-abliterated-oQ4e-mtp",
+        "outcome": "complete",
+        "started_at": started,
+    }
+    chosen = owui_client._trace_candidates([refusal, served], None, {"auto"}, started)
+    assert [row["correlation_id"] for row in chosen] == ["p5-served"]
+    lone = owui_client._trace_candidates([refusal], None, {"auto"}, started)
+    assert [row["correlation_id"] for row in lone] == ["p5-refusal"]

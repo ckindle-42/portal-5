@@ -794,6 +794,17 @@ def _reject_disabled_workspace(workspace_id: str) -> None:
         )
 
 
+def _note_incoming_request(body: dict[str, Any]) -> None:
+    """Record the client model before the guard. A refusal never reaches route resolution,
+    and an OWUI title/tag task that trips the guard must already be marked ``owui_task``
+    or a recency matcher grades the refusal instead of the served turn."""
+    model = body.get("model")
+    trace_note(requested=str(model) if isinstance(model, str) and model else "auto")
+    messages = body.get("messages")
+    if isinstance(messages, list) and _is_owui_task_prompt(messages):
+        trace_note(owui_task=True)
+
+
 async def _parse_and_guard_body(request: Request) -> dict[str, Any]:
     """Parse the chat body: 400 on an empty prompt, SafetyRefusalError on a hard-line hit."""
     try:
@@ -803,6 +814,7 @@ async def _parse_and_guard_body(request: Request) -> dict[str, Any]:
     _empty_prompt = empty_prompt_error(body)
     if _empty_prompt is not None:
         raise HTTPException(status_code=400, detail=_empty_prompt)
+    _note_incoming_request(body)
     # Deterministic hard-line guard: refuse before routing, context injection or any
     # model call — an abliterated seat cannot be trusted to honour a prompt red line.
     hit = safety_guard.check_body(body)
