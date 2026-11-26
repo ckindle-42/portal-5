@@ -12,7 +12,9 @@ streaming hop whose model had not produced a token yet (2026-10-21, 15:2x).
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 import typing
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -22,6 +24,7 @@ import pytest
 from fastapi.responses import JSONResponse
 
 import portal.platform.inference.router.backend_introspect as bi
+import portal.platform.inference.router.handlers as handlers
 import portal.platform.inference.router.streaming as st
 from portal.platform.inference.router.correlation import set_correlation_id
 
@@ -256,6 +259,95 @@ async def test_guarded_stream_error_ends_well_formed(
 
     _assert_terminal(chunks, "Backend connection error — check server logs")
     assert recorded == [("ws", "stream_error")]
+
+
+@pytest.mark.anyio
+async def test_turn_deadline_closes_stalled_stream_and_records_reason(monkeypatch) -> None:
+    closed = False
+    notes: list[dict[str, typing.Any]] = []
+    spans: list[tuple[str, dict[str, typing.Any]]] = []
+
+    async def stalled() -> typing.AsyncIterator[bytes]:
+        nonlocal closed
+        try:
+            yield b": first byte\n\n"
+            await asyncio.Event().wait()
+        finally:
+            closed = True
+
+    async def no_room(*_args: typing.Any, **_kwargs: typing.Any) -> None:
+        return None
+
+    monkeypatch.setattr(handlers, "trace_note", lambda **fields: notes.append(fields))
+    monkeypatch.setattr(handlers, "trace_span", lambda name, **fields: spans.append((name, fields)))
+    monkeypatch.setattr(handlers, "finalize_trace", lambda: None)
+    monkeypatch.setattr(st, "make_room_for_omlx", no_room)
+    monkeypatch.setattr(st, "_select_stream_fn", lambda *_args, **_kwargs: stalled())
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            st._stream_with_fallback(
+                backend=_backend(),
+                body={},
+                workspace_id="auto-coding",
+                target_model="qwen",
+                persona="auto",
+                effective_tools=[],
+                start_time=time.monotonic(),
+                has_tools=False,
+                chain=[],
+                portal_no_tools=False,
+                secondary_model="",
+                tertiary_model="",
+                remaining=[],
+                slot=MagicMock(),
+                backend_body={},
+            ),
+            workspace_id="auto-coding",
+            start_time=time.monotonic(),
+            timeout_s=0.01,
+        )
+    )
+
+    _assert_terminal(chunks, "turn deadline")
+    assert closed
+    assert any(
+        note.get("outcome") == "timeout" and note.get("turn_end_reason") == "request_timeout"
+        for note in notes
+    )
+    assert ("stream.deadline", {"reason": "request_timeout", "timeout_s": 0.01}) in spans
+
+
+@pytest.mark.anyio
+async def test_turn_deadline_stops_after_backend_terminal_marker(monkeypatch) -> None:
+    closed = False
+    deadlines: list[dict[str, typing.Any]] = []
+
+    async def done_then_stall() -> typing.AsyncIterator[bytes]:
+        nonlocal closed
+        try:
+            yield b'data: {"choices":[{"finish_reason":"stop"}]}\n\n'
+            yield DONE
+            await asyncio.Event().wait()
+        finally:
+            closed = True
+
+    monkeypatch.setattr(handlers, "trace_span", lambda _name, **fields: deadlines.append(fields))
+    monkeypatch.setattr(handlers, "finalize_trace", lambda: None)
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            done_then_stall(),
+            workspace_id="auto-coding",
+            start_time=time.monotonic(),
+            timeout_s=0.01,
+        )
+    )
+
+    _assert_well_formed(chunks)
+    assert chunks.count(DONE) == 1
+    assert closed
+    assert not deadlines
 
 
 @pytest.mark.anyio

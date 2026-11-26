@@ -1524,7 +1524,9 @@ class LoadGuard:
         reserved: float = 0.0,
     ) -> LoadRefusedError:
         detail = (
-            f"after waiting {waited:.1f}s" if not quiet else "with nothing in flight to wait for"
+            f"after waiting {waited:.1f}s for engine activity or memory release"
+            if not quiet
+            else "with nothing in flight to wait for"
         )
         held = f" - {reserved / _GIB:.1f} GiB held for the loaded oMLX seat" if reserved > 0 else ""
         return LoadRefusedError(
@@ -1548,21 +1550,14 @@ class LoadGuard:
         try:
             while True:
                 remaining = deadline - time.monotonic()
-                if remaining <= 0 and not saw_loading:
+                if remaining <= 0:
                     break
                 try:
                     loading = await asyncio.wait_for(
                         self._omlx_loading(client),
-                        timeout=(
-                            min(max(_POLL_S, 0.01), remaining)
-                            if remaining > 0
-                            else max(_POLL_S, 0.01)
-                        ),
+                        timeout=min(max(_POLL_S, 0.01), remaining),
                     )
                 except TimeoutError:
-                    if saw_loading:
-                        deadline = max(deadline, time.monotonic() + load_wait_s())
-                        continue
                     break
                 if not loading:
                     break
@@ -1572,8 +1567,9 @@ class LoadGuard:
                         model,
                     )
                 saw_loading = True
-                deadline = max(deadline, time.monotonic() + load_wait_s())
                 remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
                 started = time.monotonic()
                 await self._wait_change(min(_POLL_S, remaining))
                 _record_wait(OLLAMA, "engine_transition", time.monotonic() - started)
@@ -1657,10 +1653,8 @@ class LoadGuard:
     def _record_activity_progress(
         changing: bool, activity_seen: bool, deadline: float
     ) -> tuple[bool, float]:
-        """Keep a progressing activity's admission budget alive until it drains."""
-        if changing:
-            return True, max(deadline, time.monotonic() + load_wait_s())
-        return activity_seen, deadline
+        """Record whether activity has held capacity during the fixed admission budget."""
+        return activity_seen or changing, deadline
 
     async def _resume_after_activity_drains(
         self,
@@ -2504,8 +2498,9 @@ class LoadGuard:
         while any(
             self.busy(OLLAMA, model) or self._active_elsewhere(OLLAMA, model) for model in models
         ):
-            deadline = max(deadline, time.monotonic() + load_wait_s())
             remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
             _admit_waited.set(True)
             started = time.monotonic()
             await self._wait_change(min(remaining, max(_POLL_S, 0.01)))

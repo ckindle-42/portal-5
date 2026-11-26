@@ -946,6 +946,74 @@ def _nemotron_tags() -> dict[str, int]:
     return {NEMOTRON: int(_NEMOTRON_NEED / lg._FACTOR)}
 
 
+async def test_cold_ollama_load_wait_is_bounded_while_omlx_turn_holds_lease(monkeypatch):
+    e = Engines(
+        tags=_nemotron_tags(),
+        omlx={QWEN_OMLX: {"size": int(15.9 * GIB), "loaded": True}},
+        ceiling=int(36.8 * GIB),
+        omlx_memory=int(15.9 * GIB),
+    )
+    g = guard(e)
+    end_turn = g.begin(lg.OMLX, QWEN_OMLX)
+    now = [100.0]
+    waits = 0
+
+    def monotonic() -> float:
+        return now[0]
+
+    async def wait_change(seconds: float) -> None:
+        nonlocal waits
+        waits += 1
+        now[0] += min(seconds, 0.05)
+        if waits > 4:
+            raise AssertionError("cold load kept extending its wait for the active oMLX turn")
+
+    monkeypatch.setattr(lg.time, "monotonic", monotonic)
+    monkeypatch.setattr(g, "_wait_change", wait_change)
+    monkeypatch.setattr(lg, "_POLL_S", 0.05)
+    lg.set_load_wait("0.1")
+
+    try:
+        with pytest.raises(lg.LoadRefusedError) as err:
+            await g.admit(OLLAMA_URL, NEMOTRON)
+    finally:
+        end_turn()
+
+    assert err.value.reason == "projected-exceeds"
+    assert "after waiting" in str(err.value)
+    assert "engine activity or memory release" in str(err.value)
+    assert waits == 2
+
+
+async def test_omlx_cold_load_wait_is_bounded_for_active_ollama_model(monkeypatch):
+    g = guard(Engines(ollama={"active": GIB}))
+    end_turn = g.begin(OLLAMA, "active")
+    now = [50.0]
+    waits = 0
+
+    def monotonic() -> float:
+        return now[0]
+
+    async def wait_change(seconds: float) -> None:
+        nonlocal waits
+        waits += 1
+        now[0] += min(seconds, 0.05)
+        if waits > 4:
+            raise AssertionError("oMLX load kept extending its wait for the active Ollama turn")
+
+    monkeypatch.setattr(lg.time, "monotonic", monotonic)
+    monkeypatch.setattr(g, "_wait_change", wait_change)
+    monkeypatch.setattr(lg, "_POLL_S", 0.05)
+    lg.set_load_wait("0.1")
+
+    try:
+        assert await g._wait_for_ollama_release(50.1, ["active"]) is False
+    finally:
+        end_turn()
+
+    assert waits <= 3
+
+
 def _tool_loop(e: Engines, g: lg.LoadGuard) -> OllamaNativeTransport:
     return OllamaNativeTransport(
         httpx.MockTransport(e.handler), is_ollama=lambda _base: True, guard=g

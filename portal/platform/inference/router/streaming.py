@@ -2029,10 +2029,13 @@ async def _stream_with_preamble(
     # Stream from backend.
     outcome = "interrupted"
     try:
-        async for chunk in _stream_from_backend_guarded(
-            url, body, workspace_id=workspace_id, model=model, start_time=start_time
-        ):
-            yield chunk
+        async with _closing_frames(
+            _stream_from_backend_guarded(
+                url, body, workspace_id=workspace_id, model=model, start_time=start_time
+            )
+        ) as frames:
+            async for chunk in frames:
+                yield chunk
         outcome = "complete"
     except Exception:
         outcome = "error"
@@ -3146,6 +3149,18 @@ def _select_stream_fn(
         )
 
 
+@contextlib.asynccontextmanager
+async def _closing_frames(
+    frames: AsyncIterator[bytes],
+) -> AsyncIterator[AsyncIterator[bytes]]:
+    try:
+        yield frames
+    finally:
+        close = getattr(frames, "aclose", None)
+        if close is not None:
+            await close()
+
+
 async def _with_room_for_omlx(
     backend: Any,
     body: dict[str, Any],
@@ -3159,8 +3174,9 @@ async def _with_room_for_omlx(
     A parallel seat served here drops its idle Ollama twin once the stream ends."""
     await make_room_for_omlx(backend, body)
     try:
-        async for chunk in frames:
-            yield chunk
+        async with _closing_frames(frames):
+            async for chunk in frames:
+                yield chunk
     finally:
         await release_omlx_fallback(backend, workspace_id)
 
@@ -3254,20 +3270,21 @@ async def _stream_with_fallback(
             )
             _cascade_token = _CASCADE_ERRORS.set(True)
             try:
-                async for chunk in _inner_stream:
-                    if stream_failed:
-                        # Drain after an error: a trailing [DONE] forwarded here would
-                        # end the client's read before any fallback answer arrives.
-                        continue
-                    _err = _stream_error(chunk)
-                    if _err is not None:
-                        stream_failed = True
-                        _error_buffer = chunk
-                        _error_status = _err
-                        continue
-                    if not _output_sent and _chunk_has_output(chunk):
-                        _output_sent = True
-                    yield chunk
+                async with _closing_frames(_inner_stream):
+                    async for chunk in _inner_stream:
+                        if stream_failed:
+                            # Drain after an error: a trailing [DONE] forwarded here would
+                            # end the client's read before any fallback answer arrives.
+                            continue
+                        _err = _stream_error(chunk)
+                        if _err is not None:
+                            stream_failed = True
+                            _error_buffer = chunk
+                            _error_status = _err
+                            continue
+                        if not _output_sent and _chunk_has_output(chunk):
+                            _output_sent = True
+                        yield chunk
             finally:
                 _CASCADE_ERRORS.reset(_cascade_token)
         except Exception:

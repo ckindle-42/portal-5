@@ -15,7 +15,7 @@ import logging
 import math
 import os
 import time
-from collections.abc import AsyncIterable, AsyncIterator, Iterator
+from collections.abc import AsyncIterable, AsyncIterator, Callable, Iterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -101,6 +101,7 @@ from portal.platform.inference.router.state import (
 from portal.platform.inference.router.streaming import (
     _build_streaming_request,
     _content_chunk,
+    _error_terminal_frames,
     _prioritize_hinted_backend,  # noqa: F401  (re-exported: tests import it from handlers)
     _select_stream_fn,
     _select_streaming_backend,
@@ -215,6 +216,9 @@ async def _with_portal_timings(
     source: AsyncIterable[str | bytes | memoryview],
     *,
     usage_wanted: bool = False,
+    workspace_id: str = "unknown",
+    start_time: float | None = None,
+    timeout_s: float | None = None,
 ) -> AsyncIterator[bytes]:
     """Add the closing usage guarantee (when requested) and one metadata-only
     timing frame immediately before the SSE terminator."""
@@ -237,31 +241,101 @@ async def _with_portal_timings(
         }
         yield ("data: " + json.dumps(payload, separators=(",", ":")) + "\n\n").encode()
 
-    async for chunk in source:
-        raw = chunk.encode() if isinstance(chunk, str) else bytes(chunk)
-        if b'"usage"' in raw:
-            usage_seen = True
-        marker = b"data: [DONE]"
-        if marker in raw:
-            before, separator, after = raw.partition(marker)
-            if before:
-                yield before
-            for frame in _closing_frames():
-                yield frame
-            yield separator + after
-            done = True
-        else:
-            yield raw
+    deadline = None
+    if timeout_s is not None:
+        deadline = (time.monotonic() if start_time is None else start_time) + timeout_s
+    source_iter = _with_stream_deadline(source, deadline) if deadline is not None else source
+    try:
+        async for chunk in source_iter:
+            raw = chunk.encode() if isinstance(chunk, str) else bytes(chunk)
+            if b'"usage"' in raw:
+                usage_seen = True
+            marker = b"data: [DONE]"
+            if marker in raw:
+                before, separator, after = raw.partition(marker)
+                if before:
+                    yield before
+                for frame in _closing_frames():
+                    yield frame
+                yield separator + after
+                done = True
+                break
+            else:
+                yield raw
+    except _TurnDeadlineExceededError:
+        async for frame in _turn_timeout_frames(workspace_id, timeout_s, _closing_frames):
+            yield frame
+        done = True
+    finally:
+        await _close_async_iterator(source_iter)
     if not done:
         for frame in _closing_frames():
             yield frame
     finalize_trace()
 
 
-def _timed_stream_response(response: Any, *, usage_wanted: bool = False) -> Any:
+class _TurnDeadlineExceededError(Exception):
+    """The response body exceeded its end-to-end request budget."""
+
+
+async def _turn_timeout_frames(
+    workspace_id: str,
+    timeout_s: float | None,
+    closing_frames: Callable[[], Iterator[bytes]],
+) -> AsyncIterator[bytes]:
+    trace_note(outcome="timeout", turn_end_reason="request_timeout")
+    trace_span("stream.deadline", reason="request_timeout", timeout_s=timeout_s)
+    frames = _error_terminal_frames(
+        get_correlation_id() or "chatcmpl-turn-timeout",
+        workspace_id,
+        f"turn deadline exceeded after {timeout_s:.0f}s",
+    )
+    for frame in frames[:-1]:
+        yield frame
+    for frame in closing_frames():
+        yield frame
+    yield frames[-1]
+
+
+async def _close_async_iterator(source: Any) -> None:
+    close = getattr(source, "aclose", None)
+    if close is not None:
+        await close()
+
+
+async def _with_stream_deadline(
+    source: AsyncIterable[str | bytes | memoryview], deadline: float
+) -> AsyncIterator[str | bytes | memoryview]:
+    iterator = source.__aiter__()
+    try:
+        async with asyncio.timeout_at(deadline):
+            async for chunk in iterator:
+                yield chunk
+    except TimeoutError as exc:
+        raise _TurnDeadlineExceededError from exc
+    finally:
+        await _close_async_iterator(iterator)
+
+
+def _turn_timeout_s() -> float:
+    return float(registry.request_timeout) if registry is not None else 300.0
+
+
+def _timed_stream_response(
+    response: Any,
+    *,
+    usage_wanted: bool = False,
+    workspace_id: str = "unknown",
+    start_time: float | None = None,
+    timeout_s: float | None = None,
+) -> Any:
     if isinstance(response, StreamingResponse):
         response.body_iterator = _with_portal_timings(
-            response.body_iterator, usage_wanted=usage_wanted
+            response.body_iterator,
+            usage_wanted=usage_wanted,
+            workspace_id=workspace_id,
+            start_time=start_time,
+            timeout_s=timeout_s,
         )
     return response
 
@@ -1370,7 +1444,13 @@ async def chat_completions(
             workspace_id, body, stream, persona, slot, start_time
         )
         if council_resp is not None:
-            return _timed_stream_response(council_resp, usage_wanted=stream_usage_requested(body))
+            return _timed_stream_response(
+                council_resp,
+                usage_wanted=stream_usage_requested(body),
+                workspace_id=workspace_id,
+                start_time=start_time,
+                timeout_s=_turn_timeout_s(),
+            )
 
         backend, target_model, _model_hint, _chain, _secondary_model, _tertiary_model = (
             _select_streaming_backend(workspace_id, candidates)
@@ -1420,6 +1500,9 @@ async def chat_completions(
                 _with_portal_timings(
                     _room(backend, backend_body, _stream_fn, workspace_id),
                     usage_wanted=stream_usage_requested(body),
+                    workspace_id=workspace_id,
+                    start_time=start_time,
+                    timeout_s=_turn_timeout_s(),
                 ),
                 media_type="text/event-stream",
                 headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
@@ -1454,6 +1537,9 @@ async def chat_completions(
                     client_tools_only=_client_tools_only,
                 ),
                 usage_wanted=stream_usage_requested(body),
+                workspace_id=workspace_id,
+                start_time=start_time,
+                timeout_s=_turn_timeout_s(),
             ),
             media_type="text/event-stream",
             headers={"x-portal-route": f"{workspace_id};{backend.id};{target_model}"},
