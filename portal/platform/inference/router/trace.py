@@ -37,6 +37,7 @@ import time
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import urlsplit, urlunsplit
 
 _TRUE = frozenset({"1", "true", "yes", "on"})
 
@@ -62,6 +63,7 @@ MAX_RECORD_BYTES: int = max(512, _env_int("PORTAL_TRACE_MAX_BYTES", 32768))
 HEAD_CHARS: int = 160
 #: Always-on tool error/stdout/stderr heads on ``tool.completed``. Full bodies stay opt-in.
 TOOL_RESULT_HEAD_CHARS: int = 512
+TOOL_RECEIPT_MAX_BYTES = 1024
 _SECRET_ASSIGN = re.compile(
     r"(?i)\b((?:authorization|api[_-]?key|password|secret|access[_-]?token|token|bearer)"
     r"\s*[:=]\s*)(\S+)"
@@ -163,6 +165,119 @@ def _result_shape(parsed: dict[str, Any] | None) -> dict[str, Any]:
     return shape
 
 
+def _receipt_field(key: str, value: Any) -> Any | None:
+    lowered = key.casefold().replace("-", "_")
+    if _is_credential_key(lowered):
+        return None
+    if isinstance(value, bool):
+        return value if lowered in {"success", "complete", "completed"} else None
+    if isinstance(value, list) and (lowered.endswith(("_id", "_ids")) or lowered == "id"):
+        return [str(item)[:120] for item in value[:5] if isinstance(item, (str, int))]
+    if isinstance(value, (int, float)):
+        if (
+            lowered in {"count", "index", "num_results", "total", "file_size", "bytes"}
+            or lowered.endswith(("_count", "_total", "_requests", "_events", "_leads", "_bytes"))
+            or lowered in {"events", "leads", "splunk_requests"}
+        ):
+            return value
+        return None
+    if not isinstance(value, str) or not value.strip():
+        return None
+    if not (
+        lowered
+        in {
+            "id",
+            "uuid",
+            "status",
+            "state",
+            "stage",
+            "outcome",
+            "index",
+            "citation",
+            "source",
+            "title",
+            "name",
+            "summary",
+            "message",
+            "snippet",
+            "content",
+            "text",
+        }
+        or lowered.endswith(("_id", "_uuid", "_identifier", "_index", "_status", "_state"))
+        or "url" in lowered
+        or "link" in lowered
+    ):
+        return None
+    value = " ".join(_redact_secret_text(value).split())
+    if "url" in lowered or "link" in lowered:
+        parts = urlsplit(value)
+        host = parts.hostname or ""
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        with contextlib.suppress(ValueError):
+            if parts.port:
+                host = f"{host}:{parts.port}"
+        value = urlunsplit((parts.scheme, host, parts.path, "", ""))
+    return value[:120] or None
+
+
+def _receipt_add(receipt: dict[str, Any], key: str, value: Any) -> None:
+    clean = _receipt_field(key, value)
+    if clean is not None and key not in receipt and len(receipt) < 24:
+        receipt[key] = clean
+
+
+def _receipt_visit_list(name: str, values: list[Any], receipt: dict[str, Any], depth: int) -> None:
+    _receipt_add(receipt, f"{name}_count", len(values))
+    ids = [
+        item["id"]
+        for item in values[:5]
+        if isinstance(item, dict) and isinstance(item.get("id"), (str, int))
+    ]
+    if ids:
+        _receipt_add(receipt, f"{name}_ids", ids)
+    if name.casefold() not in {"memory", "memories"}:
+        for item in values[:5]:
+            _receipt_visit(item, receipt, name, depth + 1)
+
+
+def _receipt_visit(value: Any, receipt: dict[str, Any], parent: str = "", depth: int = 0) -> None:
+    if depth > 4:
+        return
+    if not isinstance(value, dict):
+        if parent:
+            _receipt_add(receipt, parent, value)
+        return
+    for key, child in value.items():
+        name = str(key)[:64]
+        if isinstance(child, dict):
+            _receipt_visit(child, receipt, name, depth + 1)
+        elif isinstance(child, list):
+            _receipt_visit_list(name, child, receipt, depth)
+        else:
+            nested = None
+            if isinstance(child, str) and child.lstrip().startswith(("{", "[")):
+                with contextlib.suppress(json.JSONDecodeError):
+                    nested = json.loads(child)
+            if isinstance(nested, (dict, list)):
+                _receipt_visit(nested, receipt, name, depth + 1)
+            else:
+                _receipt_add(receipt, name, child)
+
+
+def _tool_receipt(parsed: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(parsed, dict):
+        return {}
+    receipt: dict[str, Any] = {}
+    _receipt_visit(parsed, receipt)
+    while (
+        receipt
+        and len(json.dumps(receipt, separators=(",", ":")).encode("utf-8")) > TOOL_RECEIPT_MAX_BYTES
+    ):
+        receipt.pop(next(reversed(receipt)))
+    return receipt
+
+
 def _tool_status(parsed: dict[str, Any] | None, error_type: str) -> tuple[bool, str]:
     if error_type:
         return False, error_type[:80]
@@ -197,6 +312,9 @@ def bounded_tool_result(result: Any, *, error_type: str = "") -> dict[str, Any]:
         "stdout_head": stdout_head,
         "stderr_head": stderr_head,
     }
+    receipt = _tool_receipt(parsed)
+    if receipt:
+        fields["receipt"] = receipt
     if not stdout_head and not stderr_head:
         fields["result_shape"] = _result_shape(parsed)
     if error_cut:

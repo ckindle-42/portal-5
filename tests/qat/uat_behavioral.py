@@ -1439,7 +1439,14 @@ def grade_case(
     payloads: dict[str, list[bytes]],
     all_text: str | None = None,
 ) -> tuple[list[str], dict[str, object]]:
-    evidence: dict[str, object] = {"turn_count": len(turns), "grader": case.grader}
+    evidence: dict[str, object] = {
+        "turn_count": len(turns),
+        "grader": case.grader,
+        "tool_telemetry": _required_tool_telemetry(case, turns),
+        "tool_receipts": [
+            {"tool": tool, "receipt": receipt} for tool, receipt in _tool_receipts(turns)
+        ],
+    }
     text = all_text if all_text is not None else "\n".join(turn.text for turn in turns)
     evidence["answer_tail"] = _bounded_answer_tail(text)
     expected_turns = len(turns) if _has_media_job(turns) else len(case.prompts)
@@ -1933,35 +1940,28 @@ def _grade_sandbox_case(
     evidence: dict[str, object],
 ) -> list[str]:
     del case, payloads
-    errors = []
+    errors: list[str] = []
     lowered = text.casefold()
-    results = [result for turn in turns for result in turn.tool_results]
-    python_results = [result for result in results if result.get("tool") == "execute_python"]
-    bash_results = [result for result in results if result.get("tool") == "execute_bash"]
-    if "uat_python_73" not in lowered:
-        errors.append("sandbox answer omitted the Python marker")
-    if "uat_bash_48" not in lowered:
-        errors.append("sandbox answer omitted the Bash marker")
-    if not python_results or not bash_results:
+    results = [result for turn in turns for result in _turn_tool_results(turn)]
+    outputs = [
+        str(result["result"].get("stdout") or "")
+        for result in results
+        if isinstance(result.get("result"), dict) and result["result"].get("success")
+    ]
+    observed = "\n".join(outputs).casefold()
+    all_output = "\n".join(
+        str(result["result"].get("stdout") or "")
+        for result in results
+        if isinstance(result.get("result"), dict)
+    ).casefold()
+    if not results:
         errors.append("sandbox execution result is missing")
-    else:
-        python_result = python_results[-1].get("result")
-        python_stdout = (
-            str(python_result.get("stdout", "")) if isinstance(python_result, dict) else ""
-        )
-        bash_result = bash_results[-1].get("result")
-        bash_stdout = str(bash_result.get("stdout", "")) if isinstance(bash_result, dict) else ""
-        if not isinstance(python_result, dict) or not python_result.get("success"):
-            errors.append("sandbox Python probe did not complete successfully")
-        if "uat_python_73" not in python_stdout.casefold():
-            errors.append("sandbox Python execution output omitted its marker")
-        errors.extend(_grade_sandbox_network_probes(python_stdout, evidence))
-        if not isinstance(bash_result, dict) or not bash_result.get("success"):
-            errors.append("sandbox Bash probe did not complete successfully")
-        if "uat_bash_48" not in bash_stdout.casefold():
-            errors.append("sandbox Bash execution output omitted its marker")
-    if len(turns) != 2:
-        errors.append("sandbox journey did not complete both tool turns")
+    for marker, label in (("uat_python_73", "Python"), ("uat_bash_48", "Bash")):
+        if marker not in observed:
+            errors.append(f"sandbox {label} execution output omitted its marker")
+        if marker not in lowered:
+            errors.append(f"sandbox answer omitted the {label} marker")
+    errors.extend(_grade_sandbox_network_probes(all_output, evidence))
     return errors
 
 
@@ -2033,9 +2033,79 @@ def _completed_tool_result(span: object) -> dict[str, object] | None:
     else:
         return None
     entry: dict[str, object] = {"tool": name, "result": result}
+    receipt = span.get("receipt")
+    if isinstance(receipt, dict):
+        result["receipt"] = receipt
     if span.get("session_id"):
         entry["session_id"] = str(span["session_id"])
     return entry
+
+
+def _tool_receipts(turns: list[UATTurn]) -> list[tuple[str, dict[str, object]]]:
+    receipts = []
+    for turn in turns:
+        for item in _turn_tool_results(turn):
+            result = item.get("result")
+            if isinstance(result, dict) and isinstance(result.get("receipt"), dict):
+                receipts.append((str(item.get("tool") or ""), result["receipt"]))
+    return receipts
+
+
+def _turn_tool_results(turn: UATTurn) -> tuple[dict[str, object], ...]:
+    return turn.tool_results or _tool_results_from_trace(turn.trace)
+
+
+def _receipt_text(turns: list[UATTurn]) -> str:
+    return " ".join(
+        f"{key} {value}"
+        for _tool, receipt in _tool_receipts(turns)
+        for key, value in receipt.items()
+        if isinstance(value, (str, int, float))
+    )
+
+
+def _required_tool_telemetry(case: UATCase, turns: list[UATTurn]) -> dict[str, object]:
+    observed = [
+        sorted(
+            {
+                str(item.get("tool") or "").casefold()
+                for item in _turn_tool_results(turn)
+                if item.get("tool")
+            }
+            | {str(tool).casefold() for tool in turn.tool_names}
+        )
+        for turn in turns
+    ]
+    successful = {tool for turn in turns for tool in _successful_tools(turn)}
+    raw_groups = case.expected.get("tools_per_turn")
+    groups = raw_groups if isinstance(raw_groups, list) else []
+    raw_alternatives = case.expected.get("required_any_tools")
+    alternatives = raw_alternatives if isinstance(raw_alternatives, list) else []
+    return {
+        "expected_tools": list(case.expected_tools),
+        "tools_per_turn": groups,
+        "required_any_tools": case.expected.get("required_any_tools", []),
+        "observed_tools": sorted({tool for group in observed for tool in group}),
+        "observed_tools_by_turn": observed,
+        "missing_tools": [
+            tool for tool in case.expected_tools if tool.casefold() not in successful
+        ],
+        "missing_any_tools": alternatives
+        if alternatives and not any(str(tool).casefold() in successful for tool in alternatives)
+        else [],
+        "completed_calls": sum(len(_turn_tool_results(turn)) for turn in turns),
+        "failed_calls": [
+            {
+                "tool": str(item.get("tool") or ""),
+                "error_type": str((item.get("result") or {}).get("error_type") or ""),
+            }
+            for turn in turns
+            for item in _turn_tool_results(turn)
+            if isinstance(item, dict)
+            and isinstance(item.get("result"), dict)
+            and not item["result"].get("success")
+        ],
+    }
 
 
 def _grade_office_case(
@@ -2165,9 +2235,15 @@ def _grade_memory_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del turns, payloads
+    del payloads
     evidence["cross_session"] = True
-    return [] if "cobalt" in text.casefold() else ["new chat omitted the saved preferred color"]
+    receipt_text = _receipt_text(turns[-1:]).casefold() if turns else ""
+    errors = []
+    if "cobalt" not in receipt_text:
+        errors.append("memory retrieval receipt does not contain the saved preferred color")
+    if "cobalt" not in text.casefold():
+        errors.append("new chat omitted the saved preferred color")
+    return errors
 
 
 def _grade_hunt_case(
@@ -2177,54 +2253,110 @@ def _grade_hunt_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del case, payloads, evidence
-    errors = []
-    if len(turns) != 3:
-        errors.append("hunt workflow did not complete source, status, and leads turns")
+    del case, payloads
+    receipts = [receipt for _tool, receipt in _tool_receipts(turns)]
+    if not receipts:
+        return ["hunt answer has no receipt to verify its outcome"]
+    evidence["hunt_receipts"] = receipts
+    return _hunt_status_errors(text, receipts) + _hunt_outcome_errors(text, receipts)
+
+
+def _hunt_receipt_status(receipts: list[dict[str, object]]) -> str:
+    return next(
+        (
+            str(receipt[key]).upper()
+            for receipt in reversed(receipts)
+            for key in ("status", "state")
+            if receipt.get(key)
+        ),
+        "",
+    )
+
+
+def _hunt_status_errors(text: str, receipts: list[dict[str, object]]) -> list[str]:
+    receipt_status = _hunt_receipt_status(receipts)
     status = _reported_hunt_status(text)
+    errors: list[str] = []
+    if not receipt_status:
+        errors.append("hunt receipt omitted its status")
+    elif status != receipt_status:
+        errors.append(
+            f"reported hunt status {status or '(missing)'} does not match receipt {receipt_status}"
+        )
     for marker in ("source", "status"):
         if marker not in text.casefold():
             errors.append(f"hunt answer omitted the {marker} result")
-    if status in {"COMPLETE", "PARTIAL", "FAILED"}:
-        if not _hunt_tool_succeeded(turns, "hunt_leads"):
-            errors.append("terminal hunt did not retrieve leads")
-        if "lead" not in text.casefold():
-            errors.append("hunt answer omitted the lead result")
-    elif status == "RUNNING":
-        if any(
-            _hunt_tool_called(turns[2:], tool)
-            for tool in ("hunt_sources", "hunt_leads", "hunt_case")
-        ):
-            errors.append("running hunt retrieved results before terminal status")
-    else:
+    if receipt_status and receipt_status not in {"RUNNING", "COMPLETE", "PARTIAL", "FAILED"}:
         errors.append("hunt status result did not contain a recognized state")
-    if not re.search(r"\b[a-f0-9]{8,}\b", text, re.IGNORECASE):
-        errors.append("hunt summary omitted an exact event or job identifier")
     return errors
+
+
+def _hunt_outcome_errors(text: str, receipts: list[dict[str, object]]) -> list[str]:
+    if _hunt_receipt_status(receipts) not in {"COMPLETE", "PARTIAL", "FAILED"}:
+        return _hunt_identifier_errors(text, receipts)
+    requests = _receipt_count(receipts, ("splunk_requests", "request_count", "requests_count"))
+    leads = _receipt_count(receipts, ("lead_count", "leads_count"))
+    errors = []
+    if requests is None or requests <= 0:
+        errors.append("hunt receipt shows no Splunk requests")
+    if leads is None:
+        errors.append("terminal hunt receipt omitted its lead count")
+    elif leads == 0 and not re.search(r"\b(?:0|no)\s+leads?\b", text, re.IGNORECASE):
+        errors.append("hunt answer did not report the receipt's zero leads")
+    elif leads > 0 and "lead" not in text.casefold():
+        errors.append("hunt answer omitted the lead result")
+    events = _receipt_count(receipts, ("event_count", "events_count"))
+    for metric, actual in (("request", requests), ("event", events), ("lead", leads)):
+        reported = _reported_count(text, metric)
+        if actual is not None and reported is not None and reported != actual:
+            errors.append(f"reported {metric} count {reported} does not match receipt {actual}")
+    return errors + _hunt_identifier_errors(text, receipts)
+
+
+def _hunt_identifier_errors(text: str, receipts: list[dict[str, object]]) -> list[str]:
+    receipt_ids = {
+        candidate.strip().casefold()
+        for receipt in receipts
+        for key, value in receipt.items()
+        if key == "id" or key == "uuid" or key.endswith(("_id", "_ids", "_uuid"))
+        for candidate in (value if isinstance(value, list) else [value])
+        if isinstance(candidate, (str, int)) and len(str(candidate).strip()) >= 8
+    }
+    reported_ids = {
+        match.rstrip(".,;:").casefold()
+        for match in re.findall(
+            r"\b(?:job|event|lead|case|record)\s+(?:id\s+)?([a-z0-9][a-z0-9._:-]{7,})",
+            text,
+            re.IGNORECASE,
+        )
+    }
+    errors = []
+    if not receipt_ids or not reported_ids:
+        errors.append("hunt summary omitted a receipted event or job identifier")
+    elif not reported_ids <= receipt_ids:
+        errors.append("reported hunt identifier does not match the receipt")
+    return errors
+
+
+def _receipt_count(receipts: list[dict[str, object]], keys: tuple[str, ...]) -> int | None:
+    for receipt in reversed(receipts):
+        for key in keys:
+            value = receipt.get(key)
+            if isinstance(value, int) and not isinstance(value, bool):
+                return value
+    return None
+
+
+def _reported_count(text: str, metric: str) -> int | None:
+    match = re.search(rf"\b([\d,]+)\s+(?:splunk\s+)?{metric}s?\b", text, re.IGNORECASE)
+    if not match:
+        return None
+    return int(match.group(1).replace(",", ""))
 
 
 def _reported_hunt_status(text: str) -> str:
     matches = re.findall(r"\b(RUNNING|COMPLETE|PARTIAL|FAILED)\b", text, re.I)
     return matches[-1].upper() if matches else ""
-
-
-def _hunt_tool_called(turns: list[UATTurn], name: str) -> bool:
-    return any(
-        isinstance(item, dict) and item.get("tool") == name
-        for turn in turns
-        for item in turn.tool_results
-    )
-
-
-def _hunt_tool_succeeded(turns: list[UATTurn], name: str) -> bool:
-    return any(
-        isinstance(item, dict)
-        and item.get("tool") == name
-        and isinstance(item.get("result"), dict)
-        and item["result"].get("success")
-        for turn in turns
-        for item in turn.tool_results
-    )
 
 
 def _grade_compliance_case(
@@ -2234,9 +2366,19 @@ def _grade_compliance_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del case, turns, payloads, evidence
+    del case, payloads
     errors: list[str] = []
-    _grade_compliance(text, errors, ("CIP-007-6 R2 Part 2.2", "GDPR Art. 32(1)(a)"))
+    citations = ("CIP-007-6 R2 Part 2.2", "GDPR Art. 32(1)(a)")
+    _grade_compliance(text, errors, citations)
+    receipt_text = _receipt_text(turns).casefold()
+    if not receipt_text:
+        errors.append("compliance answer has no retrieved receipt")
+    for citation in citations:
+        if citation.casefold() not in receipt_text and not (
+            citation == "GDPR Art. 32(1)(a)" and "gdpr article 32(1)(a)" in receipt_text
+        ):
+            errors.append(f"compliance citation {citation} is absent from retrieved receipts")
+    evidence["retrieved_receipt_text"] = receipt_text[:400]
     return errors
 
 
@@ -2247,17 +2389,36 @@ def _grade_rag_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del case, payloads, evidence
+    del case, payloads
     errors = []
-    if len(turns) != 2:
-        errors.append("knowledge-base follow-up did not complete both turns")
-    if not re.search(r"\b(?:source|document|passage|citation)\b", turns[0].text, re.IGNORECASE):
+    receipt_text = _receipt_text(turns).casefold()
+    if not receipt_text:
+        return ["knowledge-base answer has no retrieved receipt"]
+    if not re.search(r"\b(?:source|document|passage|citation|title)\b", receipt_text):
+        errors.append("retrieved receipt did not identify a source")
+    if not re.search(r"\b(?:source|document|passage|citation)\b", text, re.IGNORECASE):
         errors.append("first answer did not identify a retrieved source")
-    if not _RETENTION_PERIOD_RE.search(turns[1].text) and not any(
-        phrase in turns[1].text.casefold()
-        for phrase in ("no source", "no period", "does not contain")
-    ):
+    answer_period = _RETENTION_PERIOD_RE.search(text)
+    receipt_period = _RETENTION_PERIOD_RE.search(receipt_text)
+    explicit_absence = any(
+        phrase in text.casefold() for phrase in ("no source", "no period", "does not contain")
+    )
+    no_results = any(
+        receipt.get(key) == 0
+        for _tool, receipt in _tool_receipts(turns)
+        for key in ("results_count", "matches_count", "num_results")
+    )
+    if explicit_absence:
+        if not no_results:
+            errors.append("answer claimed no period without a receipt showing no results")
+    elif not answer_period:
         errors.append("follow-up omitted an exact retention period or explicit absence")
+    elif (
+        not receipt_period
+        or answer_period.group(0).casefold() != receipt_period.group(0).casefold()
+    ):
+        errors.append("reported retention period does not match the retrieved receipt")
+    evidence["retrieved_receipt_text"] = receipt_text[:400]
     return errors
 
 
@@ -2280,6 +2441,14 @@ def _grade_markers_case(
     evidence: dict[str, object],
 ) -> list[str]:
     del payloads
+    errors = _marker_text_errors(case, text)
+    errors.extend(_marker_safety_errors(case, turns))
+    errors.extend(_memory_graph_receipt_errors(case, turns))
+    evidence["markers_checked"] = len(case.expected.get("markers") or ())
+    return errors
+
+
+def _marker_text_errors(case: UATCase, text: str) -> list[str]:
     errors: list[str] = []
     lowered = text.casefold()
     for marker in case.expected.get("markers") or ():
@@ -2293,12 +2462,27 @@ def _grade_markers_case(
     pattern = str(case.expected.get("pattern") or "")
     if pattern and not re.search(pattern, text, re.IGNORECASE):
         errors.append(f"answer did not match required pattern {pattern}")
+    return errors
+
+
+def _marker_safety_errors(case: UATCase, turns: list[UATTurn]) -> list[str]:
     forbidden = {str(t).casefold() for t in case.expected.get("forbidden_tools") or ()}
     used = {name.casefold() for turn in turns for name in turn.tool_names}
     hit = sorted(forbidden & used)
-    if hit:
-        errors.append(f"read-only journey called mutating tools: {', '.join(hit)}")
-    evidence["markers_checked"] = len(case.expected.get("markers") or ())
+    return [f"read-only journey called mutating tools: {', '.join(hit)}"] if hit else []
+
+
+def _memory_graph_receipt_errors(case: UATCase, turns: list[UATTurn]) -> list[str]:
+    if case.grader != "memory_graph":
+        return []
+    receipts = _tool_receipts(turns)
+    receipt_text = _receipt_text(turns).casefold()
+    errors = [] if receipts else ["memory graph answer has no outcome receipt"]
+    errors.extend(
+        f"memory receipt omitted stored marker {marker}"
+        for marker in case.expected.get("markers") or ()
+        if str(marker).casefold() not in receipt_text
+    )
     return errors
 
 
@@ -2478,20 +2662,41 @@ def _grade_memory_admin_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del payloads, text
+    del payloads
     marker = str(case.expected.get("marker") or "")
     errors: list[str] = []
-    first = turns[0].text.casefold()
-    has_uuid = bool(re.search(r"\b[0-9a-f]{8}-[0-9a-f]{4}-", first))
-    if marker not in first and not has_uuid:
-        errors.append("remember turn did not confirm the QAT marker or memory id")
-    second = turns[1].text.casefold()
-    if marker not in second and "forget" not in second:
-        errors.append("admin turn neither listed the marker nor confirmed forget")
-    final = turns[-1].text.casefold()
-    cleaned = _marker_fully_removed(marker, final)
+    receipts = _tool_receipts(turns)
+    receipt_text = _receipt_text(turns).casefold()
+    if not receipts or marker.casefold() not in receipt_text:
+        errors.append("memory receipt does not verify the stored marker")
+    ids = {
+        str(raw).strip().casefold()
+        for receipt in (receipt for _tool, receipt in receipts)
+        for key, raw in receipt.items()
+        if key in {"id", "uuid"} or key.endswith(("_id", "_ids", "_uuid"))
+        for raw in (raw if isinstance(raw, list) else [raw])
+        if isinstance(raw, (str, int)) and len(str(raw).strip()) >= 8
+    }
+    reported_ids = {
+        value.rstrip(".,;:").casefold()
+        for value in re.findall(
+            r"\b(?:memory\s+id|id)\s*[:#]?\s*([a-z0-9][a-z0-9._:-]{5,})",
+            text,
+            re.IGNORECASE,
+        )
+    }
+    if reported_ids and not reported_ids <= ids:
+        errors.append("reported memory id does not match the receipt")
+    final_receipts = _tool_receipts(turns[-1:]) if turns else []
+    final_receipt = _receipt_text(turns[-1:]).casefold() if final_receipts else ""
+    final_text = turns[-1].text.casefold() if turns else text.casefold()
+    cleaned = (
+        bool(final_receipts)
+        and marker.casefold() not in final_receipt
+        and _marker_fully_removed(marker, final_text)
+    )
     if not cleaned:
-        errors.append("final list_memories still shows the forgotten marker")
+        errors.append("final memory receipt does not verify that the marker was removed")
     evidence["cleanup_verified"] = cleaned
     return errors
 
@@ -2503,10 +2708,33 @@ def _grade_media_async_image_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del case, evidence
+    del case
     errors = _grade_image(payloads, turns)
-    if not re.search(r"\b[a-f0-9]{8,}\b", text, re.IGNORECASE):
-        errors.append("answer omitted the async job identifier")
+    receipts = [receipt for _tool, receipt in _tool_receipts(turns)]
+    job_id = next((str(receipt["job_id"]) for receipt in receipts if receipt.get("job_id")), "")
+    status = next(
+        (
+            str(receipt["status"]).casefold()
+            for receipt in reversed(receipts)
+            if receipt.get("status")
+        ),
+        "",
+    )
+    if not job_id:
+        errors.append("media result receipt omitted the async job identifier")
+    elif job_id.casefold() not in text.casefold():
+        errors.append("answer job identifier does not match the receipt")
+    if status and status not in {"complete", "completed", "done", "success", "succeeded"}:
+        errors.append(f"media receipt reports nonterminal status {status}")
+    actual_bytes = _first(payloads, "png")
+    receipt_bytes = _receipt_count(receipts, ("artifact_bytes", "file_size_bytes", "bytes"))
+    if (
+        receipt_bytes is not None
+        and actual_bytes is not None
+        and len(actual_bytes) != receipt_bytes
+    ):
+        errors.append("downloaded image bytes do not match the media receipt")
+    evidence["media_job"] = {"job_id": job_id, "status": status}
     return errors
 
 
@@ -2560,10 +2788,13 @@ def _grade_compliance_policy_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del case, turns, payloads
+    del case, payloads
     errors: list[str] = []
     lowered = text.casefold()
     _grade_compliance(text, errors, ("CIP-007-6 R2",))
+    receipt_text = _receipt_text(turns).casefold()
+    if not receipt_text:
+        errors.append("compliance gap answer has no retrieved receipt")
     for part in ("2.1", "2.3", "2.4"):
         if part not in lowered:
             errors.append(f"gap analysis omitted CIP-007-6 R2 Part {part}")
@@ -2573,6 +2804,8 @@ def _grade_compliance_policy_case(
     quotes = re.findall(r'"([^"]{15,})"', text) + re.findall(r"\u201c([^\u201d]{15,})\u201d", text)
     if len(quotes) < 2:
         errors.append("gap analysis did not quote both sides verbatim")
+    elif any(quote.casefold() not in receipt_text for quote in quotes):
+        errors.append("quoted compliance clause is absent from retrieved receipts")
     gap = ("missing", "loose", "gap", "does not", "no explicit", "absent", "weaker", "not specify")
     if not any(marker in lowered for marker in gap):
         errors.append("answer did not identify where the procedure is loose or missing")
@@ -2580,6 +2813,7 @@ def _grade_compliance_policy_case(
     if not any(marker in lowered for marker in scope):
         errors.append("absence claims were not scoped to the ingested corpus")
     evidence["verbatim_quotes"] = len(quotes)
+    evidence["retrieved_receipt_text"] = receipt_text[:400]
     return errors
 
 
@@ -3307,9 +3541,6 @@ def _run_browser_sequence(
         if plan:
             poll_wake_at = time.monotonic() + plan.sleep_s
             prompts.append(plan.prompt)
-    tool_error = _required_tool_error(case, transcript)
-    if tool_error:
-        return transcript, _status_result(scenario, tool_error, chat_id, transcript), chat_id
     return transcript, None, chat_id
 
 
@@ -3772,9 +4003,6 @@ def _run_sequence(
         if plan:
             poll_wake_at = time.monotonic() + plan.sleep_s
             prompts.append(plan.prompt)
-    tool_error = _required_tool_error(case, transcript)
-    if tool_error:
-        return transcript, _status_result(scenario, tool_error, chat_id, transcript)
     return transcript, None
 
 
@@ -4032,35 +4260,6 @@ def _media_job_followup_prompt(case: object, turns: list[UATTurn]) -> str | None
     if status_tool in _successful_tools(latest) and "MEDIA_JOB_RUNNING" in latest.text:
         return prompt
     return None
-
-
-def _required_tool_error(case: UATCase, turns: list[UATTurn]) -> str | None:
-    by_turn = [_successful_tools(turn) for turn in turns]
-    successful = {tool for names in by_turn for tool in names}
-    raw_per_turn = case.expected.get("tools_per_turn")
-    per_turn = (
-        [[str(t) for t in group] for group in raw_per_turn if isinstance(group, (list, tuple))]
-        if isinstance(raw_per_turn, list)
-        else []
-    )
-    scoped = {tool.casefold() for group in per_turn for tool in group}
-    missing = [
-        tool
-        for tool in case.expected_tools
-        if tool.casefold() not in successful and tool.casefold() not in scoped
-    ]
-    for index, group in enumerate(per_turn):
-        done = by_turn[index] if index < len(by_turn) else set()
-        missing.extend(f"turn {index + 1}:{tool}" for tool in group if tool.casefold() not in done)
-    raw_alternatives = case.expected.get("required_any_tools")
-    alternatives = (
-        tuple(str(tool) for tool in raw_alternatives) if isinstance(raw_alternatives, list) else ()
-    )
-    if alternatives and not any(tool.casefold() in successful for tool in alternatives):
-        missing.append(f"one of {', '.join(alternatives)}")
-    return (
-        f"required tools did not complete successfully: {', '.join(missing)}" if missing else None
-    )
 
 
 def _turn_files(

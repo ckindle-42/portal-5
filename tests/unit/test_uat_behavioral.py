@@ -34,18 +34,32 @@ def test_compliance_grader_accepts_non_certification_and_unproven_phrasing() -> 
         ("initial question", "follow-up"),
         "compliance_multiframe",
     )
+    trace = {
+        "spans": [
+            {
+                "name": "tool.completed",
+                "tool": "compliance_ask",
+                "outcome": "ok",
+                "success": True,
+                "receipt": {
+                    "citation": "NERC CIP-007-6 R2 Part 2.2; GDPR Art. 32(1)(a)",
+                    "text": "NERC CIP-007-6 R2 Part 2.2 and GDPR Art. 32(1)(a) require evidence.",
+                },
+            }
+        ]
+    }
     turns = [
         uat.UATTurn(
             "initial question",
             "I am not certifying compliance. NERC CIP-007-6 R2 Part 2.2 and GDPR Art. 32(1)(a) require evidence.",
-            {},
+            trace,
             (),
             (),
         ),
         uat.UATTurn(
             "follow-up",
             "The retention-policy conclusion remains unproven until the policy is supplied.",
-            {},
+            trace,
             (),
             (),
         ),
@@ -74,10 +88,10 @@ def test_cross_session_prompt_requires_recall_despite_auto_injection() -> None:
     assert "QATUAT-CODE" in prompts[0] and "QATUAT-CODE" not in prompts[1]
     assert all("QAT-LABEL" in prompt for prompt in prompts)
     missing_recall = uat.UATTurn(case.prompts[1], "QATUAT-123; cobalt", {}, (), ())
-    assert (
-        uat._required_tool_error(replace(case, expected_tools=("recall",)), [missing_recall])
-        == "required tools did not complete successfully: recall"
+    telemetry = uat._required_tool_telemetry(
+        replace(case, expected_tools=("recall",)), [missing_recall]
     )
+    assert telemetry["missing_tools"] == ["recall"]
 
 
 def test_cross_session_runner_requires_tools_per_chat(monkeypatch) -> None:
@@ -119,13 +133,34 @@ def test_cross_session_runner_requires_tools_per_chat(monkeypatch) -> None:
         turn = uat.UATTurn(
             session_case.prompts[0],
             f"{memory_key} cobalt",
-            {"spans": [{"name": "tool.completed", "tool": tool, "outcome": "ok"}]},
+            {
+                "spans": [
+                    {
+                        "name": "tool.completed",
+                        "tool": tool,
+                        "outcome": "ok",
+                        "success": True,
+                        "receipt": {"content": f"{memory_key} cobalt"},
+                    }
+                ]
+            },
             (tool,),
             (),
+            uat._tool_results_from_trace(
+                {
+                    "spans": [
+                        {
+                            "name": "tool.completed",
+                            "tool": tool,
+                            "outcome": "ok",
+                            "success": True,
+                            "receipt": {"content": f"{memory_key} cobalt"},
+                        }
+                    ]
+                }
+            ),
         )
-        error = uat._required_tool_error(session_case, [turn])
-        result = uat._status_result(session_scenario, error, chat_id, [turn]) if error else None
-        return [turn], result
+        return [turn], None
 
     monkeypatch.setattr(uat, "OWUIClient", FakeClient)
     monkeypatch.setattr(uat, "_run_sequence", run_sequence)
@@ -173,7 +208,15 @@ def test_sandbox_tool_results_come_from_the_turn_trace_not_prose(
         trace._current.set(None)
     assert isinstance(record, dict) and isinstance(task_row, dict)
     assert uat._tool_results_from_trace(record) == (
-        {"tool": "execute_python", "result": {"success": True, "stdout": stdout, "stderr": ""}},
+        {
+            "tool": "execute_python",
+            "result": {
+                "success": True,
+                "stdout": stdout,
+                "stderr": "",
+                "receipt": {"success": True},
+            },
+        },
     )
     assert uat._tool_results_from_trace(task_row) == ()
     prose = stdout + "UAT_BASH_48"
@@ -186,7 +229,7 @@ def test_sandbox_tool_results_come_from_the_turn_trace_not_prose(
         ],
         {},
     )
-    assert "sandbox execution result is missing" in errors
+    assert "sandbox Bash execution output omitted its marker" in errors
 
 
 def test_agent_orchestrator_prompt_requires_clarification_before_speculation() -> None:
