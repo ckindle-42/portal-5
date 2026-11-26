@@ -511,6 +511,41 @@ class TestVmStat:
         assert "%" not in result.detail
 
 
+class TestMemoryHolders:
+    PS_FIXTURE = (
+        "  3145728 /Applications/Ollama.app/Contents/Resources/ollama\n"
+        "  1572864 /System/Library/CoreServices/WindowServer\n"
+        "   524288 /opt/omlx-venv/bin/python3.11\n"
+        "     2048 /bin/ps\n"
+    )
+
+    def test_splits_engine_from_non_engine_rss(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(gate.sys, "platform", "darwin")
+        monkeypatch.setattr(
+            gate.subprocess,
+            "run",
+            lambda *_a, **_k: SimpleNamespace(returncode=0, stdout=self.PS_FIXTURE, stderr=""),
+        )
+        holders = gate.memory_holders()
+        assert holders["engine_rss_mb"] == pytest.approx((3145728 + 524288) / 1024)
+        assert holders["non_engine_rss_mb"] == pytest.approx((1572864 + 2048) / 1024)
+        top = holders["top_rss"]
+        assert top[0]["process"] == "ollama" and top[0]["engine"] is True
+        assert top[1]["process"] == "WindowServer" and top[1]["engine"] is False
+
+    def test_non_darwin_is_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(gate.sys, "platform", "linux")
+        assert gate.memory_holders() == {}
+
+    def test_ps_failure_is_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def boom(*_a: object, **_k: object) -> None:
+            raise OSError("no ps")
+
+        monkeypatch.setattr(gate.sys, "platform", "darwin")
+        monkeypatch.setattr(gate.subprocess, "run", boom)
+        assert gate.memory_holders() == {}
+
+
 class TestRunGate:
     def test_gate_passes_when_clean_and_cold(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
@@ -552,6 +587,8 @@ class TestRunGate:
         report = gate.run_gate(SETTINGS, "next_phase", transport=transport, wait=False)
         assert report.blocked is True
         assert report.ok is False
+        assert report.block_reasons
+        assert report.block_reasons[0].startswith("gate-pipeline")
 
     def test_gate_warns_at_memory_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
@@ -565,13 +602,27 @@ class TestRunGate:
         assert report.ok is False
         assert report.memory_used_pct == pytest.approx(91.0)
 
-    def test_gate_does_not_spin_when_over_cap_and_nothing_is_resident(
+    def test_over_cap_hold_wait_is_bounded_and_names_memory_holders(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
             gate,
             "vm_memory",
             lambda: gate.QATResult("gate-memory", Status.WARN, "used 91.0% (cap 80%)"),
+        )
+        monkeypatch.setattr(gate, "MEMORY_HOLD_BUDGET_S", 0.4)
+        monkeypatch.setattr(gate, "MEMORY_HOLD_POLL_S", 0.05)
+        monkeypatch.setattr(
+            gate,
+            "memory_holders",
+            lambda limit=10: {
+                "top_rss": [
+                    {"process": "ollama", "rss_mb": 3072.0, "engine": True},
+                    {"process": "WindowServer", "rss_mb": 1024.0, "engine": False},
+                ],
+                "engine_rss_mb": 3072.0,
+                "non_engine_rss_mb": 1024.0,
+            },
         )
         base = _router()
         calls = {"residency": 0}
@@ -585,10 +636,19 @@ class TestRunGate:
         start = time.monotonic()
         report = gate.run_gate(SETTINGS, "next_phase", transport=transport, wait=True)
         elapsed = time.monotonic() - start
-        # POLL_S is 15: the old loop slept at least one poll per pass to the 600s budget.
-        assert elapsed < 10.0
-        assert calls["residency"] <= 6
+        # WAIT_BUDGET_S is 600: the hold budget bounds the wait, not the eviction budget.
+        assert elapsed < 5.0
+        assert calls["residency"] >= 2
         assert report.blocked is True and report.ok is False
+        assert report.waited_s >= 0.4
+        assert report.budget_s == gate.WAIT_BUDGET_S
+        mem = next(c for c in report.checks if c.scenario_id == "gate-memory")
+        assert "host busy with: ollama" in mem.detail
+        assert mem.evidence["engine_rss_mb"] == 3072.0
+        assert mem.evidence["non_engine_rss_mb"] == 1024.0
+        assert mem.evidence["hold_waited_s"] >= 0.3
+        assert mem.evidence["hold_budget_s"] == 0.4
+        assert any(r.startswith("gate-memory") for r in report.block_reasons)
 
     def test_media_pressure_reported_never_killed(self) -> None:
         transport = _router(media=True)

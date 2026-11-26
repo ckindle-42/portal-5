@@ -537,6 +537,79 @@ def _client_factory(transport: object):
     return factory
 
 
+def _blocked_gate_report() -> GateReport:
+    check = QATResult("gate-memory", Status.WARN, "used 91.0% (cap 80%); host busy with: ollama")
+    return GateReport(
+        phase="reasoning",
+        checks=(check,),
+        memory_used_pct=91.0,
+        resident_models=0,
+        ok=False,
+        blocked=True,
+        waited_s=120.5,
+        budget_s=600.0,
+        block_reasons=("gate-memory: used 91.0% (cap 80%); host busy with: ollama",),
+    )
+
+
+class TestGateReceipt:
+    def test_gate_row_run_meta_and_blocked_row_detail(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setattr(rn.gate, "run_gate", lambda *a, **k: _blocked_gate_report())
+        plan = [
+            _scn("s2-p2-b", phase="reasoning", tier=20),
+            _scn("s2-p2-c", phase="reasoning", tier=20),
+        ]
+        settings = make_settings(tmp_path)
+        state = rn.RunState(
+            settings=settings, run_dir=tmp_path, discovery=make_discovery(), scenarios=plan
+        )
+        rn._execute(settings, plan, state, _chat_opts(), previous={})
+        rows = [
+            json.loads(line)
+            for line in (tmp_path / "results.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+        by_id = {row["scenario_id"]: row for row in rows}
+        gate_row = by_id["gate-2-reasoning"]
+        assert gate_row["status"] == "BLOCKED"
+        assert gate_row["evidence"]["gate"]["memory_used_pct"] == 91.0
+        assert gate_row["evidence"]["gate"]["waited_s"] == 120.5
+        assert gate_row["evidence"]["gate"]["checks"][0]["scenario_id"] == "gate-memory"
+        for sid in ("s2-p2-b", "s2-p2-c"):
+            assert by_id[sid]["status"] == "BLOCKED"
+            assert "gate-memory" in by_id[sid]["detail"]
+        meta = json.loads((tmp_path / "run_meta.json").read_text())
+        assert meta["gate"][0]["blocked"] is True
+        assert meta["gate"][0]["block_reasons"][0].startswith("gate-memory")
+
+    def test_gate_rows_are_outside_the_verdict_and_rendered_in_the_report(
+        self, tmp_path: Path
+    ) -> None:
+        scenario = _scn("s2-p2-b", phase="reasoning", tier=20)
+        ok_report = GateReport(
+            phase="reasoning",
+            checks=(QATResult("gate-memory", Status.PASS, "used 42.0% (cap 80%)"),),
+            memory_used_pct=42.0,
+            resident_models=0,
+            ok=True,
+            waited_s=1.5,
+            budget_s=600.0,
+        )
+        gate_row = QATResult(
+            "gate-2-reasoning", Status.PASS, "gate ok", evidence={"gate": ok_report.to_dict()}
+        )
+        results = [gate_row, _res("s2-p2-b", Status.PASS)]
+        assert rp.acceptance_results([scenario], results) == [results[1]]
+        path = rp.write_markdown(tmp_path, make_discovery(), [scenario], results)
+        text = path.read_text()
+        assert "## Inter-phase gates" in text
+        assert "gate-2-reasoning" in text
+        assert "gate-memory PASS: used 42.0% (cap 80%)" in text
+        assert "1 PASS / 0 WARN / 0 FAIL / 0 SKIP / 0 BLOCKED" in text
+
+
 class TestCascade:
     def test_gate_block_cascades_blocked_rows(
         self, monkeypatch: pytest.MonkeyPatch, fake_owui, tmp_path: Path

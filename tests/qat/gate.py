@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import re
 import subprocess
 import sys
 import time
@@ -36,6 +37,12 @@ MEDIA_SERVICES: tuple[tuple[str, str, int], ...] = (
 WAIT_BUDGET_S = 600.0
 POLL_S = 15.0
 EVICT_SETTLE_S = 2.0
+#: Over cap with nothing evictable: wait for relief this long, not the full
+#: WAIT_BUDGET_S (F9 operator call: cap the wait when nothing is evictable).
+MEMORY_HOLD_BUDGET_S = 120.0
+MEMORY_HOLD_POLL_S = 15.0
+#: Heuristic name match for engine-side RSS holders (ollama/oMLX/MLX media).
+ENGINE_PROC_PAT = re.compile(r"ollama|omlx|mlx|mflux|ltx|llama", re.IGNORECASE)
 #: oMLX 0.8.1's unload is async (HTTP 202): residency is polled for this window
 #: (in OMLX_EVICT_SETTLE_STEP_S steps) before the eviction gate reports PASS.
 OMLX_EVICT_SETTLE_S = 10.0
@@ -476,6 +483,51 @@ def parse_vm_stat(out: str) -> tuple[float, float]:
     return used / total * 100.0, pages.get("Pages free", 0) * page / 1024**3
 
 
+def memory_holders(limit: int = 10) -> dict[str, object]:
+    """Top RSS processes split engine vs non-engine; empty off-darwin or on error."""
+    if sys.platform != "darwin":
+        return {}
+    try:
+        proc = subprocess.run(
+            ["ps", "-axo", "rss=,comm="], capture_output=True, text=True, timeout=10
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    entries: list[tuple[int, str]] = []
+    for line in proc.stdout.splitlines():
+        parts = line.strip().split(maxsplit=1)
+        if len(parts) == 2 and parts[0].isdigit():
+            entries.append((int(parts[0]), parts[1]))
+    if not entries:
+        return {}
+    entries.sort(key=lambda entry: -entry[0])
+    engine_kb = sum(rss for rss, name in entries if ENGINE_PROC_PAT.search(name))
+    total_kb = sum(rss for rss, _ in entries)
+    return {
+        "top_rss": [
+            {
+                "process": PurePosixPath(name).name,
+                "rss_mb": round(rss / 1024, 1),
+                "engine": bool(ENGINE_PROC_PAT.search(name)),
+            }
+            for rss, name in entries[:limit]
+        ],
+        "engine_rss_mb": round(engine_kb / 1024, 1),
+        "non_engine_rss_mb": round((total_kb - engine_kb) / 1024, 1),
+    }
+
+
+def _holder_summary(holders: dict[str, object]) -> str:
+    top = holders.get("top_rss")
+    if not isinstance(top, list):
+        return ""
+    return ", ".join(
+        f"{p['process']} {p['rss_mb']:.0f}MB {'engine' if p['engine'] else 'non-engine'}"
+        for p in top[:3]
+        if isinstance(p, dict)
+    )
+
+
 def media_pressure(client: httpx.Client) -> QATResult:
     """Report retained MLX media services as pressure sources — never kill."""
     up: list[str] = []
@@ -490,6 +542,93 @@ def media_pressure(client: httpx.Client) -> QATResult:
     return QATResult("gate-media-pressure", Status.PASS, detail)
 
 
+def _residency_loop(
+    client: httpx.Client, settings: Settings, checks: list[QATResult], wait: bool, started: float
+) -> tuple[list[QATResult], float, int, float]:
+    """Evict residents until clean; over cap with nothing evictable, wait for
+    relief within MEMORY_HOLD_BUDGET_S (F9), not the full eviction budget."""
+    used_pct = -1.0
+    resident_total = -1
+    hold_waited_s = 0.0
+    hold_start: float | None = None
+    rerun_ids = ("gate-ollama", "gate-omlx", "gate-memory")
+    deadline = started + (WAIT_BUDGET_S if wait else 0.0)
+    hold_deadline = started + (MEMORY_HOLD_BUDGET_S if wait else 0.0)
+    confirmed_once = False
+    while True:
+        ol, ol_resident = ollama_residency(client, settings)
+        ox, ox_resident = omlx_residency(client, settings)
+        mem = vm_memory()
+        used_pct = _used_from_detail(mem.detail)
+        checks = [c for c in checks if c.scenario_id not in rerun_ids]
+        checks.extend([ol, ox, mem])
+        resident_total = len(ol_resident) + len(ox_resident)
+        if not ol_resident and not ox_resident:
+            if used_pct < DEFAULT_MEM_CAP_PCT or time.monotonic() >= hold_deadline:
+                if hold_start is not None:
+                    hold_waited_s = time.monotonic() - hold_start
+                break
+            if hold_start is None:
+                hold_start = time.monotonic()
+            _poll_pause(min(MEMORY_HOLD_POLL_S, max(0.0, hold_deadline - time.monotonic())))
+            continue
+        evicted = False
+        if ol_resident:
+            checks.append(evict_ollama(client, settings, ol_resident))
+            evicted = True
+        if ox_resident:
+            checks.append(evict_omlx(client, settings, ox_resident))
+            evicted = True
+        eviction_failures = [
+            check
+            for check in checks
+            if check.scenario_id in ("gate-evict", "gate-evict-omlx")
+            and check.status is Status.FAIL
+        ]
+        if eviction_failures:
+            break
+        if evicted and not confirmed_once:
+            # one confirmation read even with no wait budget, so the report
+            # reflects the post-eviction state
+            confirmed_once = True
+            time.sleep(EVICT_SETTLE_S)
+            continue
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(POLL_S)
+    return checks, used_pct, resident_total, hold_waited_s
+
+
+def _attach_memory_holders(checks: list[QATResult], hold_waited_s: float) -> None:
+    holders = memory_holders()
+    summary = _holder_summary(holders)
+    for check in checks:
+        if check.scenario_id != "gate-memory":
+            continue
+        check.detail += (
+            f"; host busy with: {summary}" if summary else "; host process list unavailable"
+        )
+        check.evidence = {
+            **check.evidence,
+            **holders,
+            "hold_waited_s": round(hold_waited_s, 1),
+            "hold_budget_s": MEMORY_HOLD_BUDGET_S,
+        }
+
+
+def _block_reasons(
+    checks: list[QATResult], used_pct: float, resident_total: int
+) -> tuple[str, ...]:
+    reasons = [f"{c.scenario_id}: {c.detail}" for c in checks if c.status is Status.FAIL]
+    if used_pct >= DEFAULT_MEM_CAP_PCT:
+        mem = next((c for c in checks if c.scenario_id == "gate-memory"), None)
+        if mem is not None:
+            reasons.append(f"{mem.scenario_id}: {mem.detail}")
+    if resident_total > 0:
+        reasons.append(f"{resident_total} model(s) still resident after eviction")
+    return tuple(dict.fromkeys(reasons))
+
+
 def run_gate(
     settings: Settings,
     phase: str,
@@ -497,66 +636,44 @@ def run_gate(
     wait: bool = True,
 ) -> GateReport:
     """One full inter-phase gate pass; evicts until memory is safe or budget out."""
+    started = time.monotonic()
     checks: list[QATResult] = []
-    resident_total = -1
-    used_pct = -1.0
-    rerun_ids = ("gate-ollama", "gate-omlx", "gate-memory")
+    budget_s = WAIT_BUDGET_S if wait else 0.0
     with httpx.Client(transport=transport) as client:
         health = pipeline_health(client, settings)
         checks.append(health)
         if health.status is Status.FAIL:
-            return GateReport(phase, tuple(checks), used_pct, resident_total, False, True)
-        deadline = time.monotonic() + (WAIT_BUDGET_S if wait else 0.0)
-        confirmed_once = False
-        while True:
-            ol, ol_resident = ollama_residency(client, settings)
-            ox, ox_resident = omlx_residency(client, settings)
-            mem = vm_memory()
-            used_pct = _used_from_detail(mem.detail)
-            checks = [c for c in checks if c.scenario_id not in rerun_ids]
-            checks.extend([ol, ox, mem])
-            resident_total = len(ol_resident) + len(ox_resident)
-            if not ol_resident and not ox_resident:
-                # clean when memory is under the cap; otherwise nothing is
-                # evictable and waiting out the budget cannot help (F9)
-                break
-            evicted = False
-            if ol_resident:
-                checks.append(evict_ollama(client, settings, ol_resident))
-                evicted = True
-            if ox_resident:
-                checks.append(evict_omlx(client, settings, ox_resident))
-                evicted = True
-            eviction_failures = [
-                check
-                for check in checks
-                if check.scenario_id in ("gate-evict", "gate-evict-omlx")
-                and check.status is Status.FAIL
-            ]
-            if eviction_failures:
-                break
-            if evicted and not confirmed_once:
-                # one confirmation read even with no wait budget, so the report
-                # reflects the post-eviction state
-                confirmed_once = True
-                time.sleep(EVICT_SETTLE_S)
-                continue
-            if time.monotonic() >= deadline:
-                break
-            time.sleep(POLL_S)
-        checks.append(media_pressure(client))
-    blocked = (
-        any(c.status is Status.FAIL for c in checks if c.scenario_id == "gate-pipeline")
-        or any(
-            c.status is Status.FAIL
-            for c in checks
-            if c.scenario_id in ("gate-ollama", "gate-omlx", "gate-evict", "gate-evict-omlx")
+            return GateReport(
+                phase,
+                tuple(checks),
+                -1.0,
+                -1,
+                False,
+                True,
+                waited_s=round(time.monotonic() - started, 3),
+                budget_s=budget_s,
+                block_reasons=(f"gate-pipeline: {health.detail}",),
+            )
+        checks, used_pct, resident_total, hold_waited_s = _residency_loop(
+            client, settings, checks, wait, started
         )
-        or (used_pct >= DEFAULT_MEM_CAP_PCT and any(c.scenario_id == "gate-memory" for c in checks))
-        or resident_total > 0
-    )
+        checks.append(media_pressure(client))
+    if used_pct >= DEFAULT_MEM_CAP_PCT:
+        _attach_memory_holders(checks, hold_waited_s)
+    block_reasons = _block_reasons(checks, used_pct, resident_total)
+    blocked = bool(block_reasons)
     ok = not blocked and all(c.status is Status.PASS for c in checks)
-    return GateReport(phase, tuple(checks), used_pct, resident_total, ok, blocked)
+    return GateReport(
+        phase,
+        tuple(checks),
+        used_pct,
+        resident_total,
+        ok,
+        blocked,
+        waited_s=round(time.monotonic() - started, 3),
+        budget_s=budget_s,
+        block_reasons=block_reasons,
+    )
 
 
 def _used_from_detail(detail: str) -> float:
