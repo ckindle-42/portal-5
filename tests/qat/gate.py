@@ -12,9 +12,11 @@ mflux :8933, video-mlx :8935) are memory-pressure reporters only — never kille
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import time
+from pathlib import PurePosixPath
 from urllib.parse import quote
 
 import httpx
@@ -80,6 +82,44 @@ def ollama_residency(client: httpx.Client, settings: Settings) -> tuple[QATResul
     return QATResult("gate-ollama", status, detail, evidence={"resident": names}), names
 
 
+def _omlx_instance_key(model: dict) -> tuple[str, ...]:
+    model_id = str(model.get("id") or model.get("name") or "")
+    model_path = str(model.get("model_path") or "")
+    if not model_path:
+        return ("id", model_id)
+    adapter_config = model.get("adapter_config")
+    adapter_key = (
+        json.dumps(adapter_config, sort_keys=True, default=str)
+        if adapter_config is not None
+        else ""
+    )
+    engine = str(model.get("engine_type") or model.get("engine") or "")
+    return ("path", model_path, engine, adapter_key)
+
+
+def _omlx_instance_id(models: list[dict]) -> str:
+    source_id = next(
+        (str(model["source_model_id"]) for model in models if model.get("source_model_id")), ""
+    )
+    if source_id:
+        return source_id
+    ids = [str(model.get("id") or model.get("name") or "") for model in models]
+    model_path = str(models[0].get("model_path") or "")
+    base_id = PurePosixPath(model_path).name if model_path else ""
+    return base_id if base_id in ids else ids[0]
+
+
+def _omlx_resident_instances(models: list[dict]) -> list[str]:
+    groups: dict[tuple[str, ...], list[dict]] = {}
+    for model in models:
+        if not isinstance(model, dict):
+            continue
+        model_id = str(model.get("id") or model.get("name") or "")
+        if model_id:
+            groups.setdefault(_omlx_instance_key(model), []).append(model)
+    return [_omlx_instance_id(group) for group in groups.values()]
+
+
 def omlx_residency(client: httpx.Client, settings: Settings) -> tuple[QATResult, list[str]]:
     """Read oMLX residency from /v1/models/status, then /v1/models/loaded."""
     headers = settings.omlx_headers()
@@ -95,14 +135,13 @@ def omlx_residency(client: httpx.Client, settings: Settings) -> tuple[QATResult,
             models = body.get("models", body.get("data", []))
             if path == "/v1/models/status":
                 models = [
-                    m
-                    for m in models
-                    if isinstance(m, dict)
-                    and m.get("loaded") is True
-                    and str(m.get("id") or m.get("name") or "").lower() != "markitdown"
+                    model
+                    for model in models
+                    if isinstance(model, dict)
+                    and model.get("loaded") is True
+                    and str(model.get("id") or model.get("name") or "").lower() != "markitdown"
                 ]
-            names = [str(m.get("id") or m.get("name") or "") for m in models if isinstance(m, dict)]
-            names = [n for n in names if n]
+            names = _omlx_resident_instances(models)
             status = Status.PASS if not names else Status.WARN
             detail = "reachable, cold" if not names else f"resident: {', '.join(names)}"
             return QATResult("gate-omlx", status, detail, evidence={"resident": names}), names

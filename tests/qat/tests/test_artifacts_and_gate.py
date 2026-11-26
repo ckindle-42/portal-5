@@ -198,6 +198,50 @@ class TestResidency:
         assert names == ["resident-model", "resident-named"]
         assert calls == ["/v1/models/status"]
 
+    def test_omlx_residency_groups_aliases_by_engine_instance(self) -> None:
+        base = "Qwen3.8-27B-oQ4e-mtp"
+        model_path = f"/Volumes/data01/omlx-models/{base}"
+        rows = [
+            {
+                "id": base,
+                "model_path": model_path,
+                "loaded": True,
+                "engine_type": "llm",
+                "adapter_config": {"name": "base"},
+            },
+            {
+                "id": f"{base}:opencode",
+                "model_path": model_path,
+                "loaded": True,
+                "engine_type": "llm",
+                "adapter_config": {"name": "base"},
+            },
+            {
+                "id": f"{base}:adapter",
+                "model_path": model_path,
+                "loaded": True,
+                "engine_type": "llm",
+                "adapter_config": {"name": "adapter"},
+            },
+            {
+                "id": f"{base}:vlm",
+                "model_path": model_path,
+                "loaded": True,
+                "engine_type": "vlm",
+                "adapter_config": {"name": "base"},
+            },
+        ]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/v1/models/status":
+                return httpx.Response(200, json={"models": rows})
+            return httpx.Response(404)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            result, names = gate.omlx_residency(client, SETTINGS)
+        assert result.status is Status.WARN
+        assert names == [base, f"{base}:adapter", f"{base}:vlm"]
+
     def test_omlx_cold_status_passes_with_no_resident_models(self) -> None:
         calls: list[str] = []
 
@@ -316,6 +360,46 @@ class TestOWUIAuthentication:
         assert unload_calls == [
             f"/admin/api/models/{adapter}/unload",
             f"/v1/models/{adapter}/unload",
+        ]
+
+    def test_evict_omlx_404_after_unload_confirms_shared_path_instance_cold(self) -> None:
+        base = "Qwen3.8-27B-oQ4e-mtp"
+        adapter = f"{base}:opencode"
+        model_path = f"/Volumes/data01/omlx-models/{base}"
+        unload_calls: list[str] = []
+        state = {"loaded": True}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.method == "POST":
+                unload_calls.append(request.url.raw_path.decode())
+                state["loaded"] = False
+                return httpx.Response(404, json={"detail": f"Model not found: {base}"})
+            if request.url.path == "/v1/models/status":
+                return httpx.Response(
+                    200,
+                    json={
+                        "models": [
+                            {"id": base, "model_path": model_path, "loaded": state["loaded"]},
+                            {
+                                "id": adapter,
+                                "model_path": model_path,
+                                "loaded": state["loaded"],
+                            },
+                        ]
+                    },
+                )
+            return httpx.Response(404)
+
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            residency, resident = gate.omlx_residency(client, SETTINGS)
+            assert residency.status is Status.WARN
+            assert resident == [base]
+            result = gate.evict_omlx(client, SETTINGS, resident)
+        assert result.status is Status.PASS
+        assert "404 confirmed cold" in result.detail
+        assert unload_calls == [
+            f"/admin/api/models/{base}/unload",
+            f"/v1/models/{base}/unload",
         ]
 
     def test_evict_omlx_404_fails_when_model_remains_resident(self) -> None:
