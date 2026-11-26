@@ -1096,6 +1096,7 @@ async def _give_up(
     text = await no_answer.chat_reply(
         workspace_id, no_answer.workspace_model(workspace_id, body), reasons, path="non_streaming"
     )
+    trace_note(outcome="no_answer")
     return JSONResponse(
         content=no_answer.completion(workspace_id, text),
         headers={"x-portal-route": f"{workspace_id};;"},
