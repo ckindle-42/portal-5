@@ -440,8 +440,15 @@ def run_selected(settings: Settings, opts: RunnerOptions) -> RunState:
     return state
 
 
+def _rerun_target(row: QATResult) -> bool:
+    """True when --rerun-failed must execute this row again."""
+    if row.status in (Status.FAIL, Status.BLOCKED):
+        return True
+    return row.status is Status.SKIP and row.detail.startswith("requirement not met:")
+
+
 def _load_previous(opts: RunnerOptions) -> dict[str, QATResult]:
-    """--append keeps all rows; --rerun-failed keeps only non-failed rows."""
+    """--append keeps every row; --rerun-failed keeps the latest row it will not rerun."""
     if opts.resume_dir is None or not opts.resume_mode:
         return {}
     path = opts.resume_dir / "results.jsonl"
@@ -455,8 +462,11 @@ def _load_previous(opts: RunnerOptions) -> dict[str, QATResult]:
             row = QATResult.from_dict(json.loads(line))
         except ValueError:
             continue
-        failed = row.status in (Status.FAIL, Status.BLOCKED)
-        if opts.resume_mode == "append" or (opts.resume_mode == "rerun-failed" and not failed):
+        if opts.resume_mode == "append":
+            rows[row.scenario_id] = row
+        elif _rerun_target(row):
+            rows.pop(row.scenario_id, None)
+        else:
             rows[row.scenario_id] = row
     return rows
 

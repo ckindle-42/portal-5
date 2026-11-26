@@ -511,6 +511,21 @@ class TestCascade:
         with pytest.raises(FileNotFoundError):
             rn._load_previous(_chat_opts(resume_dir=tmp_path / "nope", resume_mode="append"))
 
+    def test_rerun_failed_latest_failure_drops_an_earlier_pass(self, tmp_path: Path) -> None:
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+        rp.write_results_jsonl(
+            run_dir,
+            [
+                _res("same", Status.PASS),
+                _res("same", Status.FAIL, detail="later"),
+                _res("dep", Status.SKIP, detail="requirement not met: p0-lab-ready"),
+                _res("held-skip", Status.SKIP, detail="disabled"),
+            ],
+        )
+        rerun = rn._load_previous(_chat_opts(resume_dir=run_dir, resume_mode="rerun-failed"))
+        assert set(rerun) == {"held-skip"}
+
 
 class TestWorksheets:
     def test_emit_and_ingest_roundtrip(self, tmp_path: Path) -> None:
