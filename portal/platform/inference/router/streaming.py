@@ -122,6 +122,7 @@ from portal.platform.inference.router.trace import (
     StreamMeasurement,
     add_model_turn,
     finalize_trace,
+    note_hint_mismatch,
     usage_metric_kwargs,
 )
 from portal.platform.inference.router.trace import (
@@ -2873,6 +2874,13 @@ def _select_streaming_backend(
                 served=target_model,
                 path="streaming",
             ).inc()
+            note_hint_mismatch(
+                workspace=workspace_id,
+                hinted=model_hint,
+                served=target_model,
+                backend=backend.id,
+                path="streaming",
+            )
     else:
         if not backend.models:
             logger.warning(
