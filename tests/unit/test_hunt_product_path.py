@@ -694,10 +694,9 @@ def test_partial_failure_after_work_surfaces_reason_in_status_and_file(
     assert (tmp_path / job_id / "failure.txt").read_text() == status["partial_reason"] + "\n"
 
 
-def test_hunt_status_unknown_id_returns_recovery_guidance_and_recent_jobs(
-    tmp_path: Path, monkeypatch: Any
-) -> None:
+def test_hunt_status_unknown_id_resolves_to_latest_hunt(tmp_path: Path, monkeypatch: Any) -> None:
     monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    monkeypatch.setattr(product_jobs, "STATUS_WAIT_MAX_S", 0)
     product_jobs._write(
         "hunt-r2-newer",
         {"job_id": "hunt-r2-newer", "index": "new", "status": "RUNNING", "started": 2.0},
@@ -715,14 +714,54 @@ def test_hunt_status_unknown_id_returns_recovery_guidance_and_recent_jobs(
     unknown = review_mcp.hunt_status(job_id="hunt_12345")
     missing = review_mcp.hunt_status()
 
-    for result in (unknown, missing):
-        assert "no such job" in result["error"]
-        assert "hunt_start" in result["next"]
-        assert "recent" in result["next"]
-        assert result["recent_jobs"] == [
-            {"job_id": "hunt-r2-newer", "index": "new", "status": "RUNNING"},
-            {"job_id": "hunt-r2-older", "index": "old", "status": "COMPLETE"},
-        ]
+    assert unknown["job_id"] == "hunt-r2-newer"
+    assert unknown["resolution_note"] == (
+        "No job 'hunt_12345'; showing your most recent hunt hunt-r2-newer."
+    )
+    assert missing["job_id"] == "hunt-r2-newer"
+    assert missing["resolution_note"] == (
+        "No job_id or index was supplied; showing your most recent hunt hunt-r2-newer."
+    )
+
+
+def test_hunt_status_without_any_jobs_guides_user_to_start(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+
+    result = review_mcp.hunt_status(job_id="hunt_12345")
+
+    assert "no hunt started yet" in result["message"]
+    assert "hunt_start" in result["next"]
+
+
+def test_hunt_start_without_index_uses_first_hunt_sources_index(
+    monkeypatch: Any,
+) -> None:
+    rows = [
+        {"index": "security", "count": 14},
+        {"index": "wineventlog", "count": 7},
+    ]
+    source = SimpleNamespace(iter_post=lambda *_args: iter(rows))
+    monkeypatch.setattr(review_mcp, "_hunt_search", lambda: source)
+    started: dict[str, Any] = {}
+
+    def start(_search: Any, index: str, *_args: Any, **kwargs: Any) -> str:
+        started["index"] = index
+        started["judge_enabled"] = kwargs["judge_enabled"]
+        return "hunt-r2-started"
+
+    monkeypatch.setattr(product_jobs, "start", start)
+
+    result = review_mcp.hunt_start()
+
+    assert started == {"index": "security", "judge_enabled": False}
+    assert result["index"] == "security"
+    assert result["available_indexes"] == [
+        {"index": "security", "events": 14},
+        {"index": "wineventlog", "events": 7},
+    ]
+    assert "first available index returned by hunt_sources" in result["index_selection_reason"]
 
 
 def test_security_reviewer_prompt_distinguishes_partial_and_failed_hunts() -> None:

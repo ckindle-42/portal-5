@@ -247,19 +247,44 @@ def hunt_sources(
 
 @mcp.tool()
 def hunt_start(
-    index: str,
+    index: str | None = None,
     start: float | None = None,
     end: float | None = None,
     judge: bool = False,
 ) -> dict[str, Any]:
-    """Start an R2 Stage 1 hunt, optionally annotating its top leads with the judge."""
+    """Start an R2 hunt; omit index to choose the first available index from hunt_sources and return its list and reason."""
 
     def run() -> dict[str, Any]:
+        discovery: dict[str, Any] | None = None
+        if index is None:
+            discovery = hunt_sources()
+            if "error" in discovery:
+                return {
+                    "error": "could not discover indexes for hunt_start",
+                    "index_discovery": discovery,
+                }
+            available = discovery.get("indexes")
+            if not isinstance(available, list) or not available:
+                return {
+                    "error": "no available indexes; hunt_start could not choose an index",
+                    "available_indexes": available if isinstance(available, list) else [],
+                }
+            first = available[0].get("index") if isinstance(available[0], dict) else None
+            if not isinstance(first, str) or not first.strip():
+                return {
+                    "error": "hunt_sources returned no usable index for hunt_start",
+                    "available_indexes": available,
+                }
+            selected_index = first
+            reason = "Selected the first available index returned by hunt_sources because none was supplied."
+        else:
+            selected_index = index
+            reason = f"Used the explicitly requested index {index!r}."
         start_t = 0.0 if start is None else start
         end_t = time.time() if end is None else end
         job_id = r2_hunt_jobs.start(
             _hunt_search(),
-            index,
+            selected_index,
             start_t,
             end_t,
             judge_enabled=judge,
@@ -270,22 +295,28 @@ def hunt_start(
             f"hunt_sources, hunt_leads, "
             f"and hunt_case(job_id={job_id!r}, case=1)"
         )
-        return hunt_jobs.compact(
-            {
-                "job_id": job_id,
-                "index": index,
-                "judge_enabled": judge,
-                "status": "QUEUED",
-                "next": nxt,
-            }
-        )
+        result = {
+            "job_id": job_id,
+            "index": selected_index,
+            "index_selection_reason": reason,
+            "judge_enabled": judge,
+            "status": "QUEUED",
+            "next": nxt,
+        }
+        if discovery is not None:
+            result["available_indexes"] = discovery.get("indexes", [])
+            result["available_indexes_total"] = discovery.get("total_indexes", 0)
+            result["available_indexes_omitted"] = discovery.get("indexes_omitted", 0)
+            if "next_offset" in discovery:
+                result["available_indexes_next_offset"] = discovery["next_offset"]
+        return hunt_jobs.compact(result)
 
     return _hunt_guard("hunt_start", run)
 
 
 @mcp.tool()
 def hunt_status(job_id: str | None = None, index: str | None = None) -> dict[str, Any]:
-    """Wait for a hunt or return recovery guidance and recent jobs when no selector matches."""
+    """Wait for a hunt; missing or unknown ids resolve to the latest stored hunt with a note, or advise hunt_start."""
     kwargs: dict[str, Any] = {"wait_seconds": r2_hunt_jobs.STATUS_WAIT_MAX_S}
     return _hunt_guard("hunt_status", lambda: r2_hunt_jobs.status(job_id, index, **kwargs))
 

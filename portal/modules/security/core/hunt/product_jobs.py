@@ -578,13 +578,32 @@ def _all() -> list[dict[str, Any]]:
     return sorted(found, key=lambda job: job.get("started", 0), reverse=True)
 
 
-def _resolve(job_id: str | None, index: str | None) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+def _resolve(
+    job_id: str | None,
+    index: str | None,
+    *,
+    fallback_latest: bool = False,
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
     found = _all()
+    job: dict[str, Any] | None = None
     recent_jobs = [
         {key: job.get(key) for key in ("job_id", "index", "status")} for job in found[:3]
     ]
     next_step = "Call hunt_start first, or choose a job_id from the recent_jobs list."
     if not job_id and not index:
+        if fallback_latest and found:
+            job = found[0]
+            return job, {
+                "resolution_note": (
+                    "No job_id or index was supplied; showing your most recent hunt "
+                    f"{job.get('job_id')}."
+                )
+            }
+        if fallback_latest:
+            return None, {
+                "message": "no hunt started yet; call hunt_start to start a hunt.",
+                "next": "Call hunt_start to start a hunt.",
+            }
         return None, {
             "error": "no such job: no job_id or index was supplied",
             "next": next_step,
@@ -595,6 +614,18 @@ def _resolve(job_id: str | None, index: str | None) -> tuple[dict[str, Any] | No
     else:
         job = next((item for item in found if item.get("index") == index), None)
     if job is None:
+        if fallback_latest and job_id and not index and found:
+            latest = found[0]
+            return latest, {
+                "resolution_note": (
+                    f"No job {job_id!r}; showing your most recent hunt {latest.get('job_id')}."
+                )
+            }
+        if fallback_latest and not found:
+            return None, {
+                "message": "no hunt started yet; call hunt_start to start a hunt.",
+                "next": "Call hunt_start to start a hunt.",
+            }
         return None, {
             "error": f"no such job {job_id or index!r}",
             "next": next_step,
@@ -693,12 +724,15 @@ def status(
     wait_s = min(max(float(wait_seconds), 0.0), STATUS_WAIT_MAX_S)
     deadline = time.monotonic() + wait_s
     while True:
-        job, out = _resolve(job_id, index)
+        job, out = _resolve(job_id, index, fallback_latest=True)
         if job is None:
             return out
         remaining = deadline - time.monotonic()
         if _is_terminal(job) or remaining <= 0:
-            return _status_result(job, detail=detail)
+            result = _status_result(job, detail=detail)
+            if note := out.get("resolution_note"):
+                result["resolution_note"] = note
+            return result
         time.sleep(min(STATUS_POLL_S, remaining))
 
 
