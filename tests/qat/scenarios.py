@@ -37,6 +37,10 @@ COMPLIANCE_ANNOTATION = (
     "waits on the V6 ACME corpus sweep."
 )
 REDTEAM_ANNOTATION = "disabled: module security_redteam off — annotated, not silently skipped"
+NOT_SEEDED_ANNOTATION = (
+    "disabled: {pid} is not seeded as an OWUI preset (no chat path) — "
+    "annotated, not silently skipped"
+)
 
 PERSONA_SWEEP_MAX = 12
 ROUTING_PROBE = "In one sentence, state which specialist you are and what you handle."
@@ -268,24 +272,42 @@ def _phase_reasoning_vision_research(_s: Settings, d: Discovery) -> list[QATScen
             ("research", "cites SearXNG/RAG/wiki tool output"),
         ),
     }
-    return [
-        _scn(
-            2,
-            "reasoning_vision_research",
-            f"s2-p2-{pid}",
-            f"{pid} journey",
-            pid,
-            prompts=(text,),
-            timeout_s=600,
-            attachment=INLINE_VISION_PNG if pid == "auto-vision" else "",
-            tools=d.preset_tools(pid),
-            function_calling=d.presets[pid].function_calling,
-            expected=what,
-            rubric=_rubric((key, what)),
-        )
-        for pid, (text, (key, what)) in spec.items()
-        if pid in d.presets
-    ]
+    out: list[QATScenario] = []
+    for pid, (text, (key, what)) in spec.items():
+        if pid in d.presets:
+            out.append(
+                _scn(
+                    2,
+                    "reasoning_vision_research",
+                    f"s2-p2-{pid}",
+                    f"{pid} journey",
+                    pid,
+                    prompts=(text,),
+                    timeout_s=600,
+                    attachment=INLINE_VISION_PNG if pid == "auto-vision" else "",
+                    tools=d.preset_tools(pid),
+                    function_calling=d.presets[pid].function_calling,
+                    expected=what,
+                    rubric=_rubric((key, what)),
+                )
+            )
+        else:
+            out.append(
+                _scn(
+                    2,
+                    "reasoning_vision_research",
+                    f"s2-p2-{pid}",
+                    f"{pid} journey",
+                    pid,
+                    prompts=(text,),
+                    timeout_s=600,
+                    enabled=False,
+                    expected=what,
+                    rubric=_rubric((key, what)),
+                    notes=NOT_SEEDED_ANNOTATION.format(pid=pid),
+                )
+            )
+    return out
 
 
 def _phase_coding_cad_docs_data_infra(s: Settings, d: Discovery) -> list[QATScenario]:

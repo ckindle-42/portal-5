@@ -359,6 +359,15 @@ class TestRegistry:
         blue = next(s for s in registry if s.scenario_id.endswith("auto-security-blueteam"))
         assert blue.enabled is True
 
+    def test_unseeded_spec_preset_annotated_disabled(self) -> None:
+        d = make_discovery(preset_ids=[p for p in PRESET_IDS if p != "auto-council"])
+        registry = sc.build_registry(make_settings(Path("/tmp")), d)
+        council = next(s for s in registry if s.scenario_id == "s2-p2-auto-council")
+        assert council.enabled is False
+        assert "not seeded" in council.notes
+        seeded = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
+        assert next(s for s in seeded if s.scenario_id == "s2-p2-auto-council").enabled is True
+
     def test_media_artifact_kinds(self) -> None:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
         kinds = {s.scenario_id: s.artifact_kind for s in registry if s.phase == "media_heavy"}
@@ -496,7 +505,7 @@ class TestScenarioShape:
         assert {s.stage for s in registry} == {2, 3, 4}
         preset_ids = set(d.presets)
         for s in registry:
-            if s.kind in {"chat", "adversarial", "browser"}:
+            if s.kind in {"chat", "adversarial", "browser"} and s.enabled:
                 assert s.model_slug in preset_ids, s.scenario_id
         # today's live roster exposes the uncensored lane, so the refusal probe runs
         refusal = [s for s in registry if s.scenario_id.endswith("refusal-preservation")]
