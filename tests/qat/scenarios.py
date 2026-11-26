@@ -37,6 +37,9 @@ COMPLIANCE_ANNOTATION = (
     "waits on the V6 ACME corpus sweep."
 )
 REDTEAM_ANNOTATION = "disabled: module security_redteam off — annotated, not silently skipped"
+INFRA_HEALTH_NOTE = (
+    "health-probe only: the infra executor GETs /health — the prompt is never executed"
+)
 NOT_SEEDED_ANNOTATION = (
     "disabled: {pid} is not seeded as an OWUI preset (no chat path) — "
     "annotated, not silently skipped"
@@ -463,8 +466,8 @@ def _infra_scenarios(
                 prompts=("SELECT 1 via the data MCP.",),
                 expected=f"data MCP :{fleet_ids['data'].port} /health and /ready ok",
                 tags=("mcp", "data"),
-                notes="No OWUI preset carries portal_data today; the SQL chat path is "
-                "exercised via the MCP surface directly.",
+                notes="Health/ready probe only — the prompt is never executed; no OWUI "
+                "preset carries portal_data, so the SQL chat path is NOT tested by QAT.",
             )
         )
     if "proxmox" in fleet_ids and "security" in d.modules_enabled:
@@ -480,6 +483,7 @@ def _infra_scenarios(
                 prompts=("List Proxmox nodes (read-only).",),
                 expected=f"proxmox MCP :{fleet_ids['proxmox'].port} /health ok, read-only posture",
                 tags=("mcp", "proxmox"),
+                notes=INFRA_HEALTH_NOTE,
             )
         )
     if "unifi" in fleet_ids and "security" in d.modules_enabled:
@@ -495,6 +499,7 @@ def _infra_scenarios(
                 prompts=("List UniFi devices (read-only).",),
                 expected=f"UniFi MCP :{fleet_ids['unifi'].port} /health ok, read-only posture",
                 tags=("mcp", "unifi"),
+                notes=INFRA_HEALTH_NOTE,
             )
         )
     return out
@@ -853,6 +858,7 @@ def _phase_jarvis(s: Settings, d: Discovery) -> list[QATScenario]:
                 prompts=("Query pipeline introspection tools.",),
                 expected=f"pipeline MCP :{pipeline_mcp.port} /health ok",
                 tags=("jarvis", "mcp", "pipeline"),
+                notes=INFRA_HEALTH_NOTE,
             )
         )
     out.append(
@@ -868,9 +874,12 @@ def _phase_jarvis(s: Settings, d: Discovery) -> list[QATScenario]:
             rubric=_rubric(("policy", "approval TTL > 0 means risky steps wait for approval")),
             tags=("jarvis", "policy"),
             enabled=s.arm_approval_ttl_s > 0,
-            notes=""
-            if s.arm_approval_ttl_s > 0
-            else "PORTAL_ARM_APPROVAL_TTL_SECONDS unset — escalation policy not configured",
+            notes=(
+                "config assertion only: reads PORTAL_ARM_APPROVAL_TTL_SECONDS from the QAT "
+                "runner's .env, never the pipeline's runtime config; prompt not executed"
+                if s.arm_approval_ttl_s > 0
+                else "PORTAL_ARM_APPROVAL_TTL_SECONDS unset — escalation policy not configured"
+            ),
         )
     )
     return out
@@ -969,6 +978,7 @@ def _phase_security_hunt(_s: Settings, d: Discovery) -> list[QATScenario]:
                     prompts=(f"{mid} health + inventory.",),
                     expected=f"{mid} MCP :{entry.port} /health ok",
                     tags=("mcp", mid),
+                    notes=INFRA_HEALTH_NOTE,
                 )
             )
     if "security-reviewer" in d.presets:
@@ -1032,7 +1042,9 @@ def _phase_security_adversarial(_s: Settings, d: Discovery) -> list[QATScenario]
             prompts=("Run the lab readiness probe.",),
             expected="lab_ready green; lab-exec scenarios unlocked",
             tags=("lab",),
-            notes="SKIP with reason when Stage 0 lab_ready is not green",
+            notes="SKIP with reason when Stage 0 lab_ready is not green; even when it is "
+            "green this row SKIPs ('no probe targets'): no executor runs the prompt — "
+            "the real lab gate is p0-lab-ready",
         )
     )
     return out

@@ -385,6 +385,18 @@ class TestRegistry:
         assert len(rows) == sc.PERSONA_SWEEP_MAX
         assert all(r.model_slug in d.presets for r in rows)
 
+    def test_infra_prompt_scenarios_carry_probe_only_note(self) -> None:
+        registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
+        for sid in (
+            "s2-p3-data-mcp",
+            "s2-p3-proxmox-readonly",
+            "s2-p7-pipeline-mcp",
+            "s3-hunt-mcp-mitre",
+            "s3-lab-exec",
+        ):
+            s = next(x for x in registry if x.scenario_id == sid)
+            assert s.notes, sid
+
     def test_media_artifact_kinds(self) -> None:
         registry = sc.build_registry(make_settings(Path("/tmp")), make_discovery())
         kinds = {s.scenario_id: s.artifact_kind for s in registry if s.phase == "media_heavy"}
