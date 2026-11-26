@@ -125,6 +125,9 @@ _FREE_SETTLE_EXPECTED_S = 4.6
 #: 0.8.3's slower async Metal reclaim.
 _OMLX_SETTLE_S = float(os.environ.get("LOAD_GUARD_OMLX_SETTLE_S", "12"))
 _OMLX_SETTLE_STEP_S = float(os.environ.get("LOAD_GUARD_OMLX_SETTLE_STEP_S", "0.5"))
+#: A job reclaim never yanks a seat some worker served within this window (2026-11-26
+#: QAT: a 0.04 GiB reclaim evicted granite4.1 0.2 s after its tool-loop hop finished).
+_JOB_RECLAIM_RECENT_S = 120.0
 _CTX_TAG = re.compile(r"(?:^|[-_])ctx(\d+)([km]?)", re.IGNORECASE)
 #: The engine settings file as mounted into portal5-pipeline (docker-compose.yml);
 #: the container-side fallback when the env vars launch.sh exports are absent.
@@ -785,6 +788,7 @@ class LoadGuard:
             if self._busy[key] <= 0:
                 del self._busy[key]
             if activity_lock is not None:
+                self._stamp_activity(activity_lock)
                 self._release_activity_lock(activity_lock)
             # Wake every waiter, then arm a fresh event for the next change.
             event, self._changed = self._changed, asyncio.Event()
@@ -799,12 +803,39 @@ class LoadGuard:
         digest = hashlib.sha256(f"{engine}\0{key}".encode()).hexdigest()
         return _PROCESS_LOCK_DIR / f"active-{engine}-{digest}.lock"
 
+    @staticmethod
+    def _stamp_activity(handle: Any) -> None:
+        """Record the use time inside the lock file; probes create it empty."""
+        try:
+            handle.seek(0)
+            handle.truncate()
+            handle.write(f"{time.time():.6f}")
+            handle.flush()
+        except OSError:
+            pass
+
+    def _shared_last_access(self, engine: str, model: str) -> float:
+        """Newest use across workers: this worker's begin() stamp or the lock's stamp."""
+        key = (engine, model_key(model) if engine == OLLAMA else model)
+        stamp = self._last_access.get(key, 0.0)
+        try:
+            with self._activity_path(engine, model).open("r") as handle:
+                stamp = max(stamp, float(handle.read().strip() or 0.0))
+        except (OSError, ValueError):
+            pass
+        return stamp
+
+    def _recently_served(self, engine: str, model: str, shield_s: float) -> bool:
+        """Whether any worker served ``model`` within ``shield_s`` (job reclaims only)."""
+        return shield_s > 0.0 and time.time() - self._shared_last_access(engine, model) < shield_s
+
     def _activity_lock(self, engine: str, model: str) -> Any | None:
         handle = None
         try:
             _PROCESS_LOCK_DIR.mkdir(parents=True, exist_ok=True)
             handle = self._activity_path(engine, model).open("a+")
             fcntl.flock(handle.fileno(), fcntl.LOCK_SH)
+            self._stamp_activity(handle)  # use-time readable by every worker
             return handle
         except OSError as e:
             if handle is not None:
@@ -1348,12 +1379,16 @@ class LoadGuard:
         exclude: frozenset[str] | set[str] = frozenset(),
         last_models: set[str] | None = None,
         last_resort: bool = False,
+        recent_shield_s: float = 0.0,
     ) -> tuple[float, dict[str, _Free], float | None, float, list[dict[str, str]]]:
         """Unload idle oMLX models; report the drop, pendings (202s and 200s whose
         release has not reached the counter), post state, 200 bytes. ``last_resort``
         adds idle failover-protected residents, evicted after every other source."""
         try:
             url, idle = await self._omlx_idle_models(client, exclude, last_resort)
+            idle = [
+                m for m in idle if not self._recently_served(OMLX, str(m["id"]), recent_shield_s)
+            ]
             protected = self.protected(OMLX)
             failover = self.failover_protected(OMLX)
             failed = self.failed(OMLX)
@@ -1442,6 +1477,7 @@ class LoadGuard:
         last_models: set[str] | None = None,
         want: float | None = None,
         exclude: frozenset[str] | set[str] = frozenset(),
+        recent_shield_s: float = 0.0,
     ) -> dict[str, _Free]:
         """Request accepted unloads and retain their pre-unload headroom records."""
         excluded = {model_key(name) for name in exclude}
@@ -1451,6 +1487,7 @@ class LoadGuard:
             if size
             and model_key(n) not in excluded
             and self._ollama_idle({n: size}, include_protected=include_protected) > 0
+            and not self._recently_served(OLLAMA, n, recent_shield_s)
         ]
         protected = self.protected(OLLAMA)
         failed = self.failed(OLLAMA)
@@ -1460,7 +1497,7 @@ class LoadGuard:
                 model_key(name) not in failed,
                 model_key(name) in last_keys,
                 model_key(name) in protected,
-                self._last_access.get((OLLAMA, model_key(name)), 0.0),
+                self._shared_last_access(OLLAMA, name),
             )
         )
         requested: dict[str, _Free] = {}
@@ -1681,6 +1718,7 @@ class LoadGuard:
         used: float,
         shortage: float,
         model: str = "",
+        recent_shield_s: float = 0.0,
     ) -> tuple[
         bool,
         dict[str, _Free],
@@ -1702,6 +1740,7 @@ class LoadGuard:
             shortage,
             used,
             exclude=seat_copies,
+            recent_shield_s=recent_shield_s,
         )
         covered = omlx_freed + sum(free.size for free in omlx_queued.values())
         ollama_requested: dict[str, _Free] = {}
@@ -1713,6 +1752,7 @@ class LoadGuard:
                 last_models={model} if model else None,
                 want=shortage - covered,
                 exclude={model},
+                recent_shield_s=recent_shield_s,
             )
             covered += sum(free.size for free in ollama_requested.values())
         if not omlx_freed and not omlx_queued and covered < shortage:
@@ -1728,6 +1768,7 @@ class LoadGuard:
                     float(after) if after is not None else used,
                     exclude=seat_copies,
                     last_resort=True,
+                    recent_shield_s=recent_shield_s,
                 )
                 omlx_freed += f2
                 omlx_queued.update(q2)
@@ -3159,7 +3200,11 @@ class LoadGuard:
         }
 
     async def reclaim_idle_memory(self, ollama_base: str, need: float) -> dict[str, Any]:
-        """Unload idle residents through the same path used for cold-load admission."""
+        """Unload idle residents through the same path used for cold-load admission.
+
+        A background job never preempts a seat a worker served within
+        ``_JOB_RECLAIM_RECENT_S``: it waits and retries instead.
+        """
         if need <= 0:
             return {"unloads": [], "residents": []}
         deadline = time.monotonic() + load_wait_s()
@@ -3170,7 +3215,12 @@ class LoadGuard:
                 capacity = await self._headroom(client)
                 idle = self._ollama_idle(resident)
                 if capacity is None:
-                    requested = await self._free_ollama(client, ollama_base, resident)
+                    requested = await self._free_ollama(
+                        client,
+                        ollama_base,
+                        resident,
+                        recent_shield_s=_JOB_RECLAIM_RECENT_S,
+                    )
                     unloads = [
                         {"engine": OLLAMA, "model": name, "status": "requested"}
                         for name in requested
@@ -3178,7 +3228,13 @@ class LoadGuard:
                 else:
                     _, used = capacity
                     _, _, _, _, _, unloads = await self._free_idle_memory(
-                        client, ollama_base, resident, idle, used, need
+                        client,
+                        ollama_base,
+                        resident,
+                        idle,
+                        used,
+                        need,
+                        recent_shield_s=_JOB_RECLAIM_RECENT_S,
                     )
                 return {
                     "unloads": unloads,
