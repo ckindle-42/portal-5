@@ -13,6 +13,7 @@ def _body(chars: int) -> dict:
 def test_window_from_tag_suffix() -> None:
     assert truncation.window_of("gemma4:12b-it-qat-ctx8k") == 8192
     assert truncation.window_of("m:q4-CTX16K") == 16384
+    assert truncation.window_of("glm-4.7-flash:Q4_K_M-ctx24k-agentic") == 24576
     assert truncation.window_of("gemma4:12b") is None
 
 
