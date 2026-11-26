@@ -132,6 +132,47 @@ class TestPlanAndOrder:
         assert state.results == []  # zero execution
         assert "scenarios       :" in out
 
+    def test_qat_run_meta_records_cleaned_and_restored_owui_memories(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        class MemoryClient:
+            memories = [{"type": "user", "path": None, "content": "private baseline"}]
+            restored = False
+
+            def snapshot_memories(self, token: str) -> list[dict[str, str | None]]:
+                assert token == "token"
+                return list(self.memories)
+
+            def clear_memories(self, token: str) -> None:
+                assert token == "token"
+                self.memories = []
+
+            def restore_memories(self, token: str, snapshot: list[dict[str, str | None]]) -> None:
+                assert token == "token"
+                self.memories = list(snapshot)
+                self.restored = True
+
+        client = MemoryClient()
+        settings = make_settings(tmp_path)
+        state = rn.RunState(settings, tmp_path, make_discovery())
+        scenario = _scn("s5-route", stage=5, kind="uat")
+        options = rn.RunnerOptions({5}, set(), set())
+
+        def execute(*_args: object, **_kwargs: object) -> None:
+            assert client.memories == []
+            meta = json.loads((tmp_path / "run_meta.json").read_text())
+            assert meta["owui_memory_state"]["status"] == "clean"
+
+        monkeypatch.setattr(rn, "_execute", execute)
+        rn._run_with_clean_owui_memories(client, "token", settings, [scenario], state, options, {})
+
+        meta = json.loads((tmp_path / "run_meta.json").read_text())
+        assert meta["owui_memory_state"]["status"] == "restored"
+        assert meta["owui_memory_state"]["baseline_count"] == 1
+        assert meta["owui_memory_state"]["restored_count"] == 1
+        assert "private baseline" not in json.dumps(meta)
+        assert client.restored
+
     def test_cascade_order_tier_model_id(self) -> None:
         plan = [
             _scn("b", tier=10, model="z"),

@@ -26,7 +26,7 @@ from portal.platform.inference.router.routing import (
     detect_harmful_intent,
 )
 from portal.platform.inference.router.trace import note as trace_note
-from portal.platform.inference.router.user_text import own_user_text
+from portal.platform.inference.router.user_text import own_user_text, strip_owui_memory_context
 from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 
 logger = logging.getLogger(__name__)
@@ -264,12 +264,12 @@ async def _resolve_auto_routing(
     """
     if workspace_id != "auto":
         return workspace_id
-    if current_turn_text is None:
-        current_turn_text = own_user_text(messages)
     observed_text = own_user_text(messages)
+    if current_turn_text is None:
+        current_turn_text = strip_owui_memory_context(observed_text)
     memory_chars_excluded = (
         len(observed_text) - len(current_turn_text)
-        if current_turn_text and observed_text.startswith(current_turn_text)
+        if observed_text.startswith(current_turn_text)
         else 0
     )
     routing_messages = [{"role": "user", "content": current_turn_text}]
@@ -567,7 +567,7 @@ def _strip_role_prefix(content: Any) -> tuple[str | None, Any]:
 
 
 def _capture_current_turn_text(body: dict[str, Any]) -> str:
-    text = own_user_text(body.get("messages", []))
+    text = strip_owui_memory_context(own_user_text(body.get("messages", [])))
     _, text = _strip_role_prefix(text)
     return str(text)
 

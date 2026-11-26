@@ -30,6 +30,9 @@ from .owui_client import ArtifactDownloadError, OWUIClient, artifact_urls
 
 UAT_PHASE = "human_grade"
 GENERATED_DOCX = "uat:upload-generated-docx"
+_ROUTE_MEMORY_SEED = (
+    "Security incident response, CVE exploits, purple-team exercises, and firewall analysis."
+)
 #: The product STT path: the host MLX transcribe service OWUI itself calls (:8924).
 TRANSCRIBE_URL = "http://127.0.0.1:8924/v1/audio/transcriptions"
 #: Harness-ASR vs transcript word-overlap floor for stt_accuracy (not human WER).
@@ -120,6 +123,7 @@ class UATCase:
     generated_upload_turn: int = 0
     cross_session: bool = False
     roster_check: bool = False
+    owui_memories: tuple[str, ...] = ()
 
 
 @dataclass
@@ -196,6 +200,7 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 ),
                 "route",
                 {"target": coding},
+                owui_memories=(_ROUTE_MEMORY_SEED,),
             )
         )
     if security:
@@ -237,6 +242,7 @@ def _routing_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 ),
                 "route_math",
                 {"targets": [math.split("::", 1)[0], math]},
+                owui_memories=(_ROUTE_MEMORY_SEED,),
             )
         )
     if daily and coding:
@@ -1328,6 +1334,7 @@ def _case(
     generated_upload_turn: int = 0,
     cross_session: bool = False,
     roster_check: bool = False,
+    owui_memories: tuple[str, ...] = (),
 ) -> UATCase:
     preset = discovery.presets.get(model_slug)
     if preset is None and "::" in model_slug:
@@ -1351,6 +1358,7 @@ def _case(
         generated_upload_turn=generated_upload_turn,
         cross_session=cross_session,
         roster_check=roster_check,
+        owui_memories=owui_memories,
     )
 
 
@@ -1523,7 +1531,7 @@ def _grade_route_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del payloads, text, evidence
+    del payloads, text
     raw_targets = case.expected.get("targets")
     if isinstance(raw_targets, list):
         targets = tuple(str(target) for target in raw_targets)
@@ -1535,7 +1543,41 @@ def _grade_route_case(
         if isinstance(raw_followup_targets, list)
         else ()
     )
-    return _grade_route_targets(turns, targets, followup_targets)
+    return _grade_route_targets(turns, targets, followup_targets) + _grade_route_receipts(
+        case, turns, evidence
+    )
+
+
+def _grade_route_receipts(
+    case: UATCase, turns: list[UATTurn], evidence: dict[str, object]
+) -> list[str]:
+    if not case.owui_memories:
+        return []
+    errors = []
+    receipts = []
+    for index, turn in enumerate(turns, start=1):
+        raw = turn.trace.get("routing_receipt")
+        receipt = raw if isinstance(raw, dict) else {}
+        current_chars = receipt.get("current_turn_text_chars")
+        memory_chars = receipt.get("memory_chars_excluded")
+        receipts.append(
+            {
+                "turn": index,
+                "prompt_chars": len(turn.prompt),
+                "current_turn_text_chars": current_chars,
+                "memory_chars_excluded": memory_chars,
+                "matched_keywords": receipt.get("matched_keywords", []),
+            }
+        )
+        if not isinstance(current_chars, int) or current_chars != len(turn.prompt):
+            errors.append(
+                f"turn {index} routing receipt counted injected memory: "
+                f"current_turn_text_chars={current_chars!r}, prompt_chars={len(turn.prompt)}"
+            )
+        if not isinstance(memory_chars, int) or memory_chars <= 0:
+            errors.append(f"turn {index} routing receipt did not record excluded OWUI memory")
+    evidence["routing_receipts"] = receipts
+    return errors
 
 
 def _resolved_workspace(trace: dict[str, object]) -> str:
@@ -1572,10 +1614,10 @@ def _grade_security_route_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
-    del payloads, evidence
+    del payloads
     raw_targets = case.expected.get("targets")
     targets = tuple(str(target) for target in raw_targets) if isinstance(raw_targets, list) else ()
-    errors = _grade_route_targets(turns, targets)
+    errors = _grade_route_targets(turns, targets) + _grade_route_receipts(case, turns, evidence)
     lowered = _normalize_phrase_text(text)
     handoff_target = str(case.expected.get("handoff_target") or "auto-security").casefold()
     handoff_name = str(case.expected.get("handoff_name") or "Portal Security Analyst")
@@ -2820,6 +2862,8 @@ def run_case(settings: Settings, scenario: QATScenario, state: Any, options: Any
         return QATResult(
             scenario.scenario_id, Status.SKIP, "UAT case not present in current discovery"
         )
+    if getattr(options, "api_only", False) and case.owui_memories:
+        case = replace(case, owui_memories=())
     if not getattr(options, "api_only", False):
         return _run_browser_case(settings, scenario, case, state, options)
     if case.cross_session:
@@ -2833,6 +2877,10 @@ def _run_browser_case(
     client = OWUIClient(settings)
     run_dir = getattr(state, "run_dir", None) or (settings.repo_root / "results" / "qat_browser")
     ui = BrowserUI(settings, run_dir / "screenshots")
+    token = ""
+    memory_state = getattr(state, "provenance", {}).get("owui_memory_state", {})
+    memory_managed = isinstance(memory_state, dict) and memory_state.get("status") == "clean"
+    memory_prepared = False
     try:
         ui.start()
     except PlaywrightUnavailable as exc:
@@ -2845,6 +2893,11 @@ def _run_browser_case(
         )
     try:
         token = client.signin()
+        if memory_managed:
+            memory_prepared = True
+            client.replace_memories(token, case.owui_memories)
+        elif case.owui_memories:
+            raise RuntimeError("QAT OWUI memory baseline was not prepared")
         ui.login()
         if case.cross_session:
             return _run_browser_memory(ui, client, token, settings, scenario, case, state, options)
@@ -2858,7 +2911,11 @@ def _run_browser_case(
             evidence={"driver": "browser_gui"},
         )
     finally:
-        ui.stop()
+        try:
+            if memory_prepared and token:
+                client.clear_memories(token)
+        finally:
+            ui.stop()
 
 
 def _run_browser_chat(

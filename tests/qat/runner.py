@@ -464,10 +464,13 @@ def print_plan(discovery: Discovery, scenarios: list[QATScenario]) -> None:
 
 
 def run_selected(settings: Settings, opts: RunnerOptions) -> RunState:
+    client: OWUIClient | None = None
+    token = ""
     available_models = None
     if not opts.dry_run and 5 in opts.stages:
         client = OWUIClient(settings)
-        available_models = client.list_models(client.signin())
+        token = client.signin()
+        available_models = client.list_models(token)
     discovery, plan = build_plan(settings, available_models)
     selected = [s for s in plan if _want(s, opts)]
     run_dir = opts.output_dir or default_run_dir(settings)
@@ -485,17 +488,68 @@ def run_selected(settings: Settings, opts: RunnerOptions) -> RunState:
             file=sys.stderr,
         )
     state.provenance = run_provenance(settings.repo_root, opts, len(previous), resume_meta, refused)
-    (run_dir / "run_meta.json").write_text(
-        json.dumps(state.provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    _write_run_meta(state)
     if opts.ingest_worksheets or opts.emit_worksheets:
         if opts.ingest_worksheets:
             _ingest_worksheets(run_dir, selected)
         if opts.emit_worksheets:
             _emit_worksheets(run_dir, selected)
         return state
-    _execute(settings, selected, state, opts, previous)
+    if any(scenario.kind == "uat" for scenario in selected):
+        client = client or OWUIClient(settings)
+        token = token or client.signin()
+        _run_with_clean_owui_memories(client, token, settings, selected, state, opts, previous)
     return state
+
+
+def _write_run_meta(state: RunState) -> None:
+    (state.run_dir / "run_meta.json").write_text(
+        json.dumps(state.provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def _run_with_clean_owui_memories(
+    client: OWUIClient,
+    token: str,
+    settings: Settings,
+    selected: list[QATScenario],
+    state: RunState,
+    opts: RunnerOptions,
+    previous: dict[str, QATResult],
+) -> None:
+    memory_state: dict[str, object] = {"mode": "snapshot_clear_restore", "status": "snapshotting"}
+    state.provenance["owui_memory_state"] = memory_state
+    _write_run_meta(state)
+    snapshot = None
+    try:
+        snapshot = client.snapshot_memories(token)
+        memory_state.update({"baseline_count": len(snapshot), "status": "clearing"})
+        _write_run_meta(state)
+        client.clear_memories(token)
+    except Exception as exc:
+        memory_state.update({"status": "prepare_failed", "error": str(exc)})
+        if snapshot is not None:
+            try:
+                client.restore_memories(token, snapshot)
+            except Exception as restore_exc:
+                memory_state.update({"status": "restore_failed", "restore_error": str(restore_exc)})
+        _write_run_meta(state)
+        raise
+    memory_state["status"] = "clean"
+    _write_run_meta(state)
+    try:
+        _execute(settings, selected, state, opts, previous)
+    finally:
+        memory_state["status"] = "restoring"
+        _write_run_meta(state)
+        try:
+            client.restore_memories(token, snapshot)
+        except Exception as exc:
+            memory_state.update({"status": "restore_failed", "error": str(exc)})
+            _write_run_meta(state)
+            raise
+        memory_state.update({"status": "restored", "restored_count": len(snapshot)})
+        _write_run_meta(state)
 
 
 def _sha256_file(path: Path) -> str:

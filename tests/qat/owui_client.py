@@ -127,6 +127,78 @@ class OWUIClient:
                 self._base_model_ids[str(model_id)] = str(base_model_id)
         return model_ids
 
+    def snapshot_memories(self, token: str) -> list[dict[str, Any]]:
+        with self._client(30.0) as client:
+            response = client.get(
+                f"{self.settings.owui_url}/api/v1/memories/",
+                headers=self._headers(token),
+            )
+        if response.status_code != 200:
+            raise RuntimeError(f"OWUI memory snapshot failed: HTTP {response.status_code}")
+        rows = response.json()
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise RuntimeError("OWUI memory snapshot returned an invalid response")
+        return [dict(row) for row in rows]
+
+    def clear_memories(self, token: str) -> None:
+        with self._client(30.0) as client:
+            response = client.delete(
+                f"{self.settings.owui_url}/api/v1/memories/delete/user",
+                headers=self._headers(token),
+            )
+        if response.status_code != 200 or response.json() is not True:
+            raise RuntimeError(f"OWUI memory clear failed: HTTP {response.status_code}")
+
+    def add_memory(
+        self, token: str, content: str, memory_type: str = "user", path: str | None = None
+    ) -> dict[str, Any]:
+        with self._client(30.0) as client:
+            response = client.post(
+                f"{self.settings.owui_url}/api/v1/memories/add",
+                json={"content": content, "type": memory_type, "path": path},
+                headers=self._headers(token),
+            )
+        if response.status_code != 200 or not isinstance(response.json(), dict):
+            raise RuntimeError(f"OWUI memory add failed: HTTP {response.status_code}")
+        return response.json()
+
+    def replace_memories(
+        self, token: str, memories: list[dict[str, Any]] | tuple[str, ...]
+    ) -> None:
+        self.clear_memories(token)
+        for memory in memories:
+            if isinstance(memory, str):
+                self.add_memory(token, memory)
+            else:
+                self.add_memory(
+                    token,
+                    str(memory.get("content") or ""),
+                    memory_type=str(memory.get("type") or "context"),
+                    path=memory.get("path"),
+                )
+
+    def restore_memories(self, token: str, memories: list[dict[str, Any]]) -> None:
+        self.replace_memories(token, memories)
+        restored = self.snapshot_memories(token)
+        expected = sorted(
+            (
+                str(row.get("type") or "context"),
+                str(row.get("path") or ""),
+                str(row.get("content") or ""),
+            )
+            for row in memories
+        )
+        actual = sorted(
+            (
+                str(row.get("type") or "context"),
+                str(row.get("path") or ""),
+                str(row.get("content") or ""),
+            )
+            for row in restored
+        )
+        if actual != expected:
+            raise RuntimeError("OWUI memory restore verification failed")
+
     def _headers(self, token: str) -> dict[str, str]:
         return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
