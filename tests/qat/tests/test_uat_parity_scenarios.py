@@ -96,6 +96,8 @@ def test_roundtrip_required_tools_checked_across_spans() -> None:
     trace = {"spans": [_span("remember"), _span("recall")]}
     # poll_turn falls back to the trace's tool spans as the call list
     assert rn._tool_validation_error(scenario, trace["spans"], trace) is None
+    # A message-level tool_calls list with no trace spans is not a successful call.
+    assert rn._tool_validation_error(scenario, [{"name": "remember"}], {}) is not None
     missing_recall = {"spans": [_span("remember")]}
     error = rn._tool_validation_error(scenario, missing_recall["spans"], missing_recall)
     assert error is not None and "recall" in error

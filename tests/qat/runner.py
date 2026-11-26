@@ -784,7 +784,7 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             backend=str(trace.get("backend") or ""),
             defect_class=classify_defect(model_output_miss=True),
         )
-    tool_error = _tool_validation_error(scenario, tool_calls, {})
+    tool_error = _tool_validation_error(scenario, tool_calls, trace)
     if tool_error:
         return QATResult(
             scenario.scenario_id,
@@ -821,7 +821,7 @@ def _tool_validation_error(
         return "required tool was not called (tool_calls=0)"
     trace_available = "spans" in trace or "tool_spans" in trace
     if not trace_available:
-        return None
+        return "trace has no spans; cannot verify the required tool succeeded"
     spans = trace.get("tool_spans") or trace.get("spans") or []
     successful = (
         [
