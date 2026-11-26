@@ -2171,9 +2171,13 @@ async def _stream_from_backend_guarded_impl(
         async with _http_client.stream("POST", url, json=body) as resp:
             if resp.status_code != 200:
                 err = await resp.aread()
-                if not _capacity_retried and (
-                    _freed := await _free_ollama_for_capacity_retry(
-                        _backend_type_for_url(url), resp.status_code, err
+                if (
+                    not _CASCADE_ERRORS.get()
+                    and not _capacity_retried
+                    and (
+                        _freed := await _free_ollama_for_capacity_retry(
+                            _backend_type_for_url(url), resp.status_code, err
+                        )
                     )
                 ):
                     # oMLX refused for memory idle Ollama holds. Nothing has reached the
