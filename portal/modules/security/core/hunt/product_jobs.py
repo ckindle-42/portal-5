@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
@@ -36,6 +37,7 @@ from .notables.similar import SIMILAR_GENERATOR
 _ROOT = Path(
     os.environ.get("PORTAL5_HUNT_DIR", str(Path.home() / "AI_Output" / "review" / "hunts"))
 )
+logger = logging.getLogger(__name__)
 _lock = threading.Lock()
 R2_DEFAULT_BUDGETS = {**DEFAULT_BUDGETS, "job_seconds": 1260.0}
 STAGE_ESTIMATES = {
@@ -352,6 +354,42 @@ def _finish(
             _write(job_id, state)
 
 
+def _record_failure(
+    job_id: str, state: dict[str, Any], out: Path, effort: HuntBudget, exc: Exception
+) -> None:
+    logger.error(
+        "hunt job %s failed during %s",
+        job_id,
+        state.get("stage"),
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
+    budget_error = isinstance(exc, (HuntBudgetExceededError, ThrottleBudgetExceededError))
+    deadline_expired = effort.remaining() <= 0
+    if deadline_expired and not effort.exhausted:
+        effort.exhausted = effort.expired_reason() or "job_deadline_exceeded"
+    snapshot = effort.snapshot()
+    no_telemetry_work = snapshot["query_count"] == 0 and snapshot["event_count"] == 0
+    partial = not no_telemetry_work and bool(effort.exhausted or budget_error or deadline_expired)
+    if partial and not effort.exhausted:
+        effort.exhausted = str(exc)
+    reason = f"{type(exc).__name__}: {exc}"
+    state.update(
+        status="PARTIAL" if partial else "FAILED",
+        stage="partial" if partial else "failed_preflight" if no_telemetry_work else "failed",
+        error=reason,
+        coverage_complete=False,
+    )
+    if partial:
+        state["partial_reason"] = reason
+    failure_path = out / "failure.txt"
+    temporary = failure_path.with_suffix(".tmp")
+    try:
+        temporary.write_text(reason + "\n")
+        temporary.replace(failure_path)
+    except OSError:
+        logger.exception("hunt job %s could not persist its failure reason", job_id)
+
+
 def _run(
     job_id: str,
     search: Search,
@@ -369,7 +407,7 @@ def _run(
     out.mkdir(parents=True, exist_ok=True)
     reset_ledger(out)
     state = load(job_id) or {}
-    state.update(status="RUNNING", stage="cards", run_dir=str(out), judge_enabled=judge_enabled)
+    state.update(status="RUNNING", stage="preflight", run_dir=str(out), judge_enabled=judge_enabled)
     state_lock = threading.RLock()
     with state_lock:
         _write(job_id, state)
@@ -443,19 +481,7 @@ def _run(
                 partial_reason="relate stage did not cover every notable seed",
             )
     except Exception as exc:
-        budget_error = isinstance(exc, (HuntBudgetExceededError, ThrottleBudgetExceededError))
-        deadline_expired = effort.remaining() <= 0
-        if deadline_expired and not effort.exhausted:
-            effort.exhausted = effort.expired_reason() or "job_deadline_exceeded"
-        status = "PARTIAL" if effort.exhausted or budget_error or deadline_expired else "FAILED"
-        if status == "PARTIAL" and not effort.exhausted:
-            effort.exhausted = str(exc)
-        state.update(
-            status=status,
-            stage="partial" if status == "PARTIAL" else "failed",
-            error=f"{type(exc).__name__}: {exc}",
-            coverage_complete=False,
-        )
+        _record_failure(job_id, state, out, effort, exc)
     finally:
         _finish(job_id, state, state_lock, out, effort, embedder)
 
@@ -547,6 +573,14 @@ def _resolve(job_id: str | None, index: str | None) -> tuple[dict[str, Any] | No
     return job, {}
 
 
+def _next_step(status: str) -> str:
+    return {
+        "COMPLETE": "Read sources, leads, and case 1.",
+        "PARTIAL": "Read saved results and report the coverage reason.",
+        "FAILED": "Report the failure reason and inspect any saved results.",
+    }.get(status.upper(), "Check this job again after it advances.")
+
+
 def _status_result(job: Mapping[str, Any], detail: bool = False) -> dict[str, Any]:
     if not detail:
         progress = _mapping(job.get("progress"))
@@ -567,6 +601,8 @@ def _status_result(job: Mapping[str, Any], detail: bool = False) -> dict[str, An
         started = float(job.get("started") or time.time())
         elapsed = float(job.get("finished") or time.time()) - started
         status = str(job.get("status") or "UNKNOWN")
+        normalized_status = status.upper()
+        terminal = normalized_status in TERMINAL_STATUSES
         return compact(
             {
                 "job_id": job.get("job_id"),
@@ -577,11 +613,9 @@ def _status_result(job: Mapping[str, Any], detail: bool = False) -> dict[str, An
                 "elapsed_s": round(max(0.0, elapsed), 1),
                 "last_progress": _short(" ".join(activity), 180),
                 "partial_reason": _short(job.get("partial_reason"), 180),
-                "next": (
-                    "Check this job again after it advances."
-                    if status.upper() not in TERMINAL_STATUSES
-                    else "Read sources, leads, and case 1."
-                ),
+                "error": _short(job.get("error"), 180),
+                "terminal": terminal,
+                "next": _next_step(normalized_status),
             }
         )
     result = {
@@ -606,6 +640,8 @@ def _status_result(job: Mapping[str, Any], detail: bool = False) -> dict[str, An
         )
         if key in job
     }
+    result["terminal"] = _is_terminal(job)
+    result["next"] = _next_step(str(job.get("status") or "UNKNOWN"))
     result["elapsed_s"] = round(job.get("finished", time.time()) - job["started"], 1)
     return compact(result)
 

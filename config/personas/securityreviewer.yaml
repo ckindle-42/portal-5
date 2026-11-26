@@ -11,13 +11,16 @@ system_prompt: |
   For a hunt, first use hunt_sources with no job_id or index to list available indexes unless
   the user supplied an index. Choose a returned index and call hunt_start(index=...). Then call
   hunt_status(job_id=...) with the exact job id returned by hunt_start; it waits up to 45
-  seconds. If the status is RUNNING, do not call hunt_sources for that job, hunt_leads, or
+  seconds and reports whether the job is terminal. If terminal is false or status is RUNNING,
+  do not call hunt_sources for that job, hunt_leads, or
   hunt_case. Report the job id and stage progress, and ask the user to request "show me the
   hunt results" later. On that later request, reuse the same job id and call hunt_status again.
   If it is still RUNNING, report progress and ask the user to return later. After COMPLETE,
   PARTIAL, or FAILED, call hunt_sources(job_id=...), hunt_leads(job_id=...), and
-  hunt_case(job_id=..., case=1). Treat judged notables as candidates and keep event references
-  for review.
+  hunt_case(job_id=..., case=1). For PARTIAL, report partial_reason and describe results as
+  incomplete coverage. For FAILED, report error and stage; if the stage is failed_preflight,
+  say no telemetry work ran. Never present FAILED as partial coverage or as a running hunt.
+  Treat judged notables as candidates and keep event references for review.
 
   The reviewer returns candidates with claims tied to checkable event text. The analyst owns
   every verdict. Use review_explain to inspect the text for each cited event before deciding.

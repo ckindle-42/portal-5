@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import yaml
+
 from portal.modules.security.core.hunt import product_jobs
 from portal.modules.security.core.hunt.executor import (
     DEFAULT_BUDGETS,
@@ -120,6 +122,7 @@ def test_nonterminal_hunt_views_return_compact_progress_instead_of_empty_results
 
     for result in results:
         assert result["status"] == "RUNNING"
+        assert result["terminal"] is False
         assert result["stage"] == "cards"
         assert result["stages_done"] == "0/5"
         assert result["last_progress"] == "cards"
@@ -541,3 +544,98 @@ def test_progress_declares_honesty_from_the_first_stage(tmp_path: Path) -> None:
         "weights_source": "default",
         "merge_weights": {"deviation": 26},
     }
+
+
+def test_preflight_exception_is_terminal_visible_logged_and_durable(
+    tmp_path: Path, monkeypatch: Any, caplog: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+
+    def fail_preflight(_client: Any, _model: str) -> None:
+        raise product_jobs.HuntBudgetExceededError("model warm-up deadline exceeded")
+
+    monkeypatch.setattr(product_jobs, "preflight", fail_preflight)
+    job_id = "hunt-r2-preflight-exception"
+    product_jobs._write(
+        job_id, {"job_id": job_id, "index": "ix", "started": 1000.0, "status": "QUEUED"}
+    )
+
+    with caplog.at_level("ERROR", logger=product_jobs.__name__):
+        product_jobs._run(
+            job_id,
+            object(),  # type: ignore[arg-type]
+            "ix",
+            100.0,
+            200.0,
+            dict(product_jobs.R2_DEFAULT_BUDGETS),
+            (object(), "hunt-reasoning"),  # type: ignore[arg-type]
+            None,
+            None,
+            None,
+        )
+
+    status = product_jobs.status(job_id=job_id)
+    assert status["status"] == "FAILED"
+    assert status["stage"] == "failed_preflight"
+    assert status["terminal"] is True
+    assert status["error"] == "HuntBudgetExceededError: model warm-up deadline exceeded"
+    assert status["next"] == "Report the failure reason and inspect any saved results."
+    assert (tmp_path / job_id / "failure.txt").read_text() == status["error"] + "\n"
+    assert "hunt job hunt-r2-preflight-exception failed" in caplog.text
+    assert "Traceback (most recent call last)" in caplog.text
+    assert "HuntBudgetExceededError: model warm-up deadline exceeded" in caplog.text
+
+
+def test_partial_failure_after_work_surfaces_reason_in_status_and_file(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    monkeypatch.setattr(product_jobs, "preflight", lambda _client, _model: None)
+
+    def fail_after_event(
+        _actions: Any,
+        _job_id: str,
+        _state: dict[str, Any],
+        _state_lock: Any,
+        _out: Path,
+        effort: HuntBudget,
+    ) -> None:
+        effort.record_rows("events", 1)
+        effort.exhausted = "job_deadline_exceeded"
+        raise product_jobs.HuntBudgetExceededError("job_deadline_exceeded")
+
+    monkeypatch.setattr(product_jobs, "_execute_stages", fail_after_event)
+    job_id = "hunt-r2-partial-failure"
+    product_jobs._write(
+        job_id, {"job_id": job_id, "index": "ix", "started": 1000.0, "status": "QUEUED"}
+    )
+
+    product_jobs._run(
+        job_id,
+        object(),  # type: ignore[arg-type]
+        "ix",
+        100.0,
+        200.0,
+        dict(product_jobs.R2_DEFAULT_BUDGETS),
+        (object(), "hunt-reasoning"),  # type: ignore[arg-type]
+        None,
+        None,
+        None,
+    )
+
+    status = product_jobs.status(job_id=job_id)
+    assert status["status"] == "PARTIAL"
+    assert status["partial_reason"] == "HuntBudgetExceededError: job_deadline_exceeded"
+    assert status["terminal"] is True
+    assert status["next"] == "Read saved results and report the coverage reason."
+    assert (tmp_path / job_id / "failure.txt").read_text() == status["partial_reason"] + "\n"
+
+
+def test_security_reviewer_prompt_distinguishes_partial_and_failed_hunts() -> None:
+    config = yaml.safe_load(Path("config/personas/securityreviewer.yaml").read_text())
+    prompt = str(config["system_prompt"]).lower()
+
+    assert "reports whether the job is terminal" in prompt
+    assert "partial_reason" in prompt and "incomplete coverage" in prompt
+    assert "report error and stage" in prompt
+    assert "failed_preflight" in prompt and "no telemetry work ran" in prompt
