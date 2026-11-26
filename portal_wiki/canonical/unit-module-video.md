@@ -25,7 +25,7 @@ tags:
 CLI (pure-MLX LTX-2.5 for Apple Silicon) with an opt-in `mlx-video`
 Wan2.2-TI2V-5B fallback. Exposes the async job contract: `video_start`
 (text-to-video, or image-to-video via `image_url`; returns a job id),
-`video_status` (server-side long-poll until the job finishes), and
+`video_status` (progress or completion polling across chat turns), and
 `video_models` (the roster). It replaced the removed ComfyUI `video_mcp`
 path.
 

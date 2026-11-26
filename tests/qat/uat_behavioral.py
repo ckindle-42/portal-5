@@ -465,7 +465,7 @@ def _media_cases(discovery: Discovery, cases: list[UATCase]) -> None:
     video = _variant_preset(discovery, "video")
     music = _variant_preset(discovery, "music")
     stt = _workspace_preset(discovery, "media")
-    if image and "generate_image" in _tool_names(discovery, image):
+    if image and "image_start" in _tool_names(discovery, image):
         cases.append(
             _case(
                 discovery,
@@ -473,9 +473,10 @@ def _media_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 "Media: nonblank image generation",
                 image,
                 (
-                    "Use generate_image to create an image of a red lighthouse on a rocky coast at sunset, with visible sea and sky. Return the generated image inline and provide its download link.",
+                    "Use image_start to create an image of a red lighthouse on a rocky coast at sunset, with visible sea and sky. Return the job id.",
                 ),
                 "image_quality",
+                expected_tools=("image_start",),
                 artifact_kind="png",
                 timeout_s=900.0,
             )
@@ -488,9 +489,10 @@ def _media_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 "Media: four-second video quality",
                 video,
                 (
-                    "Use video_start to generate a four-second MP4 clip of ocean waves rolling toward a beach. Return the finished video link.",
+                    "Use video_start to generate a four-second MP4 clip of ocean waves rolling toward a beach. Return the job id.",
                 ),
                 "video_quality",
+                expected_tools=("video_start",),
                 artifact_kind="mp4",
                 timeout_s=1800.0,
             )
@@ -503,9 +505,10 @@ def _media_cases(discovery: Discovery, cases: list[UATCase]) -> None:
                 "Media: non-silent music audio",
                 music,
                 (
-                    "Use music_start to compose an instrumental lo-fi music loop in WAV format, at least ten seconds long, with a clear melody and soft percussion. Return the WAV link.",
+                    "Use music_start to compose an instrumental lo-fi music loop in WAV format, at least ten seconds long, with a clear melody and soft percussion. Return the job id.",
                 ),
                 "music_quality",
+                expected_tools=("music_start",),
                 artifact_kind="wav",
                 timeout_s=1200.0,
             )
@@ -1429,7 +1432,8 @@ def grade_case(
     evidence: dict[str, object] = {"turn_count": len(turns), "grader": case.grader}
     text = all_text if all_text is not None else "\n".join(turn.text for turn in turns)
     evidence["answer_tail"] = _bounded_answer_tail(text)
-    transcript_error = validate_transcript(turns, len(case.prompts))
+    expected_turns = len(turns) if _has_media_job(turns) else len(case.prompts)
+    transcript_error = validate_transcript(turns, expected_turns)
     if transcript_error:
         return [transcript_error], evidence
     handler = _CASE_GRADERS.get(case.grader)
@@ -3039,7 +3043,8 @@ def _run_browser_sequence(
     infra = _scenario_wav_infra(case)
     if infra:
         return transcript, _status_result(scenario, infra, chat_id, transcript), chat_id
-    for index, template in enumerate(case.prompts, start=1):
+    prompts = list(case.prompts)
+    for index, template in enumerate(prompts, start=1):
         prompt = template.replace("{{memory_key}}", memory_key)
         with tempfile.TemporaryDirectory(prefix="uat-browser-upload-") as tmp:
             upload_path, error = _browser_turn_upload(
@@ -3073,6 +3078,9 @@ def _run_browser_sequence(
         transcript.append(
             _observed_turn(prompt, text, trace, _tool_names_from_calls((), trace), urls)
         )
+        poll_prompt = _media_job_followup_prompt(case, transcript)
+        if poll_prompt and time.monotonic() + 25 < deadline:
+            prompts.append(poll_prompt)
     tool_error = _required_tool_error(case, transcript)
     if tool_error:
         return transcript, _status_result(scenario, tool_error, chat_id, transcript), chat_id
@@ -3446,7 +3454,8 @@ def _run_sequence(
     infra = _scenario_wav_infra(case)
     if infra:
         return transcript, _status_result(scenario, infra, chat_id, transcript)
-    for index, template in enumerate(case.prompts, start=1):
+    prompts = list(case.prompts)
+    for index, template in enumerate(prompts, start=1):
         prompt = template.replace("{{memory_key}}", memory_key)
         files, error = _turn_files(client, token, case, index, transcript, deadline)
         if error:
@@ -3497,6 +3506,9 @@ def _run_sequence(
         branch.extend(
             ({"role": "user", "content": prompt}, {"role": "assistant", "content": outcome.text})
         )
+        poll_prompt = _media_job_followup_prompt(case, transcript)
+        if poll_prompt and time.monotonic() + 25 < deadline:
+            prompts.append(poll_prompt)
     tool_error = _required_tool_error(case, transcript)
     if tool_error:
         return transcript, _status_result(scenario, tool_error, chat_id, transcript)
@@ -3514,6 +3526,56 @@ def _successful_tools(turn: UATTurn) -> set[str]:
         and span.get("name") == "tool.completed"
         and span.get("outcome") == "ok"
     }
+
+
+_MEDIA_JOB_TOOLS = {
+    "image_start": "image_status",
+    "video_start": "video_status",
+    "music_start": "music_status",
+}
+
+
+def _has_media_job(turns: list[UATTurn]) -> bool:
+    return any(start in _successful_tools(turn) for start in _MEDIA_JOB_TOOLS for turn in turns)
+
+
+def _media_job_followup_prompt(case: object, turns: list[UATTurn]) -> str | None:
+    """Schedule a separate status turn until a started media job returns a file link."""
+    expected_extensions = {
+        "audio": {".wav", ".mp3"},
+        "mp3": {".mp3"},
+        "mp4": {".mp4"},
+        "png": {".png"},
+        "wav": {".wav"},
+    }.get(str(getattr(case, "artifact_kind", "")).casefold())
+    if not expected_extensions:
+        return None
+    if any(
+        Path(urlsplit(url).path).suffix.casefold() in expected_extensions
+        for turn in turns
+        for url in turn.artifact_urls
+    ):
+        return None
+    start = next(
+        (name for name in _MEDIA_JOB_TOOLS if any(name in _successful_tools(t) for t in turns)),
+        None,
+    )
+    if start is None:
+        return None
+    status_tool = _MEDIA_JOB_TOOLS[start]
+    prompt = (
+        f"QAT media status poll: Use {status_tool} with the job_id from the earlier turn and "
+        "wait_s=20. If it is queued or still running, report current progress and include exactly "
+        "MEDIA_JOB_RUNNING. If done, return the download_url. If it failed, repeat the error and "
+        "stop."
+    )
+    poll_turns = [turn for turn in turns if turn.prompt.startswith("QAT media status poll:")]
+    if not poll_turns:
+        return prompt
+    latest = poll_turns[-1]
+    if status_tool in _successful_tools(latest) and "MEDIA_JOB_RUNNING" in latest.text:
+        return prompt
+    return None
 
 
 def _required_tool_error(case: UATCase, turns: list[UATTurn]) -> str | None:

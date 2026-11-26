@@ -34,8 +34,9 @@ It is pipeline-exposed and IDE-exposed, gated by the `music` module (`unit-fact-
 
 ## How it's used
 
-`music_start` returns a `job_id`. `music_status(job_id)` long-polls for
-progress or the wav under `${AI_OUTPUT_DIR}/generated/music`. `music_models`
+`music_start` returns a `job_id` immediately. End that chat turn, then use
+`music_status(job_id, wait_s=20)` in a later turn for progress or the wav under
+`${AI_OUTPUT_DIR}/generated/music`. `music_models`
 reports which engine install is present. ACE-Step accepts `task_type`
 `text2music`, `repaint`, `cover`, or `extend` (`extend` is upstream
 `complete`) plus `seed`. Repaint, cover, and extend take `source` as an upload
@@ -44,14 +45,14 @@ name or a `.wav` basename already in `generated/music`.
 ## Why it exists
 
 Full-song generation is slower than a chat turn, and the previous in-process
-MiniMax pipeline held its weights until the MCP process exited. A start plus
-long-poll contract keeps `MAX_TOOL_HOPS` from burning a poll per second, and
-the subprocess is the idle release.
+MiniMax pipeline held its weights until the MCP process exited. Separate start
+and status turns keep the chat request short, and the subprocess is the idle
+release.
 
 ## Value
 
-`auto-audio::music` can ask for a song and get a file path back from one
-status call. Memory admission (`music:acestep-xl-turbo` 16 GB estimate,
+`auto-audio::music` can ask for a song, receive a job id, and poll for its
+published file later. Memory admission (`music:acestep-xl-turbo` 16 GB estimate,
 `music:minimax3-8bit` 22 GB — main's live MiniMax-Music3 family measurement,
 carried over until the 8-bit card is sampled; XL-Turbo remains a research
 estimate) runs before the child loads weights.

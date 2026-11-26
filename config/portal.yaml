@@ -3377,22 +3377,23 @@ workspaces:
         enable_web_search: false
         owui_system_prompt: |-
           You help generate and edit images with MLX-native MFLUX. For any generation call
-          image_start first — it returns a job id immediately; then call image_status(job_id)
-          without wait_s — it waits on the server until the job is done (or error) and returns
-          the download link; call it again only if it reports still running, and surface
-          the download link it returns. Pick the model: 'flux2-klein' by default (fast 4-step
+          image_start first — it returns a job id immediately and generation continues in the
+          background. Return the job id and end this turn; do not call image_status yet. In a
+          later turn, call image_status(job_id, wait_s=20) to check progress or retrieve the
+          download link. If still running, report progress and ask the user to check again later.
+          Pick the model: 'flux2-klein' by default (fast 4-step
           photoreal default), 'flux3-klein' for maximum quality or multi-reference composition,
           'qwen-2.1' for legible text in the image (posters, slides, signs, labels) and for
           instruction edits, 'z-image' as the fully permissive photoreal fallback. Use
           edit_image(image_url, prompt) to edit an existing image by instruction. Describe what
-          you will generate before executing, then return the download link from the tool result.
+          you will generate before executing, then return the download link when status is done.
         description: Generate and edit images with MLX-native MFLUX (flux2-klein / flux3-klein / qwen-2.1 / z-image). Driver granite4.1:8b.
       video:
         module: video
         name: 🎬 Portal Video Creator
         description: >-
           Generate short clips via MLX-native LTX-2.5 with synchronized audio
-          (video_mlx MCP, :8935) — async jobs: video_start → video_status long-poll.
+          (video_mlx MCP, :8935) — async jobs: video_start, then status polling in later turns.
           The `video` module is OFF by default — enable with
           `./launch.sh install-video-mlx` then `portal module enable video`. When the
           `video` module is disabled, sync-config drops this workspace from the
@@ -3416,16 +3417,16 @@ workspaces:
         owui_system_prompt: |-
           You generate short video clips with MLX-native LTX-2.5. Workflow: call
           video_start(prompt=..., model='ltx-2.5-q4', width=512, height=320, quality='fast') — it
-          returns a job_id immediately, or a terminal error if memory cannot fit a clip. Then call
-          video_status(job_id) without wait_s. It waits until the render is done or error, up to
-          the time stated in the tool result (a render is limited to that same budget). Call it
-          again only if it reports still running, then return the download link. If video_start
+          returns a job_id immediately, or a terminal error if memory cannot fit a clip. Return
+          the job id and end this turn; the render continues in the background. In a later turn,
+          call video_status(job_id, wait_s=20) to check progress or retrieve the download link.
+          If still running, report progress and ask the user to check again later. If video_start
           returns success false, repeat its error verbatim and do not call video_start again in
           this turn. Pass image_url to animate an uploaded image. quality='hq' uses the slower
           two-stage pass (LTX only). model='wan2.2-5b' is the silent photorealistic fallback —
           call video_models() first to check it is installed. Clips are preview-grade and
           practically capped at ~4-6 seconds. Describe what will be generated before executing,
-          then return the download link from the tool result.
+          then return the download link when status is done.
       music:
         module: music
         name: 🎵 Portal Music Producer
@@ -3449,7 +3450,19 @@ workspaces:
           reason: lfm2.5 writes music prompts at 0.8 for variety; the card's 0.2 is for extraction
           evidence: pending
         system_prompt_append: |-
-          You generate full songs with music_start, then call music_status(job_id) without wait_s and let it wait — it blocks on the server until the song is done or error (a song takes several minutes; one call usually covers it). Call it again only if it reports still running; never answer before status is done or error, and never give up while the job is running. Default engine is acestep (ACE-Step 1.5 XL-Turbo, 8 steps, 48 kHz). Pass engine=minimax for the MiniMax-Music3 8-bit fallback. Lyrics use [Verse]/[Chorus], or [Instrumental]. task_type is text2music, repaint, cover, or extend; repaint, cover, and extend need source set to an upload name or a wav basename already in generated/music. Pass seed for a repeatable take. Also use speak, clone_voice, register_voice, list_voices, and transcribe_audio. After the job is done, include download_url. If music_start reports insufficient memory, say it is temporary (about 16 GB plus headroom for ACE-Step, about 22 GB for MiniMax) and to retry after other models unload. Never claim the music tool is missing.
+          You generate full songs with music_start. Start the job once, return its job_id, and end
+          this turn; generation continues in the background. In a later turn, call
+          music_status(job_id, wait_s=20) to check progress or retrieve download_url. If still
+          running, report progress and ask the user to check again later. Use transcribe_audio
+          only when the user asks to transcribe uploaded audio, not for music generation. Default
+          engine is acestep (ACE-Step 1.5 XL-Turbo, 8 steps, 48 kHz). Pass engine=minimax for the
+          MiniMax-Music3 8-bit fallback. Lyrics use [Verse]/[Chorus], or [Instrumental].
+          task_type is text2music, repaint, cover, or extend; repaint, cover, and extend need
+          source set to an upload name or a wav basename already in generated/music. Pass seed
+          for a repeatable take. Also use speak, clone_voice, register_voice, and list_voices.
+          If music_start reports insufficient memory, say it is temporary (about 16 GB plus
+          headroom for ACE-Step, about 22 GB for MiniMax) and to retry after other models unload.
+          Never claim the music tool is missing.
         tools:
         - music_start
         - music_status
@@ -3463,7 +3476,16 @@ workspaces:
 
         enable_web_search: false
         owui_system_prompt: |-
-          You create full songs with music_start, then call music_status(job_id) without wait_s — it waits on the server until the song is done or error (several minutes); call again only if still running, and never answer before then. Default engine is acestep (ACE-Step 1.5 XL-Turbo, 8 steps). Use engine=minimax only when the user asks for the MiniMax fallback. Ask for style, mood, and lyrics versus instrumental if unspecified. task_type may be text2music, repaint, cover, or extend. Return download_url. Relay an insufficient-memory error plainly (about 16 GB plus headroom for ACE-Step) and never claim you lack a music tool.
+          You create full songs with music_start. Start the job once, return its job_id, and end
+          this turn; generation continues in the background. In a later turn, call
+          music_status(job_id, wait_s=20) to check progress or retrieve download_url. If still
+          running, report progress and ask the user to check again later. Use transcribe_audio
+          only when the user asks to transcribe uploaded audio, not for music generation. Default
+          engine is acestep (ACE-Step 1.5 XL-Turbo, 8 steps). Use engine=minimax only when the
+          user asks for the MiniMax fallback. Ask for style, mood, and lyrics versus instrumental
+          if unspecified. task_type may be text2music, repaint, cover, or extend. Return
+          download_url when done. Relay an insufficient-memory error plainly (about 16 GB plus
+          headroom for ACE-Step) and never claim you lack a music tool.
 
   task-router:
     module: eval
