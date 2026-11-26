@@ -258,6 +258,22 @@ async def test_guarded_stream_error_ends_well_formed(
     assert recorded == [("ws", "stream_error")]
 
 
+@pytest.mark.anyio
+async def test_guarded_stream_without_backend_done_is_not_success(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recorded = _record_errors(monkeypatch)
+    _serve(stream_client, _Resp([f"data: {SERVED}"]))
+
+    chunks = await _drain(
+        st._stream_from_backend_guarded("http://omlx/v1/chat/completions", {}, "ws", "m")
+    )
+
+    assert "served" in _content(chunks)
+    _assert_terminal(chunks, "Backend connection error — check server logs")
+    assert recorded == [("ws", "stream_error")]
+
+
 # ── fallback wrapper (streaming.py:2467, 2515) ───────────────────────
 
 

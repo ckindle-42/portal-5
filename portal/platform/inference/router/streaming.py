@@ -2062,6 +2062,16 @@ async def _stream_from_backend_guarded(
         yield frame
 
 
+async def _require_backend_done(lines: AsyncIterator[str]) -> AsyncIterator[str]:
+    """Raise when a backend closes its SSE stream without its terminal marker."""
+    done = False
+    async for line in lines:
+        done = done or (line.startswith("data:") and line[5:].strip() == "[DONE]")
+        yield line
+    if not done:
+        raise httpx.RemoteProtocolError("backend SSE ended before [DONE]")
+
+
 async def _with_stream_heartbeats(frames: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
     """Keep a queued stream open with SSE comments while its next frame is pending."""
     iterator = frames.__aiter__()
@@ -2200,7 +2210,7 @@ async def _stream_from_backend_guarded_impl(
                 ):
                     yield _f
                 return
-            async for line in resp.aiter_lines():
+            async for line in _require_backend_done(resp.aiter_lines()):
                 if not line:
                     continue
                 _in_band = _in_band_backend_error(line)
