@@ -25,8 +25,8 @@ tags:
 `generate_image` / `image_start` (text-to-image: flux2-klein 4-step default /
 flux3-klein 16-step / qwen-2.1-turbo 8-step / z-image-turbo) and `edit_image`
 (the family's `*-edit` binary, instruction editing with `--image-paths`).
-`image_start` returns a job id immediately; `image_status(job_id)` long-polls
-server-side until the job finishes for progress and the published download URL. It replaced the
+`image_start` returns a job id immediately; `image_status(job_id, wait_s=20)` in
+a later turn returns progress or the published download URL. It replaced the
 removed ComfyUI image path — the tool names are deliberately identical so the
 image workspaces repoint with a backend swap, not a tool-rename cascade.
 

@@ -5,9 +5,8 @@ LTX-2.5 packs, with an opt-in ``mlx-video`` Wan2.2-TI2V-5B fallback. Runs on
 the host MLX layer (like mflux / mlx-transcribe), NOT in any Docker image.
 
 The tool surface is the shared media async pattern: ``video_start`` submits a
-job and returns its id immediately, ``video_status`` long-polls it (so the
-Pipeline's 20-hop tool loop covers a multi-minute render), and
-``video_models`` lists the roster. Memory: the Tier-1 admission check
+job and returns its id immediately, ``video_status`` polls progress or completion,
+and ``video_models`` lists the roster. Memory: the Tier-1 admission check
 (``admit``) reclaims idle LLM residents through the Pipeline before a load,
 and the per-job subprocess exiting releases Metal memory after one — the
 renderer is never kept resident between jobs.
@@ -493,7 +492,7 @@ async def video_start(
 
 @mcp.tool(meta={"portal5/timeout_s": STATUS_TOOL_TIMEOUT_S})
 async def video_status(job_id: str, wait_s: float = DEFAULT_STATUS_WAIT_S) -> dict[str, Any]:
-    """Long-poll a video job: blocks until done/error (default) or wait_s; done carries download_url."""
+    """Poll a video job for progress or completion; done carries download_url."""
     return await _JOBS.status(job_id, wait_s=wait_s)
 
 

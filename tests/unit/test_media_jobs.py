@@ -10,15 +10,24 @@ from typing import Any
 import pytest
 
 from portal.modules.media.tools import _jobs
-from portal.modules.media.tools._jobs import MediaJobManager
+from portal.modules.media.tools._jobs import MediaJobManager, start_reply
 from portal.platform.inference.router.tool_repeat import is_read_only
 
 
 def test_status_wait_contract_covers_a_whole_job() -> None:
-    # A 30s song measured ~210s live: one bare status call must be able to wait it out.
-    assert _jobs.DEFAULT_STATUS_WAIT_S == _jobs.MAX_STATUS_WAIT_S
+    assert _jobs.DEFAULT_STATUS_WAIT_S <= 30
     assert _jobs.MAX_STATUS_WAIT_S >= 120
     assert _jobs.STATUS_TOOL_TIMEOUT_S > _jobs.MAX_STATUS_WAIT_S
+
+
+def test_media_start_reply_defers_polling_to_a_later_turn() -> None:
+    reply = start_reply("job-123", "music_status", "model=acestep")
+
+    assert reply["job_id"] == "job-123"
+    assert "continues asynchronously" in reply["message"]
+    assert "later turn" in reply["message"]
+    assert "do not poll in this turn" in reply["message"].lower()
+    assert "music_status" in reply["next_action"]
 
 
 @pytest.mark.asyncio
@@ -81,7 +90,7 @@ async def test_running_snapshot_says_to_wait_not_answer() -> None:
     job_id = mgr.start(runner)
     res = await mgr.status(job_id)
     assert res["status"] == "running"
-    assert "again" in res["next_action"] and "done" in res["next_action"]
+    assert "again" in res["next_action"] and "later turn" in res["next_action"]
     gate.set()
     assert (await mgr.status(job_id))["status"] == "done"
 

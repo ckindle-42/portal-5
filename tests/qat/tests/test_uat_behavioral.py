@@ -896,6 +896,45 @@ def test_media_graders_reject_blank_short_and_silent_artifacts(
     assert uat.grade_case(voice, [_turn("Audio generated")], {"wav": [_wav(1.5, False)]})[0]
 
 
+def test_media_job_followups_are_separate_status_turns() -> None:
+    case = uat.UATCase(
+        "video",
+        "video",
+        "auto-audio::video",
+        ("start video",),
+        "video_quality",
+        artifact_kind="mp4",
+    )
+    start = _turn(
+        "Generation started; job 123",
+        spans=[{"name": "tool.completed", "tool": "video_start", "outcome": "ok", "success": True}],
+    )
+    prompt = uat._media_job_followup_prompt(case, [start])
+    assert prompt and "Use video_status" in prompt and "wait_s=20" in prompt
+
+    running = uat.UATTurn(
+        prompt,
+        "MEDIA_JOB_RUNNING: rendering 40%",
+        {
+            "spans": [
+                {"name": "tool.completed", "tool": "video_status", "outcome": "ok", "success": True}
+            ]
+        },
+        ("video_status",),
+        (),
+    )
+    assert uat._media_job_followup_prompt(case, [start, running]) == prompt
+
+    done = uat.UATTurn(
+        prompt,
+        "Video is ready",
+        running.trace,
+        running.tool_names,
+        ("https://owui/files/ocean.mp4",),
+    )
+    assert uat._media_job_followup_prompt(case, [start, done]) is None
+
+
 def test_multiturn_transcript_and_tool_grading() -> None:
     turns = [
         _turn("first", spans=[{"name": "tool.completed", "tool": "remember", "outcome": "ok"}]),

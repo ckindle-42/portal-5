@@ -161,7 +161,10 @@ class TestVideoStartLifecycle:
 
         start = await video_mcp.video_start(prompt="ocean waves at sunset", quality="fast")
         assert start["success"] is True and start["job_id"]
-        assert start["next_action"] == f"call video_status with job_id='{start['job_id']}'"
+        assert (
+            start["next_action"]
+            == f"in a later turn, call video_status with job_id='{start['job_id']}'"
+        )
         assert start["model"] == "ltx-2.5-q4" and start["quality"] == "fast"
 
         done = await video_mcp.video_status(start["job_id"], wait_s=2.0)

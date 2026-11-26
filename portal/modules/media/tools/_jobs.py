@@ -16,8 +16,8 @@ _T = TypeVar("_T")
 
 logger = logging.getLogger(__name__)
 
-# Default == max so one bare status call waits out a whole multi-minute job instead of burning hops.
-DEFAULT_STATUS_WAIT_S = float(os.environ.get("MEDIA_STATUS_WAIT_S", "300.0"))
+# A bare status poll stays short enough to return inside a normal chat turn.
+DEFAULT_STATUS_WAIT_S = float(os.environ.get("MEDIA_STATUS_WAIT_S", "20.0"))
 MAX_STATUS_WAIT_S = float(os.environ.get("MEDIA_STATUS_MAX_WAIT_S", "300.0"))
 STATUS_TOOL_TIMEOUT_S = int(max(90, MAX_STATUS_WAIT_S + 30))
 MAX_JOB_RECORDS = int(os.environ.get("MEDIA_MAX_JOB_RECORDS", "50"))
@@ -194,8 +194,8 @@ class MediaJobManager:
             snapshot["elapsed_s"] = round(max(0.0, float(now) - float(created)), 2)
         if snapshot.get("status") not in _TERMINAL_STATUSES:
             snapshot["next_action"] = (
-                "Still running — call this status tool again with the same job_id and wait; "
-                "answer only when status is 'done' or 'error'."
+                "Still running. Report this progress and poll again in a later turn to retrieve "
+                "the download link."
             )
         return {"job_id": job_id, **snapshot}
 
@@ -206,12 +206,13 @@ def start_reply(job_id: str, status_tool: str, note: str, **extra: Any) -> dict[
         "success": True,
         "job_id": job_id,
         "status": extra.pop("status", "running"),
-        "next_action": f"call {status_tool} with job_id='{job_id}'",
+        "next_action": f"in a later turn, call {status_tool} with job_id='{job_id}'",
         "message": (
-            f"Generation started (job {job_id}; {note}). "
-            f"Call {status_tool}(job_id='{job_id}') and wait — it blocks until the job is done "
-            f"or error (up to {int(DEFAULT_STATUS_WAIT_S)}s). Call again only if still running; "
-            "do not answer before then."
+            f"Generation started (job {job_id}; {note}). The job continues asynchronously. "
+            "Return the job id now. In a later turn, call "
+            f"{status_tool}(job_id='{job_id}', wait_s=20) to check progress or retrieve the "
+            "download link. If still running, report the progress and ask the user to check "
+            "again later. Do not poll in this turn."
         ),
         **extra,
     }

@@ -723,7 +723,7 @@ def _phase_media_heavy(_s: Settings, d: Discovery) -> list[QATScenario]:
             "",
         ),
         "auto-audio::image": (
-            "Generate a PNG of a red lighthouse on a cliff at dusk.",
+            "Use image_start to generate a PNG of a red lighthouse on a cliff at dusk.",
             "png",
             900,
             "",

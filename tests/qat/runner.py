@@ -1485,7 +1485,9 @@ def _run_chat_turns(
     outcome: TurnOutcome | None = None
     all_spans: list[dict[str, object]] = []
     all_calls: list[object] = []
-    for index, prompt in enumerate(scenario.prompts, start=1):
+    turns: list[uat_behavioral.UATTurn] = []
+    prompts = list(scenario.prompts)
+    for index, prompt in enumerate(prompts, start=1):
         files, image_png = _chat_turn_extras(client, token, scenario, index, deadline)
         started_at = time.time()
         response = client.send_turn(
@@ -1571,9 +1573,15 @@ def _run_chat_turns(
             all_spans.extend(span for span in spans if isinstance(span, dict))
         if isinstance(outcome.tool_calls, (list, tuple)):
             all_calls.extend(outcome.tool_calls)
+        turns.append(
+            uat_behavioral.UATTurn(prompt, outcome.text, outcome.trace, (), outcome.artifact_urls)
+        )
         branch.extend(
             ({"role": "user", "content": prompt}, {"role": "assistant", "content": outcome.text})
         )
+        poll_prompt = uat_behavioral._media_job_followup_prompt(scenario, turns)
+        if poll_prompt and time.monotonic() + 25 < deadline:
+            prompts.append(poll_prompt)
     return outcome, None, all_spans, all_calls
 
 

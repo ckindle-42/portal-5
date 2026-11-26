@@ -154,7 +154,10 @@ async def test_image_job_lifecycle_publishes_artifact_under_generated_images(
     monkeypatch.setattr(mflux_mcp, "_generate", fake_generate)
     started = await mflux_mcp.image_start(prompt="a red circle", width=512, height=512)
     assert started["success"] is True and started["job_id"]
-    assert started["next_action"] == f"call image_status with job_id='{started['job_id']}'"
+    assert (
+        started["next_action"]
+        == f"in a later turn, call image_status with job_id='{started['job_id']}'"
+    )
     done = await mflux_mcp.image_status(started["job_id"], wait_s=2.0)
     assert done["status"] == "done"
     assert Path(done["artifact_path"]).is_relative_to(tmp_path / "generated" / "images")

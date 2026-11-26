@@ -27,7 +27,7 @@ The Video-MLX MCP (`portal/modules/media/tools/video_mlx_mcp.py`, port 8935)
 is a headless host-MLX wrapper over the `ltx-2-mlx` CLI — a pure-MLX LTX-2.5
 port for Apple Silicon — with an opt-in `mlx-video` Wan2.2-TI2V-5B fallback.
 It exposes the async job contract: `video_start` (text- or image-to-video,
-returns a job id), `video_status` (server-side long-poll), and `video_models`
+returns a job id), `video_status` (progress or completion polling across chat turns), and `video_models`
 (the roster), installed by `./launch.sh install-video-mlx` and launched by
 `start-video-mlx`.
 

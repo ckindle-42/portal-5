@@ -228,13 +228,13 @@ def _media_side_effect_candidates(text: str) -> list[tuple[str, bool]]:
     return [
         ("clone_voice", clone),
         (
-            "generate_music",
+            "music_start",
             not clone
             and (create or re.search(r"\bcompose\b", text) is not None)
             and _MUSIC_NOUN_RE.search(text) is not None,
         ),
         (
-            "generate_video",
+            "video_start",
             (create or re.search(r"\brender\b", text) is not None)
             and _VIDEO_NOUN_RE.search(text) is not None,
         ),
