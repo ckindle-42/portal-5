@@ -75,6 +75,44 @@ class TestSandboxMCPTools:
 
         assert "execute_bash" in mcp._tool_manager._tools
 
+    @pytest.mark.asyncio
+    async def test_execute_bash_accepts_manifest_command_and_code(self, monkeypatch):
+        """Native MCP callers follow TOOLS_MANIFEST (`command`); internal callers may pass `code`."""
+        import json
+        from types import SimpleNamespace
+
+        sys.path.insert(0, ".")
+        from portal.modules.coding.tools import code_sandbox_mcp as sandbox_mcp
+
+        listed = {t.name: t for t in await sandbox_mcp.mcp.list_tools()}
+        assert "command" in listed["execute_bash"].input_schema.get("properties", {})
+
+        seen: list[str] = []
+        monkeypatch.setattr(sandbox_mcp, "_executor_unavailable", lambda _lab_exec: None)
+
+        async def _fake_docker(*, code: str, **_kwargs):
+            seen.append(code)
+            return {
+                "success": True,
+                "stdout": code,
+                "stderr": "",
+                "exit_code": 0,
+                "timed_out": False,
+                "artifacts": [],
+            }
+
+        monkeypatch.setattr(sandbox_mcp, "_run_in_docker", _fake_docker)
+        ctx = SimpleNamespace(request_context=None)
+
+        await sandbox_mcp.mcp.call_tool("execute_bash", {"command": "echo via_command"}, ctx)
+        await sandbox_mcp.mcp.call_tool("execute_bash", {"code": "echo via_code"}, ctx)
+        assert seen == ["echo via_command", "echo via_code"]
+
+        empty_res = await sandbox_mcp.mcp.call_tool("execute_bash", {}, ctx)
+        payload = json.loads(empty_res.content[0].text)
+        assert payload["success"] is False
+        assert payload["error_type"] == "invalid_arguments"
+
 
 class TestAllMCPServerToolAlignment:
     """Verify TOOLS_MANIFEST and @mcp.tool() registered names are in sync for all servers.

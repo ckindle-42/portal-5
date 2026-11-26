@@ -2,6 +2,7 @@
   {
     "description": "Execute Python code in an isolated Docker container. Optional session_id persists /session files and packages. Save generated files (including matplotlib figures) under /out to return downloadable links in artifacts. To run an existing file, call runpy.run_path(path) or exec(open(path).read()); /workspace is readable.",
     "name": "execute_python",
+    "timeout_s": 600,
     "parameters": {
       "properties": {
         "code": {
@@ -32,6 +33,7 @@
   {
     "description": "Execute Node.js code in an isolated Docker container. Optional session_id persists /session files and packages. Files written to /out are returned as downloadable links in artifacts.",
     "name": "execute_nodejs",
+    "timeout_s": 300,
     "parameters": {
       "properties": {
         "code": {
@@ -62,6 +64,7 @@
   {
     "description": "Execute Bash commands in an isolated Docker container. Optional session_id persists files under /session. Files written to /out are returned as downloadable links in artifacts.",
     "name": "execute_bash",
+    "timeout_s": 600,
     "parameters": {
       "properties": {
         "command": {
@@ -101,6 +104,7 @@
   {
     "description": "Execute a PowerShell script in an isolated Docker container (pwsh on Alpine)",
     "name": "execute_powershell",
+    "timeout_s": 300,
     "parameters": {
       "properties": {
         "code": {

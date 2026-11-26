@@ -153,3 +153,16 @@ def test_media_mcps_declare_timeout_meta_for_long_tools() -> None:
             assert name in tools, f"{mod.__name__} missing {name}"
             meta = tools[name].meta or {}
             assert meta.get("portal5/timeout_s", 0) > 60, (mod.__name__, name, meta)
+
+
+def test_sandbox_mcp_declares_timeout_meta_above_default() -> None:
+    import portal.modules.coding.tools.code_sandbox_mcp as sandbox_mcp
+
+    tools = {t.name: t for t in asyncio.run(sandbox_mcp.mcp.list_tools())}
+    for name in ("execute_python", "execute_nodejs", "execute_bash", "execute_powershell"):
+        assert name in tools
+        meta = tools[name].meta or {}
+        assert meta.get("portal5/timeout_s", 0) > tool_registry.TOOL_DISPATCH_TIMEOUT_S, (
+            name,
+            meta,
+        )

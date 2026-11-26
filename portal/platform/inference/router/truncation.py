@@ -27,7 +27,7 @@ from typing import Any
 from portal.platform.inference.router import trace
 from portal.platform.inference.router.metrics import _errors_total
 
-_CTX_RE = re.compile(r"-ctx(\d+)k$", re.IGNORECASE)
+_CTX_RE = re.compile(r"-ctx(\d+)k(?:-|$)", re.IGNORECASE)
 #: Estimated tokens must exceed the window by this factor before a flag is raised.
 _MARGIN = 1.25
 
