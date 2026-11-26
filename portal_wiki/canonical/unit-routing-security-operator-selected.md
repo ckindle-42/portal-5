@@ -51,8 +51,10 @@ declined.
 
 So `detect_router_handoff` runs ahead of Layer 1, mirroring
 `detect_harmful_intent`, and sends the request to the workspace's
-`router_fallback` lane (`auto-daily`), appending the workspace's
-`router_handoff_note` so the lane declines and names the workspace to select.
+`router_fallback` lane (`auto-daily`). The pipeline prepends a short
+user-visible notice on both the stream and the JSON reply, naming the
+workspace id and its Open WebUI display name. `router_handoff_note` still
+asks the lane to decline; the redirect does not depend on the model saying it.
 
 ## The detector is the lane's own vocabulary
 

@@ -49,7 +49,7 @@ _load_persona_map()
 #   router                     False -> the `auto` router never selects this workspace;
 #                              it stays user-selectable and callable by id.
 #   router_fallback            Lane an auto-routed request for this workspace is handed to.
-#   router_handoff_note        One system line appended on that hand-off.
+#   router_handoff_note        Model instruction on that hand-off. The user sees a pipeline notice.
 #   tools                      Default tool-name whitelist (overridable per-persona).
 #   predict_limit              Max output tokens (Ollama: num_predict).
 #   context_limit              Max context window for this workspace.

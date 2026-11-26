@@ -13,12 +13,14 @@ import hashlib
 import logging
 import os
 import re
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any
 
 from portal.platform.inference.router.metrics import _alias_hits_total, _router_layer_total
 from portal.platform.inference.router.routing import (
     _HARMFUL_INTENT_LANE,
+    _ROUTER_FALLBACK,
     _detect_workspace,
     _route_with_llm,
     auto_routing_matches,
@@ -32,6 +34,9 @@ from portal.platform.inference.router.workspaces import _PERSONA_MAP, WORKSPACES
 logger = logging.getLogger(__name__)
 _DEPRECATED_ALIAS_LOGGED: set[str] = set()
 _AUTO_DEFAULT_LANE: str = os.environ.get("AUTO_DEFAULT_LANE", "auto-daily")
+# User-visible redirect for this turn. The system note is not the redirect:
+# a fallback model can ignore it, and the reply must still name the workspace.
+_handoff_notice: ContextVar[str] = ContextVar("portal_handoff_notice", default="")
 
 
 def _note_auto_route(
@@ -231,16 +236,31 @@ def _resolve_model_override(workspace_id: str, model_param: str | None) -> str:
     return synthetic_id
 
 
+def handoff_user_notice(lane: str) -> str:
+    """One friendly line per workspace that hands off to `lane`, or empty."""
+    sentences = []
+    for ws_id, fallback in sorted(_ROUTER_FALLBACK.items()):
+        if fallback != lane:
+            continue
+        display = str(WORKSPACES.get(ws_id, {}).get("name") or ws_id).strip() or ws_id
+        sentences.append(
+            f"Please select {display} ({ws_id}) from the workspace list and send this there."
+        )
+    if not sentences:
+        return ""
+    return "\n".join(sentences) + "\n\n"
+
+
+def take_handoff_notice() -> str:
+    """The hand-off redirect for this turn, once. Empty when the gate did not fire."""
+    text = _handoff_notice.get()
+    if text:
+        _handoff_notice.set("")
+    return text
+
+
 def _append_handoff_note(messages: list[dict[str, Any]], lane: str) -> None:
-    """Append the hand-off note of every workspace that hands off to `lane`.
-
-    Mutates the caller's ``messages`` list (it is ``body["messages"]``, the same
-    object ``_resolve_vision_fallback`` edits through ``body``) so the fallback
-    lane can tell the user what to select instead of silently doing the work.
-    No pipeline state is involved — the note lives only in this request.
-    """
-    from portal.platform.inference.router.routing import _ROUTER_FALLBACK
-
+    """Append the lane's model instruction and arm the user-visible redirect."""
     notes = [
         note
         for ws_id, fallback in sorted(_ROUTER_FALLBACK.items())
@@ -248,6 +268,7 @@ def _append_handoff_note(messages: list[dict[str, Any]], lane: str) -> None:
     ]
     if notes:
         messages.append({"role": "system", "content": " ".join(notes)})
+    _handoff_notice.set(handoff_user_notice(lane))
 
 
 async def _resolve_auto_routing(

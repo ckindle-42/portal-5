@@ -2,9 +2,24 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
+from fastapi.responses import JSONResponse
 
 from portal.platform.inference.router import preinject
+from portal.platform.inference.router.handlers import (
+    _response_with_handoff_notice,
+    _with_portal_timings,
+)
+from portal.platform.inference.router.trace import start_timings
+from tests.qat import uat_behavioral as uat
+from tests.qat.config import discover
+
+
+def _sse_content(frame: bytes) -> str:
+    payload = json.loads(frame.decode().removeprefix("data: ").strip())
+    return str(payload["choices"][0]["delta"]["content"])
 
 
 @pytest.mark.asyncio
@@ -20,12 +35,132 @@ async def test_tls_firewall_routes_to_daily_with_security_handoff_note() -> None
         }
     ]
 
-    assert await preinject._resolve_auto_routing("auto", messages) == "auto-daily"
-    assert any(
-        message.get("role") == "system"
-        and "Do not answer the security request" in message.get("content", "")
-        and "auto-security" in message.get("content", "")
-        for message in messages
+    try:
+        assert await preinject._resolve_auto_routing("auto", messages) == "auto-daily"
+        assert any(
+            message.get("role") == "system"
+            and "Do not answer the security request" in message.get("content", "")
+            and "auto-security" in message.get("content", "")
+            for message in messages
+        )
+        notice = preinject.take_handoff_notice()
+        assert notice.startswith("Please select ")
+        assert "auto-security" in notice
+        assert "Portal Security Analyst" in notice
+    finally:
+        preinject.take_handoff_notice()
+
+
+def test_handoff_notice_names_the_operator_selected_workspace() -> None:
+    notice = preinject.handoff_user_notice("auto-daily")
+    assert notice == (
+        "Please select 🔒 Portal Security Analyst (auto-security) "
+        "from the workspace list and send this there.\n\n"
+    )
+    assert preinject.handoff_user_notice("auto-coding") == ""
+
+
+def test_pipeline_notice_satisfies_security_handoff_grader_without_model_compliance() -> None:
+    case = next(
+        item
+        for item in uat.discover_cases(discover())
+        if item.scenario_id == "s5-route-tls-firewall"
+    )
+    notice = preinject.handoff_user_notice("auto-daily")
+    model = "Network, certificate, and application causes are all possible."
+    guided = [
+        uat.UATTurn(case.prompts[0], f"{notice}{model}", {"workspace": "auto-daily"}, (), ()),
+        uat.UATTurn(
+            case.prompts[1],
+            "Compare SNI with the firewall rule.",
+            {"workspace": "auto-daily"},
+            (),
+            (),
+        ),
+    ]
+    assert uat.grade_case(case, guided, {})[0] == []
+    unguided = [
+        uat.UATTurn(case.prompts[0], model, {"workspace": "auto-daily"}, (), ()),
+        guided[1],
+    ]
+    assert any("select auto-security" in error for error in uat.grade_case(case, unguided, {})[0])
+
+
+@pytest.mark.asyncio
+async def test_stream_prepends_handoff_notice_before_model_text() -> None:
+    preinject._handoff_notice.set(preinject.handoff_user_notice("auto-daily"))
+    start_timings()
+
+    async def source():
+        yield b'data: {"choices":[{"delta":{"content":"Causes follow."}}]}\n\n'
+        yield b"data: [DONE]\n\n"
+
+    try:
+        frames = [frame async for frame in _with_portal_timings(source())]
+    finally:
+        preinject.take_handoff_notice()
+
+    notice = _sse_content(frames[0])
+    assert notice.startswith("Please select ")
+    assert "auto-security" in notice
+    assert "Portal Security Analyst" in notice
+    assert _sse_content(frames[1]) == "Causes follow."
+    assert frames[-1] == b"data: [DONE]\n\n"
+
+    async def again():
+        yield b'data: {"choices":[{"delta":{"content":"Causes follow."}}]}\n\n'
+        yield b"data: [DONE]\n\n"
+
+    second = [frame async for frame in _with_portal_timings(again())]
+    assert _sse_content(second[0]) == "Causes follow."
+
+
+def test_non_stream_prepends_handoff_notice_before_model_text() -> None:
+    preinject._handoff_notice.set(preinject.handoff_user_notice("auto-daily"))
+    response = JSONResponse(
+        content={
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Causes follow."}],
+                    }
+                }
+            ]
+        },
+        headers={"x-portal-route": "auto-daily;ollama;nemotron"},
+    )
+    try:
+        out = _response_with_handoff_notice(response)
+    finally:
+        preinject.take_handoff_notice()
+
+    body = json.loads(out.body)
+    content = body["choices"][0]["message"]["content"]
+    assert content[0]["text"].startswith("Please select ")
+    assert "auto-security" in content[0]["text"]
+    assert "Portal Security Analyst" in content[0]["text"]
+    assert content[1] == {"type": "text", "text": "Causes follow."}
+    assert out.headers["x-portal-route"] == "auto-daily;ollama;nemotron"
+
+    string_response = JSONResponse(
+        content={"choices": [{"message": {"role": "assistant", "content": "Causes follow."}}]}
+    )
+    preinject._handoff_notice.set(preinject.handoff_user_notice("auto-daily"))
+    try:
+        string_out = _response_with_handoff_notice(string_response)
+    finally:
+        preinject.take_handoff_notice()
+    text = json.loads(string_out.body)["choices"][0]["message"]["content"]
+    assert text.startswith("Please select ")
+    assert text.endswith("Causes follow.")
+    assert "auto-security" in text
+    assert "Portal Security Analyst" in text
+    assert (
+        json.loads(_response_with_handoff_notice(string_out).body)["choices"][0]["message"][
+            "content"
+        ]
+        == text
     )
 
 

@@ -89,6 +89,7 @@ from portal.platform.inference.router.preinject import (
     _role_variant_for_workspace,
     _selected_variant_name,
     _unpack_synthetic_workspace,
+    take_handoff_notice,
 )
 from portal.platform.inference.router.state import (
     _record_daily_request,
@@ -99,6 +100,7 @@ from portal.platform.inference.router.state import (
 )
 from portal.platform.inference.router.streaming import (
     _build_streaming_request,
+    _content_chunk,
     _prioritize_hinted_backend,  # noqa: F401  (re-exported: tests import it from handlers)
     _select_stream_fn,
     _select_streaming_backend,
@@ -152,6 +154,63 @@ _mp_registry_cache: Any = None
 _mp_registry_dir_cache: str | None = None
 
 
+def _prepend_notice_message(message: dict[str, Any], notice: str) -> None:
+    content = message.get("content")
+    if isinstance(content, str):
+        message["content"] = f"{notice}{content}"
+        return
+    if isinstance(content, list):
+        message["content"] = [{"type": "text", "text": notice}, *content]
+        return
+    message["content"] = notice.rstrip("\n")
+
+
+def _prepend_notice_choices(data: dict[str, Any], notice: str) -> None:
+    choices = data.get("choices")
+    if not isinstance(choices, list):
+        return
+    for choice in choices:
+        if isinstance(choice, dict) and isinstance(choice.get("message"), dict):
+            _prepend_notice_message(choice["message"], notice)
+
+
+def _json_with_handoff_notice(response: JSONResponse, notice: str) -> JSONResponse:
+    try:
+        data = json.loads(bytes(response.body))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return response
+    if isinstance(data, dict):
+        _prepend_notice_choices(data, notice)
+    headers = {
+        key: value
+        for key, value in response.headers.items()
+        if key.lower() not in {"content-length", "content-type"}
+    }
+    return JSONResponse(content=data, status_code=response.status_code, headers=headers)
+
+
+async def _prefix_handoff_stream(
+    source: AsyncIterable[str | bytes | memoryview], notice: str
+) -> AsyncIterator[bytes]:
+    if notice:
+        yield _content_chunk("chatcmpl-handoff", "auto", notice)
+    async for chunk in source:
+        yield chunk.encode() if isinstance(chunk, str) else bytes(chunk)
+
+
+def _response_with_handoff_notice(response: Any) -> Any:
+    """Prepend this turn's hand-off redirect to a JSON or SSE chat response."""
+    notice = take_handoff_notice()
+    if not notice:
+        return response
+    if isinstance(response, JSONResponse):
+        return _json_with_handoff_notice(response, notice)
+    if isinstance(response, StreamingResponse):
+        response.body_iterator = _prefix_handoff_stream(response.body_iterator, notice)
+        return response
+    return response
+
+
 async def _with_portal_timings(
     source: AsyncIterable[str | bytes | memoryview],
     *,
@@ -161,6 +220,9 @@ async def _with_portal_timings(
     timing frame immediately before the SSE terminator."""
     done = False
     usage_seen = False
+    notice = take_handoff_notice()
+    if notice:
+        yield _content_chunk("chatcmpl-handoff", "auto", notice)
 
     def _closing_frames() -> Iterator[bytes]:
         if usage_wanted and not usage_seen:
@@ -1294,9 +1356,11 @@ async def chat_completions(
                     workspace_id, body, stream, persona, slot, start_time
                 )
                 if council_resp is not None:
-                    return council_resp
-                return await _dispatch_non_streaming(
-                    candidates, body, workspace_id, persona, stream, start_time
+                    return _response_with_handoff_notice(council_resp)
+                return _response_with_handoff_notice(
+                    await _dispatch_non_streaming(
+                        candidates, body, workspace_id, persona, stream, start_time
+                    )
                 )
 
             return await cancel_on_disconnect(request, _non_streaming(), "chat_completions")

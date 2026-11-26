@@ -648,7 +648,8 @@ def _merge_keywords(*sources: dict[str, int]) -> dict[str, int]:
 # Hand-off detector for `router: false` workspaces. Deliberately NOT a routing
 # entry: the global router has no path to these workspaces at all. This only
 # recognises the work well enough to hand the request to the workspace's
-# `router_fallback` lane, which declines and names the workspace to select.
+# `router_fallback` lane. The pipeline names that workspace in the reply;
+# `router_handoff_note` only asks the lane to decline the work.
 #
 # For auto-security the detector is the union of the security lane's OWN
 # vocabulary — the discipline keywords plus every role/variant signal set
