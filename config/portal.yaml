@@ -1693,10 +1693,7 @@ workspaces:
         expose_to_owui: true
 
         enable_web_search: false
-        # Observed narrating an intent to search BigFix syntax knowledge and
-        # then stopping without completing the search (finish_reason=stop,
-        # zero tool_calls emitted) — force the model to actually follow through.
-        tool_choice: required
+        # Keep tools optional so general questions do not start a tool loop.
         predict_limit: null
         system_prompt_append: null
         owui_system_prompt: null

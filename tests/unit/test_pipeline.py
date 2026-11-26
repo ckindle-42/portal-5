@@ -790,7 +790,7 @@ class TestDispatchToolCall:
 
 
 class TestExplicitRequiredToolSelection:
-    """Explicit side-effect requests narrow multi-tool payloads deterministically."""
+    """Explicit tool intents narrow multi-tool payloads deterministically."""
 
     @pytest.mark.parametrize(
         ("prompt", "expected"),
@@ -867,6 +867,35 @@ class TestExplicitRequiredToolSelection:
             _select_explicit_required_tool(
                 [{"role": "user", "content": "Run this bash command: printf ok"}],
                 {"execute_python"},
+            )
+            is None
+        )
+
+    @pytest.mark.parametrize(
+        "prompt",
+        [
+            "Search BigFix syntax documentation for the correct Relevance property.",
+            "Search BigFix syntax documentation and summarize the correct Relevance property.",
+        ],
+    )
+    def test_selects_web_search_for_an_explicit_syntax_lookup(self, prompt):
+        from portal.platform.inference.router_pipe import _select_explicit_required_tool
+
+        assert (
+            _select_explicit_required_tool(
+                [{"role": "user", "content": prompt}], {"execute_python", "web_search"}
+            )
+            == "web_search"
+        )
+
+    def test_routing_identity_probe_does_not_select_a_tool(self):
+        from portal.platform.inference.router_pipe import _select_explicit_required_tool
+
+        prompt = "In one sentence, state which specialist you are and what you handle."
+        assert (
+            _select_explicit_required_tool(
+                [{"role": "user", "content": prompt}],
+                {"execute_python", "execute_bash", "web_search"},
             )
             is None
         )
