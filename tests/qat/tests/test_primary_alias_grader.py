@@ -188,10 +188,8 @@ class TestEngineInversion:
 
 
 class TestRecoveredFallbackSpans:
-    """The pipeline emits backend.failed AND backend.attempt for the same failed
-    candidate (non_streaming._run_request then the ladder), so the discovery
-    filter must cover both names: a recovered fallback grades PASS whichever
-    redundant span the pipeline emitted."""
+    """A non-serving backend.attempt followed by the primary serving is a pass.
+    A backend.failed span is not discovery: the row stays infra, not clean."""
 
     def _hint_and_natives(self) -> tuple[str, list[str]]:
         hint = TestEngineInversion()._hint()
@@ -203,7 +201,7 @@ class TestRecoveredFallbackSpans:
         assert natives, hint
         return hint, natives
 
-    def test_non_streaming_recovered_fallback_backend_failed_passes(self) -> None:
+    def test_non_streaming_backend_failed_on_a_non_serving_backend_is_not_clean(self) -> None:
         hint, natives = self._hint_and_natives()
         trace = {
             "workspace": "auto-spl",
@@ -222,16 +220,14 @@ class TestRecoveredFallbackSpans:
                 {"name": "backend.selected", "backend": "ollama-general", "model": hint},
             ],
         }
-        assert (
-            runner._primary_model_failure(_scenario("s2-auto-spl", 2, "auto-spl"), trace, hint)
-            is None
-        )
+        result = runner._primary_model_failure(_scenario("s2-auto-spl", 2, "auto-spl"), trace, hint)
+        assert result is not None and result.status is Status.FAIL
+        assert result.defect_class is DefectClass.INFRA_ENV_GAP
+        assert "not clean" in result.detail
 
-    def test_streaming_recovered_fallback_serve_passes(self) -> None:
-        """The x-portal-route fallback shape: backend.failed on the failed
-        candidates plus backend.selected(fallback=True) on the serving backend
-        (streaming.py _record_fallback_route). The redundant backend.failed
-        spans must not turn the recovered serve into an infra FAIL."""
+    def test_streaming_backend_failed_on_a_non_serving_backend_is_not_clean(self) -> None:
+        """backend.failed on the candidates that did not serve is still a failed
+        attempt: the primary may have been served, and the row is infra."""
         hint, natives = self._hint_and_natives()
         serving = "ollama-general"
         trace = {
@@ -248,7 +244,9 @@ class TestRecoveredFallbackSpans:
             ],
         }
         result = runner._primary_model_failure(_scenario("s2-auto-spl", 2, "auto-spl"), trace, hint)
-        assert result is None
+        assert result is not None and result.status is Status.FAIL
+        assert result.defect_class is DefectClass.INFRA_ENV_GAP
+        assert "not clean" in result.detail
 
     def test_backend_failed_on_the_serving_backend_still_fails_infra(self) -> None:
         trace = {

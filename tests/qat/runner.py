@@ -8,8 +8,11 @@ infra and adversarial scenarios through the OWUI client.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -20,7 +23,7 @@ import httpx
 
 from portal.platform.inference.cluster_backends import Backend, BackendRegistry
 
-from . import artifacts, gate, hardening, preflight, uat_behavioral
+from . import artifacts, gate, hardening, preflight, report, uat_behavioral
 from . import scenarios as scn
 from .browser_ui import BrowserUI, PlaywrightUnavailable
 from .config import Discovery, Settings, discover, primary_model_for
@@ -76,15 +79,12 @@ def _output_hygiene_result(
     )
 
 
-_DISCOVERY_SPAN_NAMES = frozenset({"backend.attempt", "backend.failed"})
+_DISCOVERY_SPAN_NAMES = frozenset({"backend.attempt"})
 
 
 def _discovery_attempt(span: dict[str, object], serving_backend: str) -> bool:
-    # A failed probe of a backend that did not serve is candidate discovery, not
-    # fallback. The pipeline emits BOTH backend.failed (non_streaming._run_request)
-    # and backend.attempt (the ladder) spans for the same failed candidate, so the
-    # discovery filter must cover both names or the same live event grades
-    # differently depending on which redundant span survived.
+    # A non-serving backend.attempt is candidate discovery. backend.failed is not:
+    # a failed or retried attempt on the backend that served stays infra.
     return (
         str(span.get("name") or "").casefold() in _DISCOVERY_SPAN_NAMES
         and str(span.get("backend") or "") != serving_backend
@@ -101,7 +101,16 @@ def _safety_guard_refusal(trace: dict[str, object]) -> bool:
     )
 
 
-_TRACE_EXPECTED_STAGES = frozenset({2, 4, 5})
+# Stage 3 OWUI and pipeline chats must name the served model. Adversarial rows
+# stay exempt in _unverified_model_failure (a guard refusal has no model).
+_TRACE_EXPECTED_STAGES = frozenset({2, 3, 4, 5})
+SLOW_SEAT_WARN_S = 180.0
+_INFRA_HTTP = frozenset({401, 404, 429})
+_MITRE_ID = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
+_SOURCETYPE = re.compile(r"sourcetype=(\S+)", re.IGNORECASE)
+_SPL_TEXT = re.compile(r"(?i)(\bindex\s*=|\bsourcetype\s*=|\|\s*\w+)")
+_SEVERITY = re.compile(r"\b(critical|high|medium|low|informational)\b", re.IGNORECASE)
+_TOOL_BODY_KEYS = ("output", "result", "body", "content", "response", "text", "preview", "message")
 _INFRA_OUTCOMES = frozenset({"backend.failed", "error"})
 _BACKEND_DOWN_OUTCOMES = frozenset({"fail", "failed", "error"})
 _REGISTRY: BackendRegistry | None = None
@@ -264,7 +273,7 @@ def _fallback_reason(
 def _unverified_model_failure(
     scenario: QATScenario, trace: dict[str, object], served_model: str, chat_id: str = ""
 ) -> QATResult | None:
-    """Stage 2/4/5 chats must name the model that served; an empty trace is a miss."""
+    """Stages 2–5 must name the model that served. Adversarial rows are exempt."""
     if "adversarial" in scenario.tags or scenario.stage not in _TRACE_EXPECTED_STAGES:
         return None
     if trace and str(trace.get("model") or ""):
@@ -467,8 +476,15 @@ def run_selected(settings: Settings, opts: RunnerOptions) -> RunState:
         print_plan(discovery, selected)
         return state
     run_dir.mkdir(parents=True, exist_ok=True)
-    previous, resume_meta = _load_previous(opts)
-    state.provenance = run_provenance(settings.repo_root, opts, len(previous), resume_meta)
+    fingerprint = config_fingerprint(settings.repo_root)
+    refused: list[dict[str, str]] = []
+    previous, resume_meta = _load_previous(opts, lineage=fingerprint, refused=refused)
+    for item in refused:
+        print(
+            f"--rerun-failed refused to keep {item['scenario_id']}: {item['reason']}",
+            file=sys.stderr,
+        )
+    state.provenance = run_provenance(settings.repo_root, opts, len(previous), resume_meta, refused)
     (run_dir / "run_meta.json").write_text(
         json.dumps(state.provenance, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -480,6 +496,22 @@ def run_selected(settings: Settings, opts: RunnerOptions) -> RunState:
         return state
     _execute(settings, selected, state, opts, previous)
     return state
+
+
+def _sha256_file(path: Path) -> str:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def config_fingerprint(repo_root: Path) -> tuple[str, str, str]:
+    """git sha, portal.yaml sha256, backends.yaml sha256 for this checkout."""
+    return (
+        _git_sha(repo_root),
+        _sha256_file(repo_root / "config" / "portal.yaml"),
+        _sha256_file(repo_root / "config" / "backends.yaml"),
+    )
 
 
 def _git_sha(repo_root: Path) -> str:
@@ -496,19 +528,84 @@ def _git_sha(repo_root: Path) -> str:
     return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
+def _resume_chain(opts: RunnerOptions) -> list[str]:
+    """Prior runs this process continues, oldest first, each `dir@sha`."""
+    if opts.resume_dir is None:
+        return []
+    meta: dict[str, object] = {}
+    path = opts.resume_dir / "run_meta.json"
+    if path.is_file():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            meta = loaded if isinstance(loaded, dict) else {}
+        except ValueError:
+            meta = {}
+    prior = meta.get("resume_chain") or []
+    chain = [str(item) for item in prior] if isinstance(prior, list) else []
+    sha = str(meta.get("git_sha") or "unknown")
+    chain.append(f"{opts.resume_dir}@{sha}")
+    return chain
+
+
 def run_provenance(
-    repo_root: Path, opts: RunnerOptions, stitched_rows: int, resume_sha: str
+    repo_root: Path,
+    opts: RunnerOptions,
+    stitched_rows: int,
+    resume_sha: str,
+    refused: list[dict[str, str]] | None = None,
 ) -> dict[str, object]:
-    """Identity of this run: code state and resume lineage, so a stitched
-    report cannot mix SHAs silently."""
+    """Identity of this run: code, config hashes, and the resume chain."""
+    git_sha, portal_sha, backends_sha = config_fingerprint(repo_root)
     return {
         "created_at": datetime.now(tz=UTC).isoformat(timespec="seconds"),
-        "git_sha": _git_sha(repo_root),
+        "git_sha": git_sha,
+        "portal_sha256": portal_sha,
+        "backends_sha256": backends_sha,
+        "resume_chain": _resume_chain(opts),
         "resume_dir": str(opts.resume_dir) if opts.resume_dir else "",
         "resume_mode": opts.resume_mode,
         "stitched_rows": stitched_rows,
         "resume_sha": resume_sha,
+        "refused_keeps": list(refused or []),
     }
+
+
+def _stamp_lineage(result: QATResult, provenance: dict[str, object]) -> None:
+    chain = provenance.get("resume_chain") or []
+    result.evidence = {
+        **result.evidence,
+        "lineage": {
+            "git_sha": str(provenance.get("git_sha") or ""),
+            "portal_sha256": str(provenance.get("portal_sha256") or ""),
+            "backends_sha256": str(provenance.get("backends_sha256") or ""),
+            "resume_chain": [str(item) for item in chain] if isinstance(chain, list) else [],
+        },
+    }
+
+
+def _row_lineage(row: QATResult) -> tuple[str, str, str]:
+    raw = row.evidence.get("lineage")
+    lineage = raw if isinstance(raw, dict) else {}
+    top = (
+        str(lineage.get("git_sha") or ""),
+        str(lineage.get("portal_sha256") or ""),
+        str(lineage.get("backends_sha256") or ""),
+    )
+    return top
+
+
+def _lineage_mismatch(row: QATResult, current: tuple[str, str, str]) -> str:
+    """Why a kept row is not this run's configuration. Empty string means it is."""
+    got = _row_lineage(row)
+    if got == current and all(got):
+        return ""
+    labels = ("git sha", "portal.yaml sha256", "backends.yaml sha256")
+    parts = [
+        f"{label} {old or 'absent'} != {new or 'absent'}"
+        for label, old, new in zip(labels, got, current, strict=True)
+        if old != new
+    ]
+    return "; ".join(parts) or "lineage absent"
 
 
 def _rerun_target(row: QATResult) -> bool:
@@ -518,39 +615,100 @@ def _rerun_target(row: QATResult) -> bool:
     return row.status is Status.SKIP and row.detail.startswith("requirement not met:")
 
 
-def _load_previous(opts: RunnerOptions) -> tuple[dict[str, QATResult], str]:
+def _absorb_lineage(row: QATResult, raw: dict[str, object]) -> None:
+    """Top-level jsonl lineage wins when evidence has none (rewritten reports)."""
+    if isinstance(row.evidence.get("lineage"), dict):
+        return
+    if not any(raw.get(key) for key in ("git_sha", "portal_sha256", "backends_sha256")):
+        return
+    chain = raw.get("resume_chain") or []
+    row.evidence = {
+        **row.evidence,
+        "lineage": {
+            "git_sha": str(raw.get("git_sha") or ""),
+            "portal_sha256": str(raw.get("portal_sha256") or ""),
+            "backends_sha256": str(raw.get("backends_sha256") or ""),
+            "resume_chain": [str(item) for item in chain] if isinstance(chain, list) else [],
+        },
+    }
+
+
+def _resume_disposition(
+    opts: RunnerOptions, row: QATResult, lineage: tuple[str, str, str] | None
+) -> str:
+    """keep, drop (re-run), or refuse (configuration does not match this run)."""
+    if opts.resume_mode == "rerun-failed" and _rerun_target(row):
+        return "drop"
+    if (
+        opts.resume_mode == "rerun-failed"
+        and lineage is not None
+        and _lineage_mismatch(row, lineage)
+    ):
+        return "refuse"
+    return "keep"
+
+
+def _rows_from_jsonl(
+    path: Path,
+    opts: RunnerOptions,
+    lineage: tuple[str, str, str] | None,
+    refused: list[dict[str, str]] | None,
+) -> dict[str, QATResult]:
+    rows: dict[str, QATResult] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            raw = json.loads(line)
+            row = QATResult.from_dict(raw if isinstance(raw, dict) else {})
+        except ValueError:
+            continue
+        if isinstance(raw, dict):
+            _absorb_lineage(row, raw)
+        disposition = _resume_disposition(opts, row, lineage)
+        if disposition == "keep":
+            rows[row.scenario_id] = row
+            continue
+        rows.pop(row.scenario_id, None)
+        if disposition == "refuse" and refused is not None:
+            reason = _lineage_mismatch(row, lineage or ("", "", ""))
+            refused.append({"scenario_id": row.scenario_id, "reason": reason})
+    if refused is not None:
+        kept = set(rows)
+        refused[:] = [item for item in refused if item["scenario_id"] not in kept]
+    return rows
+
+
+def _load_previous(
+    opts: RunnerOptions,
+    lineage: tuple[str, str, str] | None = None,
+    refused: list[dict[str, str]] | None = None,
+) -> tuple[dict[str, QATResult], str]:
     """--append keeps all rows; --rerun-failed keeps only non-failed rows.
 
     Second return: the resumed run's recorded git sha, "" when its run dir
-    predates provenance records.
+    predates provenance records. A kept row whose sha or config hashes differ
+    from `lineage` is refused (not kept) and named in `refused`.
     """
     if opts.resume_dir is None or not opts.resume_mode:
         return {}, ""
     path = opts.resume_dir / "results.jsonl"
     if not path.is_file():
         raise FileNotFoundError(f"no results.jsonl under {opts.resume_dir}")
-    rows: dict[str, QATResult] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        try:
-            row = QATResult.from_dict(json.loads(line))
-        except ValueError:
-            continue
-        if opts.resume_mode == "append":
-            rows[row.scenario_id] = row
-        elif _rerun_target(row):
-            rows.pop(row.scenario_id, None)
-        else:
-            rows[row.scenario_id] = row
-    resume_sha = ""
-    meta_path = opts.resume_dir / "run_meta.json"
-    if meta_path.is_file():
-        try:
-            resume_sha = str(json.loads(meta_path.read_text(encoding="utf-8")).get("git_sha") or "")
-        except ValueError:
-            resume_sha = ""
-    return rows, resume_sha
+    return _rows_from_jsonl(path, opts, lineage, refused), _resume_sha(opts.resume_dir)
+
+
+def _resume_sha(resume_dir: Path) -> str:
+    meta_path = resume_dir / "run_meta.json"
+    if not meta_path.is_file():
+        return ""
+    try:
+        loaded = json.loads(meta_path.read_text(encoding="utf-8"))
+    except ValueError:
+        return ""
+    if not isinstance(loaded, dict):
+        return ""
+    return str(loaded.get("git_sha") or "")
 
 
 def _execute(
@@ -581,11 +739,18 @@ def _execute(
             state.results.append(previous[scenario.scenario_id])
             state.stages[-1].results.append(previous[scenario.scenario_id])
             continue
-        resident_primary = _evict_on_primary_change(settings, resident_primary, scenario)
-        started = time.monotonic()
-        result = _execute_one(settings, scenario, state, opts)
-        result.duration_s = time.monotonic() - started
+        resident_primary, eviction_failure = _evict_on_primary_change(
+            settings, resident_primary, scenario
+        )
+        if eviction_failure is not None:
+            result = eviction_failure
+        else:
+            started = time.monotonic()
+            result = _execute_one(settings, scenario, state, opts)
+            result.duration_s = time.monotonic() - started
+            _warn_slow_seat(result)
         _annotate(scenario, result)
+        _stamp_lineage(result, state.provenance)
         state.results.append(result)
         state.stages[-1].results.append(result)
         _checkpoint_result(state.run_dir, result)
@@ -596,16 +761,15 @@ def _block_remaining(selected: list[QATScenario], first: QATScenario, state: Run
     for s in selected:
         if s.cascade_key() < first.cascade_key() or s.scenario_id in seen:
             continue
-        state.results.append(
-            QATResult(
-                s.scenario_id,
-                Status.BLOCKED,
-                "blocked by inter-phase gate failure",
-                defect_class=classify_defect(infra_hop_failed=True),
-            )
+        blocked = QATResult(
+            s.scenario_id,
+            Status.BLOCKED,
+            "blocked by inter-phase gate failure",
+            defect_class=classify_defect(infra_hop_failed=True),
         )
-
-        _checkpoint_result(state.run_dir, state.results[-1])
+        _stamp_lineage(blocked, state.provenance)
+        state.results.append(blocked)
+        _checkpoint_result(state.run_dir, blocked)
 
 
 def _uses_gpu(scenario: QATScenario) -> bool:
@@ -626,30 +790,58 @@ def _gpu_primary(scenario: QATScenario) -> str | None:
 
 def _evict_on_primary_change(
     settings: Settings, previous: str | None, scenario: QATScenario
-) -> str | None:
+) -> tuple[str | None, QATResult | None]:
+    """Return the tracked primary, and a precondition failure when eviction fails."""
     primary = _gpu_primary(scenario)
     if primary is None:
-        return previous
+        return previous, None
     if previous is not None and previous != primary:
-        _evict_resident_engines(settings)
-    return primary
+        failed = [
+            row for row in (_evict_resident_engines(settings) or []) if row.status is Status.FAIL
+        ]
+        if failed:
+            detail = "; ".join(row.detail for row in failed)
+            return primary, QATResult(
+                scenario.scenario_id,
+                Status.FAIL,
+                f"precondition failed: intra-phase eviction: {detail}",
+                defect_class=classify_defect(infra_hop_failed=True),
+                evidence={"eviction": [row.to_dict() for row in failed]},
+            )
+    return primary, None
 
 
-def _evict_resident_engines(settings: Settings) -> None:
+def _evict_resident_engines(settings: Settings) -> list[QATResult]:
+    failed: list[QATResult] = []
     with httpx.Client(timeout=15.0) as client:
         _, ollama_resident = gate.ollama_residency(client, settings)
         _, omlx_resident = gate.omlx_residency(client, settings)
         if ollama_resident:
-            gate.evict_ollama(client, settings, ollama_resident)
+            row = gate.evict_ollama(client, settings, ollama_resident)
+            if row.status is Status.FAIL:
+                failed.append(row)
         if omlx_resident:
-            gate.evict_omlx(client, settings, omlx_resident)
+            row = gate.evict_omlx(client, settings, omlx_resident)
+            if row.status is Status.FAIL:
+                failed.append(row)
+    return failed
 
 
 def _checkpoint_result(run_dir: Path, result: QATResult) -> None:
     path = run_dir / "results.jsonl"
     with path.open("a", encoding="utf-8") as stream:
-        stream.write(json.dumps(result.to_dict(), sort_keys=True) + "\n")
+        stream.write(json.dumps(report.row_payload(result), sort_keys=True) + "\n")
         stream.flush()
+
+
+def _warn_slow_seat(result: QATResult) -> None:
+    """A completed turn at or over the old 180s cap is slow, not a failure."""
+    if result.status is not Status.PASS or result.duration_s < SLOW_SEAT_WARN_S:
+        return
+    result.status = Status.WARN
+    result.detail = (
+        f"{result.detail}; slow seat: {result.duration_s:.0f}s >= {SLOW_SEAT_WARN_S:.0f}s"
+    )
 
 
 def _execute_one(
@@ -789,31 +981,22 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
                 json=body,
                 headers=settings.auth_headers(),
             )
-            if r.status_code >= 500:
-                return QATResult(
-                    scenario.scenario_id,
-                    Status.FAIL,
-                    f"pipeline HTTP {r.status_code}",
-                    defect_class=classify_defect(infra_hop_failed=True),
-                )
-            if r.status_code != 200:
-                # 4xx is pre-inference (auth, addressing, request shape) — a
-                # harness/config gap, never a model-quality miss.
-                return QATResult(
-                    scenario.scenario_id,
-                    Status.FAIL,
-                    f"pipeline HTTP {r.status_code}",
-                    defect_class=classify_defect(infra_hop_failed=True),
-                )
+            http_failure = _http_status_failure(scenario.scenario_id, r.status_code, "pipeline")
+            if http_failure is not None:
+                return http_failure
             message = r.json().get("choices", [{}])[0].get("message", {})
             content = message.get("content")
             answer = content if isinstance(content, str) else ""
             tool_calls = message.get("tool_calls") or []
-            trace = OWUIClient(settings).lookup_trace(
-                correlation_id=r.headers.get("X-Correlation-ID"),
-                model_slug=scenario.model_slug,
-                turn_started_at=started_at,
-                deadline=time.monotonic() + scenario.timeout_s,
+            sent_correlation = r.headers.get("X-Correlation-ID")
+            trace = _bind_trace(
+                OWUIClient(settings).lookup_trace(
+                    correlation_id=sent_correlation,
+                    model_slug=scenario.model_slug,
+                    turn_started_at=started_at,
+                    deadline=time.monotonic() + scenario.timeout_s,
+                ),
+                sent_correlation,
             )
     except Exception as exc:
         return QATResult(
@@ -860,6 +1043,16 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             scenario.scenario_id,
             Status.FAIL,
             tool_error,
+            served_model=served_model,
+            backend=str(trace.get("backend") or ""),
+            defect_class=classify_defect(model_output_miss=True),
+        )
+    claim_error = _content_claim_error(scenario, answer, trace)
+    if claim_error:
+        return QATResult(
+            scenario.scenario_id,
+            Status.FAIL,
+            claim_error,
             served_model=served_model,
             backend=str(trace.get("backend") or ""),
             defect_class=classify_defect(model_output_miss=True),
@@ -916,6 +1109,69 @@ def _tool_validation_error(
         missing = [tool for tool in required if tool not in successful_tools]
         if missing:
             return f"trace has no successful span for required tools: {', '.join(missing)}"
+    return None
+
+
+def _http_status_failure(scenario_id: str, status_code: int, where: str) -> QATResult | None:
+    """401, 404, 429, and any status that never reached a model are infra.
+
+    Other 4xx go to classify_defect.
+    """
+    if 200 <= status_code < 300:
+        return None
+    never_reached_model = status_code in _INFRA_HTTP or status_code >= 500 or status_code < 400
+    return QATResult(
+        scenario_id,
+        Status.FAIL,
+        f"{where} HTTP {status_code}",
+        defect_class=classify_defect(infra_hop_failed=never_reached_model),
+    )
+
+
+def _bind_trace(trace: dict[str, object], correlation_id: str | None) -> dict[str, object]:
+    """A sent correlation id that is not this trace is no trace, not another turn."""
+    if not correlation_id:
+        return trace
+    if str(trace.get("correlation_id") or "") != correlation_id:
+        return {}
+    return trace
+
+
+def _tool_body_text(trace: dict[str, object]) -> str:
+    chunks: list[str] = []
+    for span in _trace_spans(trace):
+        name = str(span.get("name") or "")
+        if name and not name.startswith("tool"):
+            continue
+        for key in _TOOL_BODY_KEYS:
+            value = span.get(key)
+            if isinstance(value, str) and value.strip():
+                chunks.append(value)
+    return "\n".join(chunks)
+
+
+def _content_claim_error(scenario: QATScenario, text: str, trace: dict[str, object]) -> str | None:
+    claim = scn.content_claim(scenario)
+    if claim == "mitre":
+        return None if _MITRE_ID.search(text) else "MITRE id pattern absent"
+    if claim == "spl":
+        prompt = " ".join(scenario.prompts)
+        found = _SOURCETYPE.search(prompt)
+        sourcetype = found.group(1) if found else ""
+        if not sourcetype or sourcetype.casefold() not in text.casefold():
+            return f"SPL claim missing sourcetype {sourcetype or '(none in prompt)'}"
+        if _SPL_TEXT.search(text) is None:
+            return "SPL claim missing SPL text"
+        return None
+    if claim == "severity":
+        body = _tool_body_text(trace)
+        body_tokens = {match.group(1).casefold() for match in _SEVERITY.finditer(body)}
+        answer_tokens = {match.group(1).casefold() for match in _SEVERITY.finditer(text)}
+        if not body_tokens:
+            return "severity claim has no severity token in the tool body"
+        if not (answer_tokens & body_tokens):
+            return "severity token in the answer is not tied to the tool body"
+        return None
     return None
 
 
@@ -1000,6 +1256,17 @@ def _run_chat(
                 served_model=outcome.served_model,
                 defect_class=classify_defect(model_output_miss=True),
                 evidence={"response_excerpt": " ".join(outcome.text.split())[:300]},
+            )
+        claim_error = _content_claim_error(scenario, outcome.text, outcome.trace)
+        if claim_error:
+            return QATResult(
+                scenario.scenario_id,
+                Status.FAIL,
+                claim_error,
+                chat_id=chat_id,
+                served_model=outcome.served_model,
+                backend=str(outcome.trace.get("backend") or ""),
+                defect_class=classify_defect(model_output_miss=True),
             )
         artifact_error = _validate_artifacts(client, token, scenario, outcome)
         if artifact_error:
@@ -1132,27 +1399,24 @@ def _run_chat_turns(
             deadline=deadline,
         )
         if not response.is_success:
-            # Non-2xx is pre-inference (auth, exposure, request shape): the
-            # harness/config owns it, the model never produced output.
             return (
                 None,
-                QATResult(
-                    scenario.scenario_id,
-                    Status.FAIL,
-                    f"chat completion HTTP {response.status_code}",
-                    defect_class=classify_defect(infra_hop_failed=True),
-                ),
+                _http_status_failure(scenario.scenario_id, response.status_code, "chat completion"),
                 all_spans,
                 all_calls,
             )
+        sent_correlation = response.headers.get("X-Correlation-ID")
         outcome = client.poll_turn(
             token,
             chat_id,
             max_wait_s=max(0.0, deadline - time.monotonic()),
-            correlation_id=response.headers.get("X-Correlation-ID"),
+            correlation_id=sent_correlation,
             model_slug=scenario.model_slug,
             turn_started_at=started_at,
             deadline=deadline,
+        )
+        outcome.trace = _bind_trace(
+            outcome.trace if isinstance(outcome.trace, dict) else {}, sent_correlation
         )
         outcome.served_model = _served_engine_model(outcome.trace, outcome.served_model)
         primary_failure = _primary_model_failure(

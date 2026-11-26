@@ -633,15 +633,18 @@ class TestIntraPhaseEviction:
         hints = {"ws-a": "model-a", "ws-b": "model-b", "ws-b2": "model-b"}
         real_change = rn._evict_on_primary_change
 
-        def evict(settings: object) -> None:
+        def evict(settings: object) -> list[QATResult]:
             evicted.append("evict")
+            return []
 
-        def on_change(settings: object, previous: str | None, scenario: QATScenario) -> str | None:
+        def on_change(
+            settings: object, previous: str | None, scenario: QATScenario
+        ) -> tuple[str | None, QATResult | None]:
             before = len(evicted)
-            primary = real_change(settings, previous, scenario)  # type: ignore[arg-type]
+            primary, failed = real_change(settings, previous, scenario)  # type: ignore[arg-type]
             if len(evicted) != before:
                 evicted[-1] = scenario.scenario_id
-            return primary
+            return primary, failed
 
         monkeypatch.setattr(rn, "_evict_resident_engines", evict)
         monkeypatch.setattr(rn, "_evict_on_primary_change", on_change)
@@ -793,7 +796,9 @@ class TestPipelineChat:
         def handler(request: httpx.Request) -> httpx.Response:
             captured["body"] = json.loads(request.content.decode())
             captured["auth"] = request.headers.get("authorization", "")
-            return httpx.Response(200, json={"choices": [{"message": {"content": "TTP chain"}}]})
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "T1566 then T1078"}}]}
+            )
 
         monkeypatch.setattr(rn.httpx, "Client", _client_factory(httpx.MockTransport(handler)))
         settings = make_settings(tmp_path)
