@@ -35,12 +35,16 @@ import json
 import logging
 import os
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import time
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 import uvicorn
 from fastapi import FastAPI, File, Form, Request, UploadFile
@@ -248,6 +252,73 @@ def _audio_seconds(audio_path: str) -> float:
         return 0.0
 
 
+def _probe_audio_file(audio_path: Path) -> Any:
+    import miniaudio
+
+    return miniaudio.get_file_info(str(audio_path))
+
+
+@contextlib.contextmanager
+def _decoded_audio_path(audio_path: str) -> Iterator[str]:
+    source = Path(audio_path)
+    if not source.is_file():
+        raise ValueError(f"audio input file does not exist: {source}")
+    try:
+        _probe_audio_file(source)
+    except Exception as decode_error:  # noqa: BLE001 — ffmpeg handles codecs miniaudio lacks
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg is None:
+            raise ValueError(
+                f"cannot decode audio input {source.name!r}: {decode_error}; ffmpeg is unavailable"
+            ) from decode_error
+        logger.info(
+            "Audio decoder rejected %s (format %s): %s; converting with ffmpeg",
+            source,
+            source.suffix.lower() or "unknown",
+            decode_error,
+        )
+        with tempfile.TemporaryDirectory(prefix="portal-transcribe-") as temp_dir:
+            converted = Path(temp_dir) / "audio.wav"
+            command = [
+                ffmpeg,
+                "-nostdin",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(source),
+                "-map",
+                "0:a:0",
+                "-vn",
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-c:a",
+                "pcm_s16le",
+                "-f",
+                "wav",
+                str(converted),
+            ]
+            try:
+                result = subprocess.run(
+                    command, capture_output=True, text=True, timeout=1800, check=False
+                )
+            except (OSError, subprocess.TimeoutExpired) as error:
+                raise ValueError(
+                    f"could not convert audio input {source.name!r} with ffmpeg: {error}"
+                ) from decode_error
+            if result.returncode:
+                detail = result.stderr.strip() or f"ffmpeg exited with status {result.returncode}"
+                raise ValueError(
+                    f"could not decode audio input {source.name!r}: {detail}"
+                ) from decode_error
+            yield str(converted)
+    else:
+        yield str(source)
+
+
 def _parakeet_generate(audio_path: str) -> Any:
     """Parakeet transcription, chunked when the file is long enough to OOM a
     single forward pass. mlx-audio merges the per-chunk tokens across the overlap.
@@ -294,18 +365,23 @@ def _transcribe(audio_path: str, language: str | None) -> dict:
 
     Returns {text, language, duration, segments} where segments are sentences.
     """
-    result = _parakeet_generate(audio_path)
-    segments = [
-        {"start": round(float(s.start), 2), "end": round(float(s.end), 2), "text": s.text.strip()}
-        for s in getattr(result, "sentences", [])
-    ]
-    duration = segments[-1]["end"] if segments else 0.0
-    return {
-        "text": result.text.strip(),
-        "language": language or "en",
-        "duration": round(duration, 2),
-        "segments": segments,
-    }
+    with _decoded_audio_path(audio_path) as decoded_path:
+        result = _parakeet_generate(decoded_path)
+        segments = [
+            {
+                "start": round(float(s.start), 2),
+                "end": round(float(s.end), 2),
+                "text": s.text.strip(),
+            }
+            for s in getattr(result, "sentences", [])
+        ]
+        duration = segments[-1]["end"] if segments else 0.0
+        return {
+            "text": result.text.strip(),
+            "language": language or "en",
+            "duration": round(duration, 2),
+            "segments": segments,
+        }
 
 
 # Sortformer's full-context forward pass gives the best speaker consistency but
@@ -643,7 +719,8 @@ def _run_pipeline(
 ) -> dict:
     """Synchronous diarized pipeline (Parakeet + Sortformer). Caller wraps in asyncio.to_thread."""
     t0 = time.time()
-    diarized = _diarized_transcribe(audio_path, num_speakers, language)
+    with _decoded_audio_path(audio_path) as decoded_path:
+        diarized = _diarized_transcribe(decoded_path, num_speakers, language)
     total_s = round(time.time() - t0, 2)
     diarize_s = diarized.get("diarize_s", 0.0)
 
@@ -717,8 +794,68 @@ def _transcribe_and_release(audio_path: str, language: str | None) -> dict:
         mlx_cache.release_cache(logger)
 
 
-_AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".webm", ".aac", ".mp4"}
+_AUDIO_EXTENSIONS = {
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".ogg",
+    ".opus",
+    ".flac",
+    ".webm",
+    ".aac",
+    ".mp4",
+}
 _PLACEHOLDER_RE = re.compile(r"^[<\[{].*[>\]}]$")  # matches <file_id>, [filename], {arg}, etc.
+_MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\((https?://[^)\s]+)\)")
+
+
+def _unwrap_audio_link(file: str) -> str:
+    """Extract a URL from a chat markdown link or angle-bracket wrapper."""
+    reference = file.strip()
+    match = _MARKDOWN_LINK_RE.search(reference)
+    if match:
+        return match.group(1)
+    if reference.startswith("<") and reference.endswith(">"):
+        return reference[1:-1]
+    return reference
+
+
+def _generated_audio_path(reference: str) -> Path | None:
+    parsed = urlsplit(reference)
+    path_text = unquote(parsed.path if parsed.scheme else reference)
+    parts = Path(path_text).parts
+    categories = ("speech", "music")
+    for index, part in enumerate(parts[:-1]):
+        if part == "generated" and parts[index + 1] in categories:
+            categories = (parts[index + 1],)
+            break
+    name = Path(path_text).name
+    if not name or Path(name).suffix.lower() not in _AUDIO_EXTENSIONS:
+        return None
+    generated = get_workspace_root() / "generated"
+    matches = []
+    for category in categories:
+        folder = generated / category
+        candidate = folder / name
+        if candidate.is_file() and candidate.resolve().parent == folder.resolve():
+            matches.append(candidate.resolve())
+    return matches[0] if len(matches) == 1 else None
+
+
+def _transcription_error(path: Path, error: Exception) -> str:
+    audio_format = path.suffix.lower() or "unknown format"
+    return f"transcription failed for {path.name!r} ({audio_format}): {error}"
+
+
+def _resolve_audio_link(file: str) -> tuple[Path | None, str] | None:
+    parsed = urlsplit(file)
+    if parsed.scheme not in {"http", "https"} and not file.startswith("/api/v1/files/"):
+        return None
+    path = resolve_upload_path(file) or _generated_audio_path(file)
+    if path is not None:
+        return path, path.name
+    name = Path(unquote(parsed.path if parsed.scheme else file)).name
+    return None, f"audio link does not resolve to a workspace file: {name or 'unknown filename'}"
 
 
 def _latest_audio_upload() -> Path | None:
@@ -776,6 +913,7 @@ def _resolve_audio_input(file: str | None) -> tuple[Path | None, str]:
     Accepts:
       - OWUI file ID (e.g., 'abc-123' or 'abc-123_meeting.mp3')
       - Filename in the uploads directory
+      - Portal speech/music download URL or its Markdown download link
       - Absolute path on the host filesystem, or the same file's container
         path (/workspace/uploads/<uuid>_<name>)
       - None (argument omitted) or a template placeholder → auto-detects most recent upload
@@ -783,6 +921,8 @@ def _resolve_audio_input(file: str | None) -> tuple[Path | None, str]:
 
     Returns (path, source_name) or (None, error_message).
     """
+    if file is not None:
+        file = _unwrap_audio_link(file)
     scope = eval_scope.EVAL_SCOPE.get()
     if scope:
         return _resolve_scoped_audio(scope, file)
@@ -796,6 +936,10 @@ def _resolve_audio_input(file: str | None) -> tuple[Path | None, str]:
         return None, "no audio file found in uploads directory — please upload an audio file first"
     if not file.strip():
         return None, f"file not found: {file!r}"
+
+    link_resolution = _resolve_audio_link(file)
+    if link_resolution is not None:
+        return link_resolution
 
     # Looks like an absolute path. Try it as given, then (for the container
     # mount form) rebased on the host workspace root, then its basename as an
@@ -898,8 +1042,13 @@ async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
                 result["engine"] = "parakeet+sortformer"
                 return JSONResponse(result)
             except Exception as e:
-                logger.error("invoke_tool transcribe_with_speakers failed: %s", e, exc_info=True)
-                return JSONResponse({"error": str(e)}, status_code=500)
+                logger.error(
+                    "invoke_tool transcribe_with_speakers failed for %s: %s",
+                    path,
+                    e,
+                    exc_info=True,
+                )
+                return JSONResponse({"error": _transcription_error(path, e)}, status_code=500)
     elif tool_name == "transcribe_audio":
         file_arg = arguments.get("file", arguments.get("audio_path"))
         language = arguments.get("language")
@@ -914,8 +1063,10 @@ async def _dispatch_tool(tool_name: str, arguments: dict) -> JSONResponse:
                 result["engine"] = "parakeet-tdt-v3"
                 return JSONResponse(result)
             except Exception as e:
-                logger.error("invoke_tool transcribe_audio failed: %s", e, exc_info=True)
-                return JSONResponse({"error": str(e)}, status_code=500)
+                logger.error(
+                    "invoke_tool transcribe_audio failed for %s: %s", path, e, exc_info=True
+                )
+                return JSONResponse({"error": _transcription_error(path, e)}, status_code=500)
     else:
         return JSONResponse({"error": f"Unknown tool: {tool_name}"}, status_code=404)
 
@@ -933,7 +1084,8 @@ TOOLS_MANIFEST = [
                 "file": {
                     "type": "string",
                     "description": "Audio file reference: OWUI file ID, "
-                    "filename in uploads/, or absolute path. "
+                    "filename in uploads/, absolute path, or Portal speech/music "
+                    "download URL (including a Markdown download link). "
                     "Omit to auto-detect most recent upload; an empty or "
                     "unknown reference is an error.",
                 },
@@ -959,7 +1111,8 @@ TOOLS_MANIFEST = [
                 "file": {
                     "type": "string",
                     "description": "Audio file reference: OWUI file ID, "
-                    "filename in uploads/, or absolute path. "
+                    "filename in uploads/, absolute path, or Portal speech/music "
+                    "download URL (including a Markdown download link). "
                     "Omit to auto-detect most recent upload; an empty or "
                     "unknown reference is an error.",
                 },
@@ -1114,8 +1267,8 @@ async def transcribe_audio(file: str | None = None, language: str | None = None)
 
     Args:
         file: Audio reference. Omit to auto-detect the most recent upload; otherwise an
-              OWUI file ID, a filename in uploads/, or an absolute host path. An empty or
-              unknown reference returns an error.
+              OWUI file ID, a filename in uploads/, an absolute host path, or a Portal
+              speech/music download URL or Markdown download link. Unknown references error.
         language: ISO language code (e.g. 'en'). Auto-detected if omitted.
     """
     path, source_name = _resolve_audio_input(file)
@@ -1130,8 +1283,8 @@ async def transcribe_audio(file: str | None = None, language: str | None = None)
             result["source"] = source_name
             return result
         except Exception as e:
-            logger.error("MCP transcribe_audio failed: %s", e, exc_info=True)
-            return {"error": str(e)}
+            logger.error("MCP transcribe_audio failed for %s: %s", path, e, exc_info=True)
+            return {"error": _transcription_error(path, e)}
 
 
 @mcp.tool()
@@ -1158,6 +1311,7 @@ async def transcribe_with_speakers(
               accepts:
               - OWUI file ID from a chat attachment (e.g., 'abc-123-def')
               - Filename in the uploads directory (e.g., 'meeting.mp3')
+              - Portal speech/music download URL or Markdown download link
               - Absolute path on the host (e.g., '/Users/me/audio.wav')
         num_speakers: Optional cap on the speaker count (folds over-segmented
               speakers into the nearest kept one). Inferred when omitted.
@@ -1197,8 +1351,8 @@ async def transcribe_with_speakers(
             result["engine"] = "parakeet+sortformer"
             return result
         except Exception as e:
-            logger.error("MCP transcribe_with_speakers failed: %s", e, exc_info=True)
-            return {"error": str(e)}
+            logger.error("MCP transcribe_with_speakers failed for %s: %s", path, e, exc_info=True)
+            return {"error": _transcription_error(path, e)}
 
 
 # Initialize session manager (must happen after tool definitions, before app start).
