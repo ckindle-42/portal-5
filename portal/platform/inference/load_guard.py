@@ -889,6 +889,24 @@ class LoadGuard:
                 self._release_activity_lock(handle)
         return held
 
+    def _sibling_workers_active(self) -> bool:
+        """Another worker holds an activity flock. A lock-dir error is not activity."""
+        try:
+            paths = list(_PROCESS_LOCK_DIR.glob("active-*.lock"))
+        except OSError:
+            return False
+        for path in paths:
+            try:
+                with path.open("a+") as handle:
+                    try:
+                        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        return True
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                continue
+        return False
+
     def active(self, engine: str, model: str) -> bool:
         """Whether any pipeline worker is serving this model right now."""
         return bool(self.busy(engine, model)) or self._active_elsewhere(engine, model)
@@ -1571,7 +1589,7 @@ class LoadGuard:
                 )
             except TimeoutError:
                 probe_timed_out = True
-        changing = bool(self._busy) or foreign_active
+        changing = bool(self._busy) or foreign_active or self._sibling_workers_active()
         activity_seen, deadline = self._record_activity_progress(changing, activity_seen, deadline)
         resumed = await self._resume_after_activity_drains(
             changing, activity_seen, probe_timed_out, deadline, model, held
@@ -1747,6 +1765,18 @@ class LoadGuard:
             self.busy(OMLX, model) or self._active_elsewhere(OMLX, model) for model in models
         )
 
+    def _idle_became_freeable(
+        self,
+        carry: _YieldCarry,
+        idle: float,
+        pending_ollama: dict[str, _Free],
+        pending_omlx: dict[str, _Free],
+    ) -> bool:
+        """The one free pass missed a resident that was in flight and is idle now."""
+        if self._parallel_yield_drained(carry.yield_models):
+            return True
+        return idle > 0 and not pending_ollama and not pending_omlx
+
     async def _free_or_yield_parallel(
         self,
         client: httpx.AsyncClient,
@@ -1778,7 +1808,7 @@ class LoadGuard:
         if (
             need > available
             and carry.free_attempted
-            and self._parallel_yield_drained(carry.yield_models)
+            and self._idle_became_freeable(carry, idle, pending_ollama, pending_omlx)
         ):
             carry.free_attempted = False
         if need <= available or carry.free_attempted:
