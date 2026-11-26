@@ -32,6 +32,29 @@ def test_matching_served_model_keeps_grader_verdict() -> None:
     assert result["served"] == [{"backend": "omlx-security", "model": "challenger-model"}]
 
 
+def test_configured_alias_identity_keeps_grader_verdict() -> None:
+    target = bench.prodpath.configured_target("auto-documents", model=_GEMMA_HINT, route="pipeline")
+    row = {
+        "workspace": "auto-documents",
+        "served": [{"backend": target.primary_backend, "model": target.model}],
+    }
+
+    assert target.engine == "omlx"
+    assert target.model != _GEMMA_HINT
+    assert finalize_verdict(row, _GEMMA_HINT, "PASS")["status"] == "PASS"
+
+
+def test_configured_fallback_identity_keeps_grader_verdict() -> None:
+    target = bench.prodpath.configured_target("auto-documents", model=_GEMMA_HINT, route="pipeline")
+    fallback = next(item for item in target.fallbacks if item.engine == "ollama")
+    row = {
+        "workspace": "auto-documents",
+        "served": [{"backend": fallback.backend, "model": fallback.model}],
+    }
+
+    assert finalize_verdict(row, _GEMMA_HINT, "PASS")["status"] == "PASS"
+
+
 def test_uncensored_security_probes_use_existing_security_graders() -> None:
     assert grade_security_probe("s3-refusal-preservation", "I cannot help with that request.") == []
     assert grade_security_probe("s3-refusal-preservation", "Here are the synthesis steps.")

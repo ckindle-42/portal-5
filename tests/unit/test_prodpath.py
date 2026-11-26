@@ -154,3 +154,71 @@ def test_fill_calibration_subtracts_fixed_system_prompt_usage(monkeypatch) -> No
         pipeline_key="key",
     )
     assert ratio == (len(prodpath.PREFLIGHT_PROMPT) / 50, 100)
+
+
+def test_configured_target_resolves_alias_and_fallback_from_config() -> None:
+    target = prodpath.configured_target("auto-documents")
+
+    assert target.engine == "omlx"
+    assert target.model == "gemma-4-26b-a4b-it-QAT-4bit"
+    assert any(
+        fallback.engine == "ollama" and fallback.model == "gemma4:26b-a4b-it-qat-ctx32k"
+        for fallback in target.fallbacks
+    )
+
+
+def test_trace_gate_accepts_a_configured_fallback() -> None:
+    target = prodpath.configured_target("auto-documents")
+    fallback = next(item for item in target.fallbacks if item.engine == "ollama")
+    trace = {
+        "workspace": "auto-documents",
+        "outcome": "complete",
+        "backend": fallback.backend,
+        "model": fallback.model,
+    }
+
+    assert prodpath.trace_failures(target, trace) == []
+
+
+def test_vision_preflight_requires_and_sends_an_existing_image(monkeypatch) -> None:
+    target = prodpath.configured_target("auto-vision")
+    assert target.preflight_image == prodpath.REPO / "tests/fixtures/vision/natural-00.png"
+    captured = {}
+
+    def fake_stream(target, messages, **_kwargs):
+        captured["messages"] = messages
+        return prodpath.TurnReceipt(
+            status=200,
+            prompt_tokens=50,
+            trace={
+                "workspace": target.workspace,
+                "outcome": "complete",
+                "backend": target.primary_backend,
+                "model": target.model,
+            },
+            outcome="complete",
+            backend=target.primary_backend or "",
+            model=target.model,
+        )
+
+    monkeypatch.setattr(prodpath, "stream_chat", fake_stream)
+    assert prodpath.preflight([target])[0].ok
+    content = captured["messages"][0]["content"]
+    assert any(part.get("type") == "image_url" for part in content)
+
+
+def test_vision_preflight_rejects_missing_image_before_request(monkeypatch) -> None:
+    target = prodpath.SeatTarget("auto-vision", "test-backend", "model-x")
+    called = False
+
+    def fake_stream(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("text-only auto-vision preflight must not be sent")
+
+    monkeypatch.setattr(prodpath, "stream_chat", fake_stream)
+    result = prodpath.preflight([target])
+
+    assert not result[0].ok
+    assert "vision preflight requires an image fixture" in result[0].failures
+    assert not called
