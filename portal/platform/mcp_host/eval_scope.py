@@ -1,10 +1,4 @@
-"""Evaluation scope for tool calls (WFE production tool mode, root-fix Part 2a).
-
-A WFE row sends `portal_eval` in its request body. The pipeline narrows the
-workspace's tools to the scope's allowlist and forwards the scope as `eval` on
-every MCP call; each MCP confines the call's files to the run's namespace and
-writes a creation receipt. Without a scope nothing changes.
-"""
+"""Evaluation, request, and workspace context for native MCP tool calls."""
 
 from __future__ import annotations
 
@@ -20,12 +14,14 @@ from typing import Any
 TOKEN = re.compile(r"^wfe_[0-9a-f]{16,40}$")
 EVAL_SCOPE: ContextVar[dict[str, Any] | None] = ContextVar("portal_eval_scope", default=None)
 REQUEST_ID: ContextVar[str] = ContextVar("portal_request_id", default="")
+WORKSPACE_ID: ContextVar[str] = ContextVar("portal_workspace_id", default="")
 #: OWUI file ids attached to the request (body["files"]), forwarded by the pipeline. The model
 #: cannot widen this list: it comes from the authenticated OWUI request, never tool arguments.
 ATTACHED_UPLOADS: ContextVar[tuple[str, ...]] = ContextVar("portal_attached_uploads", default=())
 MAX_ATTACHED_UPLOADS = 32
 EVAL_META_KEY = "portal5/eval"
 REQUEST_ID_META_KEY = "portal5/request_id"
+WORKSPACE_ID_META_KEY = "portal5/workspace"
 UPLOADS_META_KEY = "portal5/uploads"
 TOOL_TIMEOUT_META_KEY = "portal5/timeout_s"
 
@@ -35,7 +31,7 @@ class ScopeError(ValueError):
 
 
 def bind_native_context(mcp: Any, tool_guard: Callable[[str], bool] | None = None) -> None:
-    """Bind native MCP metadata to the existing evaluation and request contextvars."""
+    """Bind native MCP metadata to the evaluation, request, and workspace contextvars."""
     call_tool = mcp.call_tool
 
     async def dispatch(name: str, arguments: dict[str, Any], context: Any) -> Any:
@@ -49,11 +45,14 @@ def bind_native_context(mcp: Any, tool_guard: Callable[[str], bool] | None = Non
         scope_token = EVAL_SCOPE.set(parse(meta.get(EVAL_META_KEY)))
         request_id = meta.get(REQUEST_ID_META_KEY)
         request_token = REQUEST_ID.set(request_id if isinstance(request_id, str) else "")
+        workspace_id = meta.get(WORKSPACE_ID_META_KEY)
+        workspace_token = WORKSPACE_ID.set(workspace_id if isinstance(workspace_id, str) else "")
         uploads_token = ATTACHED_UPLOADS.set(upload_ids(meta.get(UPLOADS_META_KEY)))
         try:
             return await call_tool(name, arguments, context)
         finally:
             ATTACHED_UPLOADS.reset(uploads_token)
+            WORKSPACE_ID.reset(workspace_token)
             REQUEST_ID.reset(request_token)
             EVAL_SCOPE.reset(scope_token)
 

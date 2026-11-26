@@ -39,3 +39,31 @@ async def test_each_call_finishes_before_the_next_starts(monkeypatch) -> None:
         "end:execute_python",
     ]
     assert [r["tool_call_id"] for r in results] == ["c0", "c1", "c2"]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_forwards_workspace_on_native_tool_dispatch(monkeypatch) -> None:
+    from portal.platform.inference import tool_registry
+    from portal.platform.inference.router import tools as router_tools
+
+    recorded: list[tuple[str, str]] = []
+
+    async def dispatch(_name, _arguments, request_id="", workspace_id=""):
+        recorded.append((request_id, workspace_id))
+        return {"success": True}
+
+    monkeypatch.setattr(tool_registry.tool_registry, "dispatch", dispatch)
+    call = {
+        "id": "call-1",
+        "function": {"name": "execute_bash", "arguments": '{"code":"true"}'},
+    }
+
+    await router_tools._dispatch_tool_call(
+        call,
+        {"execute_bash"},
+        "auto-security::purpleteam-exec",
+        "",
+        "request-1",
+    )
+
+    assert recorded == [("request-1", "auto-security::purpleteam-exec")]

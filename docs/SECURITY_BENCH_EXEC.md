@@ -2,7 +2,12 @@
 
 The current target list is derived from `auto-security.variants` in `config/portal.yaml`. Query `unit-fact-security-variants` through the wiki MCP.
 
-> The code sandbox now always runs user code with `--network none` and refuses startup when `SANDBOX_LAB_EXEC=true`. The networked lab-exec setup below is unavailable until lab execution has a separate isolated runtime.
+General code and package installation always use `--network none`. With
+`SANDBOX_LAB_EXEC=true`, only calls made by a workspace variant ending in
+`-exec` use DinD's `portal5-labexec` bridge. DinD's `DOCKER-USER` rules allow
+IPv4 egress only to `LAB_TARGET_NETWORK`, block host access and other routed
+destinations, and block IPv6. A failed lab-network check disables lab calls
+without stopping general sandbox execution.
 
 ---
 
@@ -98,11 +103,12 @@ docker exec portal5-dind docker images portal5-attack 2>/dev/null | grep latest
 Required in `.env`:
 - `SANDBOX_LAB_EXEC=true`
 - `SANDBOX_LAB_IMAGE=portal5-attack:latest`
+- `LAB_TARGET_NETWORK=192.168.56.0/24`
 - `LAB_TARGET_DC=10.10.11.21`
 - `LAB_TARGET_SRV=10.10.11.33`
 - `LAB_TARGET_WEB=10.10.11.50`
 
-These must be present in the environment or `.env` for the lab-exec lane to activate; without `SANDBOX_LAB_EXEC=true` the bench silently falls back to synthetic results.
+These must be present in the environment or `.env` for the lab-exec lane to activate; without `SANDBOX_LAB_EXEC=true` the bench silently falls back to synthetic results. `LAB_TARGET_NETWORK` must be an RFC1918 IPv4 CIDR with prefix `/16` or longer and must not overlap the DinD lab bridge subnet.
 
 Optional — for Proxmox VM lifecycle (snapshot/restore):
 - `PROXMOX_URL`, `PROXMOX_TOKEN_ID`, `PROXMOX_TOKEN_SECRET`

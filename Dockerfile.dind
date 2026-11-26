@@ -8,3 +8,6 @@ LABEL org.opencontainers.image.revision=${PORTAL_BUILD_SHA}
 # apk upgrade clears the Alpine 3.21 CRITICAL CVEs the 2026-11-22 sweep flagged in
 # the docker:27-dind base (openssl/curl/zlib/brotli); tcpdump is the capture tool.
 RUN apk upgrade --no-cache && apk add --no-cache tcpdump
+COPY portal/modules/coding/tools/dind_lab_network.sh /usr/local/bin/portal5-dind-entrypoint.sh
+RUN chmod +x /usr/local/bin/portal5-dind-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/portal5-dind-entrypoint.sh"]

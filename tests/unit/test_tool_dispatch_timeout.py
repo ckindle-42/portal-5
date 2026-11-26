@@ -73,6 +73,34 @@ async def test_dispatch_passes_effective_timeout_bounded_by_max(
 
 
 @pytest.mark.asyncio
+async def test_dispatch_forwards_workspace_as_native_mcp_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from portal.platform.mcp_host.eval_scope import WORKSPACE_ID_META_KEY
+
+    metadata_seen: list[dict[str, Any] | None] = []
+
+    async def fake_call_tool(
+        _client: Any,
+        _url: str,
+        _name: str,
+        _args: dict[str, Any],
+        _timeout_s: float,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        metadata_seen.append(metadata)
+        return {"structuredContent": {"ok": True}, "isError": False}
+
+    monkeypatch.setattr(tool_registry, "call_tool", fake_call_tool)
+    reg = ToolRegistry()
+    reg._tools = {"execute_bash": ToolDefinition("execute_bash", "d", {}, "sandbox", "http://m:1")}
+
+    await reg.dispatch("execute_bash", {}, workspace_id="auto-security::purpleteam-exec")
+
+    assert metadata_seen == [{WORKSPACE_ID_META_KEY: "auto-security::purpleteam-exec"}]
+
+
+@pytest.mark.asyncio
 async def test_refresh_reads_portal5_timeout_meta_and_bounds_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

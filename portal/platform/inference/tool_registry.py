@@ -42,6 +42,7 @@ from portal.platform.mcp_host.eval_scope import (
     REQUEST_ID_META_KEY,
     TOOL_TIMEOUT_META_KEY,
     UPLOADS_META_KEY,
+    WORKSPACE_ID_META_KEY,
 )
 
 logger = logging.getLogger(__name__)
@@ -563,7 +564,11 @@ class ToolRegistry:
         await asyncio.shield(self.refresh(force=True))
 
     async def dispatch(
-        self, tool_name: str, arguments: dict[str, Any], request_id: str = ""
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        request_id: str = "",
+        workspace_id: str = "",
     ) -> Any:
         """Dispatch a tool call to its source MCP; return the result or an error dict.
 
@@ -593,6 +598,8 @@ class ToolRegistry:
             request_id: Opaque request correlator forwarded as
                 ``portal5/request_id`` metadata so MCP logs can be
                 cross-referenced with pipeline logs. May be empty.
+            workspace_id: Resolved pipeline workspace forwarded as
+                ``portal5/workspace`` metadata. May be empty for internal calls.
 
         Returns:
             The MCP's parsed JSON response (success) or an error dict.
@@ -622,7 +629,9 @@ class ToolRegistry:
         if argument_error is not None:
             return argument_error
         arguments = _alias_bash_command(tool.name, arguments)
-        return await self._dispatch_native_mcp(tool, arguments, timeout_s, now, request_id)
+        return await self._dispatch_native_mcp(
+            tool, arguments, timeout_s, now, request_id, workspace_id
+        )
 
     async def _dispatch_native_mcp(
         self,
@@ -631,6 +640,7 @@ class ToolRegistry:
         timeout_s: float,
         now: float,
         request_id: str,
+        workspace_id: str,
     ) -> Any:
         """Dispatch through native MCP while applying the registry's breaker rules."""
         server_url = tool.server_url
@@ -642,6 +652,8 @@ class ToolRegistry:
             metadata[EVAL_META_KEY] = scope
         if request_id:
             metadata[REQUEST_ID_META_KEY] = request_id
+        if workspace_id:
+            metadata[WORKSPACE_ID_META_KEY] = workspace_id
         if uploads := ATTACHED_UPLOADS.get():
             metadata[UPLOADS_META_KEY] = list(uploads)
         if not server_url:

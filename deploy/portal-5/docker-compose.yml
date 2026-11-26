@@ -527,8 +527,11 @@ services:
     privileged: true
     environment:
       - DOCKER_TLS_CERTDIR=        # Disable TLS — internal network only
+      - SANDBOX_LAB_EXEC=${SANDBOX_LAB_EXEC:-false}
+      - LAB_TARGET_NETWORK=${LAB_TARGET_NETWORK:-}
     volumes:
       - dind-storage:/var/lib/docker
+      - sandbox-dind-state:/run/portal5
       - sandbox-work:/app/data/sandbox  # Shared with mcp-sandbox for code files
       # Read-only vulhub clone, bind-mounted into DinD's own filesystem so
       # `docker run -v /vulhub-src:/vulhub:ro` (issued by mcp-sandbox against
@@ -550,7 +553,7 @@ services:
           memory: 2G
           cpus: "4.0"
     healthcheck:
-      test: ["CMD", "docker", "info"]
+      test: ["CMD-SHELL", "docker info >/dev/null 2>&1 && test -s /run/portal5/lab-network-status"]
       interval: 20s
       timeout: 10s
       start_period: 30s
@@ -580,8 +583,9 @@ services:
       - WORKSPACE_DIR=/workspace
       - SANDBOX_ALLOW_NETWORK=${SANDBOX_ALLOW_NETWORK:-false}
       - SANDBOX_DOCKER_IMAGE=${SANDBOX_DOCKER_IMAGE:-portal5-sandbox-data:latest}
-      # Legacy network opt-ins are forwarded so the sandbox startup check can fail closed.
+      # General execution remains offline; lab use is scoped by native MCP workspace metadata.
       - SANDBOX_LAB_EXEC=${SANDBOX_LAB_EXEC:-false}
+      - SANDBOX_LAB_EXEC_STATUS=/run/portal5/lab-network-status
       - SANDBOX_LAB_IMAGE=${SANDBOX_LAB_IMAGE:-}
       - SANDBOX_LAB_MEMORY=${SANDBOX_LAB_MEMORY:-2g}
       - SANDBOX_LAB_CPUS=${SANDBOX_LAB_CPUS:-2.0}
@@ -598,6 +602,7 @@ services:
         condition: service_healthy
     volumes:
       - sandbox-work:/app/data/sandbox  # Shared with dind for code execution
+      - sandbox-dind-state:/run/portal5:ro
       - ${AI_OUTPUT_DIR:-${HOME}/AI_Output}:/workspace:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8914/health"]
@@ -1023,6 +1028,7 @@ volumes:
   open-webui-data:     # Open WebUI database — wipe with ./launch.sh clean
   portal5-hf-cache:    # HuggingFace model cache (TTS, whisper)
   dind-storage:        # DinD persistent storage
+  sandbox-dind-state:  # DinD's verified lab-firewall startup receipt
   sandbox-work:        # Shared sandbox code files (mcp-sandbox ↔ dind)
   searxng-data:        # SearXNG data
   prometheus-data:     # Prometheus metrics data

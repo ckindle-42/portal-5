@@ -453,7 +453,9 @@ async def _dispatch_tool_call(
     # Dispatch via registry
     t0 = time.monotonic()
     try:
-        result = await tool_registry.dispatch(tool_name, arguments, request_id=request_id)
+        result = await tool_registry.dispatch(
+            tool_name, arguments, request_id=request_id, workspace_id=workspace_id
+        )
     except Exception:
         elapsed = time.monotonic() - t0
         trace_span(

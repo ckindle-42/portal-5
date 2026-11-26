@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import ipaddress
 import json
 import logging
 import os
@@ -31,7 +32,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from portal.platform.data_loader import load_data
-from portal.platform.mcp_host.eval_scope import ATTACHED_UPLOADS, EVAL_SCOPE, bind_native_context
+from portal.platform.mcp_host.eval_scope import (
+    ATTACHED_UPLOADS,
+    EVAL_SCOPE,
+    WORKSPACE_ID,
+    bind_native_context,
+)
 from portal.platform.mcp_host.owui_files import publish_file_sync
 from portal.platform.mcp_host.tool_support import align_native_tools
 from portal.platform.mcp_host.workspace import (
@@ -58,9 +64,11 @@ async def health_check(request: Request) -> JSONResponse:
         {
             "status": "ok",
             "service": "sandbox-mcp",
-            "lab_exec_active": SANDBOX_LAB_EXEC,
+            "general_exec_available": GENERAL_EXEC_AVAILABLE,
+            "lab_exec_active": SANDBOX_LAB_EXEC and LAB_EXEC_AVAILABLE,
             "lab_image": SANDBOX_LAB_IMAGE or None,
-            "network": "disabled",
+            "general_network": "none",
+            "lab_network": LAB_EXEC_NETWORK if LAB_EXEC_AVAILABLE else None,
         }
     )
 
@@ -95,13 +103,13 @@ SANDBOX_SESSIONS_DIR = SANDBOX_DIR / "sessions"
 SANDBOX_SESSION_MAX_BYTES = int(os.getenv("SANDBOX_SESSION_MAX_BYTES", str(512 * 1024 * 1024)))
 SANDBOX_PIP_INSTALL_ENABLED = os.getenv("SANDBOX_PIP_INSTALL_ENABLED", "true").lower() == "true"
 
-# Legacy network opt-in retained so startup can reject unsafe configurations.
+# Legacy network opt-in retained so its timeout and resource settings remain compatible.
 SANDBOX_ALLOW_NETWORK = os.getenv("SANDBOX_ALLOW_NETWORK", "false").lower() == "true"
 SANDBOX_NET_MEMORY = os.getenv("SANDBOX_NET_MEMORY", "1g")
 SANDBOX_NET_CPUS = os.getenv("SANDBOX_NET_CPUS", "1.0")
 SANDBOX_NET_TIMEOUT_MAX = int(os.getenv("SANDBOX_NET_TIMEOUT_MAX", "300"))
 
-# Legacy lab mode is retained only so startup can reject unsafe configurations.
+# Lab networking is available only to calls from an explicitly named exec variant.
 SANDBOX_LAB_EXEC = os.getenv("SANDBOX_LAB_EXEC", "false").lower() == "true"
 # Attack-capable image for the lab lane. Must contain the tooling the *-exec
 # workspaces invoke (nmap, impacket, netexec, etc.). No default that ships
@@ -128,6 +136,10 @@ SANDBOX_LAB_TARGET_SRV = os.getenv("LAB_TARGET_SRV", "")
 SANDBOX_LAB_TARGET_META3 = os.getenv("LAB_TARGET_META3_WIN", "")
 SANDBOX_LAB_META3_USER = os.getenv("LAB_META3_USER", "vagrant")
 SANDBOX_LAB_META3_PASS = os.getenv("LAB_META3_PASS", "vagrant")
+LAB_EXEC_NETWORK = "portal5-labexec"
+LAB_EXEC_STATUS_FILE = Path(os.getenv("SANDBOX_LAB_EXEC_STATUS", "/run/portal5/lab-network-status"))
+GENERAL_EXEC_AVAILABLE = True
+LAB_EXEC_AVAILABLE = False
 # vulhub's own clone ships a real, working poc.py/exploit.py alongside ~38 of
 # its ~1,234 environments' READMEs (scripts/lab_setup.py clones it to
 # $LAB_DIR/vulhub) -- these are the exact scripts vulhub's own documentation
@@ -165,10 +177,8 @@ def _get_docker_env() -> dict[str, str]:
     return env
 
 
-def _verify_network_isolation() -> None:
-    """Refuse startup unless the daemon accepts an explicitly isolated container."""
-    if SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC:
-        raise RuntimeError("sandbox network isolation forbids network-enabled configuration")
+def _verify_general_network_isolation() -> None:
+    """Verify that the daemon honors network=none for general code."""
     container_id = ""
     try:
         created = subprocess.run(
@@ -209,20 +219,113 @@ def _verify_network_isolation() -> None:
                 logger.exception("could not remove sandbox isolation check container")
 
 
-def _resolve_image(default_image: str) -> str:
-    """Return the attack image under lab-exec, else the caller's default.
+def _verify_lab_network_isolation() -> None:
+    """Verify the lab bridge, its target CIDR, and the DinD firewall receipt."""
+    try:
+        target = ipaddress.ip_network(SANDBOX_LAB_TARGET_NETWORK, strict=False)
+        private_ranges: tuple[ipaddress.IPv4Network, ...] = (
+            ipaddress.IPv4Network("10.0.0.0/8"),
+            ipaddress.IPv4Network("172.16.0.0/12"),
+            ipaddress.IPv4Network("192.168.0.0/16"),
+        )
+        if (
+            not isinstance(target, ipaddress.IPv4Network)
+            or target.prefixlen < 16
+            or not any(target.subnet_of(network) for network in private_ranges)
+        ):
+            raise ValueError("lab target must be an RFC1918 IPv4 CIDR with prefix /16 or longer")
+        status = LAB_EXEC_STATUS_FILE.read_text(encoding="utf-8").splitlines()
+        inspected = subprocess.run(
+            [
+                "docker",
+                "network",
+                "inspect",
+                "--format",
+                '{{.Id}}|{{.Driver}}|{{.Internal}}|{{index .Labels "portal5.lab_exec"}}|'
+                '{{index .Labels "portal5.lab_target_network"}}|'
+                '{{index .Options "com.docker.network.bridge.enable_icc"}}|'
+                "{{range .IPAM.Config}}{{.Subnet}}{{end}}",
+                LAB_EXEC_NETWORK,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+            env=_get_docker_env(),
+            timeout=30,
+        )
+        network_id, driver, internal, lab_label, target_label, inter_container, subnet_text = (
+            inspected.stdout.strip().split("|", maxsplit=6)
+        )
+        subnet = ipaddress.ip_network(subnet_text, strict=False)
+        bridge = f"br-{network_id[:12]}"
+        if (
+            driver != "bridge"
+            or internal != "false"
+            or lab_label != "true"
+            or target_label != str(target)
+            or inter_container != "false"
+            or not isinstance(subnet, ipaddress.IPv4Network)
+            or subnet.overlaps(target)
+            or status != ["portal5-labexec-v1", str(target), network_id, bridge]
+        ):
+            raise ValueError("dedicated bridge or egress firewall receipt did not match")
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        raise RuntimeError("lab network isolation check failed") from exc
 
-    Lab-exec swaps the locked-down alpine/python-slim base for an
-    attack-capable image (SANDBOX_LAB_IMAGE) so execute_bash/execute_python
-    have nmap/impacket/netexec etc. If SANDBOX_LAB_EXEC is set but
-    SANDBOX_LAB_IMAGE is empty, fall back to the default image and log — the
-    lane still has network reachability, just no preinstalled attack tooling.
-    """
-    if SANDBOX_LAB_EXEC and SANDBOX_LAB_IMAGE:
+
+def _verify_network_isolation() -> None:
+    """Verify both executors independently and disable only a failed policy."""
+    global GENERAL_EXEC_AVAILABLE, LAB_EXEC_AVAILABLE
+    try:
+        _verify_general_network_isolation()
+        GENERAL_EXEC_AVAILABLE = True
+    except RuntimeError:
+        GENERAL_EXEC_AVAILABLE = False
+        logger.exception("GENERAL CODE EXECUTION DISABLED: network=none verification failed")
+    if not SANDBOX_LAB_EXEC:
+        LAB_EXEC_AVAILABLE = False
+        return
+    try:
+        _verify_lab_network_isolation()
+        LAB_EXEC_AVAILABLE = True
+    except RuntimeError:
+        LAB_EXEC_AVAILABLE = False
+        logger.exception("LAB EXECUTION DISABLED: dedicated lab network verification failed")
+
+
+def _lab_exec_requested() -> bool:
+    """Return whether this call comes from an opted-in exec workspace variant."""
+    workspace_id = WORKSPACE_ID.get()
+    variant = workspace_id.rsplit("::", maxsplit=1)[-1]
+    return SANDBOX_LAB_EXEC and variant.endswith("-exec")
+
+
+def _executor_unavailable(lab_exec: bool) -> dict[str, Any] | None:
+    """Return a refusal when the requested executor failed its startup check."""
+    available = LAB_EXEC_AVAILABLE if lab_exec else GENERAL_EXEC_AVAILABLE
+    if available:
+        return None
+    executor = "lab" if lab_exec else "general"
+    reason = f"{executor} executor is disabled because its network isolation check failed"
+    return {
+        "success": False,
+        "error_type": f"{executor}_executor_unavailable",
+        "error": reason,
+        "stdout": "",
+        "stderr": reason,
+        "exit_code": -1,
+        "timed_out": False,
+        "artifacts": [],
+    }
+
+
+def _resolve_image(default_image: str, lab_exec: bool = False) -> str:
+    """Return the attack image for authorized lab calls or the caller's default."""
+    if lab_exec and SANDBOX_LAB_IMAGE:
         return SANDBOX_LAB_IMAGE
-    if SANDBOX_LAB_EXEC and not SANDBOX_LAB_IMAGE:
+    if lab_exec and not SANDBOX_LAB_IMAGE:
         logger.warning(
-            "SANDBOX_LAB_EXEC=true but SANDBOX_LAB_IMAGE is empty — using default image %s",
+            "SANDBOX_LAB_EXEC call has no SANDBOX_LAB_IMAGE — using default image %s",
             default_image,
         )
     return default_image
@@ -412,8 +515,12 @@ async def _run_in_docker(
     extra_args: list[str] | None = None,
     session_id: str | None = None,
     workspace_upload_refs: Sequence[str] = (),
+    lab_exec: bool = False,
 ) -> dict[str, Any]:
     """Run code in a Docker container with isolation constraints."""
+    unavailable = _executor_unavailable(lab_exec)
+    if unavailable is not None:
+        return unavailable
     run_id = uuid.uuid4().hex[:8]
     work_dir = SANDBOX_DIR / run_id
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -439,8 +546,9 @@ async def _run_in_docker(
     code_file = work_dir / "code"
     code_file.write_text(code, encoding="utf-8")
 
-    _network_envelope = SANDBOX_ALLOW_NETWORK or SANDBOX_LAB_EXEC
-    if SANDBOX_LAB_EXEC:
+    _network_envelope = lab_exec
+    network = LAB_EXEC_NETWORK if lab_exec else "none"
+    if lab_exec:
         _cpus, _mem = SANDBOX_LAB_CPUS, SANDBOX_LAB_MEMORY
     elif SANDBOX_ALLOW_NETWORK:
         _cpus, _mem = SANDBOX_NET_CPUS, SANDBOX_NET_MEMORY
@@ -452,7 +560,7 @@ async def _run_in_docker(
             "run",
             "--rm",
             "--network",
-            "none",  # Executed user code always runs on Docker's isolated none network.
+            network,
             "--cpus",
             _cpus,  # 0.5 default; SANDBOX_NET_CPUS when network-enabled
             "--memory",
@@ -464,7 +572,7 @@ async def _run_in_docker(
             # Default + ALLOW_NETWORK: block privilege escalation via setuid/file-caps.
             # Lab-exec: omit — Kali tools (nmap, responder) rely on cap_net_raw+eip file
             # capabilities which no-new-privileges blocks even after --cap-add NET_RAW.
-            [] if SANDBOX_LAB_EXEC else ["--security-opt", "no-new-privileges"]
+            [] if lab_exec else ["--security-opt", "no-new-privileges"]
         )
         + [
             "--cap-drop",
@@ -502,7 +610,7 @@ async def _run_in_docker(
                 if SANDBOX_LAB_TARGET_DC
                 else []
             )
-            if SANDBOX_LAB_EXEC
+            if lab_exec
             else []
         )
         + [
@@ -541,7 +649,7 @@ async def _run_in_docker(
                 if v
                 for arg in ("--env", f"{k}={v}")
             ]
-            if SANDBOX_LAB_EXEC
+            if lab_exec
             else []
         )
         + (
@@ -551,7 +659,7 @@ async def _run_in_docker(
             # docker-compose's job (bind-mounted into DinD, not this
             # container), so no local os.path.isdir check here -- this
             # container can't see DinD's filesystem to check it.
-            ["-v", f"{SANDBOX_LAB_VULHUB_DIR}:/vulhub:ro"] if SANDBOX_LAB_EXEC else []
+            ["-v", f"{SANDBOX_LAB_VULHUB_DIR}:/vulhub:ro"] if lab_exec else []
         )
         + _workspace_mount_args(
             work_dir, EVAL_SCOPE.get(), workspace_upload_refs or ATTACHED_UPLOADS.get()
@@ -587,7 +695,7 @@ async def _run_in_docker(
                 "artifacts": _publish_artifacts(out_dir),
             }
 
-        _output_cap = SANDBOX_LAB_OUTPUT_MAX if SANDBOX_LAB_EXEC else MAX_OUTPUT_BYTES
+        _output_cap = SANDBOX_LAB_OUTPUT_MAX if lab_exec else MAX_OUTPUT_BYTES
         stdout_text = stdout[:_output_cap].decode("utf-8", errors="replace")
         stderr_text = stderr[:_output_cap].decode("utf-8", errors="replace")
         result = {
@@ -866,14 +974,18 @@ async def execute_python(
     Returns:
         dict with success, stdout, stderr, exit_code, timed_out
     """
+    lab_exec = _lab_exec_requested()
+    unavailable = _executor_unavailable(lab_exec)
+    if unavailable is not None:
+        return unavailable
     _cap = (
         SANDBOX_LAB_TIMEOUT_MAX
-        if SANDBOX_LAB_EXEC
+        if lab_exec
         else (SANDBOX_NET_TIMEOUT_MAX if SANDBOX_ALLOW_NETWORK else 120)
     )
     timeout = min(timeout, _cap)
     # Use file-based execution to avoid shell escaping issues
-    image = _resolve_image(PYTHON_IMAGE)
+    image = _resolve_image(PYTHON_IMAGE, lab_exec)
     if packages and not session_id:
         return {
             "success": False,
@@ -882,6 +994,8 @@ async def execute_python(
         }
     install: dict[str, Any] | None = None
     if packages:
+        if install_unavailable := _executor_unavailable(False):
+            return install_unavailable
         install = await _install_packages(_session_dir(session_id or ""), image, "python", packages)
         if install.get("error"):
             return {"success": False, "error_type": "package_install", "error": install["error"]}
@@ -891,6 +1005,7 @@ async def execute_python(
         code=code,
         timeout=timeout,
         session_id=session_id,
+        lab_exec=lab_exec,
     )
     if install is not None:
         result.update(installed=install["installed"], install_log=install["log"])
@@ -965,17 +1080,22 @@ async def execute_bash(
     Returns:
         dict with success, stdout, stderr, exit_code, timed_out
     """
-    _cap = SANDBOX_LAB_TIMEOUT_MAX if SANDBOX_LAB_EXEC else 60
+    lab_exec = _lab_exec_requested()
+    unavailable = _executor_unavailable(lab_exec)
+    if unavailable is not None:
+        return unavailable
+    _cap = SANDBOX_LAB_TIMEOUT_MAX if lab_exec else 60
     timeout = min(timeout, _cap)  # shell stays tight unless lab-exec widens it
     # Lab-exec attack images are commonly Debian/Kali-based; use bash when
     # available since sh (dash) lacks /dev/tcp which lab probes rely on.
-    _shell = "bash" if SANDBOX_LAB_EXEC else "sh"
+    _shell = "bash" if lab_exec else "sh"
     return await _run_in_docker(
-        image=_resolve_image(BASH_IMAGE),
+        image=_resolve_image(BASH_IMAGE, lab_exec),
         command=[_shell, "/code"],
         code=code,
         timeout=timeout,
         session_id=session_id,
+        lab_exec=lab_exec,
     )
 
 
@@ -1044,7 +1164,10 @@ async def sandbox_status() -> dict[str, Any]:
         "docker_available": docker_available,
         "docker_host": DOCKER_HOST or "unix:///var/run/docker.sock",
         "sandbox_enabled": os.getenv("SANDBOX_ENABLED", "false").lower() == "true",
-        "lab_exec_active": SANDBOX_LAB_EXEC,
+        "general_exec_available": GENERAL_EXEC_AVAILABLE,
+        "lab_exec_active": SANDBOX_LAB_EXEC and LAB_EXEC_AVAILABLE,
+        "general_network": "none",
+        "lab_network": LAB_EXEC_NETWORK if LAB_EXEC_AVAILABLE else None,
         "lab_image": SANDBOX_LAB_IMAGE or None,
         "python_image": PYTHON_IMAGE,
         "node_image": NODE_IMAGE,

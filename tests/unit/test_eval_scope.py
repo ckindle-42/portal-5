@@ -23,13 +23,17 @@ def _no_scope_leaks():
     """Every test starts and must end with no evaluation scope set in this context."""
     assert es.EVAL_SCOPE.get() is None
     assert es.REQUEST_ID.get() == ""
+    assert es.WORKSPACE_ID.get() == ""
     yield
     leaked = es.EVAL_SCOPE.get()
     leaked_request_id = es.REQUEST_ID.get()
+    leaked_workspace_id = es.WORKSPACE_ID.get()
     es.EVAL_SCOPE.set(None)
     es.REQUEST_ID.set("")
+    es.WORKSPACE_ID.set("")
     assert leaked is None, "a test left an evaluation scope set"
     assert leaked_request_id == "", "a test left a request id set"
+    assert leaked_workspace_id == "", "a test left a workspace id set"
 
 
 @pytest.mark.parametrize(
@@ -67,6 +71,26 @@ def test_native_mcp_call_binds_eval_scope_and_request_id():
     )
     assert asyncio.run(server.call_tool("tool", {}, context)) == (SCOPE, "chat-17")
     assert es.EVAL_SCOPE.get() is None and es.REQUEST_ID.get() == ""
+
+
+def test_native_mcp_call_binds_pipeline_workspace_id():
+    from types import SimpleNamespace
+
+    class NativeServer:
+        async def call_tool(self, name, arguments, context):
+            return es.WORKSPACE_ID.get()
+
+    server = NativeServer()
+    es.bind_native_context(server)
+    context = SimpleNamespace(
+        request_context=SimpleNamespace(
+            params={"_meta": {es.WORKSPACE_ID_META_KEY: "auto-security::purpleteam-exec"}}
+        )
+    )
+    assert asyncio.run(server.call_tool("execute_bash", {}, context)) == (
+        "auto-security::purpleteam-exec"
+    )
+    assert es.WORKSPACE_ID.get() == ""
 
 
 def test_pipeline_gate_narrows_tools_and_refuses_a_bad_scope():
