@@ -258,6 +258,22 @@ async def test_guarded_stream_error_ends_well_formed(
     assert recorded == [("ws", "stream_error")]
 
 
+@pytest.mark.anyio
+async def test_guarded_stream_without_backend_done_is_not_success(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recorded = _record_errors(monkeypatch)
+    _serve(stream_client, _Resp([f"data: {SERVED}"]))
+
+    chunks = await _drain(
+        st._stream_from_backend_guarded("http://omlx/v1/chat/completions", {}, "ws", "m")
+    )
+
+    assert "served" in _content(chunks)
+    _assert_terminal(chunks, "Backend connection error — check server logs")
+    assert recorded == [("ws", "stream_error")]
+
+
 # ── fallback wrapper (streaming.py:2467, 2515) ───────────────────────
 
 
@@ -1090,6 +1106,68 @@ async def test_tool_loop_omlx_memory_abort_mid_prefill_frees_and_retries_the_hop
     assert stream_client.stream.call_count == 2
     assert "served" in _content(chunks)
     assert all(b'"error"' not in chunk for chunk in chunks)
+
+
+@pytest.mark.anyio
+async def test_multicandidate_omlx_capacity_retry_runs_once_before_fallback(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(st, "_backend_type_for_url", lambda _url: "omlx")
+
+    async def no_room(_backend, _body):
+        return None
+
+    frees: list[int] = []
+
+    async def fake_free() -> list[str]:
+        frees.append(1)
+        return ["idle-model"]
+
+    monkeypatch.setattr(st, "make_room_for_omlx", no_room)
+    monkeypatch.setattr(st, "free_ollama_for_omlx", fake_free)
+    capacity = _Resp(
+        [],
+        status=507,
+        body=b'{"error":"Cannot load m: projected memory would exceed host headroom"}',
+    )
+    _serve(stream_client, capacity, capacity)
+    backend = SimpleNamespace(
+        id="omlx-primary",
+        type="omlx",
+        chat_url="http://omlx/v1/chat/completions",
+    )
+    fallback_calls: list[str] = []
+
+    async def fallback(candidate, *_args, **_kwargs):
+        fallback_calls.append(candidate.id)
+        return _candidate_two()
+
+    monkeypatch.setattr(st, "_select_stream_fn", lambda *_args, **_kwargs: _guarded_inner())
+    monkeypatch.setattr(st, "_try_non_streaming", fallback)
+    chunks = await _drain(
+        st._stream_with_fallback(
+            backend=backend,
+            body={},
+            workspace_id="ws",
+            target_model="m",
+            persona="p",
+            effective_tools=[],
+            start_time=0.0,
+            has_tools=False,
+            chain=[],
+            portal_no_tools=False,
+            secondary_model="",
+            tertiary_model="",
+            remaining=[_backend("ollama-fallback")],
+            slot=MagicMock(),
+            backend_body={},
+        )
+    )
+
+    assert stream_client.stream.call_count == 2
+    assert frees == [1]
+    assert fallback_calls == ["ollama-fallback"]
+    assert _content(chunks) == "candidate two answer"
 
 
 OMLX_INCOMPLETE_TOOL = (

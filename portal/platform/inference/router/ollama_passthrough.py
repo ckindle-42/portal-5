@@ -168,10 +168,9 @@ async def _proxy(
             set_load_wait(request.headers.get("x-portal-load-wait"))
             if model:
                 try:
-                    release = await guard.admit(base, model)
+                    release, end = await guard.admit_and_begin_ollama(base, model)
                 except LoadRefusedError as exc:
                     return JSONResponse(status_code=507, content={"error": str(exc)})
-                end = guard.begin(OLLAMA, model)
         try:
             upstream_request = _client.build_request(**request_args)
             return await _client.send(upstream_request, stream=True)
