@@ -2335,12 +2335,14 @@ def _hunt_identifier_errors(text: str, receipts: list[dict[str, object]]) -> lis
     }
     reported_ids.update(
         match.rstrip(".,;:").casefold()
+        # An identifier carries a digit; prose such as "event identifiers." does not.
         for match in re.findall(
             r"\b(?:hunt|job|event|lead|case|record)\s+"
             r"(?:(?:identifier|id)\b\s*)?[:#=]?\s*([a-z0-9][a-z0-9._:-]{7,})",
             text,
             re.IGNORECASE,
         )
+        if any(ch.isdigit() for ch in match)
     )
     errors = []
     if not receipt_ids or not reported_ids:

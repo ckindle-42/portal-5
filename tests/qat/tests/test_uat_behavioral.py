@@ -1558,6 +1558,9 @@ def test_hunt_grader_rejects_terminal_job_without_receipted_queries_or_leads() -
     assert "hunt receipt shows no Splunk requests" in errors
     assert "hunt answer did not report the receipt's zero leads" in errors
     assert "reported hunt identifier does not match the receipt" in errors
+    # Live 2026-11-26: prose "event identifiers." is not an identifier.
+    truthful = "Job: `hunt-r2-2a73ff71d4b2` is RUNNING; later I'll cite exact event identifiers."
+    assert uat._hunt_identifier_errors(truthful, [{"job_id": "hunt-r2-2a73ff71d4b2"}]) == []
 
 
 def test_hunt_grader_accepts_terminal_job_with_successful_leads() -> None:
