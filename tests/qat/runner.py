@@ -1522,6 +1522,37 @@ def _tool_body_text(trace: dict[str, object]) -> str:
     return "\n".join(chunks)
 
 
+_ANALYST_VERDICT_RE = re.compile(
+    r"\b(?:human|analyst|operator|reviewer|user)\b.{0,40}\b(?:verdict|decid|own|final)\w*"
+    r"|\b(?:verdict|decision)s?\b.{0,40}\b(?:human|analyst|operator|user)\b"
+    r"|\bno_reader\b|does not make (?:a )?model verdict",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _reviewer_sources_claim_error(text: str, trace: dict[str, object]) -> str | None:
+    """Verify security-reviewer cited a live hunt_sources index and stated analyst-owned verdicts."""
+    indexes: list[str] = []
+    for span in _trace_spans(trace):
+        if span.get("name") != "tool.completed" or span.get("tool") != "hunt_sources":
+            continue
+        if not (span.get("outcome") == "ok" or span.get("success") is True):
+            continue
+        receipt = span.get("receipt")
+        if isinstance(receipt, dict):
+            idx = receipt.get("index")
+            if isinstance(idx, str) and idx.strip():
+                indexes.append(idx.strip())
+    if not indexes:
+        return "security-reviewer claim has no returned index in hunt_sources receipt"
+    lowered = text.casefold()
+    if not any(idx.casefold() in lowered for idx in indexes):
+        return "security-reviewer answer did not cite a returned index from hunt_sources"
+    if _ANALYST_VERDICT_RE.search(text) is None:
+        return "security-reviewer answer did not state analyst-owned verdicts"
+    return None
+
+
 def _content_claim_error(scenario: QATScenario, text: str, trace: dict[str, object]) -> str | None:
     claim = scn.content_claim(scenario)
     if claim == "mitre":
@@ -1535,6 +1566,8 @@ def _content_claim_error(scenario: QATScenario, text: str, trace: dict[str, obje
         if _SPL_TEXT.search(text) is None:
             return "SPL claim missing SPL text"
         return None
+    if claim == "reviewer_sources":
+        return _reviewer_sources_claim_error(text, trace)
     if claim == "severity":
         body = _tool_body_text(trace)
         body_tokens = {match.group(1).casefold() for match in _SEVERITY.finditer(body)}

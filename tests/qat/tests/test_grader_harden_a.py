@@ -144,7 +144,7 @@ def test_content_claims_and_plumbing_labels() -> None:
     assert scenarios.content_claim(hunt) == "spl"
     assert "plumbing-only" not in hunt.tags
     reviewer = by_id["s3-security-reviewer"]
-    assert scenarios.content_claim(reviewer) == "severity"
+    assert scenarios.content_claim(reviewer) == "reviewer_sources"
     canonical = by_id["s3-canonical-auto-security-blueteam"]
     assert runner._content_claim_error(canonical, "Done.", {}) == "MITRE id pattern absent"
     assert runner._content_claim_error(canonical, "Phishing T1566 then T1078.", {}) is None
@@ -155,17 +155,36 @@ def test_content_claims_and_plumbing_labels() -> None:
     assert runner._content_claim_error(hunt, prose, {}) == "SPL claim missing SPL text"
     body = {
         "spans": [
-            {"name": "tool.completed", "tool": "review", "outcome": "ok", "output": "severity high"}
+            {
+                "name": "tool.completed",
+                "tool": "hunt_sources",
+                "outcome": "ok",
+                "success": True,
+                "receipt": {"indexes_count": 3, "index": "botsv3"},
+            }
         ]
     }
-    assert runner._content_claim_error(reviewer, "Severity: high.", body) is None
     assert (
-        runner._content_claim_error(reviewer, "Severity: low.", body)
-        == "severity token in the answer is not tied to the tool body"
+        runner._content_claim_error(
+            reviewer, "Available index: botsv3. The human analyst owns the final verdict.", body
+        )
+        is None
     )
     assert (
-        runner._content_claim_error(reviewer, "Severity: high.", {"spans": []})
-        == "severity claim has no severity token in the tool body"
+        runner._content_claim_error(
+            reviewer, "Available index: other_idx. The human analyst owns the verdict.", body
+        )
+        == "security-reviewer answer did not cite a returned index from hunt_sources"
+    )
+    assert (
+        runner._content_claim_error(reviewer, "Available index: botsv3.", body)
+        == "security-reviewer answer did not state analyst-owned verdicts"
+    )
+    assert (
+        runner._content_claim_error(
+            reviewer, "Available index: botsv3. Human analyst decides.", {"spans": []}
+        )
+        == "security-reviewer claim has no returned index in hunt_sources receipt"
     )
     hunter = by_id["s2-p5-hunter"]
     assert "timeout tuned 2026-11-22 for auto-security" in hunter.notes

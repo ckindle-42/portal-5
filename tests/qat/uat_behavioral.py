@@ -2420,12 +2420,16 @@ def _grade_rag_case(
     receipt_text = _receipt_text(turns).casefold()
     if not receipt_text:
         return ["knowledge-base answer has no retrieved receipt"]
-    if not re.search(r"\b(?:source|document|passage|citation|title)\b", receipt_text):
+    if not re.search(
+        r"\b(?:source|source_file|filename|document|passage|citation|title)\b", receipt_text
+    ):
         errors.append("retrieved receipt did not identify a source")
     if not re.search(r"\b(?:source|document|passage|citation)\b", text, re.IGNORECASE):
         errors.append("first answer did not identify a retrieved source")
-    answer_period = _RETENTION_PERIOD_RE.search(text)
-    receipt_period = _RETENTION_PERIOD_RE.search(receipt_text)
+    answer_periods = {match.group(0).casefold() for match in _RETENTION_PERIOD_RE.finditer(text)}
+    receipt_periods = {
+        match.group(0).casefold() for match in _RETENTION_PERIOD_RE.finditer(receipt_text)
+    }
     explicit_absence = any(
         phrase in text.casefold() for phrase in ("no source", "no period", "does not contain")
     )
@@ -2434,15 +2438,16 @@ def _grade_rag_case(
         for _tool, receipt in _tool_receipts(turns)
         for key in ("results_count", "matches_count", "num_results")
     )
+    receipt_states_absence = any(
+        phrase in receipt_text
+        for phrase in ("no retention policy", "no data-retention", "no data retention")
+    )
     if explicit_absence:
-        if not no_results:
+        if not no_results and not receipt_states_absence:
             errors.append("answer claimed no period without a receipt showing no results")
-    elif not answer_period:
+    elif not answer_periods:
         errors.append("follow-up omitted an exact retention period or explicit absence")
-    elif (
-        not receipt_period
-        or answer_period.group(0).casefold() != receipt_period.group(0).casefold()
-    ):
+    elif not (answer_periods & receipt_periods):
         errors.append("reported retention period does not match the retrieved receipt")
     evidence["retrieved_receipt_text"] = receipt_text[:400]
     return errors

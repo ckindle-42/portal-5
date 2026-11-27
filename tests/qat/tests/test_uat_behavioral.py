@@ -2378,6 +2378,26 @@ def test_rag_period_and_source_must_match_retrieved_receipt() -> None:
         {"title": "Backup Guide", "text": "The retention period is 90 days."},
     )
     assert any("does not match" in error for error in uat.grade_case(case, [wrong], {})[0])
+    source_file_receipt = {
+        "kb_id": "portal-trace-docs",
+        "source_file": "BACKUP_RESTORE.md",
+        "text": (
+            "There is no retention policy implemented anywhere in the codebase. "
+            "The daily-for-a-week, weekly-for-a-month, monthly-for-a-year ladder is advisory."
+        ),
+    }
+    later_period = _receipt_turn(
+        "The source BACKUP_RESTORE.md cites an advisory monthly ladder.",
+        "kb_search",
+        source_file_receipt,
+    )
+    assert uat.grade_case(case, [later_period], {})[0] == []
+    absent = _receipt_turn(
+        "The source BACKUP_RESTORE.md states there is no period enforced.",
+        "kb_search",
+        source_file_receipt,
+    )
+    assert uat.grade_case(case, [absent], {})[0] == []
 
 
 def test_reported_count_ignores_bare_commas() -> None:

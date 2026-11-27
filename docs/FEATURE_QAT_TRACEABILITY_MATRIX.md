@@ -17,7 +17,7 @@ from the live repo files, never hardcoded prose; the companion unit test
 | broken_or_unwired | 2 | `browser_get_markdown` (phantom native ref), `link` (graph write tool never granted) |
 | stale_dead | 0 | zero dead tool definitions at HEAD; 2 dead non-tool artifacts in the Purge List (§12) |
 | workspaces | 22 | config/portal.yaml `workspaces` (13 exposed / 9 internal) |
-| variants | 56 | `workspaces.*.variants` (11 exposed as OWUI presets) |
+| variants | 57 | `workspaces.*.variants` (11 exposed as OWUI presets) |
 | personas | 110 | config/personas/*.yaml (bench/ excluded: 2 bench personas) |
 | endpoints | 23 | portal/platform/inference/router/app.py route bindings |
 | gui_controls | 15 | §9 enumeration; 5 exercised by the browser QAT layer |

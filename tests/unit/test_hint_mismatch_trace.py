@@ -58,3 +58,29 @@ def test_tool_completion_has_a_bounded_structured_receipt() -> None:
     assert "token=" not in json.dumps(receipt)
     assert "api_key" not in receipt
     assert len(json.dumps(receipt, separators=(",", ":")).encode()) <= 1024
+
+
+def test_tool_receipt_preserves_rag_source_file_and_passage_within_byte_budget() -> None:
+    passage = (
+        ("x " * 120)
+        + "### Backup Retention\n\nThere is no retention policy implemented anywhere in the "
+        "codebase. The daily-for-a-week, weekly-for-a-month, monthly-for-a-year ladder is advisory."
+    )
+    result = bounded_tool_result(
+        {
+            "kb_id": "portal-trace-docs",
+            "num_results": 1,
+            "results": [
+                {
+                    "chunk_id": "c4d037a871c1b5f1130b036babcd0893874bdb0f",
+                    "source_file": "BACKUP_RESTORE.md",
+                    "text": passage,
+                }
+            ],
+        }
+    )
+
+    receipt = result["receipt"]
+    assert receipt["source_file"] == "BACKUP_RESTORE.md"
+    assert "monthly-for-a-year" in receipt["text"]
+    assert len(json.dumps(receipt, separators=(",", ":")).encode()) <= 1024

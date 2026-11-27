@@ -263,8 +263,8 @@ async def test_dispatch_applies_workspace_tool_model_default_when_omitted_or_def
         )
 
     assert [item["model"] for item in seen] == [
-        "compliance-council-qwen38",
-        "compliance-council-qwen38",
-        "compliance-council-qwen38",
+        "compliance-mapping::qwen38",
+        "compliance-mapping::qwen38",
+        "compliance-mapping::qwen38",
         "compliance-mapping",
     ]

@@ -1241,6 +1241,30 @@ async def test_a_resident_omlx_seat_frees_idle_ollama_that_ate_its_prefill_share
     assert e.omlx["seat"]["loaded"]  # never the seat the request is going to
 
 
+async def test_a_resident_omlx_seat_waits_for_omlx_ceiling_to_settle_after_ollama_unload(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """2026-11-27 auto-compliance hop 2: unloading Ollama frees /api/ps immediately while oMLX's
+    dynamic ceiling takes ~1-2s to rebound; exiting on the first flat poll sent prefill into 400."""
+    monkeypatch.setattr(lg, "_WAIT_S", 1.0)
+    monkeypatch.setattr(lg, "_FREE_SETTLE_EXPECTED_S", 1.0)
+    e = Engines(
+        ollama={"copy": int(16 * GIB)},
+        omlx={"seat": {"size": int(17 * GIB), "loaded": True}},
+        ceiling=int(20 * GIB),
+        omlx_memory=int(17 * GIB),
+        ceiling_rise_polls={"copy": 3},
+    )
+    e.hidden["copy"] = int(16 * GIB)
+    g = guard(e)
+
+    assert await g.admit_omlx("seat") is None
+
+    assert e.unload_calls == {"copy": 1}
+    assert e.ceiling == int(36 * GIB)
+    assert not e.pending_ceiling_rises
+
+
 async def test_a_resident_omlx_seat_leaves_memory_alone_inside_its_prefill_share():
     e = Engines(
         ollama={"idle": int(4 * GIB)},

@@ -489,3 +489,27 @@ class TestKnobWiring:
         repo = Path(__file__).resolve().parents[2]
         reg = BackendRegistry(config_path=str(repo / "config" / "backends.yaml"))
         assert 0.0 < reg.hot_seat_protect_s <= 3600.0
+
+    def test_nested_compliance_ask_default_reuses_resident_omlx_seat(self) -> None:
+        from portal.platform.inference.router.preinject import (
+            _resolve_workspace_variant,
+            _unpack_synthetic_workspace,
+        )
+        from portal.platform.inference.router.workspaces import WORKSPACES
+
+        repo = Path(__file__).resolve().parents[2]
+        reg = BackendRegistry(config_path=str(repo / "config" / "backends.yaml"))
+        target = WORKSPACES["auto-compliance"]["tool_model_defaults"]["compliance_ask"]
+        base, variant = _unpack_synthetic_workspace(target)
+        resolved_target = _resolve_workspace_variant(target, base, variant)
+        caller_hint = WORKSPACES["auto-compliance"]["model_hint"]
+        target_hint = WORKSPACES[resolved_target]["model_hint"]
+        caller_head = handlers._order_candidates(
+            reg.get_backend_candidates("auto-compliance"), "auto-compliance", reg
+        )[0]
+        target_head = handlers._order_candidates(
+            reg.get_backend_candidates(resolved_target), resolved_target, reg
+        )[0]
+        assert caller_head.type == "omlx"
+        assert target_head.type == "omlx"
+        assert target_head.resolve_model(target_hint) == caller_head.resolve_model(caller_hint)

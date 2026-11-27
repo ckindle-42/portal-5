@@ -148,7 +148,7 @@ def content_claim(scenario: QATScenario) -> str:
     ):
         return "spl"
     if scenario.scenario_id == "s3-security-reviewer":
-        return "severity"
+        return "reviewer_sources"
     return ""
 
 
@@ -987,13 +987,23 @@ def _phase_security_hunt(_s: Settings, d: Discovery) -> list[QATScenario]:
                 3,
                 "security_hunt",
                 "s3-security-reviewer",
-                "security-reviewer review turn",
+                "security-reviewer indexed sources + analyst-owned verdict",
                 "security-reviewer",
-                prompts=("Review this finding: SSH root login from 10.0.0.5 at 03:14 UTC.",),
+                prompts=(
+                    "Use hunt_sources to list the indexed security telemetry sources available "
+                    "for review. Name at least one returned index from the tool output and state "
+                    "who owns the final review verdict.",
+                ),
                 tools=d.preset_tools("security-reviewer"),
+                expected_tools=("hunt_sources",),
                 function_calling=d.presets["security-reviewer"].function_calling,
-                expected="structured review verdict with severity",
-                rubric=_rubric(("verdict", "severity + rationale present")),
+                expected="cites a returned Splunk index from hunt_sources and states the human analyst owns verdicts",
+                rubric=_rubric(
+                    (
+                        "grounded_sources",
+                        "returned hunt_sources index cited; analyst-owned verdict stated",
+                    )
+                ),
                 tags=("security",),
             )
         )

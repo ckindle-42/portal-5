@@ -64,6 +64,8 @@ HEAD_CHARS: int = 160
 #: Always-on tool error/stdout/stderr heads on ``tool.completed``. Full bodies stay opt-in.
 TOOL_RESULT_HEAD_CHARS: int = 512
 TOOL_RECEIPT_MAX_BYTES = 1024
+_RECEIPT_TEXT_MAX_CHARS = 720
+_RECEIPT_TEXT_KEYS = frozenset({"text", "snippet", "content"})
 _SECRET_ASSIGN = re.compile(
     r"(?i)\b((?:authorization|api[_-]?key|password|secret|access[_-]?token|token|bearer)"
     r"\s*[:=]\s*)(\S+)"
@@ -195,6 +197,9 @@ def _receipt_field(key: str, value: Any) -> Any | None:
             "index",
             "citation",
             "source",
+            "source_file",
+            "filename",
+            "document",
             "title",
             "name",
             "summary",
@@ -218,7 +223,8 @@ def _receipt_field(key: str, value: Any) -> Any | None:
             if parts.port:
                 host = f"{host}:{parts.port}"
         value = urlunsplit((parts.scheme, host, parts.path, "", ""))
-    return value[:120] or None
+    limit = _RECEIPT_TEXT_MAX_CHARS if lowered in _RECEIPT_TEXT_KEYS else 120
+    return value[:limit] or None
 
 
 def _receipt_add(receipt: dict[str, Any], key: str, value: Any) -> None:
@@ -270,10 +276,19 @@ def _tool_receipt(parsed: dict[str, Any] | None) -> dict[str, Any]:
         return {}
     receipt: dict[str, Any] = {}
     _receipt_visit(parsed, receipt)
-    while (
-        receipt
-        and len(json.dumps(receipt, separators=(",", ":")).encode("utf-8")) > TOOL_RECEIPT_MAX_BYTES
-    ):
+    while receipt:
+        encoded = json.dumps(receipt, separators=(",", ":")).encode("utf-8")
+        overflow = len(encoded) - TOOL_RECEIPT_MAX_BYTES
+        if overflow <= 0:
+            break
+        long_key = max(
+            (k for k, v in receipt.items() if isinstance(v, str) and len(v) > 120),
+            key=lambda k: len(receipt[k]),
+            default=None,
+        )
+        if long_key is not None:
+            receipt[long_key] = receipt[long_key][: max(120, len(receipt[long_key]) - overflow - 8)]
+            continue
         receipt.pop(next(reversed(receipt)))
     return receipt
 

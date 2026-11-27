@@ -2994,10 +2994,10 @@ workspaces:
     # deadline. Same fix as auto-research (a79933204): cap, then one answer.
     max_tool_hops: 5
     max_tool_calls: 8
-    # Reuse the resident Qwen3.8-27B weights (tools: [], think: false) for nested
-    # compliance_ask calls so interactive turns never swap 16.6+15.0 GiB per hop.
+    # Reuse the resident oMLX Qwen3.8-27B weights (tools: [], think: false) for nested
+    # compliance_ask calls without triggering compliance-council-*'s Ollama-first rule.
     tool_model_defaults:
-      compliance_ask: compliance-council-qwen38
+      compliance_ask: compliance-mapping::qwen38
     owui_system_prompt: |-
       You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.
 
@@ -3212,6 +3212,25 @@ workspaces:
     tools: [] # callers bring their own schemas (portal_client_tools_only) or none (portal_no_tools)
     expose_to_owui: false
     enable_web_search: false
+    variants:
+      qwen38:
+        module: compliance
+        name: ⚖️ Compliance Mapping · Qwen3.8 (machine seat)
+        description: Resident Qwen3.8-27B machine seat for nested compliance_ask calls from auto-compliance — shares oMLX Qwen3.8-27B-oQ4e-mtp weights without compliance-council-*'s Ollama-first override.
+        model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k
+        context_limit: 32768
+        predict_limit: 8192
+        temperature: 0.7
+        top_p: 0.8
+        top_k: 20
+        min_p: 0.0
+        repeat_penalty: 1.0
+        presence_penalty: 1.5
+        think: false
+        emits_reasoning: false
+        tools: []
+        expose_to_owui: false
+        enable_web_search: false
   compliance-council-qwen38:
     module: compliance
     name: ⚖️ Compliance Council · Qwen3.8 seat
@@ -3475,7 +3494,7 @@ working_sets:
     mode: co_resident
     workspaces:
       - auto-compliance
-      - compliance-council-qwen38
+      - compliance-mapping::qwen38
   security-hunt:
     mode: yield
     workspaces:
