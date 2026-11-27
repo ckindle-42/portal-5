@@ -1,5 +1,5 @@
 """The decision rule (cause C4). Specified in docs/WFE_ROOT_CAUSES_20261013.md,
-"Decision rule"; pinned by tests/wfe/tests/test_wfe_decision.py."""
+"Decision rule"."""
 
 from __future__ import annotations
 

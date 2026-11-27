@@ -168,8 +168,26 @@ all `test_hunt_*` importing `portal.modules.security.core.hunt` (product hunt en
 ## Result vs target
 
 Deleted: 46 files + 2 merge operations (4 further candidates kept: their deletion would breach the
-unwired_scripts complexity ceiling — see Area 2/4 KEEP notes). See the lane commits for per-area gate
-output; final numbers and runtime are recorded at the end of this file after the last area lands.
+unwired_scripts complexity ceiling — see Area 2/4 KEEP notes). Wiki source refs reconciled
+(`unit-compliance-engine`, `unit-wfe-workspace-fitness`); orphaned docstring ref in
+`tests/wfe/decision.py` removed.
+
+### Measured after (HEAD f6610ca3b + decision.py docstring fix)
+
+| Group | files | nonblank LOC | nonblank-nocomment |
+|---|---|---|---|
+| tests/unit | 327 | 58,695 | 57,890 |
+| tests/wfe | 99 | 30,037 | 29,271 |
+| portal/**/tests | 101 | 10,985 | 10,624 |
+| **TOTAL** | **527** | **99,717** | **97,785** |
+
+- Δ nonblank: **−11,220 (−10.11%)**; Δ nonblank-nocomment: −11,113 (−10.21%).
+- test:product ratio: 0.5490 → **0.4935**.
+- Unit-suite runtime: 172.56 s → **109.38 s** (−36.6%); collected 4,147 → 3,669 passed (+46 skipped both).
+- Per-area gates: all green (see commit messages).
+- Final gate `bash scripts/ci_local.sh`: **PASS** — clean-venv ruff check + format, complexity gate,
+  mypy (compliance excluded per script), `pytest tests portal -n auto -x` →
+  **6134 passed, 48 skipped, 22 warnings in 119.87s** · "== ci-local: PASS — safe to push ==".
 
 **Gap analysis (honest negative):** the brief's ≥20% (≥21,700-line) target is not reachable under
 its own deletion criteria without cutting product-behaviour tests. The entire non-product surface
@@ -180,3 +198,8 @@ pipeline core) — each deletion there loses a differentiated behaviour test, an
 live-proven contracts the brief forbids dropping. Per WORKER_CONTRACT §0/§2 this lane reports the
 shortfall instead of tuning the delete set to hit the number; the orchestrator decides whether to
 authorise specific product-cluster cuts or revise the target.
+
+Note: `docs/test_trim/PHASE2_PLAN.md` (prior lane, snapshot b75c16d8) records a *different* operator
+direction — replace offline product-behaviour tests with NEW live exercisers, then trim. That is a
+build-then-delete program outside this brief's scope; it is the plausible route to ≥20% but requires
+new live-exerciser code and orchestrator authorisation, not deletion alone.
