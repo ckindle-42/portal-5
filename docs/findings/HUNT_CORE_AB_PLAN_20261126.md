@@ -309,6 +309,14 @@ attributed to cards, ranking, or budget.
 ## 8. Not done by this lane
 
 No live arm, no rebuild, no Splunk query, no Pipeline request. The patch was verified offline only:
-it applies and reverts against HEAD, the full unit suite is green with it applied
-(`4124 passed, 46 skipped`), and `sync-config` is a no-op for it. The live proofs in §3–§5 are the
-orchestrator's.
+
+- applies and reverts cleanly against HEAD (`git apply --check` both directions);
+- the full unit suite is green with it applied (`4124 passed, 46 skipped`);
+- `sync-config` is a no-op for it (no derived artefact changes);
+- `tests.wfe.settings_audit.audit_config_seats(['hunt-reasoning','auto-council'])` reports
+  `violations: []` in both states, and the armed `auto-council` roster resolves all four seats to
+  `('omlx', 'Inkling-2-Mini-oQ4e-mtp')` with no `council_card_missing`/`council_model_unroutable`;
+- the seat resolves `omlx-general → Inkling-2-Mini-oQ4e-mtp` (control: `→ gemma-4-26b-a4b-it-QAT-4bit`),
+  so §3's expected `"model"` value is the served oMLX id.
+
+The live proofs in §3–§5 are the orchestrator's.
