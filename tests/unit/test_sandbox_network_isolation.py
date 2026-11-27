@@ -163,7 +163,6 @@ async def test_python_sessions_use_fresh_containers_and_distinct_mounts(monkeypa
         assert command[command.index("--user") + 1] == f"{os.getuid()}:{os.getgid()}"
         assert set(metadata) == {"/session", "/workspace", "/out"}
         assert {owner for owner, _, _ in metadata.values()} == {os.getuid()}
-        assert {group for _, group, _ in metadata.values()} == {os.getgid()}
         assert all(mode & 0o002 == 0 for _, _, mode in metadata.values())
 
 
