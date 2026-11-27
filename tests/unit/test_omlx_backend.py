@@ -183,6 +183,52 @@ class TestOmlxTemplateParityEffort:
         )
         assert "reasoning_effort" not in (out.get("chat_template_kwargs") or {})
 
+        # 6. Council payloads to oMLX carry the same parity default at the
+        #    lowest precedence (explicit caller effort wins).
+        import asyncio
+
+        from portal.platform.inference.router import council as council_mod
+
+        captured = {}
+
+        class _FakeResp:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+        class _FakeClient:
+            async def post(self, url, json=None, **kwargs):
+                captured.update(json or {})
+                return _FakeResp()
+
+        fake_backend = Backend(
+            id="omlx-parity",
+            type="omlx",
+            url="http://localhost:8085",
+            group="omlx",
+            models=["Qwen3.8-27B-oQ4e-mtp"],
+        )
+        monkeypatch.setattr(reg, "get_backend_candidates", lambda ws: [fake_backend])
+        monkeypatch.setattr(reg, "list_healthy_backends", lambda: [fake_backend])
+        monkeypatch.setattr(council_mod, "_http_client", _FakeClient())
+
+        asyncio.run(
+            council_mod._post_model(
+                model="Qwen3.8-27B-oQ4e-mtp",
+                system="s",
+                user="u",
+                max_tokens=100,
+                sampling={},
+                think=None,
+                workspace_id="ws-parity",
+                registry=reg,
+                role="test",
+            )
+        )
+        assert captured["chat_template_kwargs"]["reasoning_effort"] == "medium"
+
 
 class TestAutoCodingOmlxShadowRouting:
     """PUNCHLIST B2: auto-coding's `coding` group carries both omlx-coding

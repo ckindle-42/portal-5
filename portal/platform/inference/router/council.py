@@ -717,6 +717,18 @@ async def _post_model(
     if backend.type == "omlx" and "repeat_penalty" in sampling:
         payload["repetition_penalty"] = sampling["repeat_penalty"]
     _apply_think(payload, think, backend.type)
+    if backend.type == "omlx":
+        # Chat-template parity (P5-OMLX-QWEN38-MTP-001): same per-model default
+        # as chat, as lowest precedence — explicit caller effort wins.
+        from portal.platform.inference.router.validation import (  # noqa: PLC0415
+            _model_reasoning_effort_default,
+        )
+
+        parity = _model_reasoning_effort_default(model)
+        if parity and not payload.get("reasoning_effort"):
+            ctk = dict(payload.get("chat_template_kwargs") or {})
+            ctk.setdefault("reasoning_effort", parity)
+            payload["chat_template_kwargs"] = ctk
     try:
         fit_context(payload, workspace_id=workspace_id, model=model, engine=backend.type)
         response = await _http_client.post(
