@@ -295,6 +295,7 @@ class BackendRegistry:
         self._candidate_cache: dict[str, tuple[list[Backend], float]] = {}
         self._candidate_cache_ttl: float = 5.0  # 5s TTL — short enough to react to failures
         self._tool_support: dict[str, bool] = {}
+        self._effort_default: dict[str, str] = {}
         self._last_healthy_count: int = -1
         self._last_memory_pct: float = 0.0
         self._memory_gate_source: str | None = None  # logged when it changes
@@ -357,13 +358,17 @@ class BackendRegistry:
             )
         )
 
-        # Build tool support map from backend metadata
+        # Build tool support and chat-template parity maps from backend metadata
         self._tool_support = {}
+        self._effort_default = {}
         for be in self._backends.values():
             for meta in be.ollama_metadata:
                 mid = meta.get("id")
                 if mid:
                     self._tool_support[mid] = bool(meta.get("supports_tools", False))
+                    effort = str(meta.get("reasoning_effort_default") or "").strip().lower()
+                    if effort:
+                        self._effort_default[mid] = effort
 
         logger.info(
             "BackendRegistry loaded: %d backends, %d workspace routes, request_timeout=%.0fs, "
@@ -849,3 +854,9 @@ class BackendRegistry:
         unknown models.
         """
         return self._tool_support.get(model_id, False)
+
+    def model_reasoning_effort_default(self, model_id: str) -> str | None:
+        """Chat-template parity effort tier for ``model_id`` (per-model
+        ``reasoning_effort_default`` in backends.yaml). ``None`` when unset.
+        """
+        return self._effort_default.get(model_id)

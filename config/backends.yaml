@@ -705,8 +705,16 @@ backends:
   # think off, n=3: 29/42 (coding 9/9) vs MiMo 11/42 on the same instrument.
   - id: Laguna-XS-2.1-4bit
     supports_tools: true
+  # P5-OMLX-QWEN38-MTP-001 (2026-11-27): chat_template.jinja defaults
+  # reasoning_effort=xhigh, injecting a 38-token preamble the evaluated Ollama
+  # arm never renders (169 vs 131 prompt tokens on the same request;
+  # finish=stop 0/3 vs 3/3 on the auto-coding prompt). `medium` is the
+  # Ollama-parity tier — the Pipeline injects it only when neither the request
+  # nor the seat declares an effort. Audit 2026-11-27: only the Qwen3.8-27B*
+  # checkpoints carry this template default.
   - id: Qwen3.8-27B-oQ4e-mtp
     supports_tools: true
+    reasoning_effort_default: medium
   # huihui-ai/Huihui-Qwen3.6-27B-abliterated MLX 4-bit, added 2026-10-22 as the
   # think-off A/B winner for the coder seats (kit-huihui36-a). Raw oMLX id, no alias.
   - id: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
@@ -725,6 +733,8 @@ backends:
   # probe (clean tool_calls, correctly typed arguments).
   - id: Qwen3.8-27B-4bit
     supports_tools: true
+    # Same base template as oQ4e-mtp → same parity default (P5-OMLX-QWEN38-MTP-001).
+    reasoning_effort_default: medium
     keep_reason: "DFlash2 speculative-decoding seat (qwen38coder-dflash) — oMLX-only by measurement, no GGUF fallback exists for this combo"
   priority: 10
   aliases:
@@ -815,6 +825,8 @@ backends:
     supports_tools: true
   - id: Qwen3.8-27B-oQ4e-mtp
     supports_tools: true
+    # Chat-template parity tier (P5-OMLX-QWEN38-MTP-001) — see omlx-coding.
+    reasoning_effort_default: medium
   # 2026-11-20 auto-daily cold-start screen candidates (oQ4e, MTP kept).
   # 2026-11-22 live typed tool-call probes on oMLX 0.8.1 passed 2/2 — both ids
   # finished tool_calls and emitted a native get_weather({"location": ...}) call.
@@ -842,9 +854,13 @@ backends:
     # template nor the tool parser, so the base seat's supports_tools probe
     # carries over — but the adapter id itself has not been probed live yet.
     supports_tools: true
+    # Same base chat template → same parity default (P5-OMLX-QWEN38-MTP-001).
+    reasoning_effort_default: medium
     keep_reason: "LoRA profile on the Qwen3.8-27B-oQ4e-mtp checkpoint (0 extra base bytes); GGUF LoRA recipe in config/modelfiles/qwen38-27b-opencode-lora-ctx32k.Modelfile"
   - id: Qwen3.8-27B-oQ4e-mtp:pi
     supports_tools: true
+    # Same base chat template → same parity default (P5-OMLX-QWEN38-MTP-001).
+    reasoning_effort_default: medium
     keep_reason: "LoRA profile on the Qwen3.8-27B-oQ4e-mtp checkpoint (0 extra base bytes); GGUF LoRA recipe in config/modelfiles/qwen38-27b-pi-lora-ctx32k.Modelfile"
   # mlx-community/Inkling-2-Mini-oQ4e-mtp (oQ mixed-precision, 15.7 GiB incl. the
   # bundled DSpark draft in mtp.safetensors). oMLX 0.8.1's output parser already
@@ -951,6 +967,8 @@ backends:
     supports_tools: true
   - id: Qwen3.8-27B-oQ4e-mtp
     supports_tools: true
+    # Chat-template parity tier (P5-OMLX-QWEN38-MTP-001) — see omlx-coding.
+    reasoning_effort_default: medium
   # P5-FANOUT-001 (2026-09-25): the deepseek_r1 tool parser was rebuilt
   # (scripts/omlx/deepseek_r1_tool_parser.py + scripts/install_omlx_parsers.sh —
   # re-run after every brew upgrade) and the model's tokenizer_config now pins

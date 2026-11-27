@@ -236,6 +236,19 @@ def _model_supports_tools(model_id: str) -> bool:
     return registry.model_supports_tools(model_id)
 
 
+def _model_reasoning_effort_default(model_id: str) -> str | None:
+    """Chat-template parity effort tier for ``model_id`` (per-model
+    ``reasoning_effort_default`` in backends.yaml), or ``None``.
+
+    Delegates to ``BackendRegistry.model_reasoning_effort_default``. Unknown
+    models return ``None`` — only checkpoints whose chat template defaults a
+    reasoning_effort tier carry the key.
+    """
+    if registry is None or not model_id:
+        return None
+    return registry.model_reasoning_effort_default(model_id)
+
+
 _SAMPLING_KEYS = (
     "temperature",
     "top_p",
@@ -575,6 +588,9 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
     (2026-08-15): oMLX wires top_k/min_p/presence_penalty/seed, but names
     repeat_penalty "repetition_penalty" and has no bare think (mapped to
     chat_template_kwargs.enable_thinking). All via setdefault so caller wins.
+    Also injects the model's chat-template parity ``reasoning_effort``
+    (backends.yaml ``reasoning_effort_default``) when neither the request nor
+    the seat declared one.
     """
     body = dict(body)
     ws_cfg_local = WORKSPACES.get(workspace_id, {}) if workspace_id else {}
@@ -582,6 +598,9 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
 
     _apply_omlx_thinking_budget(body, ws_cfg_local)
 
+    # Read before _apply_reasoning_effort pops it: an explicit caller effort
+    # (any value, including "none") must always beat the template-parity default.
+    _inbound_effort = body.get("reasoning_effort")
     _effort = _apply_reasoning_effort(body)
     if _effort is None:
         body.setdefault("max_tokens", _output_cap(ws_cfg_local))
@@ -596,6 +615,16 @@ def _inject_omlx_options(body: dict[str, Any], workspace_id: str = "") -> dict[s
         _ctk = dict(body.get("chat_template_kwargs") or {})
         _ctk.setdefault("reasoning_effort", str(ws_cfg_local["reasoning_effort"]))
         body["chat_template_kwargs"] = _ctk
+    elif _inbound_effort is None:
+        # Template parity (P5-OMLX-QWEN38-MTP-001): checkpoints whose chat
+        # template defaults reasoning_effort=xhigh would otherwise render a
+        # preamble their evaluated Ollama arm never sends. Declared per model
+        # in backends.yaml — never hardcoded here.
+        _parity = _model_reasoning_effort_default(str(body.get("model") or ""))
+        if _parity:
+            _ctk = dict(body.get("chat_template_kwargs") or {})
+            _ctk.setdefault("reasoning_effort", _parity)
+            body["chat_template_kwargs"] = _ctk
 
     if body.get("stream", True):
         body.setdefault("stream_options", {})["include_usage"] = True

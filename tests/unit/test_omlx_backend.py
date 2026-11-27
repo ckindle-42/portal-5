@@ -113,6 +113,77 @@ class TestInjectOmlxOptions:
         assert "keep_alive" not in out
 
 
+class TestOmlxTemplateParityEffort:
+    """P5-OMLX-QWEN38-MTP-001: checkpoints whose chat template defaults
+    reasoning_effort=xhigh must render the prompt their evaluated Ollama arm
+    renders (Ollama sends no effort preamble when a request omits one). The
+    parity tier is declared per model in config/backends.yaml — request and
+    seat efforts always win over it.
+    """
+
+    def test_parity_default_and_precedence(self, monkeypatch):
+        from portal.platform.inference.router import validation as vm
+
+        reg = BackendRegistry(config_path="config/backends.yaml")
+        monkeypatch.setattr(vm, "registry", reg)
+        # The audited checkpoint (live A/B 2026-11-27: xhigh 169 tok 0/3 stop
+        # vs medium-parity 131 tok 3/3 stop) declares the parity tier.
+        assert reg.model_reasoning_effort_default("Qwen3.8-27B-oQ4e-mtp") == "medium"
+        assert reg.model_reasoning_effort_default("qwen3-coder:30b-a3b-q4_K_M") is None
+
+        # 1. Nothing declared — parity tier injected.
+        out = vm._inject_omlx_options(
+            {"model": "Qwen3.8-27B-oQ4e-mtp", "messages": [], "stream": True}
+        )
+        assert out["chat_template_kwargs"]["reasoning_effort"] == "medium"
+
+        # 2. Caller top-level effort wins.
+        out = vm._inject_omlx_options(
+            {
+                "model": "Qwen3.8-27B-oQ4e-mtp",
+                "messages": [],
+                "stream": True,
+                "reasoning_effort": "low",
+            }
+        )
+        assert out["chat_template_kwargs"]["reasoning_effort"] == "low"
+
+        # 3. Caller chat_template_kwargs wins.
+        out = vm._inject_omlx_options(
+            {
+                "model": "Qwen3.8-27B-oQ4e-mtp",
+                "messages": [],
+                "stream": True,
+                "chat_template_kwargs": {"reasoning_effort": "xhigh"},
+            }
+        )
+        assert out["chat_template_kwargs"]["reasoning_effort"] == "xhigh"
+
+        # 4. Seat-declared effort wins; an explicit caller "none" suppresses it.
+        monkeypatch.setitem(vm.WORKSPACES, "ws-parity", {"reasoning_effort": "low"})
+        out = vm._inject_omlx_options(
+            {"model": "Qwen3.8-27B-oQ4e-mtp", "messages": [], "stream": True},
+            "ws-parity",
+        )
+        assert out["chat_template_kwargs"]["reasoning_effort"] == "low"
+        out = vm._inject_omlx_options(
+            {
+                "model": "Qwen3.8-27B-oQ4e-mtp",
+                "messages": [],
+                "stream": True,
+                "reasoning_effort": "none",
+            }
+        )
+        assert "reasoning_effort" not in (out.get("chat_template_kwargs") or {})
+        assert out["think"] is False
+
+        # 5. Models without the template default get nothing.
+        out = vm._inject_omlx_options(
+            {"model": "Qwen3-Coder-30B-A3B-Instruct-4bit", "messages": [], "stream": True}
+        )
+        assert "reasoning_effort" not in (out.get("chat_template_kwargs") or {})
+
+
 class TestAutoCodingOmlxShadowRouting:
     """PUNCHLIST B2: auto-coding's `coding` group carries both omlx-coding
     (priority 10) and ollama-coding (priority 0) against the real
