@@ -179,6 +179,7 @@ def test_poll_turn_returns_finished_answer_despite_lingering_tasks() -> None:
 def test_poll_turn_still_times_out_when_the_answer_never_finishes() -> None:
     settings = make_settings(Path("/tmp"), OWUI_API_KEY="qat-token")
     assistant_id = ""
+    registered_turn = {"passes": 0}
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal assistant_id
@@ -186,9 +187,15 @@ def test_poll_turn_still_times_out_when_the_answer_never_finishes() -> None:
             return httpx.Response(201, json={"id": "chat-f12b"})
         if request.url.path == "/api/chat/completions":
             assistant_id = json.loads(request.content)["id"]
-            return httpx.Response(200, json={})
+            return httpx.Response(
+                200,
+                headers={"content-type": "application/json"},
+                json={"status": True, "task_ids": ["turn-task-1"], "chat_id": "chat-f12b"},
+            )
         if request.url.path == "/api/tasks/chat/chat-f12b":
-            return httpx.Response(200, json={"task_ids": []})
+            registered_turn["passes"] += 1
+            live = registered_turn["passes"] <= 2
+            return httpx.Response(200, json={"task_ids": ["turn-task-1"] if live else []})
         if request.url.path == "/api/v1/chats/chat-f12b":
             return httpx.Response(
                 200,
@@ -212,8 +219,16 @@ def test_poll_turn_still_times_out_when_the_answer_never_finishes() -> None:
     client = OWUIClient(settings, httpx.MockTransport(handler), idle_timeout_s=0.5)
     chat_id = client.create_chat("qat-token", "auto", "F12b", prompt="hi")
     client.send_turn("qat-token", chat_id, "auto", "hi")
-    with pytest.raises(TimeoutError):
+    assert client.turn_task_ids(chat_id) == ("turn-task-1",)
+    start = time.monotonic()
+    with pytest.raises(TimeoutError, match="stalled") as raised:
         client.poll_turn("qat-token", chat_id, max_wait_s=5.0)
+    elapsed = time.monotonic() - start
+    # The turn's registered completion task kept the poll alive through two idle
+    # windows; only after OWUI unregistered it did the frozen chat stall.
+    assert elapsed >= 1.2, f"stalled after {elapsed:.2f}s despite the live turn task"
+    assert raised.value.message_id == assistant_id
+    assert raised.value.task_ids == ()
 
 
 def test_owui_followup_sends_full_branch_messages() -> None:

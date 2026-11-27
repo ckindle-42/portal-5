@@ -65,10 +65,19 @@ class ArtifactDownloadError(RuntimeError):
 
 
 class TurnStalledError(TimeoutError):
-    def __init__(self, idle_timeout_s: float, elapsed_s: float, bytes_received: int) -> None:
+    def __init__(
+        self,
+        idle_timeout_s: float,
+        elapsed_s: float,
+        bytes_received: int,
+        message_id: str = "",
+        task_ids: tuple[str, ...] = (),
+    ) -> None:
         self.idle_timeout_s = idle_timeout_s
         self.elapsed_s = elapsed_s
         self.bytes_received = bytes_received
+        self.message_id = message_id
+        self.task_ids = task_ids
         super().__init__(f"assistant stream stalled after {idle_timeout_s:.1f}s without new data")
 
 
@@ -120,6 +129,7 @@ class OWUIClient:
         self.idle_timeout_s = idle_timeout_s
         self._turns: dict[str, dict[str, str]] = {}
         self._pending_message_ids: dict[str, str] = {}
+        self._turn_task_ids: dict[str, tuple[str, ...]] = {}
         self._base_model_ids: dict[str, str] = {}
 
     def _client(self, timeout_s: float | httpx.Timeout | None = None) -> httpx.Client:
@@ -350,7 +360,27 @@ class OWUIClient:
         if files is not None:
             body["files"] = files
         self._pending_message_ids[chat_id] = message_id
-        return self._stream_turn(token, body)
+        response = self._stream_turn(token, body)
+        self._remember_turn_tasks(chat_id, response)
+        return response
+
+    def _remember_turn_tasks(self, chat_id: str, response: httpx.Response) -> None:
+        """OWUI's task fan-out answers with the completion task ids it registered."""
+        if "application/json" not in (response.headers.get("content-type") or ""):
+            return
+        try:
+            body = response.json()
+        except ValueError:
+            return
+        ids = body.get("task_ids") if isinstance(body, dict) else None
+        if isinstance(ids, list) and ids:
+            self._turn_task_ids[chat_id] = tuple(str(task_id) for task_id in ids if task_id)
+
+    def turn_task_ids(self, chat_id: str) -> tuple[str, ...]:
+        return self._turn_task_ids.get(chat_id, ())
+
+    def pending_message_id(self, chat_id: str) -> str:
+        return self._pending_message_ids.get(chat_id, "")
 
     def _stream_turn(self, token: str, body: dict[str, Any]) -> httpx.Response:
         started = time.monotonic()
@@ -581,6 +611,32 @@ class OWUIClient:
             return None
         return fetched.content
 
+    def _observed_task_ids(
+        self, token: str, chat_id: str, client: httpx.Client, poll_deadline: float
+    ) -> list[str]:
+        task = self.task_status(token, chat_id, client, poll_deadline)
+        return [str(task_id) for task_id in task.get("task_ids", []) if task_id]
+
+    def _observed_message(
+        self,
+        token: str,
+        chat_id: str,
+        client: httpx.Client,
+        poll_deadline: float,
+        message_id: str,
+    ) -> tuple[dict[str, Any], bool]:
+        """Read the answer every pass (F12): a lingering title task must not hold it hostage."""
+        detail = self.chat_detail(token, chat_id, client, poll_deadline)
+        messages = ((detail.get("chat") or {}).get("history") or {}).get("messages") or {}
+        message = messages.get(message_id, {})
+        info = message.get("info") or {}
+        state = str(message.get("status") or info.get("status") or "").lower()
+        if message:
+            error = message.get("error") or info.get("error")
+            if isinstance(error, dict):
+                raise RuntimeError(f"OWUI assistant message failed: {error}")
+        return message, message.get("done") is True or state in TERMINAL_STATES
+
     def poll_turn(
         self,
         token: str,
@@ -599,25 +655,24 @@ class OWUIClient:
             raise RuntimeError(f"no submitted assistant message for {chat_id}")
         message: dict[str, Any] = {}
         task_ids: list[str] = []
+        turn_tasks = self._turn_task_ids.get(chat_id, ())
         last_signature: tuple[str, str, bool, tuple[str, ...]] | None = None
         last_progress_at = started
         with self._client(10.0) as client:
             while True:
                 poll_deadline = time.monotonic() + 10.0
-                task = self.task_status(token, chat_id, client, poll_deadline)
-                task_ids = [str(task_id) for task_id in task.get("task_ids", []) if task_id]
-                # Read the answer every pass: title/tag background tasks must not
-                # hold a finished message hostage until the deadline (F12).
-                detail = self.chat_detail(token, chat_id, client, poll_deadline)
-                messages = ((detail.get("chat") or {}).get("history") or {}).get("messages") or {}
-                message = messages.get(message_id, {})
+                task_ids = self._observed_task_ids(token, chat_id, client, poll_deadline)
+                message, done = self._observed_message(
+                    token, chat_id, client, poll_deadline, message_id
+                )
                 info = message.get("info") or {}
                 state = str(message.get("status") or info.get("status") or "").lower()
-                if message:
-                    error = message.get("error") or info.get("error")
-                    if isinstance(error, dict):
-                        raise RuntimeError(f"OWUI assistant message failed: {error}")
-                done = message.get("done") is True or state in TERMINAL_STATES
+                # Liveness: OWUI keeps the turn's completion task registered while it
+                # still processes the turn, and unregisters it at completion or abort.
+                # The DB content stays "" mid-turn (ENABLE_REALTIME_CHAT_SAVE=False),
+                # so a frozen signature alone proves nothing about generation.
+                if turn_tasks and set(task_ids) & set(turn_tasks):
+                    last_progress_at = time.monotonic()
                 signature = (repr(message.get("content")), state, done, tuple(task_ids))
                 if signature != last_signature:
                     last_signature = signature
@@ -627,7 +682,13 @@ class OWUIClient:
                 elapsed_idle = time.monotonic() - last_progress_at
                 if elapsed_idle >= self.idle_timeout_s:
                     self._stop_tasks(token, task_ids, client)
-                    raise TurnStalledError(self.idle_timeout_s, time.monotonic() - started, 0)
+                    raise TurnStalledError(
+                        self.idle_timeout_s,
+                        time.monotonic() - started,
+                        0,
+                        message_id=message_id,
+                        task_ids=tuple(task_ids),
+                    )
                 time.sleep(min(POLL_INTERVAL_S, self.idle_timeout_s - elapsed_idle))
             if not message:
                 self._stop_tasks(token, task_ids, client)
