@@ -105,13 +105,30 @@ def test_reading_workspace_prompt_covers_vsl_and_quote_discipline() -> None:
     from portal.platform.inference.config import effective_workspace
 
     portal = yaml.safe_load(open("config/portal.yaml", encoding="utf-8"))
-    prompt = effective_workspace(portal["workspaces"], "auto-compliance::reading")[
-        "system_prompt_append"
-    ]
+    ws = effective_workspace(portal["workspaces"], "auto-compliance::reading")
+    prompt = ws["system_prompt_append"]
     assert "Violation Severity Levels" in prompt and "compliance_search" in prompt
     assert "even if you find no gaps" in prompt
     assert "tool payloads are NOT retained" in prompt
     assert "Reserve double quotes strictly for verbatim source quotes" in prompt
+
+
+def test_reading_workspace_enforces_tool_call_deterministic_sampling_and_vsl_note() -> None:
+    import inspect
+
+    import yaml
+
+    from portal.modules.compliance.core import dual_document
+    from portal.platform.inference.config import effective_workspace
+
+    portal = yaml.safe_load(open("config/portal.yaml", encoding="utf-8"))
+    ws = effective_workspace(portal["workspaces"], "auto-compliance::reading")
+    assert ws.get("tool_choice") == "required"
+    assert float(ws.get("temperature")) <= 0.3
+    override = ws.get("sampling_override") or {}
+    assert override.get("reason") and override.get("evidence")
+    src = inspect.getsource(dual_document._build_from_ids)
+    assert "VSL" in src and "compliance_search" in src
 
 
 def test_tool_result_preserves_unicode_and_bullet_fold_rejects_fabrication() -> None:

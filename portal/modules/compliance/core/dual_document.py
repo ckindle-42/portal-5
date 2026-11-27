@@ -231,7 +231,10 @@ def _build_from_ids(
             "the operator's own documents for that standard, every section labelled "
             "[document § heading] (section id); answer from what this returns and "
             "support each claim by quoting, in double quotes, the exact words it "
-            "rests on"
+            "rests on. VSL (Violation Severity Level) tables are not included here; "
+            "if the question asks how bad, how severe, or what the severity/VSL of "
+            "gaps are, call compliance_search for the requirement's VSL table "
+            "before answering."
         ),
     }
 
