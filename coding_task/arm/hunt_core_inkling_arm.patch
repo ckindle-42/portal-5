@@ -1,0 +1,55 @@
+diff --git a/config/portal.yaml b/config/portal.yaml
+index 7047442b4..eaf2575e0 100644
+--- a/config/portal.yaml
++++ b/config/portal.yaml
+@@ -2607,7 +2607,9 @@ workspaces:
+     # load. Thinking on (88s, 13/20 key issue) and early_quorum (no speed gain at MoE speed,
+     # drops a seat) measured and not adopted. Known weakness: REVISE on some clear-support
+     # proposals (2/5). Hint and seats name the oMLX build so they reach the resident copy.
+-    model_hint: gemma-4-26b-a4b-it-QAT-4bit
++    # HUNT-CORE A/B arm (docs/findings/HUNT_CORE_AB_PLAN_20261126.md): all four seats move to
++    # the already-resident Inkling so the hunt's council pass loads no second model.
++    model_hint: Inkling-2-Mini-oQ4e-mtp
+     context_limit: 16384
+     predict_limit: 4096
+     # gemma4 card (google/gemma-4-26B-A4B-it generation_config.json); seats read it too.
+@@ -2654,20 +2656,20 @@ workspaces:
+       members:
+       - id: evidence
+         label: Evidence Auditor
+-        model: gemma-4-26b-a4b-it-QAT-4bit
++        model: Inkling-2-Mini-oQ4e-mtp
+         system: |-
+           You are the Evidence Auditor. Determine which material claims are supported, contradicted, stale, ambiguous, or missing necessary evidence. Check internal consistency and distinguish observed facts from inference. Do not judge style unless it obscures evidence.
+       - id: challenger
+         label: Challenger
+-        model: gemma-4-26b-a4b-it-QAT-4bit
++        model: Inkling-2-Mini-oQ4e-mtp
+         system: |-
+           You are the Challenger. Find weak assumptions, failure modes, security or safety risks, counterexamples, and the strongest case against the proposed direction. Focus on consequential problems rather than cosmetic objections.
+       - id: operator
+         label: Operator and User Advocate
+-        model: gemma-4-26b-a4b-it-QAT-4bit
++        model: Inkling-2-Mini-oQ4e-mtp
+         system: |-
+           You are the Operator and User Advocate. Judge whether the proposal is executable, maintainable, appropriately scoped, and useful to the person receiving it. Identify unclear ownership, missing verification, operational burden, and concrete next steps.
+-      synthesizer_model: gemma-4-26b-a4b-it-QAT-4bit
++      synthesizer_model: Inkling-2-Mini-oQ4e-mtp
+     # utility only — callable by id, never in the Open WebUI dropdown (operator decision 2)
+     expose_to_owui: false
+     enable_web_search: false
+@@ -2927,11 +2929,9 @@ workspaces:
+     module: security
+     name: Portal Hunt Reasoner (internal)
+     description: Hunt model reasoning for source understanding and notable judgement. Called by the hunt, not chat.
+-    # oMLX serves the QAT checkpoint and batches concurrent requests. The Ollama
+-    # fallback is a derived tag of the ctx8k GGUF that bakes temperature 0, so a
+-    # caller always gets an answer and the tag itself is lane-cold. 8k window:
+-    # the hunt's prompts are short.
+-    model_hint: gemma4:26b-a4b-it-qat-ctx8k-hunt
++    # HUNT-CORE A/B arm (docs/findings/HUNT_CORE_AB_PLAN_20261126.md): hunt reasoning on
++    # the already-resident Inkling. Ollama fallback is inkling-2-mini:ctx256k.
++    model_hint: Inkling-2-Mini-oQ4e-mtp
+     context_limit: 8192
+     temperature: 0.0
+     # The card's 1.0/64 sampling is chat guidance; the hunt parses JSON answers,
