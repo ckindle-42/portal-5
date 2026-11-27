@@ -14,9 +14,32 @@ from typing import Any
 
 import pytest
 
+from portal.platform.inference import load_guard as lg
 from portal.platform.inference.load_guard import OLLAMA
 from portal.platform.inference.router.seat_fit import annotate, production_seats
 from tests.unit.test_load_guard import GIB, OLLAMA_URL, Engines, guard
+
+
+@pytest.fixture(autouse=True)
+def _pin_seat_fit_budget_inputs(monkeypatch, tmp_path):
+    """Pin load-guard globals so seat-fit math is host/env independent.
+
+    test_load_guard.py has its own autouse fixture; this module imports its
+    helpers but does not inherit that fixture, so without this pin the
+    prefill-zone/margin/ceiling fall back to module-import-time env/settings
+    (None on a clean CI runner) and working-set budget assertions drift.
+    """
+    monkeypatch.setattr(lg, "_OMLX_PREFILL_ZONE", 0.8)
+    monkeypatch.setattr(lg, "_OMLX_RECLAIM_RATIO", 0.25)
+    monkeypatch.setattr(lg, "_MARGIN", 2 * GIB)
+    monkeypatch.setattr(lg, "_CEILING", 0.0)
+    monkeypatch.setattr(lg, "_PROCESS_LOCK_DIR", tmp_path / "guard-locks")
+    monkeypatch.delenv("LOAD_GUARD", raising=False)
+    monkeypatch.delenv("LOAD_GUARD_CEILING_GB", raising=False)
+    monkeypatch.delenv("OMLX_PREFILL_SAFE_ZONE_RATIO", raising=False)
+    monkeypatch.delenv("OMLX_OTHER_APP_RECLAIM_RATIO", raising=False)
+    monkeypatch.delenv("OMLX_MEMORY_GUARD_TIER", raising=False)
+    lg.set_load_wait(None)
 
 
 def _seat(seat_id: str, model: str, omlx_model: str | None = None, **extra: Any) -> dict[str, Any]:

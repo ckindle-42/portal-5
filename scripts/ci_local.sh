@@ -60,11 +60,24 @@ if ! command -v uv >/dev/null 2>&1; then
 fi
 
 VENV="$(pwd)/.ci-local-venv"
+REAL_HOME="$HOME"
+FAKE_HOME="$(mktemp -d "${TMPDIR:-/tmp}/ci-local-home.XXXXXX")"
+FAKE_HOME="$(cd "$FAKE_HOME" && pwd)"
 rm -rf "$VENV"
+cleanup() { rm -rf "$VENV" "$FAKE_HOME"; }
+trap cleanup EXIT
 uv venv --python 3.12 "$VENV" -q
 
-# clean env — drop PYTHONPATH and any local LAB_* so we test as CI does, but keep the venv on PATH
-env -i HOME="$HOME" PATH="$VENV/bin:$PATH" VIRTUAL_ENV="$VENV" bash -c '
+# clean env — drop PYTHONPATH, LAB_*, and host ~/.omlx/settings.json so the
+# macOS gate catches the same host/env drift class as the Linux CI runner
+# (use --linux for a full ubuntu-latest container mirror).
+env -i \
+  HOME="$FAKE_HOME" \
+  PATH="$VENV/bin:$PATH" \
+  VIRTUAL_ENV="$VENV" \
+  UV_CACHE_DIR="${UV_CACHE_DIR:-$REAL_HOME/.cache/uv}" \
+  PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$REAL_HOME/Library/Caches/ms-playwright}" \
+  bash -c '
   set -euo pipefail
   cd "$1"
   uv pip install -e ".[dev]" -q
@@ -80,5 +93,4 @@ env -i HOME="$HOME" PATH="$VENV/bin:$PATH" VIRTUAL_ENV="$VENV" bash -c '
   pytest tests portal -n auto -x --tb=short -q
 ' _ "$(pwd)"
 
-rm -rf "$VENV"
 echo "== ci-local: PASS — safe to push =="
