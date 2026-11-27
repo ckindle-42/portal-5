@@ -183,4 +183,60 @@ The following tests remain in the offline merge gate after all 7 cuts because re
 - **Security & isolation walls:** `test_sandbox_network_isolation.py`, `test_sandbox_images.py`, `test_lab_guard_shell_injection.py`, `test_adversarial_safety_guard.py`, `test_download_link_safety.py`, `test_documents_read_refusal.py`, `test_jarvis_personal_approvals.py`, `test_hunt_knowledge.py`, `test_mawa_join_guard.py`, `test_egress_aliyuncs.py`, `test_pipeline_mcp_confine.py`, `tests/security/bully/test_truth_y4_quarantine_and_guard.py`, `portal/modules/security/tests/test_write_isolation.py`, `portal/modules/security/tests/test_sandbox_output_cap.py`
 - **No-live-oracle deterministic invariants:** Core Compliance V6 contract/citation/gate/auth/acceptance files, `test_rag_multimodal.py` (τ guard), `test_chunking_5tuple.py`, `test_wiki_core.py`, `portal/platform/wiki/tests/`, `portal/platform/agent/tests/`, thin `portal/modules/*/tests/test_*_mcp.py`, `tests/security/review/*`, plus the 11 `unwired_scripts` anchor tests (until their scripts are either retired or moved to `OPERATOR_TOOLS.md`).
 
-*(Final measured post-cut totals and runtimes are appended in the final commit of this lane.)*
+---
+
+## 7. Measured Post-Cut Results (Executed on `lane/neon-tests3`)
+
+All 7 area cuts were executed as single, independently revertable commits with **zero file overlap** with `origin/main` (`29df39df6..29c9272ad`, including `b4413f773`):
+
+| Commit | Area | Files | Nonblank LOC Delta |
+|---|---|---:|---:|
+| `f0b56a396` | Strategy doc + `live_check_map.yaml` + `live_checks_for_diff.py` + contract test | 5 | +580 |
+| `f9c5792d0` | Area 1 (`tests/qat/tests/`) | 12 | −6,894 |
+| `ec9ecf1da` | Area 2 (`portal/modules/security/tests/`) | 68 | −10,191 |
+| `fa3ee6ec6` | Area 3 (mocked MCP/media/CAD/ops + duplicate `validate_system` tests) | 37 | −6,078 |
+| `80861f9e2` | Area 4 (`tests/security/bully/` phase build-out tests) | 80 | −7,654 |
+| `8e544d386` | Area 5 (mocked hunt/notables/scoreboard/splunk-setup suites) | 45 | −13,195 |
+| `f9b26ce2a` | Area 6 (mocked jarvis/orchestration/council behavioral suites) | 14 | −3,629 |
+| `21e6e9e37` | Area 7 (pre-service compliance bloat + legacy mocked pipeline/trace/metrics) | 42 | +6 / −7,707 |
+| Final commit | Ignore offline test paths in `live_checks_for_diff.py` + append §7 measured results | 3 | +25 |
+
+### Before / After Test Share & Ratio
+
+| Tree | Baseline (`29df39df6`) | Standalone (`lane/neon-tests3`) | Combined w/ `origin/main` (`b4413f773`) |
+|---|---:|---:|---:|
+| `portal/` (product, nonblank / no-comment) | 202,099 / 193,719 | 202,099 / 193,719 | 202,107 / 193,728 |
+| `tests/unit/` | 66,518 (359 files) | 35,985 (223 files) | 28,155 (191 files) |
+| `portal/**/tests/` | 10,985 (101 files) | 794 (33 files) | 794 (33 files) |
+| `tests/security/` | 9,173 (96 files) | 1,517 (16 files) | 1,517 (16 files) |
+| `tests/qat/tests/` | 6,894 (12 files) | 0 (0 files) | 0 (0 files) |
+| `tests/wfe/tests/` | 3,497 (16 files) | 3,497 (16 files) | 28 (2 files) |
+| `tests/frontend/` + `tests/integration/` | 254 (3 files) | 254 (3 files) | 254 (3 files) |
+| **ALL OFFLINE PYTEST (nonblank)** | **97,321 (32.5%, ratio 0.482)** | **42,047 (17.22%, ratio 0.2081)** | **30,748 (13.21%, ratio 0.1521)** |
+| **ALL OFFLINE PYTEST (no-comment)** | **~95,500** | **41,457 (17.63%, ratio 0.2140)** | **30,270 (13.51%, ratio 0.1563)** |
+
+- **Target (≤ 20% share / ratio ≤ 0.25 / ≤ 48k LOC):** **MET standalone (17.22%, 42,047 LOC, −56.8%)** and **beaten by ~39% once merged with `origin/main` (13.21%, 30,748 LOC, ratio 0.1521)**.
+- Under legacy `coding_task/measure_test_loc.py` scope (excluding the 30,009 LOC live WFE harness): **40,276 LOC (ratio 0.1993)** standalone; **28,977 LOC (ratio 0.1434)** combined with `origin/main`.
+
+### Before / After Runtime
+
+| Suite | Before (`29df39df6`, `-n 4`) | After (`lane/neon-tests3`, `-n 4`) | Speedup / Delta |
+|---|---:|---:|---:|
+| `portal/**/tests` | 180.0 s (1,487 tests) | **3.17 s** (113 passed) | **−98.2% (56.8× faster)** |
+| `tests/qat/tests` | 48.7 s (388 tests) | **0.00 s** (deleted) | **−100%** |
+| `tests/unit` | 54.9 s (4,150 tests) | **36.99 s** (2,360 passed, 36 skipped) | **−32.6%** |
+| `tests/security` | 6.3 s (587 tests) | **2.12 s** (104 passed) | **−66.3%** |
+| `tests/wfe/tests` | 3.6 s (366 tests) | **3.01 s** (366 passed; 28 LOC on `origin/main`) | — |
+| `tests/frontend` + `tests/integration` | — | **3.25 s** (1 passed, 2 skipped) | — |
+| **5-bucket sum (`-n 4`)** | **293.5 s** | **45.29 s** | **−84.6% (6.5× faster)** |
+| **Full CI suite (`pytest tests portal -n auto -q`)** | ~6,134–7,027 tests | **24.91 s** (2,944 passed, 38 skipped) | Under 25 s budget |
+| **Single-process `tests/unit/`** | 109 s (3,669 tests on `b4413f773`) | **88.24 s** (2,360 passed, 36 skipped; drops further after merge w/ `b4413f773`) | — |
+
+### Gate Verification
+
+- `uv run ruff check .`: **All checks passed!**
+- `uv run ruff format --check .`: **1430 files already formatted**
+- `uv run mypy --exclude "portal/modules/compliance/" portal/`: **Success: no issues found in 568 source files**
+- `python3 scripts/complexity_report.py --gate`: **GATE OK** (`data_lines: 10,201 <= 13,370`, `god_lines: 64,772 <= 71,202`, `unwired_scripts: 25 <= 25`, `identical_pairs: 0 <= 0`, `committed_blob_bytes: 1,792,894 <= 1,873,616`)
+- `uv run python scripts/validate_system.py --skip-pytest --skip-lifespan --skip-cli`: **220 pass · 1 fail · 7 warn · 5 skip** — `AJ`, `BR`, `BS`, `HX`, `HR..HW` all pass; the sole failure (`HK`) is pre-existing on untouched `docs/BREAKER_V1_MIGRATION_PLAN.md`.
+- `bash scripts/ci_local.sh`: **PASS** (full isolated `.ci-local-venv` mirror of `.github/workflows/unit-tests.yml`).

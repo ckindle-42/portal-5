@@ -76,3 +76,14 @@ def test_resolve_checks_flags_rebuild_and_deduplicates() -> None:
     doc_only = resolve_checks(["docs/findings/TEST_STRATEGY_NEON_20261127.md"])
     assert doc_only.rebuild_required is False
     assert doc_only.commands() == []
+
+    tests_only = resolve_checks(
+        [
+            "portal/modules/security/tests/test_foo.py",
+            "tests/qat/tests/test_runner.py",
+            "tests/unit/test_routing.py",
+        ]
+    )
+    assert tests_only.rebuild_required is False
+    assert tests_only.matched_rules == []
+    assert tests_only.commands() == []

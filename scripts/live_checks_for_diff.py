@@ -81,6 +81,18 @@ def _glob_match(path: str, pattern: str) -> bool:
     return fnmatch.fnmatch(norm, pattern)
 
 
+def _is_offline_test_path(path: str) -> bool:
+    """Offline pytest files do not affect container runtime or require live QAT."""
+    parts = Path(path).parts
+    if "tests" in parts[1:]:
+        return True
+    return (
+        len(parts) >= 2
+        and parts[0] == "tests"
+        and parts[1] in {"unit", "security", "frontend", "integration"}
+    )
+
+
 def _dedup_extend(dest: list[str], items: list[str]) -> None:
     seen = set(dest)
     for item in items:
@@ -105,6 +117,8 @@ def resolve_checks(changed_files: list[str], *, map_path: Path = DEFAULT_MAP_PAT
     plan = LiveCheckPlan(changed_files=norm_files)
 
     for f in norm_files:
+        if _is_offline_test_path(f):
+            continue
         if any(_glob_match(f, g) for g in rebuild_globs):
             plan.rebuild_required = True
         matched_any = False
