@@ -75,7 +75,7 @@ covered by a broader contract test. LOC = nonblank.
 | tests/wfe/tests/test_wfe_runner_timing_guard.py | 15 | malformed timing field guard | DELETE SHAPE |
 | tests/wfe/tests/test_wfe_timing.py | 262 | runner/report timing payload parsing | DELETE SHAPE |
 | tests/unit/test_wfe_exec_audit.py | 73 | harness _build_pipeline exec_audit/thinking_budget payloads + tool_grounded checker | DELETE SHAPE |
-| tests/unit/test_wfe_surface_audit.py | 39 | surface-audit detectors on fixtures | DELETE SHAPE |
+| tests/unit/test_wfe_surface_audit.py | 39 | surface-audit detectors on fixtures | **KEEP** — sole counted wiring of scripts/wfe_surface_audit.py; unwired_scripts ceiling |
 | tests/unit/test_wfe_production_smoke_cleanup.py | 8 | one-off smoke memory-note cleanup | DELETE ONEOFF |
 | tests/unit/test_wfe_production_smoke_kb.py | 9 | one-off smoke empty-KB grading (finding F) | DELETE ONEOFF |
 | tests/unit/test_seat_screen_intake_s8.py | 23 | s8 intake screen kit fixture parse | DELETE SHAPE |
@@ -108,19 +108,19 @@ KEPT: `test_uat_security.py` (105, live runner host-quiet preflight), `test_benc
 | test_speed_bench_pipeline_row.py | 568 | scripts/speed_bench.py row receipts | DELETE SHAPE |
 | test_dflash_ab.py | 607 | scripts/dflash_ab.py (A/B bench) | DELETE SHAPE |
 | test_dflash_ab_harness.py | 491 | one-off audit run 20261123T023745Z regression net | DELETE ONEOFF |
-| test_bench_seat_ab.py | 586 | scripts/bench_seat_ab.py | DELETE SHAPE |
+| test_bench_seat_ab.py | 586 | scripts/bench_seat_ab.py | **KEEP** — sole counted wiring of a live operator tool; deleting breaches the unwired_scripts ceiling (25, zero headroom) |
 | test_security_sweep.py | 552 | scripts/security_sweep.py | DELETE SHAPE |
 | test_bench_skip.py | 21 | bench skip-list mechanism | DELETE SHAPE |
 | test_bench_concurrency_guard.py | 47 | bench lane max_concurrent config pin | DELETE SHAPE |
 | test_prodpath.py | 185 | scripts/prodpath.py (bench production-path client) | DELETE SHAPE |
 | test_media_screen_listen.py | 192 | scripts/proofs/media_screen_listen.py (model screen) | DELETE SHAPE |
 | test_media_variant_screen.py | 335 | scripts/proofs/media_variant_screen*.py | DELETE SHAPE |
-| test_prove_universal_blind.py | 406 | scripts/hunt_bed/prove_universal_blind.py (scorer plane) | DELETE SHAPE |
+| test_prove_universal_blind.py | 406 | scripts/hunt_bed/prove_universal_blind.py (scorer plane) | **KEEP** — sole counted wiring; named by docs/BREAKER_V1_MIGRATION_PLAN.md as carry-forward proof harness; unwired_scripts ceiling |
 | test_corpus_truth_key.py | 171 | scripts/corpus_truth_key.py (answer-key builder) | DELETE SHAPE |
 | test_keys_botsv2.py | 74 | scripts/hunt_bed/keys_botsv2.py (scorer keys) | DELETE SHAPE |
 | test_lab_purple_capture.py | 443 | scripts/hunt_bed lab capture | DELETE SHAPE |
 | test_lab_purple_sweep_catalog.py | 96 | config/lab_purple_sweep.yaml catalog shape | DELETE SHAPE |
-| test_lab_vulhub_fleet_sweep.py | 148 | scripts/hunt_bed vulhub sweep orchestrator | DELETE SHAPE |
+| test_lab_vulhub_fleet_sweep.py | 148 | scripts/hunt_bed vulhub sweep orchestrator | **KEEP** — sole counted wiring of a live capture tool (BREAKER_V1 plan); unwired_scripts ceiling |
 | test_hunt_canonical_ingest.py | 379 | scripts/hunt_bed/ingest_canonical.py + keys_flaws (scorer plane, never imported under portal/) | DELETE SHAPE |
 | test_hunt_next_wave_ingest.py | 551 | scripts/hunt_bed next-wave ingest/keys; portal proof-index leak guard duplicated by test_hunt_knowledge.py::test_proof_indexes_cannot_enter_the_persistent_store | DELETE SHAPE/DUP |
 | test_judgment_probe_instrument.py | 33 | bench_judgment_probe_v6 instrument fixes | DELETE ONEOFF |
@@ -167,15 +167,16 @@ all `test_hunt_*` importing `portal.modules.security.core.hunt` (product hunt en
 
 ## Result vs target
 
-Deleted: 50 files + 2 merge operations. See the lane commits for per-area gate output; final numbers and
-runtime are recorded at the end of this file after the last area lands.
+Deleted: 46 files + 2 merge operations (4 further candidates kept: their deletion would breach the
+unwired_scripts complexity ceiling — see Area 2/4 KEEP notes). See the lane commits for per-area gate
+output; final numbers and runtime are recorded at the end of this file after the last area lands.
 
 **Gap analysis (honest negative):** the brief's ≥20% (≥21,700-line) target is not reachable under
 its own deletion criteria without cutting product-behaviour tests. The entire non-product surface
-(WFE/QAT/bench/scorer harness tests + prose/shape pins + verified one-offs) sums to ~12.4k LOC
-(~11.2%). The remaining ~9.3k would have to come from the protected or product clusters listed
-above (hunt engine, compliance engine, security module, pipeline core) — each deletion there loses
-a differentiated behaviour test, and several are live-proven contracts the brief forbids dropping.
-Per WORKER_CONTRACT §0/§2 this lane reports the shortfall instead of tuning the delete set to hit
-the number; the orchestrator decides whether to authorise specific product-cluster cuts or revise
-the target.
+(WFE/QAT/bench/scorer harness tests + prose/shape pins + verified one-offs) sums to ~11.3k LOC
+(~10.2%) after the unwired-scripts constraint. The remaining ~10.5k would have to come from the
+protected or product clusters listed above (hunt engine, compliance engine, security module,
+pipeline core) — each deletion there loses a differentiated behaviour test, and several are
+live-proven contracts the brief forbids dropping. Per WORKER_CONTRACT §0/§2 this lane reports the
+shortfall instead of tuning the delete set to hit the number; the orchestrator decides whether to
+authorise specific product-cluster cuts or revise the target.
