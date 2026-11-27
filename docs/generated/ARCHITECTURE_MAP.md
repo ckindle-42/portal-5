@@ -2,7 +2,7 @@
 
 # Portal 5 Architecture Map
 
-*Deterministic projection of 626 canonical units.*
+*Deterministic projection of 607 canonical units.*
 
 ## Knowledge Layer
 
@@ -126,7 +126,6 @@
 | `unit-T1610-signature` | mixed | 2 |
 | `unit-T1611-signature` | mixed | 2 |
 | `unit-T1621-signature` | mixed | 2 |
-| `unit-acceptance-runner` | mixed | 1 |
 | `unit-agent-loop-agent-loop-platform-core` | what | 9 |
 | `unit-agent-loop-consumers` | what | 5 |
 | `unit-agent-loop-contracts-the-key-modules-implement` | what | 2 |
@@ -244,7 +243,7 @@
 | `unit-compliance-config-workspace-pointers` | mixed | 1 |
 | `unit-compliance-conversation-window` | what | 1 |
 | `unit-compliance-dual-document` | what | 1 |
-| `unit-compliance-engine` | mixed | 84 |
+| `unit-compliance-engine` | mixed | 81 |
 | `unit-compliance-fallback-policy-canonical-baseline` | what | 5 |
 | `unit-compliance-fallback-policy-compliance-fallback-policy` | what | 4 |
 | `unit-compliance-fallback-policy-full-sweep` | what | 3 |
@@ -299,7 +298,7 @@
 | `unit-known-limitations-acestep15-mlx-backend` | mixed | 1 |
 | `unit-known-limitations-asteroids-bench-score-variance-is-the-benchmark-s-purpose` | what | 3 |
 | `unit-known-limitations-auto-rag-silent-miss` | what | 2 |
-| `unit-known-limitations-botsv2-notables-recall` | what | 4 |
+| `unit-known-limitations-botsv2-notables-recall` | what | 5 |
 | `unit-known-limitations-bully-discovery-truth-leak` | what | 4 |
 | `unit-known-limitations-cad-b3d-session` | what | 2 |
 | `unit-known-limitations-cad-brep-kernel-gaps` | what | 2 |
@@ -310,6 +309,7 @@
 | `unit-known-limitations-compliance-mcp-protocol-calls-not-cancelled` | what | 3 |
 | `unit-known-limitations-compliance-review-queue-not-a-gate` | what | 2 |
 | `unit-known-limitations-diarized-transcription-task-transcribe-001` | what | 3 |
+| `unit-known-limitations-engine-core-stack-holds` | what | 1 |
 | `unit-known-limitations-engine-update-data01-approval` | what | 4 |
 | `unit-known-limitations-granite-8b-mxfp8-tool-garbling` | what | 3 |
 | `unit-known-limitations-higgs-voice-cloning` | mixed | 1 |
@@ -318,6 +318,7 @@
 | `unit-known-limitations-load-guard-omlx-swap` | what | 3 |
 | `unit-known-limitations-minimax-music3-mlx` | mixed | 1 |
 | `unit-known-limitations-no-built-in-multi-user-rate-limiting` | what | 2 |
+| `unit-known-limitations-npx-cache-transitives` | what | 1 |
 | `unit-known-limitations-ollama-api-ps-under-reports-llamacpp-residents` | what | 1 |
 | `unit-known-limitations-ollama-tool-call-parser-aborts-a-started-stream` | what | 3 |
 | `unit-known-limitations-ollama-v1-ignores-options-num-ctx-and-options-num-batch` | what | 6 |
@@ -325,6 +326,7 @@
 | `unit-known-limitations-ollama40-model-store` | what | 3 |
 | `unit-known-limitations-omlx-balanced-ceiling` | what | 2 |
 | `unit-known-limitations-omlx-prefix-cache-accounting` | what | 3 |
+| `unit-known-limitations-omlx-qwen38-oq4e-mtp-runaway-reasoning` | what | 4 |
 | `unit-known-limitations-omlx-qwen3coder-tool-text` | what | 3 |
 | `unit-known-limitations-owui-audio-drop-ux-task-owui-audio-drop-001` | what | 2 |
 | `unit-known-limitations-p5-mlx-eval-001-gguf-fleet-regressed-slightly-on-0-31-1-mtp-is-mlx-engine-only` | what | 2 |
@@ -333,9 +335,10 @@
 | `unit-known-limitations-p5-mlx-eval-004-large-single-blob-mlx-downloads-hang-intermittently` | what | 3 |
 | `unit-known-limitations-p5-mlx-eval-005-two-security-tier-fine-tunes-have-no-working-mlx-conversion` | what | 3 |
 | `unit-known-limitations-pipeline-hardening-20260925` | what | 9 |
+| `unit-known-limitations-security-hf-cache-volume` | what | 1 |
 | `unit-known-limitations-shared-workspace-auto-stt-disabled-task-workspace-001` | what | 4 |
 | `unit-known-limitations-transitive-dependency-cves` | what | 2 |
-| `unit-known-limitations-unregistered-hint-fallback` | what | 3 |
+| `unit-known-limitations-unregistered-hint-fallback` | what | 2 |
 | `unit-known-limitations-vl-text-gate-tuned-against-manufactured-collision` | what | 1 |
 | `unit-lab-setup-all-these-should-succeed-after-setup` | what | 4 |
 | `unit-lab-setup-full-setup-downloads-vulhub-challenge-composes-base-images-model-pulls` | what | 2 |
@@ -477,16 +480,6 @@
 | `unit-platform-storage-config-facade` | mixed | 2 |
 | `unit-portal-conftest` | mixed | 1 |
 | `unit-portal-mcp-namespace` | mixed | 1 |
-| `unit-portal5-acceptance-execute-v9-autonomous-monitoring-loop-required-default` | what | 4 |
-| `unit-portal5-acceptance-execute-v9-coverage-current` | what | 5 |
-| `unit-portal5-acceptance-execute-v9-failure-playbook` | what | 4 |
-| `unit-portal5-acceptance-execute-v9-new-in-v9-routing-served-model-verification` | what | 4 |
-| `unit-portal5-acceptance-execute-v9-non-negotiables` | what | 5 |
-| `unit-portal5-acceptance-execute-v9-phase-0-preflight-required` | what | 4 |
-| `unit-portal5-acceptance-execute-v9-portal5-acceptance-execute-v9-claude-code-prompt` | what | 6 |
-| `unit-portal5-acceptance-execute-v9-results-dashboard` | what | 2 |
-| `unit-portal5-acceptance-execute-v9-running` | what | 6 |
-| `unit-portal5-acceptance-execute-v9-your-role` | what | 3 |
 | `unit-portal5-bench-execute-v4-1-ground-truth-counts-no-retired-alias-leak` | what | 1 |
 | `unit-portal5-bench-execute-v4-2-bench-plan-the-real-test-count-for-this-run` | what | 2 |
 | `unit-portal5-bench-execute-v4-3-backends-up` | what | 3 |
@@ -516,7 +509,6 @@
 | `unit-portal5-bench-sec-execute-v3-single-variant-on-the-prompt-set` | what | 3 |
 | `unit-portal5-bench-sec-execute-v3-what-changed-in-the-security-surface-read-before-running` | what | 4 |
 | `unit-portal5-bench-sec-execute-v3-your-role` | what | 3 |
-| `unit-readme-acceptance-testing` | what | 3 |
 | `unit-readme-architecture` | what | 4 |
 | `unit-readme-benchmark-workspaces-user-selected-only` | what | 4 |
 | `unit-readme-coding-tool-integration-claude-code-opencode` | what | 4 |
@@ -563,7 +555,6 @@
 | `unit-security-config-reserved` | mixed | 1 |
 | `unit-security-knowledge-surface` | mixed | 2 |
 | `unit-security-tools-mcp-surface` | mixed | 1 |
-| `unit-surface-acceptance` | mixed | 1 |
 | `unit-surface-benchmarks` | mixed | 3 |
 | `unit-surface-binary-research` | mixed | 1 |
 | `unit-surface-compliance-closeout-scripts` | mixed | 18 |
@@ -593,23 +584,13 @@
 | `unit-surface-tests-unit` | mixed | 1 |
 | `unit-surface-tool-preselect` | mixed | 2 |
 | `unit-surface-toolpreselect-tests` | mixed | 1 |
-| `unit-surface-uat` | mixed | 2 |
-| `unit-surface-uat-catalog` | mixed | 1 |
 | `unit-surface-wiki-adapters` | mixed | 1 |
 | `unit-tests-frontend-test-reasoning-display` | what | 1 |
 | `unit-tests-frontends-namespace` | mixed | 1 |
 | `unit-tests-integration-wiki-cycle` | mixed | 1 |
 | `unit-tests-memory-guard` | mixed | 1 |
-| `unit-tests-scripts-regen-section-table` | mixed | 1 |
 | `unit-tests-unit-test-security-corpus-contract` | what | 1 |
 | `unit-tests-unit-test-wiki-search-ranking` | what | 1 |
-| `unit-uat-config` | mixed | 1 |
-| `unit-uat-health` | mixed | 1 |
-| `unit-uat-init` | mixed | 1 |
-| `unit-uat-lifecycle` | mixed | 1 |
-| `unit-uat-owui_api` | mixed | 1 |
-| `unit-uat-results` | mixed | 1 |
-| `unit-uat-state` | mixed | 1 |
 | `unit-user-guide-cross-session-memory` | what | 4 |
 | `unit-user-guide-getting-access` | what | 2 |
 | `unit-user-guide-how-it-works` | what | 2 |
@@ -635,14 +616,14 @@
 | `unit-wiki-tests-render` | mixed | 1 |
 | `unit-wiki-writeback` | mixed | 1 |
 
-**Total:** 626 units
+**Total:** 607 units
 
 ## Source Distribution
 
-- **code**: 1768 references
+- **code**: 1711 references
 - **config**: 2 references
 - **data**: 1 references
-- **doc**: 5 references
+- **doc**: 7 references
 - **mitre**: 40 references
 - **scenario**: 54 references
 - **spl**: 40 references
