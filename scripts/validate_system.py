@@ -31,7 +31,7 @@ Designed to run in under 60 seconds on the M4 Pro Mac Mini. Use this as
 the gate before kicking off the full long-running suites:
 
     python3 scripts/validate_system.py && \
-    uv run python -m tests.qat
+    uv run --extra dev python -m tests.qat
 """
 
 from __future__ import annotations

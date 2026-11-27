@@ -353,6 +353,39 @@ def test_playwright_unavailable_fails_without_api_fallback(
     assert not api_called
 
 
+def test_run_selected_stops_before_rows_when_browser_driver_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A missing Playwright is one preflight failure, not N row FAILs (2026-11-27)."""
+    from tests.qat import browser_ui as bu
+
+    def boom() -> object:
+        raise bu.PlaywrightUnavailable(
+            "Playwright not installed — run `uv pip install -e '.[dev]'` plus "
+            "`playwright install chromium`, or run QAT with --api-only"
+        )
+
+    monkeypatch.setattr(runner, "load_playwright", boom)
+    browser = QATScenario("s2-p1-ui-roster", "t", 2, "smoke_routing", 1, "auto", browser=True)
+    monkeypatch.setattr(
+        runner,
+        "build_plan",
+        lambda settings, available_models=None: (SimpleNamespace(), [browser]),
+    )
+    ran: list[str] = []
+    monkeypatch.setattr(runner, "_run_with_clean_owui_memories", lambda *a, **k: ran.append("rows"))
+
+    opts = runner.RunnerOptions({2}, set(), set(), output_dir=tmp_path)
+    with pytest.raises(SystemExit) as caught:
+        runner.run_selected(_settings(tmp_path), opts)
+
+    message = str(caught.value)
+    assert "browser" in message.lower()
+    assert "playwright" in message.lower()
+    assert "install chromium" in message or "--extra dev" in message
+    assert ran == []  # stopped before any row ran
+
+
 # --------------------------------------------------------- BrowserUI helpers
 
 

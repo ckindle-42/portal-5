@@ -7,19 +7,19 @@ This guide covers the Portal 5 stack described by the current repository configu
 1. Check the discovered plan and roster without contacting services:
 
    ```bash
-   uv run python -m tests.qat --dry-run
+   uv run --extra dev python -m tests.qat --dry-run
    ```
 
 2. Run preflight and hardening before a conversation campaign:
 
    ```bash
-   uv run python -m tests.qat --stage 0,1
+   uv run --extra dev python -m tests.qat --stage 0,1
    ```
 
 3. Run the human-grade Open WebUI UAT stage:
 
    ```bash
-   uv run python -m tests.qat --stage uat
+   uv run --extra dev python -m tests.qat --stage uat
    ```
 
    `--stage 5` selects the same stage. Use `--scenario <scenario-id>` to focus a rerun; stage 5 IDs are printed by `--dry-run`. `--api-only` keeps the run on the Open WebUI chat API. Chat cleanup is archive-by-default; `--cleanup-chats` deletes UAT chats.
@@ -150,5 +150,5 @@ Stage 5 writes normal QAT result rows, report, and review packet. `PASS` means t
 For a failed result, preserve the chat and artifact links, inspect its trace, and rerun only that scenario after the cause is fixed:
 
 ```bash
-uv run python -m tests.qat --stage uat --scenario <scenario-id>
+uv run --extra dev python -m tests.qat --stage uat --scenario <scenario-id>
 ```

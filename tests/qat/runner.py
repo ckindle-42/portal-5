@@ -26,7 +26,7 @@ from portal.platform.inference.streaming_client import StreamTurnStalledError, s
 
 from . import artifacts, gate, hardening, preflight, report, uat_behavioral
 from . import scenarios as scn
-from .browser_ui import BrowserUI, PlaywrightUnavailable
+from .browser_ui import BrowserUI, PlaywrightUnavailable, load_playwright
 from .config import Discovery, Settings, discover, primary_model_for
 from .models import GateReport, QATResult, QATScenario, StageSummary, Status, classify_defect
 from .owui_client import (
@@ -464,6 +464,27 @@ def _want(s: QATScenario, opts: RunnerOptions) -> bool:
     return not (opts.api_only and s.browser)
 
 
+def _scenario_uses_browser(scenario: QATScenario, opts: RunnerOptions) -> bool:
+    """A non-api-only UAT case drives the browser GUI; so does a browser scenario."""
+    if opts.api_only:
+        return False
+    return scenario.browser or scenario.kind == "uat"
+
+
+def _require_browser_driver(selected: list[QATScenario], opts: RunnerOptions) -> None:
+    """One preflight failure, not N row FAILs, when browser rows need Playwright."""
+    browser_rows = [s for s in selected if _scenario_uses_browser(s, opts)]
+    if not browser_rows:
+        return
+    try:
+        load_playwright()
+    except PlaywrightUnavailable as exc:
+        raise SystemExit(
+            f"QAT preflight: {len(browser_rows)} browser scenario(s) selected but the "
+            f"browser driver is unavailable: {exc}"
+        ) from exc
+
+
 def print_plan(discovery: Discovery, scenarios: list[QATScenario]) -> None:
     print("QAT Release 1.0 execution plan (live discovery — dry run, zero network/GPU)")
     print(f"  modules enabled : {len(discovery.modules_enabled)}")
@@ -518,14 +539,23 @@ def run_selected(settings: Settings, opts: RunnerOptions) -> RunState:
         return state
     if not selected:
         raise SystemExit("QAT selection resolved to 0 scenarios; nothing to run")
+    _require_browser_driver(selected, opts)
     # Every live selection runs from a known OWUI memory state, not only Stage 5 (13cdf8587
     # gated execution on a UAT row being selected, so stage 0-4 selections silently ran nothing).
     client = client or OWUIClient(settings)
     token = token or client.signin()
     _run_with_clean_owui_memories(client, token, settings, selected, state, opts, previous)
-    if not state.results:
+    executed = [
+        row
+        for row in report.acceptance_results(selected, state.results)
+        if row.status in (Status.PASS, Status.WARN, Status.FAIL)
+    ]
+    if not executed:
+        skipped = sum(row.status is Status.SKIP for row in state.results)
+        blocked = sum(row.status is Status.BLOCKED for row in state.results)
         raise SystemExit(
-            f"QAT selected {len(selected)} scenarios but executed 0; see run_meta.json"
+            f"QAT selected {len(selected)} scenarios but executed 0 acceptance rows "
+            f"({skipped} skipped, {blocked} blocked); see run_meta.json"
         )
     return state
 

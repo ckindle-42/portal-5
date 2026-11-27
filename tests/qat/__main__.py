@@ -1,4 +1,4 @@
-"""CLI entry: `python3 -m tests.qat` (or `uv run python -m tests.qat`)."""
+"""CLI entry: `python3 -m tests.qat` (or `uv run --extra dev python -m tests.qat`)."""
 
 from __future__ import annotations
 

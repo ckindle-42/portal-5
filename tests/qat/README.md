@@ -11,26 +11,26 @@ from them).
 ```bash
 # 1. Plan only — live discovery from config/portal.yaml + workspaces presets,
 #    zero network/GPU. This is the first thing to check after any config change.
-uv run python -m tests.qat --dry-run
+uv run --extra dev python -m tests.qat --dry-run
 
 # 2. Full cascade (stages 0→5) with the inter-phase gate between phases:
-uv run python -m tests.qat
+uv run --extra dev python -m tests.qat
 
 # Selectors
-uv run python -m tests.qat --stage 2 --phase media_heavy
-uv run python -m tests.qat --scenario s2-p6-auto-audio::music --api-only
-uv run python -m tests.qat --browser-only          # only the Playwright UI layer
-uv run python -m tests.qat --stage 4 --emit-worksheets   # rubric worksheets for the operator
-uv run python -m tests.qat --stage 4 --ingest-worksheets # validate + freeze filled worksheets
-uv run python -m tests.qat --stage uat                   # human-grade Open WebUI acceptance journeys
-uv run python -m tests.qat --stage 5                     # same as --stage uat
+uv run --extra dev python -m tests.qat --stage 2 --phase media_heavy
+uv run --extra dev python -m tests.qat --scenario s2-p6-auto-audio::music --api-only
+uv run --extra dev python -m tests.qat --browser-only          # only the Playwright UI layer
+uv run --extra dev python -m tests.qat --stage 4 --emit-worksheets   # rubric worksheets for the operator
+uv run --extra dev python -m tests.qat --stage 4 --ingest-worksheets # validate + freeze filled worksheets
+uv run --extra dev python -m tests.qat --stage uat                   # human-grade Open WebUI acceptance journeys
+uv run --extra dev python -m tests.qat --stage 5                     # same as --stage uat
 
 # Re-runs
-uv run python -m tests.qat --append       results/qat/release_1_0_<ts>
-uv run python -m tests.qat --rerun-failed results/qat/release_1_0_<ts>
+uv run --extra dev python -m tests.qat --append       results/qat/release_1_0_<ts>
+uv run --extra dev python -m tests.qat --rerun-failed results/qat/release_1_0_<ts>
 
 # Chat hygiene
-uv run python -m tests.qat --cleanup-chats        # delete test chats (default: archive)
+uv run --extra dev python -m tests.qat --cleanup-chats        # delete test chats (default: archive)
 ```
 
 Exit code 1 when any scenario FAILs or the inter-phase gate BLOCKs.
