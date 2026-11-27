@@ -150,7 +150,7 @@ The “specialist bound if core” column substitutes the candidate for Inkling 
 
 | Priority / candidate | Actual format and footprint evidence | Tool evidence and uncertainty | Shares current Inkling? | Specialist bound if core |
 |---|---|---|---|---:|
-| **A0 — Inkling-2-Mini-oQ4e-mtp with routed-expert SSD offload** | oMLX oQ4e + MTP. Current checkpoint is 15.7 GiB including DSpark per `config/backends.yaml`; 0.8.4 reports 10.2 GB on a 24 GB Mac with experts on SSD. Ollama `inkling-2-mini` NVFP4 remains a separate fallback artifact. | Best starting evidence: the reviewer performed sources→start in 2/2 trials; Granite and Qwen3.8 did not start. Unknown: offload latency on M4 Pro, SSD wear/IO, concurrency, and whether offload engages at this host's settings. | Same core; a 15.3 Gemma specialist would leave only 0.7–1.9 before K/P | 16.0–17.2 |
+| **A0 — Inkling-2-Mini-oQ4e-mtp with routed-expert SSD offload** | oMLX oQ4e + MTP. Current checkpoint is 15.7 GiB including DSpark per `config/backends.yaml`; 0.8.4 reports 10.2 GB on a 24 GB Mac for **oQ4e** with experts on SSD. Applicability to the MTP checkpoint and the draft's extra memory is unproven. Ollama `inkling-2-mini` NVFP4 remains a separate fallback artifact. | Best starting evidence: the reviewer performed sources→start in 2/2 trials; Granite and Qwen3.8 did not start. Unknown: offload latency on M4 Pro, SSD wear/IO, concurrency, and whether offload engages at this host's settings. | Same core; a 15.3 Gemma specialist would leave only 0.7–1.9 before K/P | 16.0–17.2 |
 | **A1 — Qwen3.5-9B** | Existing oMLX `Qwen3.5-9B-oQ4e-mtp`: **6.529 GB (6.081 GiB)**; Ollama Q4_K_M: **6.6 GB**, including a 922 MB vision projector. Intake facts are in `coding_task/FINDING_AUTODAILY_COLDSTART_INTAKE.md`. | [Vendor card](https://huggingface.co/Qwen/Qwen3.5-9B): BFCL-V4 66.1, TAU2 79.1. Local oMLX typed `get_weather` passed 2/2 on 0.8.1; the Ollama tag's stored template is only `{{ .Prompt }}`, so its native renderer/tool loop still needs proof. Existing auto-daily cold-start screen is a different seat decision. | Yes; 3.1–4.7 remains before K/P | 19.6–20.9 |
 | **A2 — NVIDIA Nemotron 3.5 Bolt E4B** | [Official Q4_K_M GGUF](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-4GB): **6.18 GB** despite the “4GB” product name; optional DFlash is additional. A UD-Q4_K_XL ctx8k GGUF is already registered. oMLX needs a supported Gemma-4 conversion and parser proof. | Vendor Q4 results include BFCL-v3 67.31, ToolSandbox 74.13, RelyToolBench 69.29. NVIDIA's voice-agent guide also documents calls emitted as plain text in some sessions; this is exactly why a live multi-turn test is required. | Yes; 3.5–4.7 remains before K/P | 20.0–21.2 |
 | **A2 — Mistral Ministral 3 8B Instruct 2512** | [Official model](https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512) has native function calling/JSON and vision; [MLX 4-bit artifact](https://huggingface.co/mlx-community/Ministral-3-8B-Instruct-2512-4bit) is **5.6 GB**. Ollama GGUF Q4_K_M is the fallback intake target, not an installed artifact claimed here. | Native Mistral tool parser is documented. No Portal evidence. It could later contest light vision as well as core, but that would be a separate named seat decision. | Yes; 4.1–5.3 remains before K/P | 20.6–21.8 |
@@ -214,3 +214,222 @@ The “specialist bound if core” column substitutes the candidate for Inkling 
 | Image/music/video generation | Core LLM driver is an A/B; generation engine joins host-job admission | MFLUX/ACE-Step/LTX peaks can exceed the proposed specialist allowance. A model-core design that ignores these jobs is incomplete. |
 
 This map deliberately produces **few immediate seat changes**: standard security/reviewer on Inkling, hunt reasoning/council as the first candidate, and family-level consolidation of Qwen and long-context Gemma roles. Everything else is a measured migration queue, not a fleet-wide reassignment.
+
+## 7. Target architecture
+
+### Request classes and scheduling
+
+| Class | Scheduling decision |
+|---|---|
+| Core interactive and core background | Dispatch to the resident logical core immediately, subject to bounded per-role generation concurrency. Do not queue behind a large-specialist cold load. |
+| Large specialist | Admit into one host-wide FIFO replacement queue. One large specialist may be resident beside core; a second waits for the first to become idle and be reclaimed. |
+| Small specialist/helper | Allow beside core and the large specialist only when the full projection fits. The one-large rule does not force pointless swaps. |
+| Router/embedder | Existing always-on services, charged to the host reserve. They are not specialist-slot members. |
+| Media/host MLX job | Initially use its existing admission control; then join the same host plan so it cannot consume the memory reserved for core + specialist + prefill. |
+
+“Logical core” is one identity across engines, not one copy on each. If oMLX is down and a compatible Ollama Inkling fallback serves a chat, new core work stays on that fallback while oMLX recovers. Once idle, recovery drains and unloads the duplicate before returning to the pinned oMLX core. Never let recovery create two 16 GB core residents merely because the primary returned.
+
+### Queue semantics without a wall-clock kill
+
+1. **Plan before enqueue.** Compute `never_fit` from the full declared working set. Return it explicitly with the largest offending component; do not wait 120 seconds and call the same condition a transient refusal.
+2. **Register admitted work FIFO across Pipeline workers.** This is operational scheduling state, not conversation state. Existing request-count concurrency limits remain the backpressure boundary; the design does not require an unbounded number of open HTTP requests.
+3. **Wait on a state version/condition.** Wake on request completion, model load/unload/activity change, memory-counter movement, engine recovery, or client disconnect. Cross-process polling can remain a missed-wakeup safety mechanism, but elapsed total time is not the decision to fail.
+4. **Reclaim only eligible idle specialists.** Busy core, busy specialists, the tiny router, and active job leases are not eviction candidates. Core requests continue while an idle specialist is replaced.
+5. **Expose honest waiting.** Trace queue position, blocker, last transition, and engine request id. Any transport keepalive is not assistant content and must not fabricate reasoning or a result. Client cancellation removes the queue entry.
+6. **Fail only a real terminal condition.** Invalid request, incompatible capability, static `never_fit`, engine failure, explicit queue-capacity backpressure, or cancellation. A slow but progressing cold load is none of these.
+
+The existing global/workspace request semaphores and `OLLAMA_MAX_QUEUE` still provide overload protection. “Queue, don't reject” is the normal single-host memory-contention policy, not a promise to accept infinite work or keep a dead client forever.
+
+### Fallback contract
+
+Declare and preflight capabilities per engine/model, not just a global `supports_tools` boolean:
+
+```text
+tools / parallel tools / typed arguments / exact identifiers
+JSON or schema / modality / minimum context / refusal posture
+```
+
+- A hunt requires tools on the reviewer call, exact job ids on every engine, JSON on hunt-reasoning calls, and terminal service receipts. An Ollama fallback that only returns friendly prose is **not a fallback** for that workflow.
+- A chat fallback may preserve “users always get an answer” only when the model can satisfy the request's required capabilities. Otherwise the honest answer is the visible incapability/queue status, not a response from an unrelated model.
+- Preflight the actual Ollama Inkling fallback on sources→start before marking it hunt-compatible. The existing typed weather probe is insufficient.
+- Preserve a visible route/model receipt on every fallback. Do not retry a started stream into a second answer.
+
+## 8. Phased plan and live proofs
+
+Every phase is independently reversible. Before each Pipeline change, run the normal offline gates; after merge, the orchestrator rebuilds through `./launch.sh`, runs `./scripts/smoke_stream.sh`, and proves the real OWUI → Pipeline → engine path. No phase creates a new benchmark suite.
+
+### Phase 1 — hunt workflow: remove the second model before adding scheduler machinery
+
+**Change:** one reversible seat experiment points `hunt-reasoning` and the hunt council helper at standard Inkling, already used by `security-reviewer` and base `auto-security`. Keep all three role prompts and request sampling distinct. Start hunt concurrency at 1, then measure 2 and 4. Do not enable expert offload in this arm.
+
+**Why first:** it directly addresses the failed workflow and can reduce the pair's weight requirement by 15.3 GiB without waiting for an engine upgrade, a smaller model, or new queue code.
+
+**Live proof:**
+
+1. Capture the current Gemma incumbent's real labelled-notable results and one real terminal hunt as the control. If it cannot reproduce its known outcome, the setup is void.
+2. Run the Inkling arm's preflight and independent grading review, then two `s5-security-hunt-workflow` runs. Require sources→start in the first turn, `COMPLETE`, nonzero Splunk work, and an answer true to receipts.
+3. During a real running hunt, use the reviewer in OWUI for a status/explanation turn. Require exact job id, correct tool result, no 507, no fallback to a non-tool model, and no mid-prefill abort.
+4. Inspect oMLX activity: one standard Inkling resident serves reviewer and hunt calls; no Gemma load occurs for these roles. Record interactive TTFT and hunt throughput at concurrency 1/2/4; choose the highest tested concurrency whose interactive p95 TTFT is no more than 2× its solo baseline and whose outcomes remain correct. Report elapsed time; never kill on it.
+5. Run a 2–3 day real-use trial only after the A/B wins. Two valid inconclusive runs keep Gemma.
+
+**Simplify on success:** the hunt-specific Gemma resident and the proposed per-pair co-residency lease become unnecessary. The `da1ccdf6e` job-waits stopgap remains temporarily for other seats; remove its hunt special case only after the general queue lands.
+
+**If unproven:** restore Gemma and test Inkling expert offload + Gemma co-residency, then Qwen3.5-9B, against the same decision. Do not keep Inkling merely because it is the concept's preferred core.
+
+### Phase 2 — native core residency and one-large queue
+
+**Change:** after the Phase 1 fit proof, configure standard Inkling as an oMLX pinned/preloaded model with a bounded stable context. Replace the specialist's total wait deadline with the state-change queue above. Use oMLX native activity/load state and Ollama `/api/ps`; keep the Pipeline's host-wide lock and cross-engine accounting. Set a justified fixed host model/reserve envelope or prove that the dynamic ceiling cannot invalidate the declared fit.
+
+**Live proof:**
+
+- Start a real hunt on core, then issue two different real large-specialist workflows from OWUI. The first may replace the idle specialist; the second must show queued state and run after the first drains. A core reviewer turn must still complete while the specialist waits.
+- Let a genuine cold specialist load exceed the old 120-second wait if that is what the host naturally does. Pass means continued progress and eventual correct completion with elapsed time recorded, not 507 at 120 seconds. Do not inject an artificial delay.
+- Cancel a queued OWUI turn and verify that its queue entry disappears without evicting core or running the cancelled specialist.
+- Ask the plan for a statically impossible core + oversized specialist combination. It must return `never_fit` with components rather than queue indefinitely.
+- Stop oMLX during a real compatible fallback test. The Ollama core candidate must either pass its capability preflight and preserve the workflow or visibly refuse that workflow. Recovery must not leave duplicate core copies resident.
+
+**Simplify on success:** remove time-based `quiet`/`deadline` refusal behavior for transient specialist contention, the hunt-only wait stopgap, and any duplicate per-pair lease. Retain `never_fit`, host-safety admission, backpressure, and metrics.
+
+### Phase 3 — bring non-chat host jobs into the same memory envelope
+
+**Change:** extend the existing media/host-job admission receipt to declare estimated peak, active state, and reclaimability to the host plan. Do not add a second gateway. Core + specialist reserves must include concurrent MFLUX/ACE-Step/LTX and other configured host MLX work.
+
+**Live proof:** while a hunt is active on core, run a real `image_start` from OWUI and then a real music job. Each either runs within the declared envelope or waits with a visible job state. Require correct generated bytes/download URL, hunt completion, no 507, no host swap emergency, and no mid-generation unload. Repeat with a specialist resident. If the jobs cannot fit, the receipt must say what it is waiting for; elapsed render time is not failure.
+
+**Simplify on success:** one host admission receipt explains chat and media waits. Existing media-specific estimates stay as input data, not a separate competing decision.
+
+### Phase 4 — consolidate families and merge core candidates one seat at a time
+
+**Change:** first make same-model roles share runtime without changing their model:
+
+- Qwen3.8 SPL/coding/deep/compliance roles use the Qwen specialist rather than independent swaps.
+- Compliance reading/mapping/overflow use the appropriate long-context Gemma runtime, with plain/QAT differences preserved where the seat ledger requires them.
+- Hunt council always follows the selected hunt reasoner.
+
+Then run the Section 6 candidate-to-merge A/Bs in this order: `tools-specialist`, `auto-documents`, `auto-daily`, `auto-research`, media job drivers, base `auto-reasoning`. Each gets its own small real-task sample and reversible trial. Coding, long compliance, vision, uncensored, and independent council seats are not bulk migrations.
+
+**Live proof per seat:** incumbent and candidate each perform the same real OWUI task with the same uploads/tools; the outcome and actual artifact/receipt decide. Record model loads during a two-role sequence: a same-family consolidation must not reload identical weights, and a core merge must not load the retired seat. Any quality regression restores the hint.
+
+**Simplify on success:** remove redundant runtime swaps and old `model_hint` wiring only after the trial. Workspaces and role prompts remain; this is not a workspace-removal program.
+
+### Phase 5 — context/tag and code simplification
+
+**Change:** choose one stable context per Ollama resident from the measured role policy. Forward request-time `num_ctx` only when the whole resident uses the same value or an intentional reload is the requested behavior. Use oMLX profiles for sampling only after the installed contract proves their behavior. Preserve GGUF fallbacks and their own capability probes.
+
+**Live proof:** alternate two real roles that previously used different `-ctxNk` tags. The shared resident must retain its chosen context with no runner reload, no truncation, and correct outcomes. Deliberately alternating two different `num_ctx` values in a contract probe must expose the expected reload, documenting why per-role dynamic context was not adopted. Run the engine contract check and streaming smoke after every transport change.
+
+**Delete only after receipt/caller audit:**
+
+- unused derived `-ctxNk` aliases (zero extra weight bytes is expected; the win is fewer runner configurations, not disk reclaim);
+- `preferred_residents` if native core pin/preload fully replaces it;
+- `hot_seat_protect_s` if measured multi-model residency makes its prefix-cache workaround unnecessary;
+- per-pair co-residency declarations and the job-waits stopgap after the generic working-set/queue covers their callers;
+- capacity-fallback variant selection that can violate capability, replaced by the capability-aware path;
+- duplicate elapsed-time refusal logic, while retaining stall detection and report-only latency.
+
+Do not delete plain versus QAT weights as “context tags”; they are different artifacts and remain governed by WFE/seat decisions. Do not delete the open auto-daily screen's artifacts before its ledger row closes.
+
+### Phase 6 — final whole-system acceptance
+
+Run targeted real regressions first, then one quiet-host QAT on one SHA. The quiet-host requirement remains: core residency does not make pytest/xdist or other external pressure free.
+
+Acceptance requires:
+
+- two hunt workflows complete with real Splunk work and truthful answers;
+- a mid-hunt reviewer turn stays on capable core;
+- specialist queue/cancel/`never_fit` proofs pass;
+- no cross-engine 507 or tool-incapable silent fallback in those paths;
+- media job admission respects the declared host envelope;
+- existing QAT rows have no outcome regression versus the accepted baseline;
+- final resident/log snapshots contain no unexpected duplicate core or retired-seat reload.
+
+A stitched collection of historical green rows is not the final proof.
+
+## 9. Risks and explicit tradeoffs
+
+| Risk | Why it matters | Mitigation / decision evidence |
+|---|---|---|
+| Quality loss from one generalist | Inkling's hunt tool success does not imply coding, compliance, research, math, or document quality. | Section 6 per-seat A/Bs, incumbent controls, independent judges, instant hint revert. Specialist is a permanent supported category. |
+| Correlated “council” judgments | Same-model role prompts can share blind spots; auto-council already accepts this tradeoff for speed. | Keep compliance diversity and external independent seat judges. Do not market same-core calls as independent model review. |
+| Core concurrency and head-of-line blocking | Shared weights eliminate loads, not GPU serialization or long-prefill interference. | Start hunt concurrency 1; test 2/4 against interactive p95 and outcomes. Bound background work; do not assume M5 Ultra release numbers apply to M4 Pro. |
+| KV/prefill exceeds the static math | 256K core defaults and parallel slots can invalidate an apparently fitting pair. | Stable smaller contexts, full-working-set admission, real activity/RSS snapshots, explicit `never_fit`. |
+| Prefix-cache misses/pollution | Different system prompts and tool schemas share little or no prefix; one-shot hunt calls can evict useful chat blocks. | Compare real TTFT/cache behavior. Use supported `X-oMLX-Cache-Store: off` only after an A/B for one-shot roles; do not infer hits from `cached_tokens`. |
+| Fallback silently drops tools or changes safety | Same-family GGUF/MLX builds differ in renderer, parser, template, quant, and refusal posture. | Capability preflight per engine and workflow; visible incapability is preferable to a wrong answer. Uncensored remains a separate identity. |
+| “Always answer” conflicts with honesty | An unrelated or incapable model produces a 200 response but fails the actual job. | Availability means a truthful completion/status. Jobs/API retain retryable errors; chat gets an explicit notice. |
+| Core pin worsens host emergencies | A permanent 16 GB reservation plus media/Docker/test pressure can recreate swap/jetsam risk. | Pin only after full fit; keep host-safety recovery and fixed/justified reserve. Include host jobs before declaring completion. |
+| Queue hides a deadlock or OWUI timeout | No wall-clock kill can turn an engine wedge into an infinite HTTP turn. | Terminal engine-health error, client cancellation, bounded request-count backpressure, queue/blocker/last-transition receipts, transport keepalive. |
+| Dynamic `num_ctx` reloads on Ollama | One tag with role-varying context can be slower and less stable than derived tags. | Stable context per runner; prove reload behavior before tag deletion. |
+| Offload causes latency/SSD problems | Expert streaming may make hunt batches or interactive turns IO-bound and writes/cache may add disk pressure. | Separate offload A/B with TTFT, throughput, actual RSS, SSD IO/cache limits, and rollback. Never require it for Phase 1. |
+| Native engine upgrade changes contracts | Same-day oMLX features can alter admin APIs, parsers, cache, and memory accounting. | Existing engine auto-update contract, native arm64 check, targeted live proofs before feature use, rollback. |
+| Scheduler duplication | Portal + oMLX + Ollama + llama-swap would produce contradictory eviction and fallback decisions. | No new gateway. Native engines own local scheduling; Portal owns only cross-engine/host policy. |
+| Test/bench proliferation | A new architecture can otherwise spawn another unbounded campaign and suite. | Named seat decisions, small real samples, existing QAT scenarios, two-inconclusive stop rule, no new suite. |
+
+## 10. Orchestrator command sheet
+
+These are the commands for the live operator/orchestrator after the relevant implementation merges; they were **not** run by this design lane.
+
+### Rebuild and smoke the actual change
+
+```bash
+cd /Users/chris/projects/portal-5
+./launch.sh rebuild && ./launch.sh up && ./launch.sh seed
+./scripts/smoke_stream.sh
+```
+
+Success requires the seed to contain the changed workspace prompt/hint, smoke to pass, and the running container to contain the merged config. Rebuild alone does not reseed OWUI.
+
+### Run the existing hunt scenario twice from one immutable snapshot
+
+```bash
+cd /Users/chris/projects/portal-5
+SHA=$(git rev-parse --short HEAD)
+git worktree add "/Users/chris/projects/portal-5-wt/qat-$SHA" "$SHA"
+cd "/Users/chris/projects/portal-5-wt/qat-$SHA"
+uv sync --all-extras --frozen
+uv run python -m tests.qat \
+  --scenario s5-security-hunt-workflow \
+  --output-dir "results/qat/core-hunt-$SHA-a"
+uv run python -m tests.qat \
+  --scenario s5-security-hunt-workflow \
+  --output-dir "results/qat/core-hunt-$SHA-b"
+cat "results/qat/core-hunt-$SHA-a/QAT_REPORT.md"
+cat "results/qat/core-hunt-$SHA-b/QAT_REPORT.md"
+```
+
+Both reports must be PASS, and the stored service receipts—not just the grader's conversation text—must show terminal `COMPLETE`, `splunk_requests > 0`, the same job id in answer and receipt, and no 507/fallback substitution. Any setup void is fixed and rerun; it is not scored against the candidate.
+
+### Capture the real resident/activity evidence
+
+```bash
+curl -fsS http://127.0.0.1:11434/api/ps | python3 -m json.tool
+curl -fsS \
+  -H "Authorization: Bearer $OMLX_API_KEY" \
+  http://127.0.0.1:8085/admin/api/activity | python3 -m json.tool
+docker logs --since 30m portal5-pipeline 2>&1 \
+  | grep -E 'load_guard|backend.selected|capacity_fallback|hunt'
+```
+
+On an older installed oMLX, use its existing `/v1/models/status` and `/api/status` read surfaces instead of assuming the new Admin API exists. The successful Phase 1 snapshot has one standard Inkling resident for reviewer/hunt and no hunt Gemma load. The failed snapshot has a second model, an Ollama fallback that did not pass hunt capability, repeated cold loads, or 507/no-answer entries.
+
+### Check the core-set projection before enabling a pin
+
+```bash
+cd /Users/chris/projects/portal-5
+curl -fsS -X POST http://127.0.0.1:9099/admin/load-plan \
+  -H "Authorization: Bearer $PIPELINE_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"models": [{"engine": "omlx", "model": "Inkling-2-Mini-oQ4e-mtp"}]}'
+```
+
+Replace/extend `models` with the actual specialist declaration accepted by the running route. The response must include every core/specialist component and fit with the measured KV/prefill reserve. A response covering weights alone is insufficient for Phase 2; implement the full declaration rather than treating this current endpoint as proof of the final envelope.
+
+## 11. Coding-lane decomposition
+
+1. **Hunt-core seat A/B:** reversible config, real labelled/hunt evidence, fallback capability preflight; no scheduler rewrite.
+2. **Native residency + one-large queue:** oMLX native pin/activity integration, cross-engine condition queue, static `never_fit`, cancellation, receipts; delete the hunt stopgap after proof.
+3. **Capability-aware fallback:** per-engine contract and logical-core recovery without duplicate residents.
+4. **Host-job admission:** media/host peaks join the same plan and receipts.
+5. **Family/context consolidation:** same-model runtime sharing first, then measured role merges and tag simplification.
+6. **Final targeted QAT + one-SHA acceptance:** no new suite, no bulk seat migration.
+
+The architecture is successful if it makes the common path boring: reviewer and hunt use one hot model, specialists wait visibly when they truly cannot coexist, and no request is answered by a model that cannot perform the requested contract.
