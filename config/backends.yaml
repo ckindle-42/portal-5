@@ -338,6 +338,14 @@ backends:
     supports_tools: true
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
     supports_tools: true
+  # 2026-11-27: auto-coding base seat won on this Ollama GGUF (15/16,
+  # realuse_s5s7s10_20261030b). Registered here with no omlx-coding alias so
+  # auto-coding ([coding, general]) serves Ollama GGUF instead of falling
+  # through to omlx-general's Qwen3.8-27B-oQ4e-mtp alias (runaway reasoning
+  # on the auto-coding prompt; see KNOWN_LIMITATIONS P5-OMLX-QWEN38-MTP-001).
+  # general-deep ([general]) and auto-compliance ([reasoning, general]) stay on oMLX.
+  - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
+    supports_tools: true
   # MoE-vs-dense IDE-lane candidates added 2026-08-26. All three MoE, ~58-59
   # tok/s decode (vs the ~14-20 tok/s dense Qwen3.8-27B lanes above/below).
   # supports_tools:true verified via a direct /api/chat tool-call probe

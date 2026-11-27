@@ -147,6 +147,42 @@ class TestAutoCodingOmlxShadowRouting:
         ordered = _prioritize_hinted_backend(coding_candidates, hint)
         assert ordered[0].id == "omlx-coding"
 
+    def test_auto_coding_base_seat_routes_to_ollama_gguf_not_omlx_alias(self):
+        """auto-coding base seat resolves to its evaluated Ollama GGUF in ollama-coding;
+        general-deep, auto-compliance, and auto-coding variants keep oMLX serving."""
+        import yaml
+
+        from portal.platform.inference.router.handlers import _prioritize_hinted_backend
+
+        reg = BackendRegistry(config_path="config/backends.yaml")
+        for b in reg.list_backends():
+            b.healthy = True
+        reg._refresh_healthy_cache()
+
+        portal = yaml.safe_load(open("config/portal.yaml", encoding="utf-8"))
+        workspaces = portal["workspaces"]
+
+        def _first(ws_id: str, hint: str) -> tuple[str, str | None]:
+            ordered = _prioritize_hinted_backend(reg.get_backend_candidates(ws_id), hint)
+            return ordered[0].id, ordered[0].resolve_model(hint)
+
+        base_hint = workspaces["auto-coding"]["model_hint"]
+        assert _first("auto-coding", base_hint) == ("ollama-coding", base_hint)
+        assert _first(
+            "auto-daily::deep", workspaces["auto-daily"]["variants"]["deep"]["model_hint"]
+        ) == ("omlx-general", "Qwen3.8-27B-oQ4e-mtp")
+        assert _first("auto-compliance", workspaces["auto-compliance"]["model_hint"]) == (
+            "omlx-reasoning",
+            "Qwen3.8-27B-oQ4e-mtp",
+        )
+        assert _first(
+            "auto-coding::heavy", workspaces["auto-coding"]["variants"]["heavy"]["model_hint"]
+        ) == ("omlx-coding", "Qwen3.8-27B-oQ4e-mtp")
+        assert _first(
+            "auto-coding::qwen38coder",
+            workspaces["auto-coding"]["variants"]["qwen38coder"]["model_hint"],
+        ) == ("omlx-coding", "Qwen3.8-27B-oQ4e-mtp")
+
 
 class TestAutoSecurityOmlxRouting:
     """The security seats use direct oMLX ids and retain their Ollama aliases."""
