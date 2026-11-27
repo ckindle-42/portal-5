@@ -31,6 +31,7 @@ from .config import Discovery, Settings, discover, primary_model_for
 from .models import GateReport, QATResult, QATScenario, StageSummary, Status, classify_defect
 from .owui_client import (
     DEFAULT_TURN_IDLE_TIMEOUT_S,
+    TERMINAL_STATES,
     OWUIClient,
     TurnOutcome,
     TurnStalledError,
@@ -843,7 +844,12 @@ def _execute(
         state.stages[-1].results.append(result)
         _checkpoint_result(state.run_dir, result)
         if result.evidence.get("stream_incomplete") is True:
-            _block_after_incomplete_stream(selected, scenario, state)
+            _block_after_incomplete_stream(
+                selected,
+                scenario,
+                state,
+                str(result.evidence.get("settle_blocked_on") or ""),
+            )
             break
 
 
@@ -971,8 +977,14 @@ def _record_slow_seat(result: QATResult) -> None:
 
 
 def _block_after_incomplete_stream(
-    selected: list[QATScenario], first: QATScenario, state: RunState
+    selected: list[QATScenario],
+    first: QATScenario,
+    state: RunState,
+    blocked_reason: str = "",
 ) -> None:
+    detail = "blocked because a prior assistant stream did not reach a terminal state"
+    if blocked_reason:
+        detail = f"{detail}; unproven: {blocked_reason}"
     seen = {result.scenario_id for result in state.results}
     for scenario in selected:
         if scenario.cascade_key() <= first.cascade_key() or scenario.scenario_id in seen:
@@ -980,12 +992,111 @@ def _block_after_incomplete_stream(
         blocked = QATResult(
             scenario.scenario_id,
             Status.BLOCKED,
-            "blocked because a prior assistant stream did not reach a terminal state",
+            detail,
             defect_class=classify_defect(infra_hop_failed=True),
         )
         _stamp_lineage(blocked, state.provenance)
         state.results.append(blocked)
         _checkpoint_result(state.run_dir, blocked)
+
+
+SETTLE_POLL_INTERVAL_S = 2.0
+
+
+def _engines_busy(settings: Settings) -> list[str]:
+    """Engine models with a request still in flight; [] means provably idle."""
+    busy: list[str] = []
+    with httpx.Client(timeout=15.0) as http:
+        ollama_row, ollama_resident = gate.ollama_residency(http, settings)
+        omlx_row, omlx_resident = gate.omlx_residency(http, settings)
+    if ollama_row.status is Status.FAIL:
+        busy.append("ollama:status-unreachable")
+    for name in ollama_resident:
+        if gate._pipeline_model_in_flight("ollama", name):
+            busy.append(f"ollama:{name}")
+    if omlx_row.status is Status.FAIL:
+        busy.append("omlx:status-unreachable")
+    for name in omlx_resident:
+        if gate._pipeline_model_in_flight("omlx", name):
+            busy.append(f"omlx:{name}")
+    return busy
+
+
+def _settle_stream_failure(
+    client: OWUIClient, token: str, chat_id: str, exc: TurnStalledError
+) -> dict[str, object] | str:
+    """Prove the aborted turn left the stack, else return why that is unprovable.
+
+    Proof: the turn's registered OWUI completion tasks are unregistered (nothing
+    can produce more tokens for the chat) and the engines report no in-flight
+    request. A dict is the receipt; a str is what the settle kept waiting on.
+    """
+    turn_tasks = {*(exc.task_ids or ()), *client.turn_task_ids(chat_id)}
+    message_id = exc.message_id or client.pending_message_id(chat_id)
+    started = time.monotonic()
+    waiting_on = "settle not attempted"
+    while True:
+        elapsed = time.monotonic() - started
+        if elapsed >= client.idle_timeout_s:
+            return waiting_on
+        poll_deadline = time.monotonic() + 10.0
+        try:
+            task_ids = {
+                str(task_id)
+                for task_id in client.task_status(token, chat_id, deadline=poll_deadline).get(
+                    "task_ids", []
+                )
+                if task_id
+            }
+            terminal = False
+            if message_id:
+                detail = client.chat_detail(token, chat_id, deadline=poll_deadline)
+                message = (
+                    ((detail.get("chat") or {}).get("history") or {}).get("messages") or {}
+                ).get(message_id, {})
+                info = message.get("info") or {}
+                state = str(message.get("status") or info.get("status") or "").lower()
+                terminal = bool(
+                    message.get("done") is True
+                    or state in TERMINAL_STATES
+                    or message.get("error")
+                    or info.get("error")
+                )
+            busy = _engines_busy(client.settings)
+        except httpx.HTTPError as http_error:
+            waiting_on = f"OWUI unreachable while settling: {type(http_error).__name__}"
+            time.sleep(SETTLE_POLL_INTERVAL_S)
+            continue
+        tasks_gone = not (turn_tasks & task_ids)
+        turn_terminal = tasks_gone if turn_tasks else terminal
+        if not tasks_gone and turn_tasks:
+            waiting_on = f"OWUI still registers turn tasks: {sorted(turn_tasks & task_ids)}"
+        elif not turn_terminal:
+            waiting_on = "assistant message never reached a terminal state"
+        elif busy:
+            waiting_on = f"engines still busy: {busy}"
+        else:
+            return {
+                "settled": True,
+                "settled_wait_s": round(elapsed, 1),
+                "turn_task_ids": sorted(turn_tasks),
+                "message_terminal": terminal,
+                "engines_idle": True,
+            }
+        time.sleep(min(SETTLE_POLL_INTERVAL_S, client.idle_timeout_s - elapsed))
+
+
+def _stream_settlement(
+    client: OWUIClient, token: str, chat_id: str, exc: TurnStalledError
+) -> dict[str, object]:
+    """Settled stalls carry a receipt and let the cascade continue; others block."""
+    try:
+        settlement = _settle_stream_failure(client, token, chat_id, exc)
+    except (httpx.HTTPError, ValueError, TypeError, KeyError, OSError) as error:
+        settlement = f"settle failed: {type(error).__name__}: {error}"
+    if isinstance(settlement, dict):
+        return settlement
+    return {"stream_incomplete": True, "settle_blocked_on": settlement}
 
 
 def _execute_one(
@@ -1517,10 +1628,10 @@ def _run_chat(
             chat_id=chat_id,
             defect_class=classify_defect(infra_hop_failed=True),
             evidence={
-                "stream_incomplete": True,
                 "turn_idle_timeout_s": exc.idle_timeout_s,
                 "turn_duration_s": exc.elapsed_s,
                 "stream_bytes_received": exc.bytes_received,
+                **_stream_settlement(client, token, chat_id, exc),
             },
         )
     except Exception as exc:
