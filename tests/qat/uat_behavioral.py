@@ -2452,7 +2452,11 @@ def _grade_compliance_abstention_case(
         "don't have",
         "not part of",
     )
-    disclosed = any(phrase in lowered for phrase in disclosure)
+    # Live ecb90082e said "not in the compliance corpus": an adjective between
+    # "the" and "corpus" that the fixed phrases above do not cover.
+    disclosed = any(phrase in lowered for phrase in disclosure) or bool(
+        re.search(r"\bnot in the (?:[\w-]+ )*(?:corpus|store|register)\b", lowered)
+    )
     if not disclosed:
         errors.append("out-of-scope framework was not disclosed as unavailable")
     evidence["abstention_disclosure"] = disclosed
