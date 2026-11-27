@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import httpx
 import pytest
 import yaml
 
@@ -14,7 +16,9 @@ from portal.modules.security.core.hunt.executor import (
     DEFAULT_BUDGETS,
     HuntBudget,
 )
+from portal.modules.security.core.hunt.judge import active_seat_memory_wait
 from portal.modules.security.core.hunt.notables import run as notables_run
+from portal.modules.security.core.hunt.notables.embedding import PipelineEmbeddingClient
 from portal.modules.security.core.hunt.notables.receipt import progress_update
 from portal.modules.security.core.hunt.notables.similar import SIMILAR_GENERATOR
 from portal.modules.security.tools import review_mcp
@@ -463,6 +467,257 @@ def test_stage_deadline_bounds_a_request_without_replacing_the_job_deadline() ->
     assert 0.0 < snapshot["stage_remaining_s"] <= 60.0
     effort.set_stage_deadline("judge", 0.0)
     assert effort.expired_reason() == "judge_stage_deadline_exceeded"
+
+
+def test_hunt_preflight_waits_for_active_memory_and_reports_queued_status(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    monkeypatch.setattr(product_jobs, "_execute_stages", lambda *_args, **_kwargs: None)
+    job_id = "hunt-r2-waits-for-active-seat"
+    product_jobs._write(
+        job_id,
+        {
+            "job_id": job_id,
+            "index": "ix",
+            "started": time.time(),
+            "status": "QUEUED",
+            "stage": "queued",
+        },
+    )
+
+    class Client:
+        calls = 0
+        active = True
+
+        def complete(self, **_request: Any) -> dict[str, Any]:
+            self.calls += 1
+            if self.active:
+                response = httpx.Response(
+                    502,
+                    json={
+                        "detail": (
+                            "All backends failed: Cannot load gemma: projected memory "
+                            "15.3 GiB; blocked by Inkling (16.5 GiB, active elsewhere)"
+                        )
+                    },
+                    request=httpx.Request("POST", "http://pipeline/v1/chat/completions"),
+                )
+                raise httpx.HTTPStatusError("capacity", request=response.request, response=response)
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    client = Client()
+    waiting: list[dict[str, Any]] = []
+
+    def after_wait(_seconds: float) -> None:
+        status = product_jobs.status(job_id=job_id)
+        waiting.append(status)
+        if len(waiting) == 2:
+            client.active = False
+
+    monkeypatch.setattr(product_jobs.time, "sleep", after_wait)
+    product_jobs._run(
+        job_id,
+        client,
+        "ix",
+        100.0,
+        200.0,
+        dict(product_jobs.R2_DEFAULT_BUDGETS),
+        (client, "hunt-reasoning"),
+        None,
+        None,
+        None,
+    )
+
+    final = product_jobs.status(job_id=job_id)
+    assert client.calls == 3
+    assert waiting[0]["status"] == "QUEUED"
+    assert waiting[0]["stage"] == "waiting_for_memory"
+    assert "active elsewhere" in waiting[0]["memory_wait"]["detail"]
+    assert "waiting for memory" in waiting[0]["last_progress"]
+    assert waiting[1]["memory_wait"]["attempts"] >= 2
+    assert final["status"] == "COMPLETE"
+
+
+def test_hunt_preflight_stops_waiting_when_the_job_is_no_longer_wanted(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    job_id = "hunt-r2-no-longer-wanted"
+    product_jobs._write(
+        job_id,
+        {
+            "job_id": job_id,
+            "index": "ix",
+            "started": time.time(),
+            "status": "QUEUED",
+            "stage": "queued",
+        },
+    )
+
+    class Client:
+        calls = 0
+
+        def complete(self, **_request: Any) -> dict[str, Any]:
+            self.calls += 1
+            response = httpx.Response(
+                502,
+                json={
+                    "detail": (
+                        "Cannot load gemma: projected memory 15.3 GiB; "
+                        "blocked by Inkling (active elsewhere)"
+                    )
+                },
+                request=httpx.Request("POST", "http://pipeline/v1/chat/completions"),
+            )
+            raise httpx.HTTPStatusError("capacity", request=response.request, response=response)
+
+    client = Client()
+
+    def stop_job(_seconds: float) -> None:
+        current = product_jobs.load(job_id)
+        assert current is not None
+        product_jobs._write(job_id, current | {"status": "CANCELLED", "stage": "cancelled"})
+
+    monkeypatch.setattr(product_jobs.time, "sleep", stop_job)
+    product_jobs._run(
+        job_id,
+        client,
+        "ix",
+        100.0,
+        200.0,
+        dict(product_jobs.R2_DEFAULT_BUDGETS),
+        (client, "hunt-reasoning"),
+        None,
+        None,
+        None,
+    )
+
+    assert client.calls == 1
+    assert product_jobs.status(job_id=job_id)["status"] == "CANCELLED"
+
+
+def test_hunt_status_returns_waiting_memory_without_long_polling(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    job_id = "hunt-r2-status-waiting-memory"
+    wait = {
+        "detail": "Cannot load gemma: projected memory 15.3 GiB; blocked by Inkling (active elsewhere)",
+        "attempts": 2,
+        "since_utc": "2026-11-26T00:00:00Z",
+        "last_seen_utc": "2026-11-26T00:00:02Z",
+    }
+    product_jobs._write(
+        job_id,
+        {
+            "job_id": job_id,
+            "index": "ix",
+            "started": time.time(),
+            "status": "QUEUED",
+            "stage": "waiting_for_memory",
+            "memory_wait": wait,
+            "progress": {"current": {"phase": "waiting_for_memory", "memory_wait": wait}},
+        },
+    )
+    monkeypatch.setattr(
+        product_jobs.time,
+        "sleep",
+        lambda _seconds: pytest.fail("hunt_status should return before its wait timeout"),
+    )
+
+    status = product_jobs.status(job_id=job_id, wait_seconds=45.0)
+
+    assert status["status"] == "QUEUED"
+    assert status["stage"] == "waiting_for_memory"
+    assert status["memory_wait"]["attempts"] == 2
+    assert "waiting for memory" in status["last_progress"]
+    assert "waiting for memory" in status["next"]
+
+
+def test_memory_wait_classifier_rejects_non_active_capacity_blocks() -> None:
+    response = httpx.Response(
+        502,
+        json={
+            "detail": (
+                "Cannot load gemma: projected memory 15.3 GiB; "
+                "blocked by pinned-model (2 GiB, pinned)"
+            )
+        },
+    )
+
+    assert active_seat_memory_wait(response) is None
+
+
+def test_hunt_memory_wait_pauses_job_and_stage_deadlines(monkeypatch: Any) -> None:
+    from portal.modules.security.core.hunt import executor
+
+    clock = _FakeClock()
+    monkeypatch.setattr(executor.time, "monotonic", clock.monotonic)
+    effort = HuntBudget(dict(DEFAULT_BUDGETS) | {"job_seconds": 60.0})
+    effort.started = clock.now
+    effort.set_stage_deadline("judge", 20.0)
+
+    effort.begin_memory_wait()
+    clock.advance(100.0)
+    assert effort.remaining() == 20.0
+    assert effort.request_deadline == 1120.0
+
+    effort.end_memory_wait()
+    clock.advance(5.0)
+    assert effort.remaining() == 15.0
+    assert effort.stage_remaining() == 15.0
+    effort.restart_clock()
+    clock.advance(5.0)
+    assert effort.snapshot()["elapsed_s"] == 5.0
+
+
+def test_embedding_waits_for_active_memory_then_retries() -> None:
+    calls = 0
+    wait_events: list[tuple[str, str]] = []
+
+    def respond(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(
+                502,
+                json={
+                    "detail": (
+                        "Cannot load embed: projected memory 2 GiB; "
+                        "blocked by Inkling (active elsewhere)"
+                    )
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"model": "embed", "data": [{"index": 0, "embedding": [0.5]}]},
+        )
+
+    client = PipelineEmbeddingClient(
+        url="http://pipeline",
+        model="embed",
+        api_key="test-key",
+        transport=httpx.MockTransport(respond),
+        sleep=lambda _seconds: None,
+    )
+    client.set_memory_wait(
+        SimpleNamespace(
+            start=lambda detail: wait_events.append(("start", detail)),
+            update=lambda detail: wait_events.append(("update", detail)),
+            check_wanted=lambda: None,
+            end=lambda: wait_events.append(("end", "")),
+        )
+    )
+    try:
+        assert client.embed(["one sentence"]) == [[0.5]]
+    finally:
+        client.close()
+
+    assert calls == 2
+    assert wait_events[0][0] == "start"
+    assert "active elsewhere" in wait_events[0][1]
+    assert wait_events[-1] == ("end", "")
 
 
 def test_leads_view_caps_default_payload_and_returns_compact_rows(

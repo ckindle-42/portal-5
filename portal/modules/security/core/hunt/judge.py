@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 import threading
 import time
 from collections.abc import Mapping, Sequence
@@ -62,6 +63,23 @@ def retry_after_seconds(response: httpx.Response) -> float | None:
     except (TypeError, ValueError):
         return None
     return max(0.0, min(RETRY_AFTER_MAX_SECONDS, seconds))
+
+
+def active_seat_memory_wait(response: httpx.Response) -> str | None:
+    """Return an operator-readable capacity refusal only when active work blocks memory."""
+    if response.status_code not in (502, 507):
+        return None
+    detail = response.text[:800]
+    lowered = detail.casefold()
+    if (
+        "cannot load" not in lowered
+        or "projected memory" not in lowered
+        or "blocked by" not in lowered
+    ):
+        return None
+    if not re.search(r"\bactive elsewhere\b|\bbusy\b|\bforeign traffic\b", lowered):
+        return None
+    return detail
 
 
 class BackpressureClient:

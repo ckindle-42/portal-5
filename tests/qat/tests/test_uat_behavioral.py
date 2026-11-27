@@ -1470,6 +1470,65 @@ def test_hunt_grader_allows_running_job_without_a_leads_call() -> None:
     assert uat.grade_case(hunt, turns, {})[0] == []
 
 
+def test_hunt_grader_accepts_qat_zero_lead_text_and_matching_hunt_identifier() -> None:
+    hunt = uat.UATCase(
+        "hunt", "hunt", "security-reviewer", ("sources", "status", "leads"), "hunt_workflow"
+    )
+    job_id = "hunt-r2-91b5d6b8c858"
+    answer_tail = f"Source status: FAILED; hunt identifier: {job_id}. Zero leads — total_leads: 0."
+    turns = [
+        _turn("Source index selected; hunt is in progress."),
+        _hunt_tool_turn(
+            answer_tail,
+            {
+                "tool": "hunt_status",
+                "result": {
+                    "success": True,
+                    "receipt": {"status": "FAILED", "job_id": job_id, "splunk_requests": 0},
+                },
+            },
+            {
+                "tool": "hunt_leads",
+                "result": {
+                    "success": True,
+                    "receipt": {
+                        "job_id": job_id,
+                        "total_leads": 0,
+                        "returned_leads": 0,
+                        "omitted_leads": 0,
+                    },
+                },
+            },
+        ),
+        _turn("No additional hunt results are available."),
+    ]
+
+    assert uat.grade_case(hunt, turns, {})[0] == ["hunt receipt shows no Splunk requests"]
+
+
+def test_hunt_grader_accepts_queued_waiting_for_memory_status() -> None:
+    hunt = uat.UATCase(
+        "hunt", "hunt", "security-reviewer", ("sources", "status", "leads"), "hunt_workflow"
+    )
+    job_id = "hunt-r2-waiting-1234"
+    turns = [
+        _turn("Source index selected; hunt is in progress."),
+        _hunt_tool_turn(
+            f"Source status: QUEUED; hunt identifier: {job_id}; waiting for memory.",
+            {
+                "tool": "hunt_status",
+                "result": {
+                    "success": True,
+                    "receipt": {"status": "QUEUED", "job_id": job_id},
+                },
+            },
+        ),
+        _turn("The hunt is queued while the active model releases memory."),
+    ]
+
+    assert uat.grade_case(hunt, turns, {})[0] == []
+
+
 def test_hunt_grader_rejects_terminal_job_without_receipted_queries_or_leads() -> None:
     hunt = uat.UATCase(
         "hunt", "hunt", "security-reviewer", ("sources", "status", "leads"), "hunt_workflow"
