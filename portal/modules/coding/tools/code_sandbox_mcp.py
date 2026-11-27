@@ -110,6 +110,7 @@ SANDBOX_ARTIFACT_MAX_BYTES = int(os.getenv("SANDBOX_ARTIFACT_MAX_BYTES", str(25 
 SANDBOX_SESSIONS_DIR = SANDBOX_DIR / "sessions"
 SANDBOX_SESSION_MAX_BYTES = int(os.getenv("SANDBOX_SESSION_MAX_BYTES", str(512 * 1024 * 1024)))
 SANDBOX_PIP_INSTALL_ENABLED = os.getenv("SANDBOX_PIP_INSTALL_ENABLED", "true").lower() == "true"
+SANDBOX_EXEC_USER = f"{os.getuid()}:{os.getgid()}"
 
 # Legacy network opt-in retained so its timeout and resource settings remain compatible.
 SANDBOX_ALLOW_NETWORK = os.getenv("SANDBOX_ALLOW_NETWORK", "false").lower() == "true"
@@ -513,8 +514,7 @@ def _session_dir(session_id: str) -> Path:
     owner_file = root / f"{key}.owner"
     with SESSION_DIR_LOCK:
         d.mkdir(parents=True, exist_ok=True)
-        # World-writable like /out: exec root drops DAC_OVERRIDE and the owner is non-root `portal`.
-        d.chmod(0o777)
+        d.chmod(0o700)
         if not owner_file.exists():
             temp_file = root / f".{key}.{uuid.uuid4().hex}.tmp"
             temp_file.write_text(session_id, encoding="utf-8")
@@ -612,6 +612,8 @@ async def _install_packages(
         "docker",
         "run",
         "--rm",
+        "--user",
+        SANDBOX_EXEC_USER,
         "--network",
         "none",
         "--cpus",
@@ -624,6 +626,8 @@ async def _install_packages(
         "no-new-privileges",
         "--cap-drop",
         "ALL",
+        "--env",
+        "HOME=/tmp",
         "-v",
         f"{sess.absolute()}:/session",
         "--workdir",
@@ -680,7 +684,9 @@ def _workspace_mount_args(
     workspace = work_dir / "workspace"
     # Writable per-run /workspace; row inputs are a separate read-only mount at /workspace/uploads.
     # Two read-only mounts of one source nested there made runc fail every eval run (10-30).
-    (workspace / "uploads").mkdir(parents=True, exist_ok=True)
+    workspace.mkdir(mode=0o700, parents=True, exist_ok=True)
+    workspace.chmod(0o700)
+    (workspace / "uploads").mkdir(mode=0o700, exist_ok=True)
     mounts = _bind(workspace.absolute(), "/workspace", "rw")
     if scope is not None:
         return mounts + _row_input_bind(scope)
@@ -725,10 +731,8 @@ async def _run_in_docker(
     work_dir = SANDBOX_DIR / run_id
     work_dir.mkdir(parents=True, exist_ok=True)
     out_dir = work_dir / "out"
-    out_dir.mkdir()
-    out_dir.chmod(
-        0o777
-    )  # the container drops DAC_OVERRIDE: root there cannot write a dir another uid owns
+    out_dir.mkdir(mode=0o700)
+    out_dir.chmod(0o700)
     sess = _session_dir(session_id) if session_id else None
     if sess and _directory_size(sess) > SANDBOX_SESSION_MAX_BYTES:
         shutil.rmtree(work_dir, ignore_errors=True)
@@ -759,6 +763,8 @@ async def _run_in_docker(
             "docker",
             "run",
             "--rm",
+            "--user",
+            SANDBOX_EXEC_USER,
             "--network",
             network,
             "--cpus",
@@ -777,6 +783,8 @@ async def _run_in_docker(
         + [
             "--cap-drop",
             "ALL",  # Drop all Linux capabilities
+            "--env",
+            "HOME=/tmp",
         ]
         + (
             # Lab-exec: restore NET_RAW + NET_ADMIN for raw-socket attack tools.

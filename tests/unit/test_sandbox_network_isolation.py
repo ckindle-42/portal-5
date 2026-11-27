@@ -43,6 +43,10 @@ def _lab_network_inspect(
 )
 def test_session_directories_keep_distinct_ids_separate(monkeypatch, tmp_path, first_id, second_id):
     monkeypatch.setattr(sandbox, "SANDBOX_SESSIONS_DIR", tmp_path / "sessions")
+    legacy_session = sandbox.SANDBOX_SESSIONS_DIR / "v2" / sandbox._safe_session_id(first_id)
+    legacy_session.mkdir(parents=True)
+    legacy_session.chmod(0o777)
+    (legacy_session.parent / f"{legacy_session.name}.owner").write_text(first_id, encoding="utf-8")
 
     first = sandbox._session_dir(first_id)
     second = sandbox._session_dir(second_id)
@@ -52,9 +56,10 @@ def test_session_directories_keep_distinct_ids_separate(monkeypatch, tmp_path, f
         first_id,
         second_id,
     }
-    # root under --cap-drop ALL has no DAC_OVERRIDE: the mount must be world-writable like /out.
-    assert first.stat().st_mode & 0o777 == 0o777
-    assert second.stat().st_mode & 0o777 == 0o777
+    assert first.stat().st_mode & 0o777 == 0o700
+    assert second.stat().st_mode & 0o777 == 0o700
+    assert first.stat().st_uid == os.getuid()
+    assert first.stat().st_gid == os.getgid()
 
 
 def test_reset_session_does_not_delete_a_distinct_session(monkeypatch, tmp_path):
@@ -116,9 +121,19 @@ async def test_general_code_stays_offline_when_lab_mode_is_enabled(
 @pytest.mark.asyncio
 async def test_python_sessions_use_fresh_containers_and_distinct_mounts(monkeypatch, tmp_path):
     commands: list[list[str]] = []
+    mount_metadata: list[dict[str, tuple[int, int, int]]] = []
 
     async def create_subprocess_exec(*args, **_kwargs):
         commands.append(list(args))
+        mounts = {}
+        for index, value in enumerate(args[:-1]):
+            if value != "-v":
+                continue
+            source, target, *_ = args[index + 1].split(":")
+            if target in {"/session", "/workspace", "/out"}:
+                info = Path(source).stat()
+                mounts[target] = (info.st_uid, info.st_gid, info.st_mode)
+        mount_metadata.append(mounts)
         return _DockerProcess()
 
     monkeypatch.setattr(sandbox, "SANDBOX_DIR", tmp_path)
@@ -144,6 +159,12 @@ async def test_python_sessions_use_fresh_containers_and_distinct_mounts(monkeypa
     ]
     assert len(mounts) == 2
     assert mounts[0] != mounts[1]
+    for command, metadata in zip(commands, mount_metadata, strict=True):
+        assert command[command.index("--user") + 1] == f"{os.getuid()}:{os.getgid()}"
+        assert set(metadata) == {"/session", "/workspace", "/out"}
+        assert {owner for owner, _, _ in metadata.values()} == {os.getuid()}
+        assert {group for _, group, _ in metadata.values()} == {os.getgid()}
+        assert all(mode & 0o002 == 0 for _, _, mode in metadata.values())
 
 
 @pytest.mark.asyncio
@@ -184,6 +205,7 @@ async def test_package_install_stays_offline_in_exec_variant(monkeypatch, tmp_pa
 
     assert result["installed"] == ["requests"]
     assert command[command.index("--network") + 1] == "none"
+    assert command[command.index("--user") + 1] == f"{os.getuid()}:{os.getgid()}"
 
 
 def test_general_self_check_accepts_none_even_when_lab_mode_is_enabled(monkeypatch):
