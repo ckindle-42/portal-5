@@ -51,3 +51,13 @@ def test_card_thinking_level_uses_nearest_documented_token_limit():
     assert card_thinking_level("qwen3.8-test", 5000, registry) == "low"
     assert card_thinking_level("qwen3.8-test", 14000, registry) == "medium"
     assert card_thinking_level("qwen3.8-test", 4096, {"qwen3.8": {}}) is None
+
+
+def test_wfe_runner_think_false_maps_to_reasoning_effort_none():
+    # WFE-side parity (moved from tests/wfe/tests/test_wfe_contracts.py): only
+    # reasoning_effort:"none" suppresses thinking on Ollama's /v1 surface.
+    import tests.wfe.runner as rn
+
+    assert rn._v1_think_fields("false") == {"think": False, "reasoning_effort": "none"}
+    assert rn._v1_think_fields("true") == {"think": True}
+    assert rn._v1_think_fields("default") == {}
