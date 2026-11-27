@@ -278,6 +278,11 @@ each receipt terminal `COMPLETE` or `PARTIAL` with a `partial_reason` outside th
 stages, `splunk_requests > 0`, and the mid-hunt reviewer turn (§5.2) returns the exact job id with no
 507 and no second model resident.
 
+**Setup void, not a loss** (seat process rule 6): if the **control** arm cannot reproduce its known
+result — no valid labelled run, or its workflow rows fail — the A/B is setup-void: fix the cause and
+rerun. A control failure is never scored against Inkling. Two setup voids on the seat means the
+method is wrong, not the candidate.
+
 **Inkling wins** (patch stays, then the 2–3 day trial) if every labelled run is valid, the workflow
 acceptance holds, and
 
