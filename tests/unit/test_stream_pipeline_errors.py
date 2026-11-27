@@ -324,10 +324,18 @@ async def test_turn_deadline_closes_stalled_stream_and_records_reason(monkeypatc
 @pytest.mark.anyio
 async def test_turn_deadline_resets_after_each_active_chunk(monkeypatch) -> None:
     _silence_trace(monkeypatch)
+    clock = [0.0]
+    monkeypatch.setattr(handlers.time, "monotonic", lambda: clock[0])
 
     async def active() -> typing.AsyncIterator[bytes]:
-        for _ in range(4):
-            await asyncio.sleep(0.02)
+        for idx in range(6):
+            clock[0] += 200.0
+            await asyncio.sleep(0)
+            if idx == 2:
+                # Suppressed tool-call deltas / tool completion still count as activity.
+                st.mark_stream_activity()
+                clock[0] += 200.0
+                await asyncio.sleep(0)
             yield b'data: {"choices":[{"delta":{"content":"active"}}]}\n\n'
         yield b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n'
         yield DONE
@@ -336,46 +344,49 @@ async def test_turn_deadline_resets_after_each_active_chunk(monkeypatch) -> None
         handlers._with_portal_timings(
             active(),
             workspace_id="auto-coding",
-            start_time=time.monotonic(),
-            timeout_s=0.03,
+            start_time=clock[0],
+            timeout_s=300.0,
         )
     )
 
     _assert_well_formed(chunks)
-    assert b"".join(chunks).count(b'content":"active"') == 4
+    assert b"".join(chunks).count(b'content":"active"') == 6
+    assert clock[0] == 1400.0
 
 
 @pytest.mark.anyio
-async def test_turn_deadline_keeps_absolute_ceiling(monkeypatch) -> None:
+async def test_turn_deadline_stalls_when_only_sse_comments_arrive(monkeypatch) -> None:
     closed = False
     spans: list[tuple[str, dict[str, typing.Any]]] = []
+    clock = [0.0]
+    monkeypatch.setattr(handlers.time, "monotonic", lambda: clock[0])
 
-    async def active() -> typing.AsyncIterator[bytes]:
+    async def heartbeats_only() -> typing.AsyncIterator[bytes]:
         nonlocal closed
         try:
             while True:
-                await asyncio.sleep(0.04)
-                yield b'data: {"choices":[{"delta":{"content":"active"}}]}\n\n'
+                clock[0] += 100.0
+                await asyncio.sleep(0)
+                yield b": waiting for model capacity\n\n"
         finally:
             closed = True
 
-    monkeypatch.setattr(handlers, "_MAX_STREAM_DURATION_S", 0.18)
     monkeypatch.setattr(handlers, "trace_note", lambda **_fields: None)
     monkeypatch.setattr(handlers, "trace_span", lambda name, **fields: spans.append((name, fields)))
     monkeypatch.setattr(handlers, "finalize_trace", lambda: None)
 
     chunks = await _drain(
         handlers._with_portal_timings(
-            active(),
+            heartbeats_only(),
             workspace_id="auto-coding",
-            start_time=time.monotonic(),
-            timeout_s=0.1,
+            start_time=clock[0],
+            timeout_s=300.0,
         )
     )
 
     _assert_terminal(chunks, "turn deadline")
     assert closed
-    assert ("stream.deadline", {"reason": "request_timeout", "timeout_s": 0.18}) in spans
+    assert ("stream.deadline", {"reason": "request_timeout", "timeout_s": 300.0}) in spans
 
 
 @pytest.mark.anyio
@@ -500,7 +511,7 @@ if [ "$timeout" -le __SERVER_CEILING__ ]; then
 fi
 printf 'data: {"choices":[{"delta":{"content":"PONG"}}]}\\n\\ndata: [DONE]\\n\\n' > "$output"
 printf 200
-""".replace("__SERVER_CEILING__", str(int(handlers._MAX_STREAM_DURATION_S))),
+""".replace("__SERVER_CEILING__", str(int(handlers._turn_timeout_s()))),
         encoding="utf-8",
     )
     curl_stub.chmod(0o755)
@@ -509,7 +520,7 @@ printf 200
     env.pop("SMOKE_STREAM_TIMEOUT", None)
 
     assert '--max-time "$TIMEOUT"' in text
-    assert smoke_timeout_s > handlers._MAX_STREAM_DURATION_S
+    assert smoke_timeout_s > handlers._turn_timeout_s()
 
     interrupted = subprocess.run(
         ["bash", str(script)],

@@ -99,6 +99,7 @@ from portal.platform.inference.router.state import (
     _request_count,
 )
 from portal.platform.inference.router.streaming import (
+    _STREAM_ACTIVITY,
     _build_streaming_request,
     _content_chunk,
     _error_terminal_frames,
@@ -212,18 +213,13 @@ def _response_with_handoff_notice(response: Any) -> Any:
     return response
 
 
-_MAX_STREAM_DURATION_S = 900.0
-
-
 def _stream_with_request_deadline(
     source: AsyncIterable[str | bytes | memoryview],
-    start_time: float | None,
     timeout_s: float | None,
 ) -> AsyncIterable[str | bytes | memoryview]:
     if timeout_s is None:
         return source
-    start = time.monotonic() if start_time is None else start_time
-    return _with_stream_deadline(source, start + _MAX_STREAM_DURATION_S, timeout_s)
+    return _with_stream_deadline(source, timeout_s)
 
 
 async def _with_portal_timings(
@@ -254,7 +250,7 @@ async def _with_portal_timings(
         }
         yield ("data: " + json.dumps(payload, separators=(",", ":")) + "\n\n").encode()
 
-    source_iter = _stream_with_request_deadline(source, start_time, timeout_s)
+    source_iter = _stream_with_request_deadline(source, timeout_s)
     try:
         try:
             async for frame in _forward_stream_until_done(source_iter, _closing_frames, seen):
@@ -287,7 +283,7 @@ async def _with_portal_timings(
 
 
 class _TurnDeadlineExceededError(Exception):
-    """The response body exceeded its idle or absolute turn budget."""
+    """The response body exceeded its idle stall window."""
 
     def __init__(self, timeout_s: float) -> None:
         self.timeout_s = timeout_s
@@ -371,24 +367,51 @@ async def _close_async_iterator(source: Any) -> None:
         await close()
 
 
+def _is_sse_comment(chunk: str | bytes | memoryview) -> bool:
+    raw = chunk.encode() if isinstance(chunk, str) else bytes(chunk)
+    stripped = raw.lstrip()
+    return bool(stripped) and stripped.startswith(b":")
+
+
 async def _with_stream_deadline(
-    source: AsyncIterable[str | bytes | memoryview], deadline: float, idle_timeout_s: float
+    source: AsyncIterable[str | bytes | memoryview], idle_timeout_s: float
 ) -> AsyncIterator[str | bytes | memoryview]:
+    last_activity = time.monotonic()
+
+    def _touch() -> None:
+        nonlocal last_activity
+        last_activity = time.monotonic()
+
+    token = _STREAM_ACTIVITY.set(_touch)
     iterator = source.__aiter__()
+    next_task: asyncio.Task[str | bytes | memoryview] | None = None
+
+    async def _next_chunk() -> str | bytes | memoryview:
+        return await anext(iterator)
+
     try:
-        async with asyncio.timeout_at(deadline):
-            while True:
-                try:
-                    async with asyncio.timeout(idle_timeout_s):
-                        chunk = await anext(iterator)
-                except StopAsyncIteration:
-                    return
-                except TimeoutError as exc:
-                    raise _TurnDeadlineExceededError(idle_timeout_s) from exc
-                yield chunk
-    except TimeoutError as exc:
-        raise _TurnDeadlineExceededError(_MAX_STREAM_DURATION_S) from exc
+        while True:
+            next_task = asyncio.create_task(_next_chunk())
+            while not next_task.done():
+                remaining = (last_activity + idle_timeout_s) - time.monotonic()
+                if remaining <= 0:
+                    raise _TurnDeadlineExceededError(idle_timeout_s)
+                done, _ = await asyncio.wait({next_task}, timeout=remaining)
+                if done:
+                    break
+            try:
+                chunk = next_task.result()
+            except StopAsyncIteration:
+                return
+            if not _is_sse_comment(chunk):
+                _touch()
+            yield chunk
     finally:
+        if next_task is not None and not next_task.done():
+            next_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await next_task
+        _STREAM_ACTIVITY.reset(token)
         await _close_async_iterator(iterator)
 
 

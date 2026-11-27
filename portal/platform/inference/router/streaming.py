@@ -33,7 +33,7 @@ import json
 import logging
 import os
 import time
-from collections.abc import AsyncGenerator, AsyncIterator, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Iterator
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -499,6 +499,16 @@ def _in_band_tool_call_error(line: str) -> str | None:
 _CASCADE_ERRORS: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "portal_cascade_stream_errors", default=False
 )
+_STREAM_ACTIVITY: contextvars.ContextVar[Callable[[], None] | None] = contextvars.ContextVar(
+    "portal_stream_activity", default=None
+)
+
+
+def mark_stream_activity() -> None:
+    """Record live engine or tool progress so the turn idle deadline resets."""
+    cb = _STREAM_ACTIVITY.get()
+    if cb is not None:
+        cb()
 
 
 def _error_terminal_frames(
@@ -1032,11 +1042,13 @@ async def _dispatch_hop_tool_calls(
     is answered from its earlier result instead of running again.
     """
     repeats = [guard is not None and guard.seen(tc) for tc in all_tool_calls]
-    fresh = [
-        await _dispatch_tool_call(tc, effective_tools, workspace_id, persona, request_id)
-        for tc, rep in zip(all_tool_calls, repeats, strict=True)
-        if not rep
-    ]
+    fresh: list[dict[str, Any]] = []
+    for tc, rep in zip(all_tool_calls, repeats, strict=True):
+        if not rep:
+            fresh.append(
+                await _dispatch_tool_call(tc, effective_tools, workspace_id, persona, request_id)
+            )
+            mark_stream_activity()
     fresh_iter = iter(fresh)
     dispatch_results: list[dict[str, Any]] = []
     for tc, rep in zip(all_tool_calls, repeats, strict=True):
@@ -1529,11 +1541,13 @@ async def _tool_loop_frames_impl(
                             )
                         choice = (obj.get("choices") or [{}])[0]
                         delta = choice.get("delta", {})
-                        _hop_output = _hop_output or bool(
+                        if (
                             delta.get("content")
                             or delta.get("tool_calls")
                             or _reasoning_text(delta)
-                        )
+                        ):
+                            mark_stream_activity()
+                            _hop_output = True
                         _reasoning_seen = _reasoning_seen or any(
                             delta.get(name)
                             for name in ("reasoning", "reasoning_content", "thinking")
