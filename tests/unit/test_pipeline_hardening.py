@@ -19,6 +19,7 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
+import portal.platform.inference.router.eval_gate as eval_gate
 import portal.platform.inference.router.non_streaming as ns
 import portal.platform.inference.router.streaming as st
 import portal.platform.inference.router.tools as tool_dispatch
@@ -1743,6 +1744,8 @@ async def test_nonstream_trace_records_schemas_attached_to_backend_body(
 ) -> None:
     notes: list[dict[str, typing.Any]] = []
     monkeypatch.setattr(ns, "trace_note", lambda **fields: notes.append(fields))
+    # The exposure note is emitted by eval_gate.note_tools_exposed.
+    monkeypatch.setattr(eval_gate, "trace_note", lambda **fields: notes.append(fields))
     body: dict[str, typing.Any] = {"messages": []}
     if case == "portal_no_tools":
         body["portal_no_tools"] = True
@@ -1765,8 +1768,15 @@ async def test_nonstream_trace_records_schemas_attached_to_backend_body(
 
     attached = [tool["function"]["name"] for tool in client.bodies[0].get("tools", [])]
     offered = [note["tools_offered"] for note in notes if "tools_offered" in note]
+    exposure = next(note for note in notes if "tools_exposed" in note)
     assert sorted(attached) == expected
     assert offered == [expected]
+    # Per-hop exposure trace: offered count and estimated schema tokens.
+    assert exposure["tools_exposed"] == len(expected)
+    if expected:
+        assert exposure["tool_schema_tokens_est"] > 0
+    else:
+        assert exposure["tool_schema_tokens_est"] == 0
 
 
 @pytest.mark.anyio

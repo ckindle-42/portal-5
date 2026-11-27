@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Collection, Mapping
 from typing import Any
 
@@ -105,6 +106,24 @@ def offered_tool_names(body: Mapping[str, Any]) -> list[str]:
         if isinstance(name, str) and name:
             names.append(name)
     return sorted(names)
+
+
+def note_tools_exposed(body: Mapping[str, Any]) -> None:
+    """Per-hop exposure trace: offered names, count, and estimated schema tokens.
+
+    The offer is the workspace/persona set for the whole conversation (never a
+    per-message guess), so ``tools_exposed`` is the size of that set after the
+    config-declared trim; ``tool_schema_tokens_est`` sizes its prefill cost.
+    """
+    names = offered_tool_names(body)
+    schemas = body.get("tools")
+    chars = len(json.dumps(schemas, default=str)) if isinstance(schemas, list) and schemas else 0
+    trace_note(
+        tools_offered=names,
+        tools_exposed=len(names),
+        # Same err-high chars/3 ratio as context_budget's Ollama estimate.
+        tool_schema_tokens_est=int(chars / 3.0),
+    )
 
 
 def resolve_bite_tool_pool(

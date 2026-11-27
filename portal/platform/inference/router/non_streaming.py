@@ -41,7 +41,7 @@ from portal.platform.inference.router.eval_gate import (
     apply_bite_tool_scope,
     apply_eval_scope,
     filter_bite_client_tools,
-    offered_tool_names,
+    note_tools_exposed,
     resolve_bite_tool_pool,
 )
 from portal.platform.inference.router.metrics import (
@@ -1338,6 +1338,8 @@ async def _try_non_streaming(
         # _ns_offer_tools narrows the SCHEMA the model sees; _ns_tools stays
         # the workspace's full whitelist for dispatch authorization below —
         # see the matching comment in streaming.py's _build_stream_request.
+        # Default offer = the whole-conversation workspace/persona set; the only
+        # trim is the declaration in config/portal.yaml (no per-message heuristic).
         _ns_offer_tools = _required_tools if _required_tools else _ns_tools
         if _required_tools:
             req_body["tool_choice"] = "required"
@@ -1384,7 +1386,7 @@ async def _try_non_streaming(
                 len(_tools_arr),
             )
 
-    trace_note(tools_offered=offered_tool_names(req_body))
+    note_tools_exposed(req_body)
 
     _prefill_refusal: str | None = None
     _local_refusal = False

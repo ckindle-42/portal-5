@@ -1271,63 +1271,17 @@ workspaces:
     - browser_evaluate
     - browser_close
     - browser_list_profiles
-    - proxmox_list_nodes
-    - proxmox_node_status
-    - proxmox_cluster_status
-    - proxmox_list_all_vms
-    - proxmox_find_vm
-    - proxmox_list_vms
-    - proxmox_vm_status
-    - proxmox_vm_config
-    - proxmox_vm_start
-    - proxmox_vm_shutdown
-    - proxmox_vm_stop
-    - proxmox_vm_reset
-    - proxmox_vm_reboot
-    - proxmox_vm_suspend
-    - proxmox_vm_resume
-    - proxmox_clone_vm
-    - proxmox_delete_vm
-    - proxmox_list_snapshots
-    - proxmox_create_snapshot
-    - proxmox_rollback_snapshot
-    - proxmox_delete_snapshot
-    - proxmox_exec_vm
-    - proxmox_vm_agent_info
-    - proxmox_list_containers
-    - proxmox_container_status
-    - proxmox_container_start
-    - proxmox_container_stop
-    - proxmox_container_shutdown
-    - proxmox_container_exec
-    - proxmox_node_exec
-    - proxmox_deploy_ctf_lab
-    - proxmox_list_storage
-    - proxmox_list_storage_content
-    - proxmox_list_networks
-    - proxmox_task_status
-    - proxmox_list_tasks
-    # J-R2: git reads are open, git_commit/git_push confirm-gated; every
-    # unifi_ tool is confirm-gated (personal_policy).
+    # J-R2: git reads are open, git_commit/git_push confirm-gated.
+    # 2026-11-27: proxmox_*/unifi_* removed from this declaration — they are
+    # infrastructure tools, not coding tools, and their 50 schemas were ~7.5k
+    # prompt tokens of prefill on every auto-coding turn (Q3 audit). The
+    # read-only proxmox QAT row falls back to auto-daily::fast, which declares
+    # them for the Jarvis lane.
     - git_status
     - git_log
     - git_diff
     - git_commit
     - git_push
-    - unifi_tool_index
-    - unifi_load_tools
-    - unifi_execute
-    - unifi_list_devices
-    - unifi_get_device_details
-    - unifi_list_clients
-    - unifi_get_client_details
-    - unifi_list_wlans
-    - unifi_get_wlan_details
-    - unifi_list_networks
-    - unifi_get_network_health
-    - unifi_get_system_info
-    - unifi_get_dashboard
-    - unifi_list_alarms
     expose_to_owui: true
     # C3 growth guard: declared user-facing engine — coding engine
     engine: true

@@ -68,7 +68,7 @@ from portal.platform.inference.router.eval_gate import (
     apply_bite_tool_scope,
     apply_eval_scope,
     filter_bite_client_tools,
-    offered_tool_names,
+    note_tools_exposed,
     resolve_bite_tool_pool,
 )
 from portal.platform.inference.router.metrics import (
@@ -3151,6 +3151,8 @@ async def _build_streaming_request(
         # that names a different tool the workspace actually allows used to
         # have that call dropped by the whitelist gate — the narrowing was
         # a hint about what to offer, not a shrink of what's authorized.
+        # Default offer = the whole-conversation workspace/persona set; the only
+        # trim is the declaration in config/portal.yaml (no per-message heuristic).
         _offer_tools = _required_tools if _required_tools else effective_tools
         if _required_tools:
             backend_body["tool_choice"] = "required"
@@ -3199,7 +3201,7 @@ async def _build_streaming_request(
 
     if not _has_tools:
         backend_body.pop("portal_bite_max_hops", None)
-    trace_note(tools_offered=offered_tool_names(backend_body))
+    note_tools_exposed(backend_body)
     return backend_body, effective_tools, _has_tools, _portal_no_tools
 
 
