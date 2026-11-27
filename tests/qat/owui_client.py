@@ -523,6 +523,19 @@ class OWUIClient:
         )
         return r.json() if r.status_code == 200 else {}
 
+    def stop_chat_tasks(self, token: str, chat_id: str) -> list[str]:
+        """Stop every completion task OWUI still registers for this chat."""
+        with self._client(10.0) as client:
+            task_ids = [
+                str(task_id)
+                for task_id in self.task_status(
+                    token, chat_id, client, time.monotonic() + 10.0
+                ).get("task_ids", [])
+                if task_id
+            ]
+            self._stop_tasks(token, task_ids, client)
+        return task_ids
+
     def chat_detail(
         self,
         token: str,

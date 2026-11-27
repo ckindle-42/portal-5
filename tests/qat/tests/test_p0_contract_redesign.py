@@ -17,7 +17,7 @@ from tests.qat import config as qat_config
 from tests.qat import gate, hardening, preflight, report, runner, scenarios
 from tests.qat.config import McpFleetEntry
 from tests.qat.models import GateReport, QATResult, QATScenario, Status
-from tests.qat.owui_client import OWUIClient, red_square_png
+from tests.qat.owui_client import OWUIClient, TurnStalledError, red_square_png
 
 from .test_config_and_scenarios import make_discovery, make_settings
 
@@ -1108,6 +1108,7 @@ def test_stalled_pipeline_stream_fails_at_idle_timeout(
             *args, transport=httpx.MockTransport(handler), **kwargs
         ),
     )
+    monkeypatch.setattr(runner, "_engines_busy", lambda _settings: [])
     scenario = QATScenario(
         "pipeline-stalled",
         "Pipeline stalled stream",
@@ -1121,9 +1122,50 @@ def test_stalled_pipeline_stream_fails_at_idle_timeout(
     )
     result = runner._run_pipeline_chat(make_settings(tmp_path), scenario)
     assert result.status is Status.FAIL
-    assert result.evidence["stream_incomplete"] is True
+    # Provably idle engines settle the stall: the row fails but the cascade continues.
+    assert result.evidence["settled"] is True
+    assert result.evidence["engines_idle"] is True
+    assert "stream_incomplete" not in result.evidence
     assert result.evidence["turn_idle_timeout_s"] == 300.0
     assert result.evidence["turn_duration_s"] >= 0.0
+
+
+def test_gui_stall_settles_without_client_side_turn_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stalled browser-GUI turn (no task ids, no message id) settles on OWUI + engine proof.
+
+    The GUI driver never submitted through OWUIClient, so the settle has neither
+    turn_task_ids nor a pending message: no task registered on the chat plus idle
+    engines is the receipt; a still-registered task keeps it unprovable.
+    """
+    settings = make_settings(Path("/tmp"), OWUI_API_KEY="qat-token")
+
+    def gone(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tasks/chat/chat-gui":
+            return httpx.Response(200, json={"task_ids": []})
+        return httpx.Response(404)
+
+    monkeypatch.setattr(runner, "_engines_busy", lambda _settings: [])
+    client = OWUIClient(settings, httpx.MockTransport(gone), idle_timeout_s=0.2)
+    receipt = runner._settle_stream_failure(
+        client, "qat-token", "chat-gui", TurnStalledError(0.2, 0.3, 0)
+    )
+    assert isinstance(receipt, dict)
+    assert receipt["settled"] is True and receipt["engines_idle"] is True
+
+    def registered(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tasks/chat/chat-gui":
+            return httpx.Response(200, json={"task_ids": ["gui-turn-task"]})
+        if request.url.path.startswith("/api/tasks/stop/"):
+            return httpx.Response(200)
+        return httpx.Response(404)
+
+    live = OWUIClient(settings, httpx.MockTransport(registered), idle_timeout_s=0.2)
+    blocked = runner._settle_stream_failure(
+        live, "qat-token", "chat-gui", TurnStalledError(0.2, 0.3, 0)
+    )
+    assert isinstance(blocked, str) and "gui-turn-task" in blocked
 
 
 def test_incomplete_stream_blocks_following_phase_before_cleanup(

@@ -222,7 +222,9 @@ class FakeBrowserUI:
         self.calls.append("inspect_tools")
         return {"available": False, "tools": [], "toggles": {}, "missing": list(expected_tools)}
 
-    def send_turn(self, prompt: str, upload_path=None, max_wait_s: float = 240.0) -> str:
+    def send_turn(
+        self, prompt: str, upload_path=None, max_wait_s: float = 240.0, liveness=None
+    ) -> str:
         self.calls.append(("send_turn", prompt, upload_path))
         self.prompts.append(prompt)
         users, assistants = self._visible

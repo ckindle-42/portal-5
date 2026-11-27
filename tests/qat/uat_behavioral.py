@@ -3441,16 +3441,19 @@ def _run_browser_case(
             return _run_browser_memory(ui, client, token, settings, scenario, case, state, options)
         return _run_browser_chat(ui, client, token, settings, scenario, case, state, options)
     except TurnStalledError as exc:
+        from . import runner
+
         return QATResult(
             scenario.scenario_id,
             Status.FAIL,
             str(exc),
             defect_class=classify_defect(infra_hop_failed=True),
             evidence={
-                "stream_incomplete": True,
+                "driver": "browser_gui",
                 "turn_idle_timeout_s": exc.idle_timeout_s,
                 "turn_duration_s": exc.elapsed_s,
                 "stream_bytes_received": exc.bytes_received,
+                **runner._stream_settlement(client, token, runner._ui_chat_id(ui), exc),
             },
         )
     except Exception as exc:
@@ -3538,7 +3541,11 @@ def _run_browser_sequence(
             if error:
                 return transcript, _status_result(scenario, error, chat_id, transcript), chat_id
             started_at = time.time()
-            text = ui.send_turn(prompt, upload_path=upload_path)
+            text = ui.send_turn(
+                prompt,
+                upload_path=upload_path,
+                liveness=lambda: runner._turn_liveness(client, token, ui.current_chat_id() or ""),
+            )
         chat_id = ui.current_chat_id() or chat_id
         trace = client.lookup_trace(
             model_slug=case.model_slug, turn_started_at=started_at, token=token
@@ -3844,7 +3851,11 @@ def _run_chat_case(
     options: Any,
     fleet_ports: dict[str, int] | None = None,
 ) -> QATResult:
+    from . import runner
+
     client = OWUIClient(settings)
+    token = ""
+    chat_id = ""
     try:
         token = client.signin()
         chat_id = client.create_chat(
@@ -3868,12 +3879,13 @@ def _run_chat_case(
             scenario.scenario_id,
             Status.FAIL,
             str(exc),
+            chat_id=chat_id,
             defect_class=classify_defect(infra_hop_failed=True),
             evidence={
-                "stream_incomplete": True,
                 "turn_idle_timeout_s": exc.idle_timeout_s,
                 "turn_duration_s": exc.elapsed_s,
                 "stream_bytes_received": exc.bytes_received,
+                **runner._stream_settlement(client, token, chat_id, exc),
             },
         )
     except Exception as exc:

@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -314,6 +315,7 @@ class BrowserUI:
         upload_path: Path | None = None,
         max_wait_s: float | None = None,
         idle_timeout_s: float = DEFAULT_TURN_IDLE_TIMEOUT_S,
+        liveness: Callable[[], str] | None = None,
     ) -> str:
         """Send a real GUI turn; wait for a NEW assistant message; return its text."""
         del max_wait_s
@@ -323,7 +325,7 @@ class BrowserUI:
             self._upload_attachment(upload_path)
         self._type_prompt(prompt)
         self._submit_prompt()
-        self._await_assistant_turn(before, idle_timeout_s)
+        self._await_assistant_turn(before, idle_timeout_s, liveness)
         page.wait_for_timeout(1500)
         turns = self._assistant_turns()
         return str(turns[-1]["text"]) if turns else ""
@@ -374,7 +376,9 @@ class BrowserUI:
             if send.count():
                 send.first.click(timeout=0)
 
-    def _await_assistant_turn(self, before: int, idle_timeout_s: float) -> None:
+    def _await_assistant_turn(
+        self, before: int, idle_timeout_s: float, liveness: Callable[[], str] | None = None
+    ) -> None:
         page = self._require_page()
         stop = page.locator(STOP_CIRCLE_SELECTOR)
         appeared = False
@@ -407,7 +411,12 @@ class BrowserUI:
                 else:
                     stable_since = None
             if time.monotonic() - last_progress_at >= idle_timeout_s:
-                raise TurnStalledError(idle_timeout_s, time.monotonic() - started, 0)
+                # A frozen DOM is not a dead turn: at the deadline lapse, ask the
+                # product (OWUI task registration, engine activity) before stalling.
+                if liveness is not None and liveness():
+                    last_progress_at = time.monotonic()
+                else:
+                    raise TurnStalledError(idle_timeout_s, time.monotonic() - started, 0)
             page.wait_for_timeout(300)
 
     def last_assistant_text(self) -> str:

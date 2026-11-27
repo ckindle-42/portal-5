@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -1052,6 +1053,30 @@ def _engines_busy(settings: Settings) -> list[str]:
     return busy
 
 
+def _turn_liveness(client: OWUIClient, token: str, chat_id: str) -> str:
+    """Why the product proves this chat's turn alive; "" proves nothing.
+
+    The same evidence the settle receipt is built from: OWUI task registration
+    first, then engine activity. An unreachable engine is not liveness.
+    """
+    try:
+        task = client.task_status(token, chat_id, deadline=time.monotonic() + 10.0)
+    except (httpx.HTTPError, ValueError, TypeError):
+        task = {}
+    registered = sorted(str(task_id) for task_id in task.get("task_ids", []) if task_id)
+    if registered:
+        return f"OWUI still registers tasks: {registered}"
+    busy = [entry for entry in _engines_busy(client.settings) if "status-unreachable" not in entry]
+    return f"engines still busy: {busy}" if busy else ""
+
+
+def _ui_chat_id(ui: BrowserUI) -> str:
+    try:
+        return ui.current_chat_id() or ""
+    except Exception:
+        return ""
+
+
 def _settle_stream_failure(
     client: OWUIClient, token: str, chat_id: str, exc: TurnStalledError
 ) -> dict[str, object] | str:
@@ -1060,9 +1085,15 @@ def _settle_stream_failure(
     Proof: the turn's registered OWUI completion tasks are unregistered (nothing
     can produce more tokens for the chat) and the engines report no in-flight
     request. A dict is the receipt; a str is what the settle kept waiting on.
+    A GUI-submitted turn has no client-side task/message records: for it, no
+    task registered on the chat at all is the task-side proof.
     """
     turn_tasks = {*(exc.task_ids or ()), *client.turn_task_ids(chat_id)}
     message_id = exc.message_id or client.pending_message_id(chat_id)
+    # The driver abandoned this turn: stop what OWUI still runs for the chat so
+    # the engines are not left generating for nobody.
+    with suppress(httpx.HTTPError, ValueError):
+        client.stop_chat_tasks(token, chat_id)
     started = time.monotonic()
     waiting_on = "settle not attempted"
     while True:
@@ -1097,10 +1128,16 @@ def _settle_stream_failure(
             waiting_on = f"OWUI unreachable while settling: {type(http_error).__name__}"
             time.sleep(SETTLE_POLL_INTERVAL_S)
             continue
-        tasks_gone = not (turn_tasks & task_ids)
-        turn_terminal = tasks_gone if turn_tasks else terminal
-        if not tasks_gone and turn_tasks:
-            waiting_on = f"OWUI still registers turn tasks: {sorted(turn_tasks & task_ids)}"
+        if turn_tasks:
+            tasks_gone = not (turn_tasks & task_ids)
+        elif message_id:
+            tasks_gone = True  # the message's terminal state is the proof
+        else:
+            tasks_gone = not task_ids
+        turn_terminal = tasks_gone if (turn_tasks or not message_id) else terminal
+        if not tasks_gone:
+            still = sorted(turn_tasks & task_ids) if turn_tasks else sorted(task_ids)
+            waiting_on = f"OWUI still registers turn tasks: {still}"
         elif not turn_terminal:
             waiting_on = "assistant message never reached a terminal state"
         elif busy:
@@ -1127,6 +1164,29 @@ def _stream_settlement(
     if isinstance(settlement, dict):
         return settlement
     return {"stream_incomplete": True, "settle_blocked_on": settlement}
+
+
+def _pipeline_settlement(settings: Settings) -> dict[str, object]:
+    """Engine-idle receipt for a stalled pipeline-direct turn (no OWUI chat)."""
+    started = time.monotonic()
+    busy: list[str] = []
+    while True:
+        try:
+            busy = _engines_busy(settings)
+        except (httpx.HTTPError, OSError) as error:
+            return {
+                "stream_incomplete": True,
+                "settle_blocked_on": f"settle failed: {type(error).__name__}: {error}",
+            }
+        if not busy:
+            return {
+                "settled": True,
+                "settled_wait_s": round(time.monotonic() - started, 1),
+                "engines_idle": True,
+            }
+        if time.monotonic() - started >= DEFAULT_TURN_IDLE_TIMEOUT_S:
+            return {"stream_incomplete": True, "settle_blocked_on": f"engines still busy: {busy}"}
+        time.sleep(SETTLE_POLL_INTERVAL_S)
 
 
 def _execute_one(
@@ -1290,9 +1350,9 @@ def _run_pipeline_chat(settings: Settings, scenario: QATScenario) -> QATResult:
             f"{type(exc).__name__}: {exc}",
             defect_class=classify_defect(infra_hop_failed=True),
             evidence={
-                "stream_incomplete": True,
                 "turn_idle_timeout_s": DEFAULT_TURN_IDLE_TIMEOUT_S,
                 "turn_duration_s": elapsed,
+                **_pipeline_settlement(settings),
             },
         )
     except Exception as exc:
@@ -1965,11 +2025,19 @@ def _run_browser(settings: Settings, scenario: QATScenario, state: RunState) -> 
             str(exc),
             evidence={"note": "playwright unavailable"},
         )
+    client = OWUIClient(settings)
+    try:
+        token = settings.owui_api_key or client.signin()
+    except Exception:
+        token = ""
     try:
         ui.login()
         dismissed = ui.dismiss_overlays()
         roster = ui.workspace_roster()
-        text = ui.send_turn(scenario.prompts[0])
+        text = ui.send_turn(
+            scenario.prompts[0],
+            liveness=lambda: _turn_liveness(client, token, _ui_chat_id(ui)),
+        )
         toggled = ui.toggle_details()
         shot = ui.screenshot(scenario.scenario_id)
         errs = ui.result_errors()
@@ -2004,9 +2072,10 @@ def _run_browser(settings: Settings, scenario: QATScenario, state: RunState) -> 
             defect_class=classify_defect(infra_hop_failed=True),
             evidence={
                 "driver": "browser_gui",
-                "stream_incomplete": True,
                 "turn_idle_timeout_s": exc.idle_timeout_s,
                 "turn_duration_s": exc.elapsed_s,
+                "stream_bytes_received": exc.bytes_received,
+                **_stream_settlement(client, token, _ui_chat_id(ui), exc),
             },
         )
     finally:
