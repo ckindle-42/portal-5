@@ -744,17 +744,14 @@ def _resolve(
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
     found = _all()
     job: dict[str, Any] | None = None
-    recent_jobs = [
-        {key: job.get(key) for key in ("job_id", "index", "status")} for job in found[:3]
-    ]
-    next_step = "Call hunt_start first, or choose a job_id from the recent_jobs list."
-    if not job_id and not index:
+    if job_id is None and index is None:
         if fallback_latest and found:
             job = found[0]
             return job, {
-                "resolution_note": (
-                    "No job_id or index was supplied; showing your most recent hunt "
-                    f"{job.get('job_id')}."
+                "note": (
+                    "no job_id given; showing most recent hunt "
+                    f"{job.get('job_id')} started "
+                    f"{time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(float(job.get('started') or 0)))}"
                 )
             }
         if fallback_latest:
@@ -763,31 +760,18 @@ def _resolve(
                 "next": "Call hunt_start to start a hunt.",
             }
         return None, {
-            "error": "no such job: no job_id or index was supplied",
-            "next": next_step,
-            "recent_jobs": recent_jobs,
+            "error": "no hunt selected; call hunt_start to begin one.",
+            "next": "Call hunt_start to begin one.",
         }
-    if job_id:
+    if job_id is not None:
         job = next((item for item in found if item.get("job_id") == job_id), None)
     else:
         job = next((item for item in found if item.get("index") == index), None)
     if job is None:
-        if fallback_latest and job_id and not index and found:
-            latest = found[0]
-            return latest, {
-                "resolution_note": (
-                    f"No job {job_id!r}; showing your most recent hunt {latest.get('job_id')}."
-                )
-            }
-        if fallback_latest and not found:
-            return None, {
-                "message": "no hunt started yet; call hunt_start to start a hunt.",
-                "next": "Call hunt_start to start a hunt.",
-            }
+        selector = f"that id ({job_id!r})" if job_id is not None else f"index {index!r}"
         return None, {
-            "error": f"no such job {job_id or index!r}",
-            "next": next_step,
-            "recent_jobs": recent_jobs,
+            "error": f"no hunt with {selector}; call hunt_start to begin one.",
+            "next": "Call hunt_start to begin one.",
         }
     return job, {}
 
@@ -895,8 +879,8 @@ def status(
         remaining = deadline - time.monotonic()
         if _is_terminal(job) or job.get("stage") == "waiting_for_memory" or remaining <= 0:
             result = _status_result(job, detail=detail)
-            if note := out.get("resolution_note"):
-                result["resolution_note"] = note
+            if note := out.get("note"):
+                result["note"] = note
             return result
         time.sleep(min(STATUS_POLL_S, remaining))
 

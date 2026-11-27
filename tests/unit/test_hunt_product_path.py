@@ -949,7 +949,9 @@ def test_partial_failure_after_work_surfaces_reason_in_status_and_file(
     assert (tmp_path / job_id / "failure.txt").read_text() == status["partial_reason"] + "\n"
 
 
-def test_hunt_status_unknown_id_resolves_to_latest_hunt(tmp_path: Path, monkeypatch: Any) -> None:
+def test_hunt_unknown_id_errors_without_returning_another_hunt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
     monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
     monkeypatch.setattr(product_jobs, "STATUS_WAIT_MAX_S", 0)
     product_jobs._write(
@@ -966,17 +968,50 @@ def test_hunt_status_unknown_id_resolves_to_latest_hunt(tmp_path: Path, monkeypa
         },
     )
 
-    unknown = review_mcp.hunt_status(job_id="hunt_12345")
-    missing = review_mcp.hunt_status()
+    unknown_status = review_mcp.hunt_status(job_id="hunt_12345")
+    unknown_leads = review_mcp.hunt_leads(job_id="hunt_12345")
+    unknown_case = review_mcp.hunt_case(job_id="hunt_12345")
 
-    assert unknown["job_id"] == "hunt-r2-newer"
-    assert unknown["resolution_note"] == (
-        "No job 'hunt_12345'; showing your most recent hunt hunt-r2-newer."
+    for result in (unknown_status, unknown_leads, unknown_case):
+        assert (
+            result["error"] == "no hunt with that id ('hunt_12345'); call hunt_start to begin one."
+        )
+        assert result["next"] == "Call hunt_start to begin one."
+        assert "job_id" not in result
+        assert "index" not in result
+        assert "recent_jobs" not in result
+
+
+def test_hunt_status_without_id_labels_latest_and_real_id_is_unchanged(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(product_jobs, "_ROOT", tmp_path)
+    monkeypatch.setattr(product_jobs, "STATUS_WAIT_MAX_S", 0)
+    product_jobs._write(
+        "hunt-r2-newer",
+        {"job_id": "hunt-r2-newer", "index": "new", "status": "RUNNING", "started": 2.0},
     )
-    assert missing["job_id"] == "hunt-r2-newer"
-    assert missing["resolution_note"] == (
-        "No job_id or index was supplied; showing your most recent hunt hunt-r2-newer."
+    product_jobs._write(
+        "hunt-r2-older",
+        {
+            "job_id": "hunt-r2-older",
+            "index": "old",
+            "status": "COMPLETE",
+            "started": 1.0,
+        },
     )
+
+    latest = review_mcp.hunt_status()
+    exact = review_mcp.hunt_status(job_id="hunt-r2-older")
+
+    assert latest["job_id"] == "hunt-r2-newer"
+    assert latest["note"] == (
+        "no job_id given; showing most recent hunt hunt-r2-newer started 1970-01-01T00:00:02Z"
+    )
+    assert exact["job_id"] == "hunt-r2-older"
+    assert exact["index"] == "old"
+    assert exact["status"] == "COMPLETE"
+    assert "note" not in exact
 
 
 def test_hunt_status_without_any_jobs_guides_user_to_start(
@@ -986,7 +1021,7 @@ def test_hunt_status_without_any_jobs_guides_user_to_start(
 
     result = review_mcp.hunt_status(job_id="hunt_12345")
 
-    assert "no hunt started yet" in result["message"]
+    assert "no hunt with that id" in result["error"]
     assert "hunt_start" in result["next"]
 
 
