@@ -1,0 +1,247 @@
+# Declarative path -> live-check map for Portal 5 (post-merge orchestrator handoff).
+# Consumed by: scripts/live_checks_for_diff.py
+# Validated by: tests/unit/test_live_check_map.py (every qat_scenario/qat_phase verified
+# against live tests.qat discovery, and every config/spine_surfaces.yaml dir covered).
+version: 1
+
+# Paths that bake into Docker images and require `./launch.sh rebuild && ./launch.sh up`
+# before running live checks (CLAUDE.md Ground Rule 6 & Testing Rules).
+rebuild_globs:
+  - "portal/**"
+  - "config/portal.yaml"
+  - "deploy/**"
+  - "pyproject.toml"
+  - "uv.lock"
+
+rules:
+  - id: pipeline-streaming
+    description: "Pipeline streaming, tool loop, SSE framing, failover, engine adapters"
+    globs:
+      - "portal/platform/inference/router/streaming*"
+      - "portal/platform/inference/router/tool_*"
+      - "portal/platform/inference/router/text_tool_calls.py"
+      - "portal/platform/inference/router/failover*"
+      - "portal/platform/inference/ollama_native.py"
+      - "portal/platform/inference/omlx*"
+      - "portal/platform/inference/pipeline.py"
+    smoke_stream: true
+    trace_sections: ["engines", "workspaces"]
+    qat_scenarios:
+      - "s2-p1-auto"
+      - "s2-p4-omlx-tool-calling"
+      - "s5-route-kubernetes-rbac"
+
+  - id: pipeline-load-guard
+    description: "LoadGuard memory admission, eviction, placement, working sets"
+    globs:
+      - "portal/platform/inference/load_guard*"
+      - "portal/platform/inference/router/placement.py"
+      - "portal/platform/inference/router/concurrency.py"
+      - "portal/platform/inference/router/seat_fit.py"
+      - "portal/platform/inference/router/working_set*"
+    trace_sections: ["engines", "pins"]
+    qat_scenarios:
+      - "p0-load-guard"
+      - "s2-p1-auto-daily"
+      - "s2-p1-auto-coding"
+    extra_commands:
+      - "uv run python scripts/memory_canary.py --list"
+
+  - id: pipeline-routing-and-config
+    description: "Auto-router, backend registry, workspaces, personas, backends.yaml"
+    globs:
+      - "portal/platform/inference/router/routing*"
+      - "portal/platform/inference/cluster_backends*"
+      - "portal/platform/inference/config*"
+      - "portal/platform/inference/cli*"
+      - "config/portal.yaml"
+      - "config/backends.yaml"
+      - "config/personas/**"
+    smoke_stream: true
+    trace_sections: ["pins", "engines", "workspaces"]
+    qat_scenarios:
+      - "p0-routing-baseline"
+      - "p0-exposure-gap"
+      - "s5-route-kubernetes-rbac"
+      - "s5-route-math-integral"
+      - "s5-daily-out-of-lane"
+
+  - id: pipeline-inference-other
+    description: "Other inference platform files (fallback when no narrower rule matched)"
+    only_if_unmatched: true
+    globs:
+      - "portal/platform/inference/**"
+    smoke_stream: true
+    trace_sections: ["engines", "workspaces"]
+    qat_scenarios:
+      - "p0-portal-trace"
+      - "s2-p1-auto"
+
+  - id: platform-mcp-host-and-agent
+    description: "MCP host transport, channels, agent loop core"
+    globs:
+      - "portal/platform/mcp_host/**"
+      - "portal/platform/agent/**"
+    trace_sections: ["platform"]
+    qat_scenarios:
+      - "s2-p7-pipeline-mcp"
+      - "s5-platform-introspection-and-git"
+
+  - id: platform-memory-and-embedding
+    description: "Graph memory MCP and EmbeddingGemma 2 embedder"
+    globs:
+      - "portal/platform/memory/**"
+      - "portal/platform/embedding/**"
+    qat_scenarios:
+      - "s2-p4-memory-roundtrip"
+      - "s5-memory-cross-session"
+      - "s5-memory-graph-admin"
+
+  - id: platform-retrieval-and-rag
+    description: "Shared retrieval, chunking, RAG MCP, VL reranker"
+    globs:
+      - "portal/platform/retrieval/**"
+      - "scripts/vl-retrieval-server.py"
+    qat_scenarios:
+      - "s2-p3-rag-roundtrip"
+      - "s5-rag-followup"
+
+  - id: platform-storage-and-wiki
+    description: "Storage config facade and canonical wiki engine"
+    globs:
+      - "portal/platform/storage/**"
+      - "portal/platform/wiki/**"
+      - "portal_wiki/canonical/**"
+    trace_sections: ["platform"]
+    qat_scenarios:
+      - "p0-portal-trace"
+      - "s5-platform-introspection-and-git"
+
+  - id: module-coding-sandbox
+    description: "Coding module and DinD code sandbox MCP"
+    globs:
+      - "portal/modules/coding/**"
+    qat_scenarios:
+      - "s2-p3-auto-coding"
+      - "s5-sandbox-python-bash-network-isolation"
+      - "s5-sandbox-lifecycle"
+
+  - id: module-documents
+    description: "Documents MCP (PDF/DOCX/XLSX/PPTX extraction, generation, conversion)"
+    globs:
+      - "portal/modules/documents/**"
+    qat_scenarios:
+      - "s2-p3-auto-documents"
+      - "s2-p3-auto-documents-pdf-read"
+      - "s5-documents-office-content"
+      - "s5-documents-full-lifecycle"
+      - "s5-documents-full-lifecycle-convert"
+
+  - id: module-cad
+    description: "CAD module (OpenSCAD / build123d / STL render & measurement)"
+    globs:
+      - "portal/modules/cad/**"
+    qat_scenarios:
+      - "s2-p3-auto-coding::cad"
+      - "s5-cad-stl-render"
+      - "s5-cad-measurement-and-convert"
+
+  - id: module-media
+    description: "MLX image, video, music, TTS, STT, voice-clone"
+    globs:
+      - "portal/modules/media/**"
+    qat_phases:
+      - "media_heavy"
+    qat_scenarios:
+      - "s5-media-image-quality"
+      - "s5-media-tts-speech"
+      - "s5-media-stt-accuracy"
+
+  - id: module-research-and-browser
+    description: "Research MCP, SearXNG, Obscura browser MCP"
+    globs:
+      - "portal/modules/research/**"
+    qat_scenarios:
+      - "s2-p2-auto-research"
+      - "s2-p3-obscura-browser"
+      - "s5-browser-web-research"
+      - "s5-browser-web-research-obscura"
+
+  - id: module-data
+    description: "Data MCP (CSV/SQLite/analysis)"
+    globs:
+      - "portal/modules/data/**"
+    qat_scenarios:
+      - "s2-p3-data-mcp"
+      - "s5-persona-correlation-dataanalyst"
+
+  - id: module-security-hunt
+    description: "Security module, hunt engine, Bully, review MCP, Splunk SIEM"
+    globs:
+      - "portal/modules/security/**"
+      - "portal/modules/detection/**"
+      - "portal/modules/icsot/**"
+      - "portal/modules/netforensics/**"
+      - "portal/modules/vulnintel/**"
+      - "portal/modules/binary_research/**"
+    trace_sections: ["lab"]
+    qat_scenarios:
+      - "p0-lab-ready"
+      - "s3-security-reviewer"
+      - "s3-hunt-mcp-mitre"
+      - "s5-security-hunt-workflow"
+      - "s5-security-toolbelt"
+    extra_commands:
+      - "uv run python3 scripts/proofs/owui_hunt_chat.py"
+
+  - id: module-compliance
+    description: "Compliance reasoning engine and compliance MCP (IN_SERVICE=False)"
+    globs:
+      - "portal/modules/compliance/**"
+    qat_phases:
+      - "compliance_smoke"
+    qat_scenarios:
+      - "s5-compliance-multiframework"
+      - "s5-compliance-policy-conversation"
+
+  - id: module-orchestration-and-general
+    description: "Orchestration arm, Jarvis personal loop, general/daily workspaces"
+    globs:
+      - "portal/modules/orchestration/**"
+      - "portal/modules/general/**"
+    qat_phases:
+      - "jarvis_personal"
+    qat_scenarios:
+      - "s5-daily-everyday-no-suggestion"
+      - "s5-persona-clarify-agentorchestrator"
+      - "s5-persona-destructive-agentorchestrator"
+
+  - id: module-eval
+    description: "Eval module and WFE bench workspaces"
+    globs:
+      - "portal/modules/eval/**"
+      - "config/bench_workspaces.yaml"
+    qat_scenarios:
+      - "p0-execute-preflight"
+      - "s1-hardening"
+
+  - id: deploy-and-launch
+    description: "Compose stack, Dockerfiles, launch.sh"
+    globs:
+      - "deploy/**"
+      - "launch.sh"
+    smoke_stream: true
+    trace_sections: ["host", "containers", "engines", "platform"]
+    qat_scenarios:
+      - "p0-portal-trace"
+      - "s1-hardening"
+
+  - id: qat-harness
+    description: "Live QAT runner and scenarios — verify discovery + smoke"
+    globs:
+      - "tests/qat/**"
+    extra_commands:
+      - "uv run --extra dev python -m tests.qat --dry-run"
+    qat_scenarios:
+      - "p0-portal-trace"
+      - "s2-p1-auto"

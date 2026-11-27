@@ -232,3 +232,4 @@ Run by hand for the compliance program phases named in each; one line from each 
 | `scripts/verify_attack_image.py` | Lab setup readiness gate: verifies the attack image against `config/attack_image_contract.json` (docs/LAB_SETUP.md). |
 | `scripts/compliance/truth/copy_probe.py` | Compliance truth: copy probe measurement (unit-compliance-reading-truth). |
 | `scripts/wfe_disposition_backfill.py` | WFE closeout disposition verify/backfill (docs/WFE_ROOT_CAUSES_20261013.md). |
+| `scripts/live_checks_for_diff.py` | Map git diff paths via `config/live_check_map.yaml` to the minimal post-merge live checks (`smoke_stream.sh`, `portal trace`, targeted `tests.qat` scenarios/phases). |
