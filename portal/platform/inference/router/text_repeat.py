@@ -12,10 +12,20 @@ notice instead of two minutes of loop.
 
 from __future__ import annotations
 
+import re
+
 #: A stripped line shorter than this is ordinary structure (bullets, fences), not a loop.
 MIN_LINE_CHARS = 12
 #: Occurrences of one identical line that make the answer degenerate (QAT grader's count).
 REPEAT_LIMIT = 5
+_FENCE_RE = re.compile(r"(?:`{3,}|~{3,})[\w+#.-]*")
+
+
+def _is_structural_line(value: str) -> bool:
+    """True for comment rulers, horizontal rules, table borders, and code fences."""
+    if not any(ch.isalnum() for ch in value):
+        return True
+    return bool(_FENCE_RE.fullmatch(value))
 
 
 class LineRepetitionGuard:
@@ -37,7 +47,7 @@ class LineRepetitionGuard:
         while "\n" in self._pending:
             line, self._pending = self._pending.split("\n", 1)
             value = line.strip()  # strip() also drops a trailing \r from CRLF
-            if len(value) < self._min_chars:
+            if len(value) < self._min_chars or _is_structural_line(value):
                 continue
             count = self._counts.get(value, 0) + 1
             self._counts[value] = count

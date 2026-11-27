@@ -2157,6 +2157,7 @@ async def _require_backend_done(lines: AsyncIterator[str]) -> AsyncIterator[str]
 async def _with_stream_heartbeats(frames: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
     """Keep a queued stream open with SSE comments while its next frame is pending."""
     iterator = frames.__aiter__()
+    ctx = contextvars.copy_context()
     task: asyncio.Task[bytes] | None = None
 
     async def next_frame() -> bytes:
@@ -2164,7 +2165,7 @@ async def _with_stream_heartbeats(frames: AsyncIterator[bytes]) -> AsyncIterator
 
     try:
         while True:
-            task = asyncio.create_task(next_frame())
+            task = asyncio.create_task(next_frame(), context=ctx)
             while not task.done():
                 done, _ = await asyncio.wait({task}, timeout=_STREAM_HEARTBEAT_S)
                 if not done:
@@ -2177,11 +2178,11 @@ async def _with_stream_heartbeats(frames: AsyncIterator[bytes]) -> AsyncIterator
     finally:
         if task is not None and not task.done():
             task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
+            with contextlib.suppress(asyncio.CancelledError, StopAsyncIteration):
                 await task
         close = getattr(iterator, "aclose", None)
         if close is not None:
-            await close()
+            await asyncio.create_task(close(), context=ctx)
 
 
 async def _stream_from_backend_guarded_impl(
@@ -3359,6 +3360,7 @@ async def _stream_with_fallback(
                 client_tools_only=client_tools_only,
             )
             _cascade_token = _CASCADE_ERRORS.set(True)
+            _closing = False
             try:
                 async with _closing_frames(_inner_stream):
                     async for chunk in _inner_stream:
@@ -3374,10 +3376,16 @@ async def _stream_with_fallback(
                             continue
                         if not _output_sent and _chunk_has_output(chunk):
                             _output_sent = True
-                        yield chunk
+                        try:
+                            yield chunk
+                        except GeneratorExit:
+                            _closing = True
+                            raise
             finally:
                 _CASCADE_ERRORS.reset(_cascade_token)
         except Exception:
+            if _closing:
+                raise
             stream_failed = True
         # oMLX rejected the prompt for memory it cannot reclaim from Ollama:
         # free Ollama's idle models and retry oMLX once before cascading to the

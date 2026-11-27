@@ -127,6 +127,36 @@ def test_guard_feed_after_trip_stays_tripped() -> None:
     assert guard.feed("anything else\n")
 
 
+@pytest.mark.parametrize(
+    "structural_line",
+    [
+        "# ---------------------------------------------------------------------------\n",
+        "// ==========================================================================\n",
+        "-----------------------------------------------------------------------------\n",
+        "| --- | :---: | ---: |\n",
+        "+--------------+--------------+--------------+\n",
+        "```typescript\n",
+        "~~~javascript\n",
+        "/* *********************************************************************** */\n",
+    ],
+)
+def test_guard_ignores_structural_lines(structural_line: str) -> None:
+    guard = LineRepetitionGuard()
+    for _ in range(REPEAT_LIMIT * 2):
+        assert not guard.feed(structural_line)
+    assert guard.tripped_line is None
+
+
+def test_guard_still_catches_real_prose_loop() -> None:
+    guard = LineRepetitionGuard()
+    prose = "I am an AI assistant designed to help users with their questions.\n"
+    for _ in range(REPEAT_LIMIT - 1):
+        assert not guard.feed(prose)
+    assert guard.feed(prose)
+    assert guard.tripped_line == prose.strip()
+    assert guard.tripped_count == REPEAT_LIMIT
+
+
 # ── tool-loop streaming path (what auto-coding::bigfix runs on) ──
 
 

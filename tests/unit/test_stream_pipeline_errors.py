@@ -13,6 +13,7 @@ streaming hop whose model had not produced a token yet (2026-10-21, 15:2x).
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import os
 import subprocess
@@ -419,6 +420,89 @@ async def test_turn_deadline_stops_after_backend_terminal_marker(monkeypatch) ->
     assert chunks.count(DONE) == 1
     assert closed
     assert not deadlines
+
+
+@pytest.mark.anyio
+async def test_turn_deadline_closes_fallback_stream_cleanly_on_early_done(
+    stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An early guard-ended stream through _stream_with_fallback + _with_portal_timings
+    must close cleanly with terminal frames + [DONE], never GeneratorExit RuntimeError."""
+    _silence_trace(monkeypatch)
+
+    async def no_room(*_args: typing.Any, **_kwargs: typing.Any) -> None:
+        return None
+
+    loop_line = "I am an AI assistant designed to help with your coding tasks.\n"
+    frames = [
+        "data: " + json.dumps({"choices": [{"index": 0, "delta": {"content": loop_line}}]})
+        for _ in range(5)
+    ]
+    _serve(stream_client, _Resp([*frames, "data: [DONE]"]))
+    monkeypatch.setattr(st, "make_room_for_omlx", no_room)
+    monkeypatch.setattr(st, "_record_error", lambda *_a, **_k: None)
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            st._stream_with_fallback(
+                backend=_backend(),
+                body={"messages": [{"role": "user", "content": "hi"}], "tools": TOOLS},
+                workspace_id="auto-coding",
+                target_model="qwen",
+                persona="auto",
+                effective_tools=["web_search"],
+                start_time=time.monotonic(),
+                has_tools=True,
+                chain=[],
+                portal_no_tools=False,
+                secondary_model="",
+                tertiary_model="",
+                remaining=[],
+                slot=MagicMock(),
+                backend_body={"messages": [{"role": "user", "content": "hi"}], "tools": TOOLS},
+            ),
+            workspace_id="auto-coding",
+            start_time=time.monotonic(),
+            timeout_s=300.0,
+        )
+    )
+
+    _assert_well_formed(chunks)
+    assert b"repetition" in b"".join(chunks).lower()
+    assert chunks.count(DONE) == 1
+    assert chunks[-1] == DONE
+
+
+@pytest.mark.anyio
+async def test_turn_deadline_and_heartbeats_handle_client_disconnect_generatorexit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Closing a stream mid-flight (GeneratorExit) closes inner ContextVar-owning
+    generators cleanly without RuntimeError or yielding after GeneratorExit."""
+    _silence_trace(monkeypatch)
+    var: contextvars.ContextVar[bool] = contextvars.ContextVar("test_ctx", default=False)
+    inner_closed = False
+
+    async def inner() -> typing.AsyncIterator[bytes]:
+        nonlocal inner_closed
+        tok = var.set(True)
+        try:
+            yield b'data: {"choices":[{"delta":{"content":"first"}}]}\n\n'
+            await asyncio.Event().wait()
+        finally:
+            var.reset(tok)
+            inner_closed = True
+
+    stream = handlers._with_portal_timings(
+        st._with_stream_heartbeats(inner()),
+        workspace_id="auto-coding",
+        start_time=time.monotonic(),
+        timeout_s=300.0,
+    )
+    first = await anext(stream)
+    assert b"first" in first
+    await stream.aclose()
+    assert inner_closed
 
 
 def _silence_trace(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, typing.Any]]:

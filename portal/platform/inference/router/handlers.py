@@ -376,41 +376,37 @@ def _is_sse_comment(chunk: str | bytes | memoryview) -> bool:
 async def _with_stream_deadline(
     source: AsyncIterable[str | bytes | memoryview], idle_timeout_s: float
 ) -> AsyncIterator[str | bytes | memoryview]:
+    loop = asyncio.get_running_loop()
     last_activity = time.monotonic()
+    active_timeout: asyncio.Timeout | None = None
 
     def _touch() -> None:
         nonlocal last_activity
         last_activity = time.monotonic()
+        if active_timeout is not None:
+            active_timeout.reschedule(loop.time() + idle_timeout_s)
 
     token = _STREAM_ACTIVITY.set(_touch)
     iterator = source.__aiter__()
-    next_task: asyncio.Task[str | bytes | memoryview] | None = None
-
-    async def _next_chunk() -> str | bytes | memoryview:
-        return await anext(iterator)
-
     try:
         while True:
-            next_task = asyncio.create_task(_next_chunk())
-            while not next_task.done():
-                remaining = (last_activity + idle_timeout_s) - time.monotonic()
-                if remaining <= 0:
-                    raise _TurnDeadlineExceededError(idle_timeout_s)
-                done, _ = await asyncio.wait({next_task}, timeout=remaining)
-                if done:
-                    break
+            remaining = (last_activity + idle_timeout_s) - time.monotonic()
+            if remaining <= 0:
+                raise _TurnDeadlineExceededError(idle_timeout_s)
             try:
-                chunk = next_task.result()
+                async with asyncio.timeout(remaining) as cm:
+                    active_timeout = cm
+                    chunk = await anext(iterator)
             except StopAsyncIteration:
                 return
+            except TimeoutError as exc:
+                raise _TurnDeadlineExceededError(idle_timeout_s) from exc
+            finally:
+                active_timeout = None
             if not _is_sse_comment(chunk):
                 _touch()
             yield chunk
     finally:
-        if next_task is not None and not next_task.done():
-            next_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await next_task
         _STREAM_ACTIVITY.reset(token)
         await _close_async_iterator(iterator)
 
