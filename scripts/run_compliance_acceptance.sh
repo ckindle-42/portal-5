@@ -8,10 +8,10 @@
 # health check pointed at a port nobody verified. Artifacts land under the git
 # rev inside the repo; the port comes from config/portal.yaml's own fleet roster.
 #
-# Stages are NOT chained with `&&`: a semantic FAIL in the reader stage must not
-# suppress the legacy comparison, which is what makes F1's re-point measurable.
-# The wrapper always exits 0 so a supervisor never restarts a failed suite; read
-# the .exit files.
+# The product stage uses the deployed compliance-reading workspace. Historical
+# reader/legacy comparisons remain available through compliance_acceptance.py,
+# but are not acceptance gates. The wrapper always exits 0 so a supervisor never
+# restarts a failed suite; read the .exit files.
 
 set -u
 REPO=/Users/chris/projects/portal-5
@@ -33,7 +33,7 @@ if [ "${ACCEPTANCE_RUN:-0}" != "1" ]; then
 fi
 
 REV=$(git -C "$REPO" rev-parse HEAD)
-ART=${ACCEPTANCE_DIR:-$REPO/reports/compliance/acceptance/$REV}
+ART=${ACCEPTANCE_DIR:-$REPO/portal/modules/compliance/data/private/local/reports/compliance/acceptance/$REV}
 mkdir -p "$ART"
 DIRTY=$(git -C "$REPO" status --porcelain | wc -l | tr -d ' ')
 
@@ -83,9 +83,8 @@ curl -fsS -m 3 "http://localhost:${PORT}/health" > /dev/null 2>&1 \
   || { note "ABORT: compliance-mcp health never came back on ${PORT}"; exit 0; }
 
 note "acceptance start rev=$REV dirty_paths=$DIRTY artifacts=$ART"
-run_stage reader "$UV" run python scripts/compliance_acceptance.py --runs "${RUNS:-3}"
-run_stage legacy "$UV" run python scripts/compliance_acceptance.py --adapter legacy --runs 1
+run_stage workspace "$UV" run python scripts/compliance_acceptance.py \
+  --adapter workspace --runs "${RUNS:-3}"
 
-note "ACCEPTANCE_FINISHED reader=$(cat "$ART/reader.stage-exit" 2>/dev/null) \
-legacy=$(cat "$ART/legacy.stage-exit" 2>/dev/null)"
+note "ACCEPTANCE_FINISHED workspace=$(cat "$ART/workspace.stage-exit" 2>/dev/null)"
 exit 0

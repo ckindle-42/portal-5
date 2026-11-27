@@ -62,6 +62,8 @@ CASES_PATH = (
     / "cases"
     / "cip_007_6.yaml"
 )
+LOCAL_DATA = CASES_PATH.parents[3]
+ACCEPTANCE_ROOT = LOCAL_DATA / "reports" / "compliance" / "acceptance"
 LOCK = Path("/tmp/portal5-compliance-acceptance.lock")
 
 sys.path.insert(0, str(REPO))
@@ -1069,6 +1071,41 @@ def _acquire_campaign_lock() -> bool:
     return True
 
 
+def _preflight(seats: list[str], adapters: list[str], out_dir: Path) -> int:
+    if adapters == ["workspace"]:
+        from tests.wfe.compliance_preflight import pin_v2
+
+        pin = pin_v2(seats)
+        for seat in pin["seats"]:
+            reasons = []
+            if not seat.get("workspace"):
+                reasons.append("the seat resolves to no Pipeline workspace")
+            if not seat.get("declared_context_limit"):
+                reasons.append("the Pipeline workspace has no declared context limit")
+            route = (seat.get("serving_route") or {}).get("route") or []
+            if not route:
+                reasons.append("the seat has no serving route")
+            reasons.extend(
+                f"the {hop.get('engine')} template for {hop.get('served_model')} is unreadable"
+                for hop in route
+                if not hop.get("template")
+            )
+            seat["go"] = not reasons
+            seat["no_go_reasons"] = reasons
+    else:
+        from tests.wfe.compliance_preflight import run
+
+        pin = run(seats)
+    (out_dir / "preflight.json").write_text(json.dumps(pin, indent=1, default=str))
+    blocked = [seat for seat in pin["seats"] if not seat["go"]]
+    for seat in blocked:
+        print(f"NO-GO  {seat['seat']}: {'; '.join(seat['no_go_reasons'])}")
+    if blocked:
+        print("honest-BLOCKED: §P0.6 go/no-go failed; no case was run")
+        return 3
+    return 0
+
+
 def main() -> int:
     from portal.modules.compliance.core.runtime_config import reading_seat
 
@@ -1104,27 +1141,15 @@ def main() -> int:
         rev = subprocess.check_output(
             ["git", "-C", str(REPO), "rev-parse", "HEAD"], text=True
         ).strip()
-        out_dir = Path(args.out) if args.out else REPO / "reports/compliance/acceptance" / rev
+        out_dir = Path(args.out) if args.out else ACCEPTANCE_ROOT / rev
         out_dir.mkdir(parents=True, exist_ok=True)
         base_url = mcp_base_url()
 
         _write_manifest(out_dir, rev, cases, seats, adapters, args.runs, base_url, manifest["meta"])
 
-        # §P0.5/§P0.6: the campaign is pinned BEFORE the first case, and a seat
-        # that is not GO does not run. The pin is what a later check compares
-        # the live template sha against, so a run whose template moved
-        # underneath it is detectable rather than merely wrong.
-        if not args.no_preflight:
-            from tests.wfe.compliance_preflight import run as preflight_run
-
-            pin = preflight_run(seats)
-            (out_dir / "preflight.json").write_text(json.dumps(pin, indent=1, default=str))
-            blocked = [s for s in pin["seats"] if not s["go"]]
-            if blocked:
-                for seat in blocked:
-                    print(f"NO-GO  {seat['seat']}: {'; '.join(seat['no_go_reasons'])}")
-                print("honest-BLOCKED: §P0.6 go/no-go failed; no case was run")
-                return 3
+        # Pin the actual answer path before the first case; a NO-GO runs no case.
+        if not args.no_preflight and (code := _preflight(seats, adapters, out_dir)):
+            return code
 
         rows: list[dict[str, Any]] = []
         with httpx.Client(timeout=args.http_timeout) as client:
