@@ -51,6 +51,9 @@ git apply -R coding_task/arm/hunt_core_inkling_arm.patch   # back to gemma
 ./launch.sh rebuild && ./launch.sh up
 ```
 
+If the lane is not merged into the live checkout yet, apply the worktree copy instead:
+`git -C /Users/chris/projects/portal-5 apply /Users/chris/projects/portal-5-hunt-core-ab-ds/coding_task/arm/hunt_core_inkling_arm.patch`.
+
 What each step needs, and what it does not:
 
 - **Rebuild + up: required.** `config/portal.yaml` is baked into the pipeline image; there is no
@@ -135,6 +138,12 @@ uv run python -m portal.modules.security.core.hunt.notables \
 761.8 s wall); `hb_kyoushi_s1` is the probe-kit default. Whichever exists, use one value for all
 four runs — the scoreboard refuses keys that name no source the run read (`_check_family`), which is
 the guard against a mismatched index.
+
+**Every run needs a fresh `--out`.** `JudgeCache` is keyed by the notable's content key only
+(`judge_notables.py:170`), not by model, so pointing a second arm at an existing run dir would serve
+the first arm's `p_yes` and `served_model` from `cache/judge.json` and score the wrong model under
+the right name. The validity rule below (`judge served_models` is one model) is what catches it; a
+fresh directory makes it impossible.
 
 Score each Inkling run against the **gemma-1** run (the scoreboard prints the step diff, names only);
 for the control runs, diff `gemma-2` against `gemma-1` the same way:
