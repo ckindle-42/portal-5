@@ -364,7 +364,7 @@ services:
       # ── Tool-call timeouts (TASK-OWUI-AUDIO-DROP-001) ──────────────────────
       # Default ~60s breaks any tool that takes longer (e.g., diarized
       # transcription on files >2min). 1800s = 30 min, enough for ~3-hour audio.
-      - AIOHTTP_CLIENT_TIMEOUT=${AIOHTTP_CLIENT_TIMEOUT:-1800}
+      - AIOHTTP_CLIENT_TIMEOUT=${AIOHTTP_CLIENT_TIMEOUT:-}
       - AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA=${AIOHTTP_CLIENT_TIMEOUT_TOOL_SERVER_DATA:-1800}
       # ── Persistent secret for MCP tool encryption ──────────────────────────
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
