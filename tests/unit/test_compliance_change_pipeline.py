@@ -8,6 +8,10 @@ beside it, never averaged.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
+import pytest
+
 from portal.modules.compliance.core.applicability import AssetScope
 from portal.modules.compliance.core.change_pipeline import (
     draft_revisions,
@@ -154,3 +158,30 @@ def test_impact_report_ignores_ambient_machine_state(tmp_path):
     assert ir["examined"] == 6
     assert ir["substantively_resolved"] == 0
     assert draft_revisions(ir)["specifications"] == []
+
+
+def test_diff_standard_rejects_mixed_version_operands():
+    # F06 (reasoning-v2 regressions, merged): explicit validation, never key across versions.
+    n1 = _mk("1.1", "Perform A.")
+    n2 = replace(n1, id="X-2 1.1", standard="X-2")
+    mixed = Register(nodes=[n1, n2], edges=[])
+    single = Register(nodes=[_mk("1.1", "Perform A.")], edges=[])
+    with pytest.raises(ValueError, match="mixed"):
+        diff_standard(mixed, single, "X")
+
+
+def test_rejecting_a_mapping_proposal_revokes_a_prior_approval(tmp_path):
+    # F09 (reasoning-v2 regressions, merged): REJECTED wires to an actual revocation.
+    store = MappingStore(tmp_path / "m.json")
+    mp = store.propose("TEST-1 R1 Part 1.1", "DOC", "§1", "FULL")
+    store.approve(mp.id, "sme_a")
+    assert store.approved_for("TEST-1 R1 Part 1.1")
+    store.revoke(mp.id, "sme_b")
+    assert store.approved_for("TEST-1 R1 Part 1.1") == []
+    assert store._by_id(mp.id).source == "revoked"  # noqa: SLF001
+
+
+def test_revoking_a_missing_mapping_target_is_an_error_not_silent_success(tmp_path):
+    store = MappingStore(tmp_path / "m.json")
+    with pytest.raises(KeyError):
+        store.revoke("does-not-exist", "sme")

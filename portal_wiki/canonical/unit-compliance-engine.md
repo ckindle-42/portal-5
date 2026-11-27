@@ -138,7 +138,7 @@ sources:
 - type: code
   path: tests/unit/test_compliance_currency.py
 - type: code
-  path: tests/unit/test_compliance_reasoning_v2_regressions.py
+  path: tests/unit/test_compliance_change_pipeline.py
 - type: code
   path: tests/unit/test_compliance_repository.py
 - type: code

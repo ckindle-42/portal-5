@@ -401,8 +401,7 @@ Phase 0; fitness matrix drives disposition decisions.
   looped under think-off and answered under think-on.
 - **Answer-key isolation.** The sandbox must never expose the suite files or
   `tests/compliance_probe/` or committed WFE receipts through `file_read` or
-  `repo_search`; `REPO_DENY_PREFIXES` in `tests/wfe/runner.py` enforces this
-  (regression: `tests/wfe/tests/test_wfe_gold_isolation.py`).
+  `repo_search`; `REPO_DENY_PREFIXES` in `tests/wfe/runner.py` enforces this.
 - **Loop attribution.** Before naming a model as the cause of a turn-cap loop,
   follow the protocol in [[unit-wfe-loop-attribution-protocol]].
 

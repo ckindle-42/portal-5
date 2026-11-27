@@ -7,11 +7,12 @@ from __future__ import annotations
 import pytest
 
 from portal.modules.compliance.core.applicability import AssetScope, applicable, gate_presentation
-from portal.modules.compliance.core.cip_register import Register
+from portal.modules.compliance.core.cip_register import Register, RegisterNode
 from portal.modules.compliance.core.coverage import coverage_matrix
 from portal.modules.compliance.core.engine import (
     effective_parts,
     future_effective_parts,
+    parse_iso_date,
     route,
 )
 
@@ -123,3 +124,59 @@ def test_coverage_nothing_found_is_a_resolved_gap_after_complete_search():
     assert s["substantively_resolved"] == s["examined"]
     assert s["unresolved_items"] == []
     assert len(s["confirmed_gaps_none"]) == s["examined"]
+
+
+def _temporal_node(**kw) -> RegisterNode:
+    base = {
+        "id": "TEST-1 R1 Part 1.1",
+        "standard": "TEST-1",
+        "version": "1",
+        "requirement": "R1",
+        "part": "1.1",
+        "verbatim_text": "Do the thing.",
+        "measure_text": "",
+        "applicable_systems": "",
+        "table_name": "",
+        "vrf": "",
+        "time_horizon": "",
+        "lifecycle_state": "EFFECTIVE",
+        "valid_from": None,
+        "valid_to": None,
+        "supersedes": None,
+        "superseded_by": None,
+        "authority_tier": 0,
+        "source_pdf": "",
+        "source_pages": [],
+        "recorded_at": 0.0,
+        "granularity": "part",
+    }
+    base.update(kw)
+    return RegisterNode(**base)
+
+
+def test_retired_node_still_returned_for_a_historical_date_inside_its_interval():
+    # F01 (reasoning-v2 regressions, merged): interval-based selection, not lifecycle-label gating.
+    retired = _temporal_node(
+        lifecycle_state="RETIRED", valid_from="2020-01-01", valid_to="2024-04-01"
+    )
+    reg_t = Register(nodes=[retired])
+    assert retired.id in {n.id for n in effective_parts(reg_t, "2023-06-01")}
+    assert retired.id not in {n.id for n in effective_parts(reg_t, "2024-06-01")}
+
+
+def test_future_effective_node_moves_to_effective_once_its_date_passes():
+    fut = _temporal_node(
+        id="TEST-2 R1 Part 1.1", lifecycle_state="FUTURE_EFFECTIVE", valid_from="2026-01-01"
+    )
+    reg_t = Register(nodes=[fut])
+    assert fut.id in {n.id for n in future_effective_parts(reg_t, "2025-06-01")}
+    assert fut.id not in {n.id for n in effective_parts(reg_t, "2025-06-01")}
+    assert fut.id in {n.id for n in effective_parts(reg_t, "2026-06-01")}
+    assert fut.id not in {n.id for n in future_effective_parts(reg_t, "2026-06-01")}
+
+
+def test_invalid_iso_date_is_rejected_not_silently_matched_to_nothing():
+    with pytest.raises(ValueError):
+        parse_iso_date("not-a-date")
+    with pytest.raises(ValueError):
+        effective_parts(Register(nodes=[]), "2026-13-40")
