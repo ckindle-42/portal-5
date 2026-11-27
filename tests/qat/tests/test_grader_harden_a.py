@@ -160,7 +160,11 @@ def test_content_claims_and_plumbing_labels() -> None:
                 "tool": "hunt_sources",
                 "outcome": "ok",
                 "success": True,
-                "receipt": {"indexes_count": 3, "index": "botsv3"},
+                "receipt": {
+                    "indexes_count": 3,
+                    "indexes_ids": ["attack_data_refresh_20261107", "botsv3"],
+                    "index": "attack_data_refresh_20261107",
+                },
             }
         ]
     }

@@ -2393,7 +2393,7 @@ def test_rag_period_and_source_must_match_retrieved_receipt() -> None:
     )
     assert uat.grade_case(case, [later_period], {})[0] == []
     absent = _receipt_turn(
-        "The source BACKUP_RESTORE.md states there is no period enforced.",
+        "The source BACKUP_RESTORE.md states there is no retention policy implemented.",
         "kb_search",
         source_file_receipt,
     )

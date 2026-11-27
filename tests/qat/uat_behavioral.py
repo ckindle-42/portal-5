@@ -2431,7 +2431,14 @@ def _grade_rag_case(
         match.group(0).casefold() for match in _RETENTION_PERIOD_RE.finditer(receipt_text)
     }
     explicit_absence = any(
-        phrase in text.casefold() for phrase in ("no source", "no period", "does not contain")
+        phrase in text.casefold()
+        for phrase in (
+            "no source",
+            "no period",
+            "does not contain",
+            "no retention policy",
+            "no enforced retention",
+        )
     )
     no_results = any(
         receipt.get(key) == 0

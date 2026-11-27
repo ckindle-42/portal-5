@@ -84,3 +84,7 @@ def test_tool_receipt_preserves_rag_source_file_and_passage_within_byte_budget()
     assert receipt["source_file"] == "BACKUP_RESTORE.md"
     assert "monthly-for-a-year" in receipt["text"]
     assert len(json.dumps(receipt, separators=(",", ":")).encode()) <= 1024
+    indexes_receipt = bounded_tool_result(
+        {"indexes": [{"index": "attack_data", "events": 10}, {"index": "botsv3", "events": 20}]}
+    )["receipt"]
+    assert indexes_receipt["indexes_ids"] == ["attack_data", "botsv3"]

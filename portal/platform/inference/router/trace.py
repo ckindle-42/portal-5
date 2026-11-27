@@ -240,6 +240,14 @@ def _receipt_visit_list(name: str, values: list[Any], receipt: dict[str, Any], d
         for item in values[:5]
         if isinstance(item, dict) and isinstance(item.get("id"), (str, int))
     ]
+    if not ids:
+        ids = [
+            item["index"].strip()
+            for item in values[:5]
+            if isinstance(item, dict)
+            and isinstance(item.get("index"), str)
+            and item["index"].strip()
+        ]
     if ids:
         _receipt_add(receipt, f"{name}_ids", ids)
     if name.casefold() not in {"memory", "memories"}:

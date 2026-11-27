@@ -1543,6 +1543,11 @@ def _reviewer_sources_claim_error(text: str, trace: dict[str, object]) -> str | 
             idx = receipt.get("index")
             if isinstance(idx, str) and idx.strip():
                 indexes.append(idx.strip())
+            idx_list = receipt.get("indexes_ids")
+            if isinstance(idx_list, list):
+                indexes.extend(
+                    item.strip() for item in idx_list if isinstance(item, str) and item.strip()
+                )
     if not indexes:
         return "security-reviewer claim has no returned index in hunt_sources receipt"
     lowered = text.casefold()
