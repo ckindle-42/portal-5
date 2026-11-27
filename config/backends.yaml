@@ -339,11 +339,12 @@ backends:
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
     supports_tools: true
   # 2026-11-27: auto-coding base seat won on this Ollama GGUF (15/16,
-  # realuse_s5s7s10_20261030b). Registered here with no omlx-coding alias so
-  # auto-coding ([coding, general]) serves Ollama GGUF instead of falling
-  # through to omlx-general's Qwen3.8-27B-oQ4e-mtp alias (runaway reasoning
-  # on the auto-coding prompt; see KNOWN_LIMITATIONS P5-OMLX-QWEN38-MTP-001).
-  # general-deep ([general]) and auto-compliance ([reasoning, general]) stay on oMLX.
+  # realuse_s5s7s10_20261030b). Served auto-coding directly on 2026-11-27 while
+  # the oMLX Qwen3.8-27B-oQ4e-mtp alias ran away (P5-OMLX-QWEN38-MTP-001); root
+  # cause fixed the same day (chat-template parity default, reasoning_effort_default
+  # in backends.yaml), auto-coding is back on the oMLX MTP seat via the omlx-coding
+  # shadow alias, and this tag is its Ollama fallback again. general-deep
+  # ([general]) and auto-compliance ([reasoning, general]) stay on oMLX.
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
     supports_tools: true
   # MoE-vs-dense IDE-lane candidates added 2026-08-26. All three MoE, ~58-59
@@ -748,6 +749,11 @@ backends:
     # 2026-11-24: persona-roster ctx32k twin of the ctx8k alias above.
     huihui_ai/Qwen3.6-abliterated:27b-ctx32k: Huihui-Qwen3.6-27B-abliterated-MLX-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M: Qwen3.8-27B-oQ4e-mtp
+    # 2026-11-27: auto-coding restored to this oMLX MTP seat — P5-OMLX-QWEN38-MTP-001's
+    # root cause (chat-template reasoning_effort=xhigh default) is fixed by the
+    # per-model parity tier. The GGUF tag stays registered in ollama-coding as the
+    # seat's automatic Ollama fallback (same 96k window).
+    hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: Qwen3.8-27B-oQ4e-mtp
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 # oMLX shadow-shift extended to the rest of the daily fleet

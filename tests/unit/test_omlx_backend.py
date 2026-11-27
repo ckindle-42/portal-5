@@ -218,9 +218,11 @@ class TestAutoCodingOmlxShadowRouting:
         ordered = _prioritize_hinted_backend(coding_candidates, hint)
         assert ordered[0].id == "omlx-coding"
 
-    def test_auto_coding_base_seat_routes_to_ollama_gguf_not_omlx_alias(self):
-        """auto-coding base seat resolves to its evaluated Ollama GGUF in ollama-coding;
-        general-deep, auto-compliance, and auto-coding variants keep oMLX serving."""
+    def test_auto_coding_base_seat_restored_to_omlx_mtp_with_gguf_fallback(self):
+        """P5-OMLX-QWEN38-MTP-001 resolved (template parity default): auto-coding
+        serves the oMLX MTP seat again, with the evaluated Ollama GGUF tag as its
+        fallback; general-deep, auto-compliance, and auto-coding variants keep
+        their serving unchanged."""
         import yaml
 
         from portal.platform.inference.router.handlers import _prioritize_hinted_backend
@@ -238,7 +240,12 @@ class TestAutoCodingOmlxShadowRouting:
             return ordered[0].id, ordered[0].resolve_model(hint)
 
         base_hint = workspaces["auto-coding"]["model_hint"]
-        assert _first("auto-coding", base_hint) == ("ollama-coding", base_hint)
+        _primary_id, _primary_model = _first("auto-coding", base_hint)
+        assert (_primary_id, _primary_model) == ("omlx-coding", "Qwen3.8-27B-oQ4e-mtp")
+        # The evaluated GGUF arm stays reachable as the same seat's fallback.
+        coding = [c for c in reg.get_backend_candidates("auto-coding") if c.group == "coding"]
+        fallback = next(c for c in coding if c.id == "ollama-coding")
+        assert fallback.resolve_model(base_hint) == base_hint
         assert _first(
             "auto-daily::deep", workspaces["auto-daily"]["variants"]["deep"]["model_hint"]
         ) == ("omlx-general", "Qwen3.8-27B-oQ4e-mtp")
