@@ -15,7 +15,7 @@ rule are fixed here before the first run.
 | Candidate | `Inkling-2-Mini-oQ4e-mtp` — the checkpoint `security-reviewer` (`config/portal.yaml:2889`) and base `auto-security` (`:1923`) already run; Ollama fallback `inkling-2-mini:ctx256k` through the `Inkling-2-Mini-oQ4e-mtp` alias in `ollama-general` (`config/backends.yaml:511`) |
 | Action on a win | keep the patch, 2–3 day real-use trial, then keep or `git apply -R` |
 | Default if unproven | keep gemma; two valid inconclusive runs close the question |
-| Budget | 2 labelled runs + 1 workflow run per arm (≈2–4 h total). No new suite. Elapsed is report-only. |
+| Budget | 2 labelled runs + 2 `s5-security-hunt-workflow` runs per arm (≈3–5 h total). No new suite. Elapsed is report-only. |
 
 Facts that shape the design (read from config, not the live stack):
 
@@ -134,6 +134,10 @@ uv run python -m portal.modules.security.core.hunt.notables \
   --knowledge-store "$KS" --knowledge-families santos,russell
 ```
 
+Merge weights stay at the built-in defaults in both arms — do **not** export
+`PORTAL_HUNT_MERGE_WEIGHTS` for one arm and not the other (the vector only reorders the same
+notables, so an arm-dependent vector would be the tuning the seat process forbids).
+
 `hb_kyoushi_s1_v2` is the index the R2 control ran (`coding_task/REPORT_HUNT_VERDICT_R2_kyoushi.md`,
 761.8 s wall); `hb_kyoushi_s1` is the probe-kit default. Whichever exists, use one value for all
 four runs — the scoreboard refuses keys that name no source the run read (`_check_family`), which is
@@ -194,9 +198,31 @@ yes-bad/yes-good/s-call/budget`, plus `council decisions … abstain …` and `c
 council response carries no served-model field, so take the council's served model from the
 pipeline log line for that window (`backend.selected`).
 
-## 5. Instrument B — the real hunt workflow (COMPLETE/partial, splunk_requests, first turn)
+## 5. Instrument B — the real hunt workflow (COMPLETE/partial, splunk_requests)
 
-One run per arm through OWUI → Pipeline → review MCP, on the same index:
+**5.1 The design's acceptance runs — `s5-security-hunt-workflow`, twice per arm** (design §8
+Phase 1.2). The scenario drives the analyst workflow through OWUI → Pipeline → review MCP and its
+grader (`tests/qat/uat_behavioral.py:_grade_hunt_case`) checks exactly the design's clauses from
+the *tool receipts*, not the prose: `hunt_start` + `hunt_status` called, a real `hunt-r2-…` id,
+reported status equal to the receipt's, and — once terminal — `splunk_requests > 0` and a lead
+count present, with the answer citing returned identifiers.
+
+```bash
+cd /Users/chris/projects/portal-5
+for n in 1 2; do
+  uv run python -m tests.qat --scenario s5-security-hunt-workflow \
+    --output-dir "results/qat/hunt-core-$ARM-$n"
+  cat "results/qat/hunt-core-$ARM-$n/QAT_REPORT.md"
+done
+```
+
+Require: both rows PASS, both receipts terminal `COMPLETE` (a `PARTIAL` needs its
+`partial_reason` in the job record and must not be the judge/notables stage), `splunk_requests > 0`,
+and the same job id in answer and receipt.
+
+**5.2 The proof kit — progress turn and the mid-hunt reviewer turn.** `owui_hunt_chat.py` sends the
+"list sources and start a hunt" turn, waits on the durable job over native MCP, then asks for
+leads and the first case. It prints the job id, terminal status, elapsed and `PASS`/`FAIL`:
 
 ```bash
 cd /Users/chris/projects/portal-5
@@ -205,10 +231,13 @@ IDX=hb_kyoushi_s1_v2                               # the same value as Instrumen
 python3 scripts/proofs/owui_hunt_chat.py --index "$IDX" --require-sources
 ```
 
-The proof prints `job id: hunt-r2-… | terminal status: COMPLETE|PARTIAL | elapsed: …s` and a final
-`PASS`/`FAIL`; `PASS` already means `hunt_start` in the first turn with a real job id, `RUNNING`
-reported, then `hunt_status`/`hunt_leads`/`hunt_case` on that same id with cited identifiers. Add
-the job's own cost from its record under the review MCP's `PORTAL5_HUNT_DIR`
+While that hunt is in flight, send one OWUI turn to `security-reviewer` asking for its job id and
+current stage (design §8 Phase 1.3). It must quote the exact job id, report the tool's own stage,
+and show no 507, no `capacity_fallback`, and no model other than Inkling in the pipeline log. In
+this arm that turn and the hunt are the *same* resident — a second model appearing in
+`admin/api/activity` during the turn is the failure this A/B exists to remove.
+
+Add the job's own cost from its record under the review MCP's `PORTAL5_HUNT_DIR`
 (default `~/AI_Output/review/hunts`):
 
 ```bash
@@ -226,13 +255,6 @@ PY
 job's run dir is scoreable by Instrument A's scoreboard command (`--keys "<jobid>=<keys>"`), which
 is how a job's leads can be graded when you want one.
 
-**Mid-hunt reviewer turn** (design §8 Phase 1.3, run in each arm while a hunt is in flight): send
-one OWUI turn to `security-reviewer` asking for the running hunt's job id and status. It must quote
-the exact job id, report the tool's own stage, and show no 507, no `capacity_fallback`, and no model
-other than Inkling in the pipeline log. With this arm that turn and the hunt are the *same* resident
-— a second model appearing in `admin/api/activity` during the turn is the failure this A/B exists to
-remove.
-
 Concurrency stays at the seat's declared `max_concurrent: 8` in both arms. The design's 1/2/4
 residency sweep measures the scheduler, not the model, and is not part of this decision.
 
@@ -241,7 +263,7 @@ residency sweep measures the scheduler, not the model, and is not part of this d
 Let `c1,c2` be the control runs' `C0 modes line … @50` covered counts and `i1,i2` the Inkling ones;
 `a_c`, `a_i` their `judge AUC all` (or `auc_pooled` when both print it).
 
-**A run counts only if all hold** (else it is void, not scored against a model):
+**A labelled run counts only if all hold** (else it is void, not scored against a model):
 
 1. preflight probe passes and reports the intended model;
 2. the run's own receipts show the intended model on every stage that names one and no other
@@ -249,11 +271,15 @@ Let `c1,c2` be the control runs' `C0 modes line … @50` covered counts and `i1,
    run window;
 3. `--stage all` completed all five stages, `C0 ceiling reachable` ≥ 1, `labelled lines read` > 0;
 4. `judge unjudged` is empty apart from a declared budget cut (`selection.cut_reason`), and
-   `judged` ≥ 300 (the R2/R3 runs judged 755–769 of ~800);
-5. Instrument B: `PASS`, terminal `COMPLETE` or `PARTIAL` with a `partial_reason` that is not the
-   judge or notables stage, and `cost.splunk_requests > 0`.
+   `judged` ≥ 300 (the R2/R3 runs judged 755–769 of ~800).
 
-**Inkling wins** (patch stays, then the 2–3 day trial) if every run is valid and
+**Workflow acceptance** (per arm, required of both arms): both `s5-security-hunt-workflow` rows PASS,
+each receipt terminal `COMPLETE` or `PARTIAL` with a `partial_reason` outside the judge/notables
+stages, `splunk_requests > 0`, and the mid-hunt reviewer turn (§5.2) returns the exact job id with no
+507 and no second model resident.
+
+**Inkling wins** (patch stays, then the 2–3 day trial) if every labelled run is valid, the workflow
+acceptance holds, and
 
 - `min(i1,i2) >= max(c1,c2)` — its worse run covers at least as many labelled steps at @50 as the
   control's best run (strict separation, no averaging over a regression), **and**
