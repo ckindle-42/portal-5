@@ -3368,7 +3368,17 @@ async def _stream_with_fallback(
         )
         resolved_model = route_parts[2] if len(route_parts) > 2 and route_parts[2] else target_model
         protect_failover(getattr(candidate, "type", ""), resolved_model)  # the seat that served
-        trace_note(backend=resolved_backend, model=resolved_model, outcome="ok")
+        _primary_failure_detail = (
+            _stream_error_detail(_error_buffer) if _error_buffer else "Backend stream failed"
+        )
+        trace_span(
+            "backend.failed",
+            backend=backend.id,
+            model=target_model,
+            status_code=_error_status,
+            error=_primary_failure_detail[:200],
+        )
+        trace_note(backend=resolved_backend, model=resolved_model, outcome="ok", fallback=True)
         trace_span(
             "backend.selected",
             backend=resolved_backend,
@@ -3480,9 +3490,14 @@ async def _stream_with_fallback(
         # groups front the same engine, so resending there is a repeat.
         tried: dict[tuple[str, str], str] = {(backend.chat_url, target_model): ""}
         if remaining:
-            logger.info(
-                "Stream from %s failed, falling back to remaining backends for workspace=%s",
+            _primary_failure_detail = (
+                _stream_error_detail(_error_buffer) if _error_buffer else "Backend stream failed"
+            )
+            logger.warning(
+                "Stream from %s failed (status=%s): %s; falling back to remaining backends for workspace=%s",
                 backend.id,
+                _error_status,
+                _primary_failure_detail,
                 workspace_id,
             )
             for j, fb in enumerate(remaining):

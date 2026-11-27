@@ -181,7 +181,9 @@ async def release_fallback_copy(workspace_id: str) -> list[str]:
                     await _release_one(client, url, hint, GUARD, OLLAMA, _LLM_ROUTER_MODEL)
                 )
     except Exception as exc:
-        logger.warning("parallel seat: could not release Ollama fallback copy: %s", exc)
+        logger.warning(
+            "parallel seat: could not release Ollama fallback copy: %r", exc, exc_info=True
+        )
     return freed
 
 

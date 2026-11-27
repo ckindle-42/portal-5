@@ -976,6 +976,10 @@ async def test_stream_error_before_first_token_cascades_to_next_candidate(
     stream_client: MagicMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _record_errors(monkeypatch)
+    spans: list[tuple[str, dict[str, typing.Any]]] = []
+    monkeypatch.setattr(st, "trace_span", lambda name, **fields: spans.append((name, fields)))
+    monkeypatch.setattr(st, "trace_note", lambda **fields: None)
+    monkeypatch.setattr(st, "finalize_trace", lambda: None)
     _fail_with(stream_client, RuntimeError("connection reset"))
 
     chunks, calls = await _wrapped_run(monkeypatch, _guarded_inner, remaining=[_backend("b1")])
@@ -984,6 +988,10 @@ async def test_stream_error_before_first_token_cascades_to_next_candidate(
     _assert_well_formed(chunks)
     assert _content(chunks) == "candidate two answer"
     assert "Backend connection error" not in _content(chunks)
+    assert any(name == "backend.failed" for name, _ in spans)
+    assert any(
+        name == "backend.selected" and fields.get("fallback") is True for name, fields in spans
+    )
 
 
 @pytest.mark.anyio
