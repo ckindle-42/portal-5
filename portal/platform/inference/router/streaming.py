@@ -1258,6 +1258,12 @@ async def _stream_with_tool_loop_impl(
     yield _DONE
 
 
+#: SSE comment keeping the wire alive while a tool hop runs: the pipeline owns
+#: tool dispatch and suppresses tool_calls deltas, so a nested call (e.g.
+#: compliance_ask's own inference) is otherwise minutes of zero bytes to OWUI.
+_TOOL_HOP_HEARTBEAT = b": portal tool hop in progress\n\n"
+
+
 async def _tool_loop_frames(
     backend_url: str,
     body: dict[str, Any],
@@ -1270,7 +1276,7 @@ async def _tool_loop_frames(
     client_tools_only: bool = False,
 ) -> AsyncGenerator[bytes, None]:
     """The tool loop's frames, closed with the usage frame the client asked for."""
-    async for frame in _with_closing_usage(
+    frames = _with_closing_usage(
         _tool_loop_frames_impl(
             backend_url,
             body,
@@ -1282,7 +1288,8 @@ async def _tool_loop_frames(
             client_tools_only=client_tools_only,
         ),
         body,
-    ):
+    )
+    async for frame in _with_stream_heartbeats(frames, notice=_TOOL_HOP_HEARTBEAT):
         yield frame
 
 
@@ -2191,7 +2198,9 @@ async def _require_backend_done(lines: AsyncIterator[str]) -> AsyncIterator[str]
         raise httpx.RemoteProtocolError("backend SSE ended before [DONE]")
 
 
-async def _with_stream_heartbeats(frames: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+async def _with_stream_heartbeats(
+    frames: AsyncIterator[bytes], notice: bytes = b": waiting for model capacity\n\n"
+) -> AsyncIterator[bytes]:
     """Keep a queued stream open with SSE comments while its next frame is pending."""
     iterator = frames.__aiter__()
     ctx = contextvars.copy_context()
@@ -2206,7 +2215,7 @@ async def _with_stream_heartbeats(frames: AsyncIterator[bytes]) -> AsyncIterator
             while not task.done():
                 done, _ = await asyncio.wait({task}, timeout=_STREAM_HEARTBEAT_S)
                 if not done:
-                    yield b": waiting for model capacity\n\n"
+                    yield notice
             try:
                 frame = task.result()
             except StopAsyncIteration:
