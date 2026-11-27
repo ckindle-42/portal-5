@@ -52,6 +52,9 @@ def test_session_directories_keep_distinct_ids_separate(monkeypatch, tmp_path, f
         first_id,
         second_id,
     }
+    # root under --cap-drop ALL has no DAC_OVERRIDE: the mount must be world-writable like /out.
+    assert first.stat().st_mode & 0o777 == 0o777
+    assert second.stat().st_mode & 0o777 == 0o777
 
 
 def test_reset_session_does_not_delete_a_distinct_session(monkeypatch, tmp_path):

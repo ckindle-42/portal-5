@@ -513,6 +513,8 @@ def _session_dir(session_id: str) -> Path:
     owner_file = root / f"{key}.owner"
     with SESSION_DIR_LOCK:
         d.mkdir(parents=True, exist_ok=True)
+        # World-writable like /out: exec root drops DAC_OVERRIDE and the owner is non-root `portal`.
+        d.chmod(0o777)
         if not owner_file.exists():
             temp_file = root / f".{key}.{uuid.uuid4().hex}.tmp"
             temp_file.write_text(session_id, encoding="utf-8")
