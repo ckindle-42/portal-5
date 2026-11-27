@@ -578,13 +578,21 @@ def test_output_hygiene_rejects_cjk_markup_and_repeated_lines() -> None:
         "</工具使用记录>",
     ):
         assert uat.check_output_hygiene(prompt, f"Leaked payload {leaked_tag}")
-    assert any(
-        "repetition" in error
-        for error in uat.check_output_hygiene(prompt, "\n".join(["Repeated output line"] * 5))
+    # One grader assertion, pinning the shared no-progress rule the grader imports:
+    # a citation after each new claim is progress (passes); a bare line loop is not.
+    citation_answer = "\n".join(
+        f"{claim}\nSource: https://github.com/jundot/omlx/releases/tag/v0.8.1"
+        for claim in (
+            f"Finding {n}: oMLX v0.8.{n} added seat-level prefill memory guards."
+            for n in range(1, 6)
+        )
     )
-    assert not any(
-        "repetition" in error
-        for error in uat.check_output_hygiene(prompt, "\n".join(["Repeated output line"] * 4))
+    assistant_loop = "\n".join(
+        ["I am an AI assistant designed to provide information and assistance on various topics."]
+        * 5
+    )
+    assert not uat.check_output_hygiene(prompt, citation_answer) and any(
+        "repetition" in error for error in uat.check_output_hygiene(prompt, assistant_loop)
     )
 
     clarity = uat.UATCase("c", "c", "persona", (prompt,), "clarification")

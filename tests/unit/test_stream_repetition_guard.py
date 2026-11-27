@@ -1,11 +1,11 @@
-"""A degenerate line-repetition loop must end the stream early, with a clear
-notice and a trace receipt — not burn the full output budget silently.
+"""A repetition loop — output repeating WITHOUT PROGRESS — must end the stream
+early, with a clear notice and a trace receipt, not burn the output budget.
 
-Seen live 2026-11-26 on auto-coding::bigfix: Qwen3-Coder-30B-A3B-Instruct-4bit
-generated 8192 tokens in 119.39s (finish_reason=length) repeating one line; the
-QAT grader flagged it after the fact. The wire sampling for that seat is
-card-correct (captured below), so the guard is the missing property: stop the
-runaway generation in-stream.
+Live receipts (2026-11-26/27) drive the definition: auto-coding::bigfix burned
+8192 tokens repeating one line (must stop); s2-p2-auto-research cited one
+source after each new claim and s4-auto-coding-core emitted a completed program
+of rulers and ordinary code (both must pass). The QAT grader imports the same
+rule from portal.platform.inference.router.text_repeat.
 """
 
 from __future__ import annotations
@@ -93,37 +93,92 @@ def _content(chunks: list[bytes]) -> str:
     )
 
 
-# ── guard semantics (mirrors the QAT grader's degenerate-line definition) ──
+# ── guard semantics: repetition WITHOUT progress (the rule the QAT grader imports) ──
+
+CITE_LINE = "Source: https://github.com/jundot/omlx/releases/tag/v0.8.1"
+AI_LOOP_LINE = (
+    "I am an AI assistant designed to provide information and assistance on various topics."
+)
 
 
-def test_guard_trips_on_limit_th_identical_line() -> None:
+def _research_answer() -> str:
+    """s2-p2-auto-research (live 2026-11-27): one citation after each distinct claim."""
+    return "".join(
+        f"- Finding {n}: oMLX v0.8.{n} added seat-level prefill memory guards for releases.\n"
+        f"{CITE_LINE}\n"
+        for n in range(1, 6)
+    )
+
+
+def _program() -> str:
+    """s4-auto-coding-core (live 2026-11-27): a completed program of ordinary code."""
+    ruler = "# " + "-" * 75
+    parts: list[str] = []
+    for name in ("load_inventory", "apply_patch", "sync_seats", "audit_blobs", "prune_models"):
+        parts += [
+            ruler,
+            f"def {name}(rows: list[dict[str, str]]) -> dict[str, int]:",
+            f'    """Normalize {name} rows and count the failures."""',
+            "    failures = sum(",
+            "        not bool(row.get('ok'))",
+            "        for row in rows",
+            "    )",
+            "    return {'count': len(rows), 'failed': failures}",
+            "",
+        ]
+    return "\n".join(parts)
+
+
+def test_research_citation_after_each_new_claim_passes() -> None:
     guard = LineRepetitionGuard()
-    for _ in range(REPEAT_LIMIT - 1):
-        assert not guard.feed(LOOP_LINE)
-    assert guard.feed(LOOP_LINE)
-    assert guard.tripped_line == LOOP_LINE.strip()
+    assert not guard.feed(_research_answer())
+    assert not guard.finish()
+    assert guard.tripped_line is None
 
 
-def test_guard_ignores_short_lines_and_distinct_lines() -> None:
+def test_completed_program_with_repeated_rulers_passes() -> None:
     guard = LineRepetitionGuard()
-    for _ in range(REPEAT_LIMIT * 2):
-        assert not guard.feed("- item\n")  # below the min length
-    for i in range(REPEAT_LIMIT * 2):
+    assert not guard.feed(_program())
+    assert not guard.finish()
+    assert guard.tripped_line is None
+
+
+def test_ai_assistant_loop_still_trips() -> None:
+    """auto-coding::bigfix (live): the same line again and again, nothing new between."""
+    guard = LineRepetitionGuard()
+    assert not guard.feed("".join(f"{AI_LOOP_LINE}\n" for _ in range(REPEAT_LIMIT - 1)))
+    assert not guard.feed(AI_LOOP_LINE)  # final line still unterminated in _pending
+    assert guard.finish()
+    assert guard.tripped_line == AI_LOOP_LINE
+    assert guard.tripped_count == REPEAT_LIMIT
+
+
+def test_short_cycle_dominating_tail_trips() -> None:
+    a = "Backing up the deployment state before the next migration step begins now."
+    b = "Waiting for the cluster to settle before the rollout continues any further."
+    guard = LineRepetitionGuard()
+    assert guard.feed("".join(f"{line}\n" for _ in range(4) for line in (a, b)))
+    assert guard.tripped_line in (a, b)
+
+
+def test_guard_trips_across_fragmented_deltas() -> None:
+    guard = LineRepetitionGuard()
+    fragments = [AI_LOOP_LINE[:32], AI_LOOP_LINE[32:] + "\n"] * REPEAT_LIMIT
+    assert guard.feed("".join(fragments))
+    assert guard.tripped_line == AI_LOOP_LINE
+
+
+def test_distinct_and_short_lines_never_trip() -> None:
+    guard = LineRepetitionGuard()
+    for i in range(REPEAT_LIMIT * 3):
         assert not guard.feed(f"a distinct line of some length number {i}\n")
-
-
-def test_guard_counts_across_fragmented_deltas() -> None:
-    guard = LineRepetitionGuard()
-    fragments = [LOOP_LINE[:20], LOOP_LINE[20:]] * (REPEAT_LIMIT - 1)
-    assert not any(guard.feed(f) for f in fragments)
-    assert guard.feed(LOOP_LINE[:20]) or guard.feed(LOOP_LINE[20:])
-    assert guard.tripped_line == LOOP_LINE.strip()
+        assert not guard.feed("- item\n")  # below the min length
+    assert guard.tripped_line is None
 
 
 def test_guard_feed_after_trip_stays_tripped() -> None:
     guard = LineRepetitionGuard()
-    for _ in range(REPEAT_LIMIT):
-        guard.feed(LOOP_LINE)
+    assert guard.feed("".join(f"{AI_LOOP_LINE}\n" for _ in range(REPEAT_LIMIT)))
     assert guard.feed("anything else\n")
 
 
@@ -145,16 +200,6 @@ def test_guard_ignores_structural_lines(structural_line: str) -> None:
     for _ in range(REPEAT_LIMIT * 2):
         assert not guard.feed(structural_line)
     assert guard.tripped_line is None
-
-
-def test_guard_still_catches_real_prose_loop() -> None:
-    guard = LineRepetitionGuard()
-    prose = "I am an AI assistant designed to help users with their questions.\n"
-    for _ in range(REPEAT_LIMIT - 1):
-        assert not guard.feed(prose)
-    assert guard.feed(prose)
-    assert guard.tripped_line == prose.strip()
-    assert guard.tripped_count == REPEAT_LIMIT
 
 
 # ── tool-loop streaming path (what auto-coding::bigfix runs on) ──

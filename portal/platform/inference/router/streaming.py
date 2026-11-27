@@ -1343,7 +1343,7 @@ async def _tool_loop_frames_impl(
     carry_tool_calls: list[dict[str, Any]] = []
     carry_results: list[dict[str, Any]] = []
     _repeat_guard = ToolRepeatGuard()
-    _line_guard = LineRepetitionGuard()  # per turn, like the QAT grader's whole-answer count
+    _line_guard = LineRepetitionGuard()  # per turn, same no-progress rule the QAT grader imports
     _tool_byte_budget = tool_result_byte_budget(workspace_context_limit(workspace_id))
     _tool_result_bytes = 0
     _call_limit = _configured_tool_calls(workspace_id)

@@ -22,6 +22,8 @@ from urllib.parse import urlsplit
 import httpx
 import yaml
 
+from portal.platform.inference.router.text_repeat import LineRepetitionGuard
+
 from .artifacts import raw_tool_error_leak, validate_pdf, wav_magic_error
 from .browser_ui import BrowserUI, PlaywrightUnavailable
 from .config import PERSONA_DIR, REPO_ROOT, Discovery, Settings, workspace_tools_for
@@ -1547,15 +1549,9 @@ def check_output_hygiene(prompt: str, response: str) -> list[str]:
     lowered = response.casefold()
     if any(tag.casefold() in lowered for tag in _OUTPUT_TAGS):
         errors.append("raw tool/XML tag leaked into assistant response")
-    repeats: dict[str, int] = {}
-    for line in response.splitlines():
-        value = line.strip()
-        if len(value) < 12:
-            continue
-        repeats[value] = repeats.get(value, 0) + 1
-        if repeats[value] >= 5:
-            errors.append("degenerate line repetition loop in assistant response")
-            break
+    guard = LineRepetitionGuard()
+    if guard.feed(response) or guard.finish():
+        errors.append("degenerate line repetition loop in assistant response")
     return errors
 
 
