@@ -391,6 +391,140 @@ async def test_turn_deadline_stalls_when_only_sse_comments_arrive(monkeypatch) -
 
 
 @pytest.mark.anyio
+async def test_turn_deadline_extended_while_engine_holds_request(monkeypatch) -> None:
+    """A silent turn whose engine still holds the request is extended, never killed.
+
+    Both engines suppress buffered tool-call markup from the stream, so a long
+    tool-call generation is zero bytes on the wire — s4 measured 300+ s of
+    silence at 12 tok/s. The deadline lapse must ask the engine before it ends
+    the turn, and a working turn must still deliver its late tool call.
+    """
+    _silence_trace(monkeypatch)
+    probes: list[tuple[str, str]] = []
+
+    async def alive(url: str, model: str, **_kw: typing.Any) -> bool:
+        probes.append((url, model))
+        return True
+
+    monkeypatch.setattr(bi, "turn_engine_alive", alive)
+
+    async def silent_then_late() -> typing.AsyncIterator[bytes]:
+        st.note_stream_engine("http://ollama:11434/v1/chat/completions", "qwen-coder:latest")
+        yield b'data: {"choices":[{"delta":{"content":"hop started"}}]}\n\n'
+        await asyncio.sleep(0.2)
+        yield (
+            b'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1",'
+            b'"type":"function","function":{"name":"execute_python","arguments":"{}"}}]}}]}\n\n'
+        )
+        yield b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n'
+        yield DONE
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            silent_then_late(),
+            workspace_id="auto-coding",
+            start_time=time.monotonic(),
+            timeout_s=0.05,
+        )
+    )
+
+    joined = b"".join(chunks)
+    _assert_well_formed(chunks)
+    assert b"turn deadline" not in joined
+    assert b"execute_python" in joined
+    assert probes == [("http://ollama:11434/v1/chat/completions", "qwen-coder:latest")] * len(
+        probes
+    )
+    assert len(probes) >= 1
+
+
+@pytest.mark.anyio
+async def test_turn_deadline_still_fires_when_engine_holds_nothing(monkeypatch) -> None:
+    """A silent turn whose engine reports no in-flight work still stalls."""
+    probes: list[tuple[str, str]] = []
+
+    async def dead(url: str, model: str, **_kw: typing.Any) -> bool:
+        probes.append((url, model))
+        return False
+
+    monkeypatch.setattr(bi, "turn_engine_alive", dead)
+    _silence_trace(monkeypatch)
+
+    async def silent() -> typing.AsyncIterator[bytes]:
+        st.note_stream_engine("http://ollama:11434/v1/chat/completions", "qwen-coder:latest")
+        yield b'data: {"choices":[{"delta":{"content":"hop started"}}]}\n\n'
+        await asyncio.Event().wait()
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            silent(),
+            workspace_id="auto-coding",
+            start_time=time.monotonic(),
+            timeout_s=0.01,
+        )
+    )
+
+    _assert_terminal(chunks, "turn deadline")
+    assert probes == [("http://ollama:11434/v1/chat/completions", "qwen-coder:latest")]
+
+
+@pytest.mark.anyio
+async def test_turn_deadline_fires_without_engine_request(monkeypatch) -> None:
+    """No engine request in flight (e.g. a tool executing): stall without a probe."""
+
+    async def spy(*_a: typing.Any, **_k: typing.Any) -> bool:
+        raise AssertionError("probe must not run without an in-flight engine request")
+
+    monkeypatch.setattr(bi, "turn_engine_alive", spy)
+    _silence_trace(monkeypatch)
+
+    async def silent() -> typing.AsyncIterator[bytes]:
+        await asyncio.Event().wait()
+        yield DONE  # pragma: no cover - never reached
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            silent(),
+            workspace_id="auto-coding",
+            start_time=time.monotonic(),
+            timeout_s=0.01,
+        )
+    )
+
+    _assert_terminal(chunks, "turn deadline")
+
+
+@pytest.mark.anyio
+async def test_turn_deadline_still_fires_when_the_probe_fails(monkeypatch) -> None:
+    """A probe that cannot answer is not liveness: the stall stands."""
+    calls: list[int] = []
+
+    async def broken(*_a: typing.Any, **_k: typing.Any) -> bool:
+        calls.append(1)
+        raise RuntimeError("engine unreachable")
+
+    monkeypatch.setattr(bi, "turn_engine_alive", broken)
+    _silence_trace(monkeypatch)
+
+    async def silent() -> typing.AsyncIterator[bytes]:
+        st.note_stream_engine("http://omlx:8085/v1/chat/completions", "qwen3-coder")
+        yield b'data: {"choices":[{"delta":{"content":"hop started"}}]}\n\n'
+        await asyncio.Event().wait()
+
+    chunks = await _drain(
+        handlers._with_portal_timings(
+            silent(),
+            workspace_id="auto-coding",
+            start_time=time.monotonic(),
+            timeout_s=0.01,
+        )
+    )
+
+    _assert_terminal(chunks, "turn deadline")
+    assert len(calls) == 1
+
+
+@pytest.mark.anyio
 async def test_turn_deadline_stops_after_backend_terminal_marker(monkeypatch) -> None:
     closed = False
     deadlines: list[dict[str, typing.Any]] = []

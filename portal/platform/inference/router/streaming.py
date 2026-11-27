@@ -504,6 +504,41 @@ _STREAM_ACTIVITY: contextvars.ContextVar[Callable[[], None] | None] = contextvar
 )
 
 
+class _EngineRequestRef:
+    """Mutable marker for the engine request this turn currently awaits.
+
+    The turn deadline owns the instance and publishes it through
+    ``_STREAM_ENGINE`` before driving the stream. A plain object is the seam
+    on purpose: the deadline reads via a pump task whose context is a copy of
+    the turn task's, so a contextvar ``set`` inside the stream would be
+    invisible to it — attribute writes on a shared object are not.
+    """
+
+    __slots__ = ("engine",)
+
+    def __init__(self) -> None:
+        self.engine: tuple[str, str] | None = None
+
+
+_STREAM_ENGINE: contextvars.ContextVar[_EngineRequestRef | None] = contextvars.ContextVar(
+    "portal_stream_engine", default=None
+)
+
+
+def note_stream_engine(url: str, model: str) -> None:
+    """Record the engine request this turn is awaiting, for deadline liveness."""
+    ref = _STREAM_ENGINE.get()
+    if ref is not None:
+        ref.engine = (url, model)
+
+
+def clear_stream_engine() -> None:
+    """The hop's engine request ended; until the next one opens there is nothing alive."""
+    ref = _STREAM_ENGINE.get()
+    if ref is not None:
+        ref.engine = None
+
+
 def mark_stream_activity() -> None:
     """Record live engine or tool progress so the turn idle deadline resets."""
     cb = _STREAM_ACTIVITY.get()
@@ -1446,6 +1481,7 @@ async def _tool_loop_frames_impl(
             _retry_hop = False
             try:
                 trace_capture(backend_request=current_body)
+                note_stream_engine(backend_url, str(current_body.get("model") or model))
                 async with _http_client.stream(  # type: ignore[union-attr]
                     "POST",
                     backend_url,
@@ -1632,6 +1668,7 @@ async def _tool_loop_frames_impl(
                         if delta or not _frame_finish:
                             for _f in _route(_held_frames, (line + "\n\n").encode()):
                                 yield _f
+                clear_stream_engine()
                 if _retry_hop:
                     continue
                 break
@@ -2252,6 +2289,7 @@ async def _stream_from_backend_guarded_impl(
     try:
         _usage_recorded = False  # guard: only record TPS once per request
         trace_capture(backend_request=body)
+        note_stream_engine(url, str(body.get("model") or model))
         async with _http_client.stream(
             "POST",
             url,
@@ -2485,6 +2523,7 @@ async def _stream_from_backend_guarded_impl(
             if _usage_chunk is not None:
                 yield _usage_chunk
             yield b"data: [DONE]\n\n"
+        clear_stream_engine()
     except httpx.TimeoutException as _timeout:
         logger.warning(
             "Backend %s timed out during stream [%s] (workspace=%s) — probing engine state",

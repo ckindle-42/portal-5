@@ -48,6 +48,68 @@ async def model_still_running(backend_url: str, timeout_s: float = 5.0) -> bool:
     return await _ollama_model_loaded(base, timeout_s)
 
 
+async def turn_engine_alive(backend_url: str, model: str, timeout_s: float = 5.0) -> bool:
+    """Whether the engine at ``backend_url`` still holds this turn's request.
+
+    Asked once per request_timeout of wire silence before the turn deadline
+    declares a stall: both engines suppress buffered tool-call markup from
+    the stream (Ollama's chat tool parser and oMLX's ToolCallStreamFilter
+    emit the call only when the envelope completes), so a long tool-call
+    generation is zero bytes on the wire and silence alone cannot tell
+    generating from dead.
+
+    * oMLX: ``/api/status`` counts ``active_requests`` + ``waiting_requests``;
+      this turn holds a load-guard lease on that engine, so any engine-side
+      count is engine work (its collector reaper drops dead requests within
+      seconds). Zero means the engine no longer holds anything of ours.
+    * Ollama: ``/api/ps`` exposes no active-request count (v0.40.18 — resident
+      models with ExpiresAt only), so the serving model still resident is the
+      only observable "engine holds it" signal: the scheduler unlists a model
+      that crashed or was unloaded.
+
+    A probe that fails to answer is not liveness — False.
+    """
+    base = backend_url.split("/v1/")[0]
+    if _backend_type_for_url(base) == "omlx":
+        return await _omlx_engine_active(base, timeout_s)
+    return await _ollama_model_resident(base, model, timeout_s)
+
+
+async def _omlx_engine_active(base_url: str, timeout_s: float) -> bool:
+    """True while oMLX reports any active or waiting request (authenticated)."""
+    try:
+        async with httpx.AsyncClient(timeout=timeout_s, auth=OmlxKeyAuth()) as client:
+            resp = await client.get(f"{base_url}/api/status")
+            if resp.status_code != 200:
+                return False
+            status = resp.json()
+    except Exception:
+        return False
+    if not isinstance(status, dict):
+        return False
+    return bool(int(status.get("active_requests") or 0) + int(status.get("waiting_requests") or 0))
+
+
+async def _ollama_model_resident(base_url: str, model: str, timeout_s: float) -> bool:
+    """True while /api/ps still lists ``model`` (same match rule as the guard)."""
+    key = model_key(model)
+    if not key:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=timeout_s) as client:
+            resp = await client.get(f"{base_url}/api/ps")
+            if resp.status_code != 200:
+                return False
+            models = resp.json().get("models") or []
+    except Exception:
+        return False
+    return any(
+        isinstance(entry, dict)
+        and model_key(str(entry.get("name") or entry.get("model") or "")) == key
+        for entry in models
+    )
+
+
 def _backend_type_for_url(base_url: str) -> str:
     """Resolve a backend base URL to its registry ``type`` ("ollama" default).
 

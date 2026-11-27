@@ -186,6 +186,14 @@ _client_disconnect_cancel_total = Counter(
     registry=_REGISTRY,
 )
 
+_turn_deadline_extended_total = Counter(
+    "portal5_turn_deadline_extended_total",
+    "Turn-idle deadline lapses extended because the engine still holds the request "
+    "(buffered tool-call arguments stream no bytes)",
+    ["engine"],
+    registry=_REGISTRY,
+)
+
 _errors_total = Counter(
     "portal_errors_total",
     "Total failed requests by workspace and error type",

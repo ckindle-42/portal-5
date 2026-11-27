@@ -63,6 +63,7 @@ from portal.platform.inference.router.metrics import (
     _REGISTRY,
     _record_response_time,
     _requests_total,
+    _turn_deadline_extended_total,
 )
 from portal.platform.inference.router.non_streaming import (
     BackendRequestError,
@@ -100,8 +101,10 @@ from portal.platform.inference.router.state import (
 )
 from portal.platform.inference.router.streaming import (
     _STREAM_ACTIVITY,
+    _STREAM_ENGINE,
     _build_streaming_request,
     _content_chunk,
+    _EngineRequestRef,
     _error_terminal_frames,
     _prioritize_hinted_backend,  # noqa: F401  (re-exported: tests import it from handlers)
     _select_stream_fn,
@@ -376,39 +379,99 @@ def _is_sse_comment(chunk: str | bytes | memoryview) -> bool:
 async def _with_stream_deadline(
     source: AsyncIterable[str | bytes | memoryview], idle_timeout_s: float
 ) -> AsyncIterator[str | bytes | memoryview]:
-    loop = asyncio.get_running_loop()
     last_activity = time.monotonic()
-    active_timeout: asyncio.Timeout | None = None
 
     def _touch() -> None:
         nonlocal last_activity
         last_activity = time.monotonic()
-        if active_timeout is not None:
-            active_timeout.reschedule(loop.time() + idle_timeout_s)
 
-    token = _STREAM_ACTIVITY.set(_touch)
+    ref = _EngineRequestRef()
+    token_activity = _STREAM_ACTIVITY.set(_touch)
+    token_engine = _STREAM_ENGINE.set(ref)
     iterator = source.__aiter__()
+    queue: asyncio.Queue[Any] = asyncio.Queue()
+    pump = asyncio.ensure_future(_pump_stream(iterator, queue))
     try:
         while True:
             remaining = (last_activity + idle_timeout_s) - time.monotonic()
             if remaining <= 0:
+                if await _turn_engine_alive():
+                    _touch()
+                    continue
                 raise _TurnDeadlineExceededError(idle_timeout_s)
             try:
-                async with asyncio.timeout(remaining) as cm:
-                    active_timeout = cm
-                    chunk = await anext(iterator)
-            except StopAsyncIteration:
+                item = await asyncio.wait_for(queue.get(), remaining)
+            except TimeoutError as idle:
+                remaining = (last_activity + idle_timeout_s) - time.monotonic()
+                if remaining > 0:
+                    continue  # mark_stream_activity landed while the wait ran
+                if await _turn_engine_alive():
+                    _touch()
+                    continue
+                raise _TurnDeadlineExceededError(idle_timeout_s) from idle
+            if item is None:
                 return
-            except TimeoutError as exc:
-                raise _TurnDeadlineExceededError(idle_timeout_s) from exc
-            finally:
-                active_timeout = None
-            if not _is_sse_comment(chunk):
+            if isinstance(item, BaseException):
+                raise item
+            if not _is_sse_comment(item):
                 _touch()
-            yield chunk
+            yield item
     finally:
-        _STREAM_ACTIVITY.reset(token)
+        _STREAM_ACTIVITY.reset(token_activity)
+        _STREAM_ENGINE.reset(token_engine)
+        pump.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await pump
         await _close_async_iterator(iterator)
+
+
+async def _pump_stream(
+    iterator: AsyncIterator[str | bytes | memoryview], queue: asyncio.Queue[Any]
+) -> None:
+    """Drive the turn's stream into ``queue`` so the deadline can wait without
+    cancelling it — firing the window into the read would abort the very engine
+    request the lapse is supposed to judge."""
+    try:
+        async for chunk in iterator:
+            await queue.put(chunk)
+    except Exception as exc:
+        await queue.put(exc)
+    finally:
+        await queue.put(None)
+
+
+async def _turn_engine_alive() -> bool:
+    """Whether the engine awaiting this turn's silent request still holds it.
+
+    Wire silence cannot tell generating from dead (both engines suppress
+    buffered tool-call markup until the call completes), so each lapse of the
+    turn idle window asks the engine once; alive extends the window by a full
+    ``request_timeout``, dead (or no engine request in flight) stalls as before.
+    """
+    ref = _STREAM_ENGINE.get()
+    engine = ref.engine if ref is not None else None
+    if engine is None:
+        return False
+    from portal.platform.inference.router.backend_introspect import (
+        _backend_type_for_url,
+        turn_engine_alive,
+    )
+
+    try:
+        alive = await turn_engine_alive(engine[0], engine[1])
+    except Exception:
+        logger.exception("turn deadline liveness probe failed for %s", engine[0])
+        return False
+    if alive:
+        engine_type = _backend_type_for_url(engine[0].split("/v1/")[0])
+        _turn_deadline_extended_total.labels(engine=engine_type).inc()
+        logger.info(
+            "turn deadline lapsed but %s still holds the request (model=%s, corr=%s); extending",
+            engine_type,
+            engine[1],
+            get_correlation_id(),
+        )
+    return alive
 
 
 def _turn_timeout_s() -> float:
