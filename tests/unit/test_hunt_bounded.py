@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -11,6 +14,8 @@ from portal.modules.security.core.hunt.jobs import (
     HuntBudget,
     query_budget_kind,
 )
+from portal.modules.security.core.hunt.notables.__main__ import main as notables_main
+from portal.modules.security.core.hunt.notables.run import behaviours_stage
 from portal.modules.security.core.review.window import (
     JobCancel,
     SplunkWindowSource,
@@ -109,3 +114,33 @@ def test_a_cancel_after_release_does_nothing() -> None:
     token.cancel()
 
     assert fired == []
+
+
+def _budget() -> HuntBudget:
+    return HuntBudget(
+        {"query_seconds": 1, "job_seconds": 5, "requests": 100, "cells": 100, "events": 100}
+    )
+
+
+def test_a_notables_run_after_an_expired_stage_starts_its_own_clock(tmp_path: Path) -> None:
+    """`--stage all`: the stage before ran past its job clock and left `job_deadline_exceeded`
+    sticky, so every notables read — alerts, exact counts, the deviation series — was refused."""
+    search = SimpleNamespace(executor=HuntExecutor(_results_source("sid-clock", []), _budget()))
+    out = tmp_path / "run"
+    out.mkdir()
+    (out / "sources.json").write_text(json.dumps({"index": "i", "cards": []}), "utf-8")
+    behaviours_stage(out=out, search=search)
+    budget = search.executor.budget
+    budget.exhausted = "job_deadline_exceeded"
+    budget.started -= budget.limits["job_seconds"]
+
+    code = notables_main(
+        ["--index", "i", "--out", str(out), "--stage", "notables", "--generators", "deviation"],
+        search=search,
+    )
+
+    ledger = [json.loads(line) for line in (out / "ledger.jsonl").read_text().splitlines()]
+    reasons = [row["reason"] for row in ledger if row["stage"] == "notables"]
+    assert code == 0
+    assert reasons and set(reasons) == {None}
+    assert budget.exhausted is None

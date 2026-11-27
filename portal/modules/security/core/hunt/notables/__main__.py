@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..engine import Search
+from ..executor import executor_for
 from .behaviours import Behaviour
 from .embedding import embedding_from_env, embedding_requirement
 from .pipeline import model_from_env, model_requirement, preflight
@@ -411,6 +412,8 @@ def main(argv: list[str] | None = None, *, search: Search | None = None) -> int:
             if args.knowledge_families
             else None
         )
+        # behaviours owns the wall clock to here; the generators start their own, as relate does
+        executor_for(search).budget.restart_clock()
         try:
             _rows, receipt = notables_stage(
                 index=args.index,

@@ -647,6 +647,11 @@ def notables_stage(
         name for name in enabled if name not in (SIMILAR_GENERATOR, MISFIT_GENERATOR)
     ]
     executor = executor_for(search)
+    clock = {
+        "job_seconds": executor.budget.limits["job_seconds"],
+        "remaining_s": round(executor.budget.job_remaining(), 1),
+        "requests_spent": executor.budget.queries,
+    }
     behaviours, source_facts, inventory_receipt = _stored_inventory(out, cards, behaviours)
     notables, receipt = generate(
         executor,
@@ -700,6 +705,7 @@ def notables_stage(
     if "deviation" in enabled:
         receipt["source_windows"] = resolve_source_windows(merged, executor, cards, source_facts)
     receipt.update(inventory=inventory_receipt, merge=merge_receipt)
+    receipt["clock"] = clock
     receipt["enabled"] = list(enabled)
     receipt["total"] = len(merged)
     receipt["seconds"]["total"] = round(time.monotonic() - began, 3)
