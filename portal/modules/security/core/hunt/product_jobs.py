@@ -12,10 +12,17 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from .engine import Search
 from .executor import DEFAULT_BUDGETS, HuntBudget, HuntBudgetExceededError
 from .jobs import BudgetedSearch, compact
-from .judge import BackpressureClient, JudgeClient, ThrottleBudgetExceededError
+from .judge import (
+    BackpressureClient,
+    JudgeClient,
+    ThrottleBudgetExceededError,
+    active_seat_memory_wait,
+)
 from .notables.embedding import PipelineEmbeddingClient, embedding_from_env, embedding_requirement
 from .notables.pipeline import model_from_env, model_requirement, preflight
 from .notables.receipt import progress_update, read_json
@@ -55,23 +62,152 @@ LEADS_VIEW_LIMIT = 3
 LEADS_VIEW_DEFAULT = 2
 STATUS_WAIT_MAX_S = 45.0
 STATUS_POLL_S = 1.0
-TERMINAL_STATUSES = {"COMPLETE", "PARTIAL", "FAILED"}
+MEMORY_WAIT_POLL_S = 1.0
+TERMINAL_STATUSES = {"COMPLETE", "PARTIAL", "FAILED", "CANCELLED"}
 
 
 class HuntJobClient:
     """Apply the shared hunt deadline to each Pipeline request."""
 
-    def __init__(self, client: JudgeClient, effort: HuntBudget) -> None:
+    def __init__(
+        self, client: JudgeClient, effort: HuntBudget, memory_wait: Any | None = None
+    ) -> None:
         self.client = client
         self.effort = effort
+        self.memory_wait = memory_wait
 
     def complete(self, **request: Any) -> Mapping[str, Any]:
-        remaining = self.effort.remaining()
-        if remaining <= 0:
-            self.effort.exhausted = self.effort.expired_reason() or "job_deadline_exceeded"
-            raise HuntBudgetExceededError(self.effort.exhausted)
-        request["_timeout_seconds"] = remaining
-        return self.client.complete(**request)
+        memory_wait = self.memory_wait
+        waiting = False
+        try:
+            while True:
+                if waiting:
+                    assert memory_wait is not None
+                    memory_wait.check_wanted()
+                remaining = self.effort.remaining()
+                if remaining <= 0:
+                    self.effort.exhausted = self.effort.expired_reason() or "job_deadline_exceeded"
+                    raise HuntBudgetExceededError(self.effort.exhausted)
+                request["_timeout_seconds"] = remaining
+                try:
+                    return self.client.complete(**request)
+                except httpx.HTTPStatusError as exc:
+                    detail = active_seat_memory_wait(exc.response)
+                    if detail is None or memory_wait is None:
+                        raise
+                    memory_wait.check_wanted()
+                    if waiting:
+                        memory_wait.update(detail)
+                    else:
+                        memory_wait.start(detail)
+                        waiting = True
+                    time.sleep(MEMORY_WAIT_POLL_S)
+        finally:
+            if waiting:
+                assert memory_wait is not None
+                memory_wait.end()
+
+
+class HuntJobNoLongerWantedError(RuntimeError):
+    """The durable job record no longer requests the running work."""
+
+
+def _utc_now() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+class _HuntMemoryWait:
+    """Persist active-seat memory waits and pause the hunt's work budget."""
+
+    def __init__(
+        self,
+        job_id: str,
+        state: dict[str, Any],
+        state_lock: threading.RLock,
+        effort: HuntBudget,
+    ) -> None:
+        self.job_id = job_id
+        self.state = state
+        self.state_lock = state_lock
+        self.effort = effort
+        self.waiters = 0
+        self.attempts = 0
+        self.since = ""
+        self.previous_status = "RUNNING"
+        self.previous_stage = "preflight"
+        self.previous_phase = "preflight"
+        self.detail = ""
+
+    def wanted(self) -> bool:
+        job = load(self.job_id)
+        return bool(job and str(job.get("status") or "").upper() in {"RUNNING", "QUEUED"})
+
+    def check_wanted(self) -> None:
+        if not self.wanted():
+            raise HuntJobNoLongerWantedError(self.job_id)
+
+    def start(self, detail: str) -> None:
+        with self.state_lock:
+            if self.waiters == 0:
+                current = _mapping(_mapping(self.state.get("progress")).get("current"))
+                self.previous_status = str(self.state.get("status") or "RUNNING")
+                self.previous_stage = str(self.state.get("stage") or "preflight")
+                self.previous_phase = str(current.get("phase") or self.previous_stage)
+                self.since = _utc_now()
+                self.effort.begin_memory_wait()
+            self.waiters += 1
+            self.attempts += 1
+            self._write_wait(detail)
+
+    def update(self, detail: str) -> None:
+        with self.state_lock:
+            self.attempts += 1
+            self._write_wait(detail)
+
+    def end(self) -> None:
+        with self.state_lock:
+            if self.waiters == 0:
+                return
+            self.waiters -= 1
+            if self.waiters:
+                return
+            self.effort.end_memory_wait()
+            latest = load(self.job_id)
+            if latest is None:
+                return
+            if latest is not None and _is_terminal(latest):
+                self.state.clear()
+                self.state.update(latest)
+                return
+            self.state.pop("memory_wait", None)
+            if self.state.get("stage") == "waiting_for_memory":
+                self.state["stage"] = self.previous_stage
+            if self.state.get("status") == "QUEUED":
+                self.state["status"] = self.previous_status
+            progress = dict(_mapping(self.state.get("progress")))
+            current = dict(_mapping(progress.get("current")))
+            current.pop("memory_wait", None)
+            if current.get("phase") == "waiting_for_memory":
+                current["phase"] = self.previous_phase
+            progress["current"] = current
+            self.state["progress"] = progress
+            _write(self.job_id, self.state)
+
+    def _write_wait(self, detail: str) -> None:
+        self.detail = detail[:800]
+        wait = {
+            "detail": self.detail,
+            "attempts": self.attempts,
+            "since_utc": self.since,
+            "last_seen_utc": _utc_now(),
+        }
+        self.state.update(status="QUEUED", stage="waiting_for_memory", memory_wait=wait)
+        progress = dict(_mapping(self.state.get("progress")))
+        current = dict(_mapping(progress.get("current")))
+        current.update(phase="waiting_for_memory", memory_wait=wait)
+        progress["current"] = current
+        self.state["progress"] = progress
+        _write(self.job_id, self.state)
 
 
 def _path(job_id: str) -> Path:
@@ -408,6 +544,27 @@ def _record_failure(
         logger.exception("hunt job %s could not persist its failure reason", job_id)
 
 
+def _run_preflight(
+    job_id: str,
+    state: dict[str, Any],
+    state_lock: threading.RLock,
+    out: Path,
+    effort: HuntBudget,
+    client: HuntJobClient,
+    model: str,
+) -> None:
+    began = time.monotonic()
+    rejected = preflight(client, model)
+    progress_update(
+        out,
+        "preflight",
+        {"requests": 1, "seconds": round(time.monotonic() - began, 3)},
+    )
+    _save_progress(job_id, state, state_lock, out, effort.snapshot())
+    if rejected is not None:
+        raise RuntimeError(f"Pipeline preflight failed for {rejected.model}: {rejected.detail}")
+
+
 def _run(
     job_id: str,
     search: Search,
@@ -435,18 +592,12 @@ def _run(
     effort.on_progress = lambda snapshot: _save_progress(job_id, state, state_lock, out, snapshot)
     bounded_search = BudgetedSearch(search, effort)
     client, model = target
-    bounded_client = HuntJobClient(client, effort)
+    memory_wait = _HuntMemoryWait(job_id, state, state_lock, effort)
+    if embedder is not None:
+        embedder.set_memory_wait(memory_wait)
+    bounded_client = HuntJobClient(client, effort, memory_wait)
     try:
-        began = time.monotonic()
-        rejected = preflight(bounded_client, model)
-        progress_update(
-            out,
-            "preflight",
-            {"requests": 1, "seconds": round(time.monotonic() - began, 3)},
-        )
-        _save_progress(job_id, state, state_lock, out, effort.snapshot())
-        if rejected is not None:
-            raise RuntimeError(f"Pipeline preflight failed for {rejected.model}: {rejected.detail}")
+        _run_preflight(job_id, state, state_lock, out, effort, bounded_client, model)
         _execute_stages(
             _stage_actions(
                 index,
@@ -498,6 +649,13 @@ def _run(
                 coverage_complete=covered,
                 partial_reason="relate stage did not cover every notable seed",
             )
+    except HuntJobNoLongerWantedError:
+        current = load(job_id)
+        if current is not None:
+            state.clear()
+            state.update(current)
+        else:
+            state.update(status="CANCELLED", stage="cancelled")
     except Exception as exc:
         _record_failure(job_id, state, out, effort, exc)
     finally:
@@ -639,6 +797,8 @@ def _next_step(status: str) -> str:
         "COMPLETE": "Read sources, leads, and case 1.",
         "PARTIAL": "Read saved results and report the coverage reason.",
         "FAILED": "Report the failure reason and inspect any saved results.",
+        "QUEUED": "The hunt is waiting for memory; report that and let the job continue.",
+        "CANCELLED": "The hunt was no longer wanted and stopped waiting.",
     }.get(status.upper(), "Check this job again after it advances.")
 
 
@@ -652,6 +812,9 @@ def _status_result(job: Mapping[str, Any], detail: bool = False) -> dict[str, An
         total = len(stage_plan) or len(STAGE_ORDER)
         phase = str(current.get("phase") or job.get("stage") or "unknown")
         activity = [phase]
+        memory_wait = _mapping(job.get("memory_wait"))
+        if memory_wait:
+            activity.append("waiting for memory")
         for key, label in (
             ("query_count", "queries"),
             ("cell_count", "cells"),
@@ -673,6 +836,7 @@ def _status_result(job: Mapping[str, Any], detail: bool = False) -> dict[str, An
                 "stages_done": f"{done}/{total}",
                 "elapsed_s": round(max(0.0, elapsed), 1),
                 "last_progress": _short(" ".join(activity), 180),
+                "memory_wait": dict(memory_wait) if memory_wait else None,
                 "partial_reason": _short(job.get("partial_reason"), 180),
                 "error": _short(job.get("error"), 180),
                 "terminal": terminal,
@@ -698,6 +862,7 @@ def _status_result(job: Mapping[str, Any], detail: bool = False) -> dict[str, An
             "knowledge_store",
             "stage_plan",
             "judge_selection",
+            "memory_wait",
         )
         if key in job
     }
@@ -728,7 +893,7 @@ def status(
         if job is None:
             return out
         remaining = deadline - time.monotonic()
-        if _is_terminal(job) or remaining <= 0:
+        if _is_terminal(job) or job.get("stage") == "waiting_for_memory" or remaining <= 0:
             result = _status_result(job, detail=detail)
             if note := out.get("resolution_note"):
                 result["resolution_note"] = note

@@ -2286,7 +2286,13 @@ def _hunt_status_errors(text: str, receipts: list[dict[str, object]]) -> list[st
     for marker in ("source", "status"):
         if marker not in text.casefold():
             errors.append(f"hunt answer omitted the {marker} result")
-    if receipt_status and receipt_status not in {"RUNNING", "COMPLETE", "PARTIAL", "FAILED"}:
+    if receipt_status and receipt_status not in {
+        "QUEUED",
+        "RUNNING",
+        "COMPLETE",
+        "PARTIAL",
+        "FAILED",
+    }:
         errors.append("hunt status result did not contain a recognized state")
     return errors
 
@@ -2295,13 +2301,13 @@ def _hunt_outcome_errors(text: str, receipts: list[dict[str, object]]) -> list[s
     if _hunt_receipt_status(receipts) not in {"COMPLETE", "PARTIAL", "FAILED"}:
         return _hunt_identifier_errors(text, receipts)
     requests = _receipt_count(receipts, ("splunk_requests", "request_count", "requests_count"))
-    leads = _receipt_count(receipts, ("lead_count", "leads_count"))
+    leads = _receipt_count(receipts, ("total_leads", "lead_count", "leads_count"))
     errors = []
     if requests is None or requests <= 0:
         errors.append("hunt receipt shows no Splunk requests")
     if leads is None:
         errors.append("terminal hunt receipt omitted its lead count")
-    elif leads == 0 and not re.search(r"\b(?:0|no)\s+leads?\b", text, re.IGNORECASE):
+    elif leads == 0 and not _reported_zero_leads(text):
         errors.append("hunt answer did not report the receipt's zero leads")
     elif leads > 0 and "lead" not in text.casefold():
         errors.append("hunt answer omitted the lead result")
@@ -2323,13 +2329,19 @@ def _hunt_identifier_errors(text: str, receipts: list[dict[str, object]]) -> lis
         if isinstance(candidate, (str, int)) and len(str(candidate).strip()) >= 8
     }
     reported_ids = {
+        candidate
+        for candidate in receipt_ids
+        if re.search(rf"(?<![a-z0-9._:-]){re.escape(candidate)}(?![a-z0-9._:-])", text, re.I)
+    }
+    reported_ids.update(
         match.rstrip(".,;:").casefold()
         for match in re.findall(
-            r"\b(?:job|event|lead|case|record)\s+(?:id\s+)?([a-z0-9][a-z0-9._:-]{7,})",
+            r"\b(?:hunt|job|event|lead|case|record)\s+"
+            r"(?:(?:identifier|id)\b\s*)?[:#=]?\s*([a-z0-9][a-z0-9._:-]{7,})",
             text,
             re.IGNORECASE,
         )
-    }
+    )
     errors = []
     if not receipt_ids or not reported_ids:
         errors.append("hunt summary omitted a receipted event or job identifier")
@@ -2350,12 +2362,28 @@ def _receipt_count(receipts: list[dict[str, object]], keys: tuple[str, ...]) -> 
 def _reported_count(text: str, metric: str) -> int | None:
     match = re.search(rf"\b(\d[\d,]*)\s+(?:splunk\s+)?{metric}s?\b", text, re.IGNORECASE)
     if not match:
+        name = {"request": r"(?:splunk[_ ]?)?requests?", "event": r"events?", "lead": r"leads?"}[
+            metric
+        ]
+        match = re.search(
+            rf"\b(?:total[_ ]?)?{name}(?:[_ ]count)?\s*[:=]\s*(\d[\d,]*)\b",
+            text,
+            re.IGNORECASE,
+        )
+    if not match:
         return None
     return int(match.group(1).replace(",", ""))
 
 
+def _reported_zero_leads(text: str) -> bool:
+    return bool(
+        re.search(r"\b(?:0|zero|no)\s+leads?\b", text, re.IGNORECASE)
+        or re.search(r"\btotal[_ ]leads?\s*[:=]\s*0\b", text, re.IGNORECASE)
+    )
+
+
 def _reported_hunt_status(text: str) -> str:
-    matches = re.findall(r"\b(RUNNING|COMPLETE|PARTIAL|FAILED)\b", text, re.I)
+    matches = re.findall(r"\b(QUEUED|RUNNING|COMPLETE|PARTIAL|FAILED)\b", text, re.I)
     return matches[-1].upper() if matches else ""
 
 

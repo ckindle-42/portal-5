@@ -174,6 +174,9 @@ class HuntBudget:
     host_hours: list[dict[str, Any]] = field(default_factory=list)
     judge_block: dict[str, Any] = field(default_factory=dict)
     concurrency: int = field(default_factory=_configured_concurrency)
+    memory_waiters: int = 0
+    memory_wait_started: float | None = None
+    memory_wait_seconds: float = 0.0
     splunk_slots: threading.BoundedSemaphore = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -187,17 +190,48 @@ class HuntBudget:
 
     @property
     def request_deadline(self) -> float:
-        return min(
-            self.deadline, self.stage_deadline or self.deadline, self.sub_deadline or self.deadline
+        paused = self._paused_memory_seconds()
+        return (
+            min(
+                self.deadline,
+                self.stage_deadline or self.deadline,
+                self.sub_deadline or self.deadline,
+            )
+            + paused
         )
 
+    def _budget_now(self) -> float:
+        return time.monotonic() - self._paused_memory_seconds()
+
+    def _paused_memory_seconds(self) -> float:
+        with self.lock:
+            paused = self.memory_wait_seconds
+            if self.memory_wait_started is not None:
+                paused += time.monotonic() - self.memory_wait_started
+            return paused
+
+    def begin_memory_wait(self) -> None:
+        with self.lock:
+            if self.memory_waiters == 0:
+                self.memory_wait_started = time.monotonic()
+            self.memory_waiters += 1
+
+    def end_memory_wait(self) -> None:
+        with self.lock:
+            if self.memory_waiters == 0:
+                return
+            self.memory_waiters -= 1
+            if self.memory_waiters == 0 and self.memory_wait_started is not None:
+                self.memory_wait_seconds += time.monotonic() - self.memory_wait_started
+                self.memory_wait_started = None
+
     def job_remaining(self) -> float:
-        return max(0.0, self.deadline - time.monotonic())
+        return max(0.0, self.deadline - self._budget_now())
 
     def stage_remaining(self) -> float | None:
         if self.stage_deadline is None:
             return None
-        return max(0.0, self.stage_deadline - time.monotonic())
+        return max(0.0, self.stage_deadline - self._budget_now())
 
     def remaining(self) -> float:
         remaining = self.job_remaining()
@@ -205,14 +239,14 @@ class HuntBudget:
         if stage_remaining is not None:
             remaining = min(remaining, stage_remaining)
         if self.sub_deadline is not None:
-            remaining = min(remaining, max(0.0, self.sub_deadline - time.monotonic()))
+            remaining = min(remaining, max(0.0, self.sub_deadline - self._budget_now()))
         return remaining
 
     def sub_budget_expired(self) -> bool:
         """Whether the temporary cap expired while the enclosing job and stage remain live."""
         return (
             self.sub_deadline is not None
-            and time.monotonic() >= self.sub_deadline
+            and self._budget_now() >= self.sub_deadline
             and self.expired_reason() is None
         )
 
@@ -221,8 +255,12 @@ class HuntBudget:
         """Temporarily cap reads without changing the enclosing stage deadline."""
         with self.lock:
             previous = self.sub_deadline
-            self.sub_deadline = min(self.request_deadline, time.monotonic() + max(0.0, seconds))
-            deadline = self.sub_deadline
+            self.sub_deadline = min(
+                self.deadline,
+                self.stage_deadline or self.deadline,
+                self._budget_now() + max(0.0, seconds),
+            )
+            deadline = self.sub_deadline + self._paused_memory_seconds()
         try:
             yield deadline
         finally:
@@ -237,7 +275,7 @@ class HuntBudget:
     def restart_clock(self) -> None:
         """Start a stage's own wall clock; the request and result counters stay global."""
         with self.lock:
-            self.started = time.monotonic()
+            self.started = self._budget_now()
             if (self.exhausted or "").endswith("deadline_exceeded"):
                 self.exhausted = None
 
@@ -250,7 +288,7 @@ class HuntBudget:
 
     def set_stage_deadline(self, stage: str, seconds: float) -> None:
         self.active_stage = stage
-        self.stage_deadline = min(self.deadline, time.monotonic() + max(0.0, seconds))
+        self.stage_deadline = min(self.deadline, self._budget_now() + max(0.0, seconds))
 
     def clear_stage_deadline(self) -> None:
         self.active_stage = None
@@ -326,7 +364,7 @@ class HuntBudget:
                 0,
                 min(self.seed_budget, self.lead_count) - (self.seed_rank or 0),
             ),
-            "elapsed_s": round(time.monotonic() - self.started, 1),
+            "elapsed_s": round(self._budget_now() - self.started, 1),
             "remaining_s": round(self.job_remaining(), 1),
             "stage_remaining_s": round(stage_remaining, 1) if stage_remaining is not None else None,
             "active_stage": self.active_stage,

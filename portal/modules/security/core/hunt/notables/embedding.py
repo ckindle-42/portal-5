@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from ..judge import retry_after_seconds
+from ..judge import active_seat_memory_wait, retry_after_seconds
 
 EMBED_BATCH_SIZE = 64  # effort budget: maximum accepted by the Pipeline route
 EMBED_CONCURRENCY = 4  # effort budget: the Pipeline embedder admits four batches
@@ -78,6 +78,7 @@ class PipelineEmbeddingClient:
         self._headers = {"Authorization": f"Bearer {api_key}"}
         self._client = httpx.Client(timeout=timeout_seconds, transport=transport)
         self._job_deadline: Callable[[], float] | None = None
+        self._memory_wait: Any | None = None
         self._sleep = sleep
         self._clock = clock
         self._lock = threading.Lock()
@@ -100,6 +101,9 @@ class PipelineEmbeddingClient:
 
     def set_job_deadline(self, deadline: Callable[[], float]) -> None:
         self._job_deadline = deadline
+
+    def set_memory_wait(self, memory_wait: Any) -> None:
+        self._memory_wait = memory_wait
 
     def embed(self, texts: Sequence[str]) -> list[list[float]]:
         """Return vectors in input order, splitting requests at the Pipeline cap."""
@@ -135,33 +139,64 @@ class PipelineEmbeddingClient:
 
     def _embed_batch(self, texts: list[str], deadline: float) -> list[list[float]]:
         began = self._clock()
-        for attempt in range(EMBED_RETRIES + 1):
-            remaining = deadline - self._clock()
-            if remaining <= 0:
-                raise EmbeddingError("hunt job deadline exceeded")
-            try:
-                response = self._client.post(
-                    self.endpoint,
-                    headers=self._headers,
-                    json={"input": texts, "model": self.model},
-                    timeout=min(self.timeout_seconds, remaining),
-                )
-            except httpx.HTTPError as exc:
-                raise EmbeddingError(f"Pipeline embedding request failed: {exc}") from exc
-            if response.status_code not in THROTTLE_STATUSES:
-                return self._vectors(response, len(texts), began)
-            self._record_throttle()
-            wait = retry_after_seconds(response)
-            wait = wait if wait is not None else min(EMBED_BACKOFF_SECONDS, 2**attempt)
-            if attempt >= EMBED_RETRIES or self._clock() + wait >= deadline:
-                raise EmbeddingError(
-                    f"Pipeline embedding back-pressure budget exhausted ({response.status_code})"
-                )
-            self._record_retry(wait)
-            self._sleep(wait)
-        raise EmbeddingError("Pipeline embedding retry loop ended unexpectedly")
+        throttle_attempt = 0
+        memory_wait = self._memory_wait
+        waiting = False
+        waited = 0.0
+        try:
+            while True:
+                if waiting:
+                    assert memory_wait is not None
+                    memory_wait.check_wanted()
+                attempt_started = self._clock()
+                remaining = deadline - attempt_started
+                if remaining <= 0:
+                    raise EmbeddingError("hunt job deadline exceeded")
+                try:
+                    response = self._client.post(
+                        self.endpoint,
+                        headers=self._headers,
+                        json={"input": texts, "model": self.model},
+                        timeout=min(self.timeout_seconds, remaining),
+                    )
+                except httpx.HTTPError as exc:
+                    raise EmbeddingError(f"Pipeline embedding request failed: {exc}") from exc
+                detail = active_seat_memory_wait(response)
+                if detail is not None and memory_wait is not None:
+                    if waiting:
+                        memory_wait.update(detail)
+                    else:
+                        memory_wait.start(detail)
+                        waiting = True
+                    self._sleep(1.0)
+                    delay = max(0.0, self._clock() - attempt_started)
+                    deadline += delay
+                    waited += delay
+                    continue
+                if waiting:
+                    assert memory_wait is not None
+                    memory_wait.end()
+                    waiting = False
+                if response.status_code not in THROTTLE_STATUSES:
+                    return self._vectors(response, len(texts), began, waited)
+                self._record_throttle()
+                wait = retry_after_seconds(response)
+                wait = wait if wait is not None else min(EMBED_BACKOFF_SECONDS, 2**throttle_attempt)
+                if throttle_attempt >= EMBED_RETRIES or self._clock() + wait >= deadline:
+                    raise EmbeddingError(
+                        f"Pipeline embedding back-pressure budget exhausted ({response.status_code})"
+                    )
+                self._record_retry(wait)
+                throttle_attempt += 1
+                self._sleep(wait)
+        finally:
+            if waiting:
+                assert memory_wait is not None
+                memory_wait.end()
 
-    def _vectors(self, response: httpx.Response, expected: int, began: float) -> list[list[float]]:
+    def _vectors(
+        self, response: httpx.Response, expected: int, began: float, waited: float = 0.0
+    ) -> list[list[float]]:
         try:
             response.raise_for_status()
             body = response.json()
@@ -180,7 +215,9 @@ class PipelineEmbeddingClient:
             self._stats["requests"] += 1
             self._stats["items"] += expected
             self._stats["batches"] += 1
-            self._stats["seconds"] = round(float(self._stats["seconds"]) + self._clock() - began, 3)
+            self._stats["seconds"] = round(
+                float(self._stats["seconds"]) + max(0.0, self._clock() - began - waited), 3
+            )
         return ordered
 
     def _record_throttle(self) -> None:
