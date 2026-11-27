@@ -526,3 +526,29 @@ def test_search_predicate_explicit_clock_skips_the_default() -> None:
     clause = ss.search_predicate(standard="", layer="", valid_at="2028-07-01", known_at="")
     assert "2028-07-01" in clause
     assert "is_superseded" not in clause
+
+
+def test_default_compliance_search_excludes_derived_conversation_corpus(monkeypatch) -> None:
+    from portal.modules.compliance.core import search_service as ss
+
+    seen: list[str] = []
+
+    async def _fake_kb_search(kb_id: str, *_args, **_kwargs) -> dict:
+        seen.append(kb_id)
+        return {"results": []}
+
+    monkeypatch.setattr(
+        "portal.modules.compliance.tools.compliance_retrieval.search", _fake_kb_search
+    )
+    monkeypatch.setattr(ss, "_addressed_hits", lambda *_a, **_kw: [])
+    monkeypatch.setattr(
+        "portal.modules.compliance.core.section_index.resolve_sections", lambda *_a: {}
+    )
+
+    res_default = ss.search(object(), "Part 5.2")
+    assert "conversation" not in res_default["corpora_searched"]
+    assert "nerc_corpus" in res_default["corpora_searched"]
+
+    seen.clear()
+    res_derived = ss.search(object(), "Part 5.2", jurisdiction="derived")
+    assert res_derived["corpora_searched"] == ["conversation"]

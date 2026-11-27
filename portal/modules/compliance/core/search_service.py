@@ -361,7 +361,11 @@ def search(
     corpora = (
         [section_index.CORPUS_FOR_JURISDICTION[jurisdiction]]
         if jurisdiction in section_index.CORPUS_FOR_JURISDICTION
-        else list(dict.fromkeys(section_index.CORPUS_FOR_JURISDICTION.values()))
+        else list(
+            dict.fromkeys(
+                kb for jur, kb in section_index.CORPUS_FOR_JURISDICTION.items() if jur != "derived"
+            )
+        )
     )
     hits: list[dict[str, Any]] = []
     searched, unavailable = [], []

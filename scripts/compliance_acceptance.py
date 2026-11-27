@@ -578,11 +578,22 @@ class WorkspaceThread:
         self.router = router
         self.model_override = model_override or os.environ.get("COMPLIANCE_MEASUREMENT_MODEL", "")
         from portal.platform.inference.config import load_portal_config
-        from portal.platform.inference.sync_config import _owui_preset
+        from portal.platform.inference.sync_config import _exposed_variant_spec, _owui_preset
 
         config = load_portal_config()
-        spec = config.workspaces.get(workspace)
-        self.preset = _owui_preset(workspace, spec) if spec is not None else {"params": {}}
+        resolved_ws = config.aliases[workspace].to if workspace in config.aliases else workspace
+        base_id, _, variant_id = resolved_ws.partition("::")
+        base_spec = config.workspaces.get(base_id)
+        if base_spec is not None and variant_id:
+            vcfg = (base_spec.variants or {}).get(variant_id)
+            spec = (
+                _exposed_variant_spec(base_id, variant_id, base_spec, vcfg)
+                if vcfg is not None
+                else None
+            )
+        else:
+            spec = base_spec
+        self.preset = _owui_preset(resolved_ws, spec) if spec is not None else {"params": {}}
         system = self.preset["params"].get("system", "")
         self.messages: list[dict[str, str]] = (
             [{"role": "system", "content": system}] if system else []
@@ -783,10 +794,15 @@ def check_workspace_cell(case: dict[str, Any], record: dict[str, Any]) -> list[d
     # with zero ids are legitimate; fabrication and ungrounded lines are the
     # failure surface now.
     if result["lines"]:
+        detail: Any = (
+            result["fabricated_tokens"]
+            or (result["ungrounded_lines"] if not result["grounded"] else None)
+            or f"all {result['n_claims']} claim(s) ground"
+        )
         add(
             "cited_ids_resolve",
             not result["fabricated_tokens"] and result["grounded"],
-            result["fabricated_tokens"] or f"all {result['n_claims']} claim(s) ground",
+            detail,
         )
     else:
         add("cited_ids_resolve", False, "no citation in the answer")
@@ -909,7 +925,7 @@ def run_cell(
     }
     try:
         if adapter == "workspace":
-            _run_workspace_cell(client, case, record, threads or {})
+            _run_workspace_cell(client, case, record, threads if threads is not None else {})
         elif adapter == "legacy":
             payload = adapter_legacy(client, base_url, case, seat)
             record["payload"] = payload
