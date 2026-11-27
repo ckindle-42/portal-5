@@ -58,8 +58,8 @@ def test_session_directories_keep_distinct_ids_separate(monkeypatch, tmp_path, f
     }
     assert first.stat().st_mode & 0o777 == 0o700
     assert second.stat().st_mode & 0o777 == 0o700
+    # 0700 + owner uid is the contract; group is platform-inherited (BSD dirs take the parent's gid).
     assert first.stat().st_uid == os.getuid()
-    assert first.stat().st_gid == os.getgid()
 
 
 def test_reset_session_does_not_delete_a_distinct_session(monkeypatch, tmp_path):
