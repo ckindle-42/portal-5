@@ -1307,6 +1307,10 @@ class LoadGuard:
             return url, []
         login = await client.post(f"{url}/admin/api/login", json={"api_key": omlx_api_key()})
         if login.status_code != 200:
+            logger.warning(
+                "load_guard: oMLX admin login returned HTTP %d; not freeing oMLX memory",
+                login.status_code,
+            )
             return url, []
         response = await client.get(f"{url}/admin/api/models")
         if response.status_code != 200:
@@ -1608,12 +1612,18 @@ class LoadGuard:
             else "with nothing in flight to wait for"
         )
         held = f" - {reserved / _GIB:.1f} GiB held for the loaded oMLX seat" if reserved > 0 else ""
+        never_budget = _never_fit_budget()
+        reason = (
+            "never_fit"
+            if never_budget is not None and need > never_budget
+            else ("quiet" if quiet else "projected-exceeds")
+        )
         return LoadRefusedError(
             f"Cannot load {model}: projected memory {need / _GIB:.1f} GiB would "
             f"exceed host headroom {available / _GIB:.1f} GiB (oMLX headroom "
             f"{headroom / _GIB:.1f} + idle Ollama {idle / _GIB:.1f} - margin "
             f"{_MARGIN / _GIB:.0f}{held}) {detail}",
-            "quiet" if quiet else "projected-exceeds",
+            reason,
         )
 
     async def _wait_if_omlx_loading(
@@ -1628,15 +1638,23 @@ class LoadGuard:
         saw_loading = False
         try:
             while True:
+                wait = load_wait_s()
                 remaining = deadline - time.monotonic()
-                if remaining <= 0:
+                if remaining <= 0 and not (saw_loading and wait > 0):
                     break
                 try:
                     loading = await asyncio.wait_for(
                         self._omlx_loading(client),
-                        timeout=min(max(_POLL_S, 0.01), remaining),
+                        timeout=(
+                            min(max(_POLL_S, 0.01), remaining)
+                            if remaining > 0
+                            else max(_POLL_S, 0.01)
+                        ),
                     )
                 except TimeoutError:
+                    if saw_loading and wait > 0:
+                        deadline = max(deadline, time.monotonic() + wait)
+                        continue
                     break
                 if not loading:
                     break
@@ -1646,6 +1664,8 @@ class LoadGuard:
                         model,
                     )
                 saw_loading = True
+                if wait > 0:
+                    deadline = max(deadline, time.monotonic() + wait)
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     break
@@ -1732,7 +1752,10 @@ class LoadGuard:
     def _record_activity_progress(
         changing: bool, activity_seen: bool, deadline: float
     ) -> tuple[bool, float]:
-        """Record whether activity has held capacity during the fixed admission budget."""
+        """Keep a progressing activity's admission budget alive until it drains."""
+        wait = load_wait_s()
+        if changing and wait > 0:
+            return True, max(deadline, time.monotonic() + wait)
         return activity_seen or changing, deadline
 
     async def _resume_after_activity_drains(
@@ -1811,13 +1834,12 @@ class LoadGuard:
             covered += sum(
                 free.size for name, free in ollama_requested.items() if name not in before
             )
-        if not omlx_freed and not omlx_queued and covered < shortage:
+        if covered < shortage:
             # Idle failover-protected oMLX residents are the last source: a shield
             # orders eviction, and this load is otherwise refused (2026-11-26).
-            budget = self._omlx_idle_bytes(
-                _ADMIT_OMLX_STATUS.get() or {}, exclude=seat_copies, failover=True
-            )
-            if budget >= shortage - covered:
+            status = _ADMIT_OMLX_STATUS.get() or {}
+            budget = self._failover_omlx_release_bytes(status, model, seat_copies)
+            if budget > 0 and budget >= shortage - covered:
                 f2, q2, after2, sync2, u2 = await self._free_omlx(
                     client,
                     shortage - covered,
@@ -2402,14 +2424,14 @@ class LoadGuard:
         return attempted
 
     def _omlx_kept_seats(
-        self, status: dict[str, Any] | None, model: str
+        self, status: dict[str, Any] | None, model: str, *, include_failover: bool = True
     ) -> tuple[float, list[str]]:
         """Loaded oMLX memory this Ollama load must leave its prefill share to, and the
         seats holding it: busy, pinned, loading, failover-protected, served elsewhere,
         or the incoming seat's other-engine copy. Idle seats stay freeable."""
         if not isinstance(status, dict):
             return 0.0, []
-        failover = self.failover_protected(OMLX)
+        failover = self.failover_protected(OMLX) if include_failover else set()
         copies = self._counterpart_models(OLLAMA, model) if model else set()
         kept = 0.0
         loading = 0.0
@@ -2433,6 +2455,27 @@ class LoadGuard:
                 loading += size  # may not have reached the counter yet
             names.append(mid)
         return min(kept, float(status.get("current_model_memory") or 0) + loading), names
+
+    def _failover_omlx_release_bytes(
+        self, status: dict[str, Any], model: str, exclude: frozenset[str] | set[str]
+    ) -> float:
+        """Bytes evicting idle failover-protected oMLX seats frees, including their prefill hold."""
+        budget = self._omlx_idle_bytes(status, exclude=exclude, failover=True)
+        if budget <= 0 or not self.failover_protected(OMLX):
+            return budget
+        kept_all, _ = self._omlx_kept_seats(status, model, include_failover=True)
+        kept_hard, _ = self._omlx_kept_seats(status, model, include_failover=False)
+        if kept_all <= kept_hard:
+            return budget
+        cap_all = _omlx_ollama_load_cap(status, kept_all)
+        if cap_all is None:
+            return budget
+        cap_hard = (
+            _omlx_ollama_load_cap(status, kept_hard) if kept_hard > 0 else _budget_bytes(status)
+        )
+        if cap_hard is None:
+            return budget
+        return budget + max(0.0, cap_hard - cap_all)
 
     def _hold_seat_prefill_room(
         self, status: dict[str, Any] | None, model: str, available: float
@@ -2599,6 +2642,9 @@ class LoadGuard:
         while any(
             self.busy(OLLAMA, model) or self._active_elsewhere(OLLAMA, model) for model in models
         ):
+            wait = load_wait_s()
+            if wait > 0:
+                deadline = max(deadline, time.monotonic() + wait)
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return False

@@ -459,7 +459,7 @@ _ERROR_TYPES = {400: "invalid_request_error", 404: "not_found_error"}
 _OMLX_LOGPROBS_LIMIT = "oMLX engine limit: logprobs is not supported for this model."
 
 
-def _error_body(status: int, raw: bytes) -> bytes:
+def _error_body(status: int, raw: bytes, code: str | None = None) -> bytes:
     """/api/chat errors are {"error": "..."}; /v1's are {"error": {...}}."""
     try:
         msg = json.loads(raw).get("error") or raw.decode(errors="ignore")
@@ -469,7 +469,7 @@ def _error_body(status: int, raw: bytes) -> bytes:
         "message": msg,
         "type": _ERROR_TYPES.get(status, "api_error"),
         "param": None,
-        "code": None,
+        "code": code,
     }
     return json.dumps({"error": err}).encode()
 
@@ -728,10 +728,10 @@ class OllamaNativeTransport(httpx.AsyncBaseTransport):
 
 
 def _refused(request: httpx.Request, e: LoadRefusedError) -> httpx.Response:
-    logger.warning("ollama_native: %s", e)
+    logger.warning("load_guard: %s", e)
     return httpx.Response(
         507,
         headers={"content-type": "application/json"},
-        content=_error_body(507, json.dumps({"error": str(e)}).encode()),
+        content=_error_body(507, json.dumps({"error": str(e)}).encode(), code=e.reason),
         request=request,
     )

@@ -1016,12 +1016,14 @@ def _nemotron_tags() -> dict[str, int]:
     return {NEMOTRON: int(_NEMOTRON_NEED / lg._FACTOR)}
 
 
-async def test_cold_ollama_load_wait_is_bounded_while_omlx_turn_holds_lease(monkeypatch):
+async def test_cold_ollama_load_waits_for_active_omlx_turn_then_evicts_and_admits(monkeypatch):
     e = Engines(
         tags=_nemotron_tags(),
         omlx={QWEN_OMLX: {"size": int(15.9 * GIB), "loaded": True}},
         ceiling=int(36.8 * GIB),
         omlx_memory=int(15.9 * GIB),
+        unload_counter_drops={QWEN_OMLX: int(15.9 * GIB)},
+        immediate_counter_drops={QWEN_OMLX},
     )
     g = guard(e)
     end_turn = g.begin(lg.OMLX, QWEN_OMLX)
@@ -1035,8 +1037,10 @@ async def test_cold_ollama_load_wait_is_bounded_while_omlx_turn_holds_lease(monk
         nonlocal waits
         waits += 1
         now[0] += min(seconds, 0.05)
-        if waits > 4:
-            raise AssertionError("cold load kept extending its wait for the active oMLX turn")
+        if waits == 4:
+            end_turn()
+        if waits > 8:
+            raise AssertionError("cold load kept waiting after the active oMLX turn ended")
 
     monkeypatch.setattr(lg.time, "monotonic", monotonic)
     monkeypatch.setattr(g, "_wait_change", wait_change)
@@ -1044,18 +1048,17 @@ async def test_cold_ollama_load_wait_is_bounded_while_omlx_turn_holds_lease(monk
     lg.set_load_wait("0.1")
 
     try:
-        with pytest.raises(lg.LoadRefusedError) as err:
-            await g.admit(OLLAMA_URL, NEMOTRON)
+        release = await g.admit(OLLAMA_URL, NEMOTRON)
     finally:
         end_turn()
 
-    assert err.value.reason == "projected-exceeds"
-    assert "after waiting" in str(err.value)
-    assert "engine activity or memory release" in str(err.value)
-    assert waits == 2
+    assert release is not None
+    assert waits >= 4  # stall-based: extended past the 0.1s initial window while active
+    assert e.unloaded == [QWEN_OMLX]
+    release()
 
 
-async def test_omlx_cold_load_wait_is_bounded_for_active_ollama_model(monkeypatch):
+async def test_omlx_cold_load_waits_for_active_ollama_model_until_release(monkeypatch):
     g = guard(Engines(ollama={"active": GIB}))
     end_turn = g.begin(OLLAMA, "active")
     now = [50.0]
@@ -1068,8 +1071,10 @@ async def test_omlx_cold_load_wait_is_bounded_for_active_ollama_model(monkeypatc
         nonlocal waits
         waits += 1
         now[0] += min(seconds, 0.05)
-        if waits > 4:
-            raise AssertionError("oMLX load kept extending its wait for the active Ollama turn")
+        if waits == 4:
+            end_turn()
+        if waits > 8:
+            raise AssertionError("oMLX load kept waiting after the active Ollama turn ended")
 
     monkeypatch.setattr(lg.time, "monotonic", monotonic)
     monkeypatch.setattr(g, "_wait_change", wait_change)
@@ -1077,11 +1082,11 @@ async def test_omlx_cold_load_wait_is_bounded_for_active_ollama_model(monkeypatc
     lg.set_load_wait("0.1")
 
     try:
-        assert await g._wait_for_ollama_release(50.1, ["active"]) is False
+        assert await g._wait_for_ollama_release(50.1, ["active"]) is True
     finally:
         end_turn()
 
-    assert waits <= 3
+    assert waits == 4
 
 
 def _tool_loop(e: Engines, g: lg.LoadGuard) -> OllamaNativeTransport:
@@ -1102,8 +1107,9 @@ async def _tool_turn(transport: OllamaNativeTransport) -> httpx.Response:
         )
 
 
-async def test_tool_loop_admits_nemotron_after_evicting_idle_omlx():
-    """QAT 733985650: 23.8 GiB Ollama cold load, 14 GiB idle oMLX, tool-loop path."""
+async def test_tool_loop_admits_nemotron_after_evicting_idle_omlx(monkeypatch, caplog):
+    """QAT 733985650 + 2026-11-27: idle failover-protected oMLX yields via load_guard;
+    only a static never_fit returns 507 with code='never_fit' and load_guard: log prefix."""
     e = Engines(
         tags=_nemotron_tags(),
         omlx={QWEN_OMLX: {"size": 14 * GIB, "loaded": True}},
@@ -1113,12 +1119,23 @@ async def test_tool_loop_admits_nemotron_after_evicting_idle_omlx():
         immediate_counter_drops={QWEN_OMLX},
     )
     g = guard(e)
+    g.protect(lg.OMLX, QWEN_OMLX, failover=True)
 
     response = await _tool_turn(_tool_loop(e, g))
 
     assert response.status_code == 200
     assert e.unloaded == [QWEN_OMLX]
     assert e.chats == [NEMOTRON]
+
+    # Fixed ceiling smaller than need: cannot fit even with empty engines -> 507 never_fit.
+    e2 = Engines(tags=_nemotron_tags(), omlx={}, ceiling=int(20 * GIB))
+    g2 = guard(e2)
+    monkeypatch.setattr(lg, "_CEILING", int(20 * GIB))
+    with caplog.at_level(logging.WARNING, logger="portal.platform.inference.ollama_native"):
+        refused = await _tool_turn(_tool_loop(e2, g2))
+    assert refused.status_code == 507
+    assert refused.json()["error"]["code"] == "never_fit"
+    assert any(r.getMessage().startswith("load_guard:") for r in caplog.records)
 
 
 async def test_tool_loop_waits_for_a_sibling_ollama_resident_then_evicts_it(monkeypatch):
