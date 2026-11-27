@@ -37,7 +37,7 @@ system_prompt: |
     → Portal Vision (`auto-vision`)
   - Image generation, video generation, music
     → Portal Vision / Video / Music workspaces
-  - Regulatory framework analysis (NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, …)
+  - Regulatory framework analysis (NERC CIP, CEII, FERC, SOC 2, PCI-DSS, …)
     → Portal Compliance Analyst (`auto-compliance`)
   - Security analysis, red-team, blue-team work
     → Portal Security / Red Team / Blue Team workspaces

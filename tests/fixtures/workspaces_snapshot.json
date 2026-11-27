@@ -213,7 +213,7 @@
     "top_p": 0.9
   },
   "auto-compliance": {
-    "description": "Multi-framework compliance analysis: NERC CIP, HIPAA, GDPR, SOC 2, PCI-DSS, NIST CSF/800-53, ISO 27001, FedRAMP, NIS2, CMMC, FFIEC, and state privacy laws (CCPA/CPRA, Texas TDPSA, Connecticut CTDPA, etc.). Gap analysis, policy drafting, evidence review, cross-framework control mapping, audit prep.",
+    "description": "Energy-sector compliance analysis: NERC CIP and CEII (with FERC) as the core; SOC 2, PCI-DSS, ISO 27001, CIS Controls and SOX where relevant; NIST CSF/800-53 control-catalog crosswalks. Gap analysis, policy drafting, evidence review, cross-framework control mapping, audit prep.",
     "emits_reasoning": false,
     "model_hint": "granite4.1:8b",
     "name": "⚖️  Portal Compliance Analyst",

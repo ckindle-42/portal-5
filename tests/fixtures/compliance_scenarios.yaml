@@ -12,19 +12,15 @@
 # multi-framework scenarios pick it up automatically.
 
 # ── Frameworks the multi-framework scenarios rotate through ────────────────
+# Portal's compliance scope is the energy sector: NERC CIP + CEII (with FERC)
+# as the core; PCI DSS, ISO/IEC 27001, SOC 2, CIS Controls and SOX at most.
+# GDPR and HIPAA are out of scope and were removed (BRIEF_COMPLIANCE_SCOPE_
+# CIP_CEII_20261127). NIST 800-53/CSF remain as control-catalog crosswalks.
 frameworks:
   - id: NERC_CIP
     label: "NERC CIP"
     example_requirement: "CIP-007-6 R2 Part 2.2 (security patch evaluation)"
     authoritative_source: "nerc.com/pa/Stand"
-  - id: HIPAA
-    label: "HIPAA Security Rule"
-    example_requirement: "45 CFR §164.312(a)(1) (access control)"
-    authoritative_source: "hhs.gov/hipaa"
-  - id: GDPR
-    label: "GDPR"
-    example_requirement: "Art. 32(1)(a) (security of processing)"
-    authoritative_source: "gdpr-info.eu"
   - id: SOC2
     label: "SOC 2"
     example_requirement: "TSC CC6.1 (logical and physical access controls)"
@@ -69,7 +65,7 @@ scenarios:
     applies_to: ["compliance:*"]
     multi_framework: true
     prompt: |
-      Single-line answer: how does our control "encrypt all PHI/data in transit
+      Single-line answer: how does our control "encrypt all data in transit
       using TLS 1.2+" classify against {framework_label} {example_requirement}?
       Output ONLY the classification line in the format "Coverage: <token>"
       followed by one sentence of justification.

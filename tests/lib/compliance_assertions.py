@@ -416,13 +416,6 @@ def assert_uses_modal_verbs(response: str) -> AssertionResult:
 CITATION_PATTERNS: dict[str, str] = {
     # NERC CIP: accept with or without "NERC" prefix, with or without sub-part
     "NERC_CIP": r"\b(?:NERC\s+)?CIP-\d{3}-\d+(?:\s*R\d+)?(?:\s*Part\s*\d+(?:\.\d+)?)?\b",
-    # HIPAA: accept "45 CFR §164.x", "HIPAA §164.x", "HIPAA Security Rule", or
-    #        bare "HIPAA" followed by a section reference in the sentence.
-    #        Also accept "HIPAA [Security|Privacy] Rule" as a citation marker.
-    "HIPAA": r"\b(?:45\s*CFR\s*§?\s*164\.\d+|45\s*CFR\s*Part\s*16[024]|HIPAA\s*(?:Security\s*Rule\s*)?§?\s*164\.\d+|HIPAA\s*(?:Security|Privacy)\s*Rule)\b",
-    # GDPR: accept "Article 32", "Art. 32", "Art 32", with or without GDPR prefix,
-    #       with or without sub-clause
-    "GDPR": r"\b(?:GDPR\s*)?Art(?:icle|\.|\b)\s*\d+(?:\s*\(\d+\))?(?:\s*\([a-z]\))?\b",
     # SOC2: accept "TSC CC6.1", "SOC 2 CC6.1", "SOC2 CC6.1", "Trust Services CC6.1"
     #       Also accept bare "SOC 2" followed by a control reference
     "SOC2": r"\b(?:(?:TSC|Trust\s*Services?\s*(?:Criteria|Criterion)?)\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\s*[A-Z]{2}\d+(?:\.\d+)?|SOC\s*2\b)\b",
@@ -445,7 +438,7 @@ CITATION_PATTERNS: dict[str, str] = {
 def assert_citation_present(response: str, framework: str) -> AssertionResult:
     """Pass if response contains a recognizable citation in the format mandated
     for the named framework. Framework keys are the constants in
-    CITATION_PATTERNS (e.g. "NERC_CIP", "HIPAA").
+    CITATION_PATTERNS (e.g. "NERC_CIP", "SOC2").
     """
     pattern = CITATION_PATTERNS.get(framework)
     if not pattern:

@@ -88,7 +88,7 @@ this table carries the audit-relevant fields. `tools` counts the granted tool li
 | `auto-vision` | general | yes | `qwen3-vl:32b-ctx8k` | None | False | 5 | 2 | s2-p1-auto-vision; s4-auto-vision-{core,tools,continuity,edge}; s2-p1-auto-vision (inline PNG); s2-p2-auto-vision; s4-auto-vision-tools (generate_image) |
 | `security-reviewer` | security | yes | `granite4.1:8b-ctx8k` | None | False | 13 | 0 | s2-p1-security-reviewer; s4-security-reviewer-{core,tools,continuity,edge}; s3-security-reviewer; s5-security-hunt-workflow (hunt_sources/start/status/leads) |
 | `hunt-reasoning` | security | no | `gemma4:26b-a4b-it-qat-ctx8k-hunt` | None | False | 0 | 0 | internal hunt judge seat (review service); no direct QAT scenario |
-| `auto-compliance` | compliance | yes | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | False | True | 46 | 1 | s2-p1-auto-compliance; s4-auto-compliance-{core,tools,continuity,edge}; s2-p8-auto-compliance (IN_SERVICE=False annotation); s5-compliance-multiframework (compliance_ask) |
+| `auto-compliance` | compliance | yes | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | False | True | 46 | 1 | s2-p1-auto-compliance; s4-auto-compliance-{core,tools,continuity,edge}; s2-p8-auto-compliance (IN_SERVICE=False annotation); s5-compliance-multiframework (compliance_ask); s5-compliance-abstention |
 | `compliance-mapping` | compliance | no | `gemma4:26b-a4b-it-q4_K_M-ctx128k` | False | False | 0 | 0 | internal engine/council seat; no dedicated QAT scenario |
 | `compliance-council-qwen38` | compliance | no | `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k` | False | False | 0 | 0 | internal engine/council seat; no dedicated QAT scenario |
 | `compliance-council-granite41` | compliance | no | `granite4.1:30b-ctx16k` | False | False | 0 | 0 | internal engine/council seat; no dedicated QAT scenario |
@@ -228,7 +228,6 @@ per-tool wiring columns in §6 cite the exact granting seats.
 | `ux-uideveloper` | `auto-coding` | — | inherit | — (no dedicated scenario) |
 | `cippolicywriter` | `auto-compliance` | — | inherit | s2-p5-cippolicywriter |
 | `complianceanalyst` | `auto-compliance` | — | inherit | s5-persona-compliance-complianceanalyst |
-| `gdprdpoadvisor` | `auto-compliance` | — | inherit | — (no dedicated scenario) |
 | `hipaaprivacyofficer` | `auto-compliance` | — | inherit | — (no dedicated scenario) |
 | `nerccipcomplianceanalyst` | `auto-compliance` | — | inherit | — (no dedicated scenario) |
 | `pcidssassessor` | `auto-compliance` | — | inherit | — (no dedicated scenario) |

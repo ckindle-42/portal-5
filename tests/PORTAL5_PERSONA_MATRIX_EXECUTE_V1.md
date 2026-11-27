@@ -51,7 +51,6 @@ from the workspace's fixture and records assertion outcomes:
                        deepseek-r1  gpt-oss  dolphin  granite4.1:30b  Qwopus  ...
 complianceanalyst        P12/W1/F0   P9/W2/F2   P5/W4/F4   P12/W1/F0   ...
 nerccipcompliance        ...
-gdprdpoadvisor           ...
 hipaaprivacyofficer      ...
 ```
 
@@ -220,10 +219,10 @@ The driver prints progress as it runs. Sample output shape:
 
 ```
 === PERSONA MATRIX SWEEP — workspace=auto-compliance ===
-  personas:  7  (cippolicywriter, complianceanalyst, gdprdpoadvisor, ...)
+  personas:  6  (cippolicywriter, complianceanalyst, nerccipcomplianceanalyst, ...)
   models:    9  (smallest-first)
-  scenarios: 252
-  cells:     63
+  scenarios: 198
+  cells:     54
 
   [1/9] model: ollama/hf.co/QuantFactory/Llama-3.2-3B-Instruct-abliterated-GGUF  (1.0GB)
     [1/7] cippolicywriter                       PASS=18 WARN=2 FAIL=2 ERR=0  (124.1s)

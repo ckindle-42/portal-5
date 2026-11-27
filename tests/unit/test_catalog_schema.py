@@ -77,6 +77,15 @@ def test_no_persona_has_browser_policy() -> None:
     assert not with_policy, f"browser_policy found in retired persona YAMLs: {with_policy}"
 
 
+def test_no_gdpr_in_persona_catalog() -> None:
+    """GDPR is out of compliance scope; no persona YAML may reference it (gdprdpoadvisor removed)."""
+    personas_dir = REPO / "config" / "personas"
+    offenders = [
+        f.name for f in sorted(personas_dir.glob("*.yaml")) if "gdpr" in f.read_text().lower()
+    ]
+    assert not offenders, f"GDPR references in persona YAMLs (out of scope): {offenders}"
+
+
 def test_workspace_tools_match_snapshot() -> None:
     """WORKSPACES default tool lists must match the M3 oracle for all 90 workspaces."""
     snap = json.loads(SNAPSHOT.read_text())

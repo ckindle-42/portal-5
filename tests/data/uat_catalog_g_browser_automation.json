@@ -415,22 +415,13 @@
     "assertions": [
       {
         "keywords": [
-          "hipaa",
-          "health insurance",
-          "phi",
-          "health data"
+          "nerc",
+          "cip",
+          "cip-007",
+          "bes cyber",
+          "bulk electric"
         ],
-        "label": "HIPAA identified",
-        "type": "any_of"
-      },
-      {
-        "keywords": [
-          "gdpr",
-          "general data protection",
-          "eu",
-          "european"
-        ],
-        "label": "GDPR identified",
+        "label": "NERC CIP identified",
         "type": "any_of"
       },
       {
@@ -447,8 +438,8 @@
     ],
     "id": "P-N03",
     "model_slug": "complianceanalyst",
-    "name": "Compliance Analyst \u2014 Multi-Framework Gap Analysis",
-    "prompt": "We're a SaaS company storing health data for US clients and EU clients. Which compliance frameworks apply and where do we have potential gaps?",
+    "name": "Compliance Analyst \u2014 NERC CIP Gap Analysis",
+    "prompt": "We're a bulk electric system operator applying security patches to BES Cyber Systems. Which NERC CIP requirements apply and where do we have potential gaps?",
     "section": "auto-compliance",
     "timeout": 90,
     "workspace_tier": "ollama"
@@ -646,55 +637,6 @@
     "prompt": "Claim: 'Python is the most popular programming language in the world.' Walk me through how you'd fact-check this.",
     "section": "auto-research",
     "timeout": 60,
-    "workspace_tier": "ollama"
-  },
-  {
-    "assertions": [
-      {
-        "keywords": [
-          "article 6",
-          "art. 6",
-          "lawful basis",
-          "legitimate interest",
-          "balancing test",
-          "lia",
-          "legitimate interests assessment"
-        ],
-        "label": "Article 6 or lawful basis identified",
-        "type": "any_of"
-      },
-      {
-        "keywords": [
-          "opt-out",
-          "right to object",
-          "article 21",
-          "unsubscribe",
-          "object",
-          "oppose"
-        ],
-        "label": "Right to object mentioned",
-        "type": "any_of"
-      },
-      {
-        "critical": false,
-        "keywords": [
-          "consent",
-          "risk",
-          "emarketing",
-          "pecr",
-          "alternative",
-          "reconsider"
-        ],
-        "label": "Risk or alternative noted",
-        "type": "any_of"
-      }
-    ],
-    "id": "P-N09",
-    "model_slug": "gdprdpoadvisor",
-    "name": "GDPR DPO Advisor \u2014 Lawful Basis Assessment",
-    "prompt": "Our app sends marketing emails to EU users. We currently rely on 'legitimate interests' as the lawful basis. Is this appropriate, and what are the risks?",
-    "section": "auto-compliance",
-    "timeout": 90,
     "workspace_tier": "ollama"
   },
   {
