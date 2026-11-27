@@ -458,6 +458,19 @@ def test_enabled_carry_skips_results_without_identifier_context(
     assert tool_dispatch.format_tool_result_carry(calls, [{"content": "18 C, sunny"}]) is None
 
 
+def test_compliance_carry_renders_citation_ids_without_raw_result_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(tool_dispatch, "_TOOL_RESULT_CARRY_ENABLED", True)
+    calls = [{"function": {"name": "compliance_read", "arguments": '{"ref":"isection-valid"}'}}]
+    results = [{"content": '{"units":[{"section_id":"isection-valid","text":"private body"}]}'}]
+
+    receipt = tool_dispatch.format_tool_result_carry(calls, results)
+
+    assert receipt and "section_id=isection-valid" in receipt
+    assert "private body" not in receipt and "&quot;" not in receipt
+
+
 @pytest.mark.anyio
 @pytest.mark.parametrize("reasoning_field", ["reasoning", "reasoning_content", "thinking"])
 async def test_streamed_tool_loop_carries_reasoning_and_visible_prose(

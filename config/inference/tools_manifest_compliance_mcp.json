@@ -165,7 +165,7 @@
   "type": "function",
   "function": {
    "name": "compliance_coverage",
-   "description": "Deterministic per-requirement link report: which operator sections are recorded against each Part, and which Parts have none. No text.",
+   "description": "Index recorded operator section links for a NERC CIP requirement or Part. Use compliance_read for linked text.",
    "parameters": {
     "type": "object",
     "properties": {
@@ -173,13 +173,18 @@
       "type": "string"
      },
      "requirement": {
-      "type": "string"
+      "type": "string",
+      "description": "One requirement or Part, e.g. CIP-007-6 R2 Part 2.2."
      },
      "valid_at": {
       "type": "string"
      },
      "known_at": {
       "type": "string"
+     },
+     "include_dual_document": {
+      "type": "boolean",
+      "default": false
      }
     }
    }

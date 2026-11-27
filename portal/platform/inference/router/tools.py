@@ -128,18 +128,25 @@ def format_tool_result_carry(
             if isinstance(arguments, dict)
             else {}
         )
-        args_text = _carry_excerpt(json.dumps(key_args, ensure_ascii=False, default=str), 160)
+        compliance_receipt = name.startswith(("compliance_", "nerc_cip_"))
+        args_text = _carry_excerpt(
+            ", ".join(f"{key}={value}" for key, value in key_args.items())
+            if compliance_receipt
+            else json.dumps(key_args, ensure_ascii=False, default=str),
+            160,
+        )
         result_content = result.get("content") or "(empty result)"
         result_ids = _carry_identifiers(result_content)
         if not force and not key_args and not result_ids:
             continue
-        result_text = _carry_excerpt(result_content, 220)
         item = f"<li><code>{html.escape(name)}</code>"
         if key_args:
             item += f" <code>{html.escape(args_text)}</code>"
         if result_ids:
             item += f" <code>{html.escape(result_ids)}</code>"
-        item += f" — {html.escape(result_text)}</li>\n"
+        if not compliance_receipt:
+            item += f" — {html.escape(_carry_excerpt(result_content, 220))}"
+        item += "</li>\n"
         if used_chars + len(item) > _TOOL_RESULT_CARRY_MAX_CHARS:
             omitted = "<li>Additional tool results omitted.</li>\n"
             if used_chars + len(omitted) <= _TOOL_RESULT_CARRY_MAX_CHARS:

@@ -1398,7 +1398,11 @@ def compliance_search(
             top_k=top_k,
             max_chars=max_chars,
         )
-        if include_dual_document and not requirement.strip():
+        if (
+            include_dual_document
+            and not requirement.strip()
+            and result.get("jurisdiction_available") is not False
+        ):
             from portal.modules.compliance.core import dual_document
 
             payload = dual_document.build(repo, query=query, **_payload_pricing())
@@ -1688,28 +1692,13 @@ def compliance_timeline(ref: str) -> dict[str, Any]:
 
 @mcp.tool()
 def compliance_coverage(
-    standard: str = "", requirement: str = "", valid_at: str = "", known_at: str = ""
+    standard: str = "",
+    requirement: str = "",
+    valid_at: str = "",
+    known_at: str = "",
+    include_dual_document: bool = False,
 ) -> dict[str, Any]:
-    """Per requirement: the internal sections linked to it, and explicitly those
-    with none. **Deterministic — no model call, no background job.**
-
-    This is what replaces ``compliance_gaps``'s job queue for the question
-    "where are we not covered". It reports recorded links, not verdicts: what a
-    link MEANS is read at question time.
-
-    Link standing (DATA_TRUTH Amendment 2 DD3c): ``linked_sections`` counts
-    APPROVED links and ``operator_declared_sections`` carries the operator's
-    own traceability declarations (``operator_traceability`` IMPLEMENTS rows,
-    labelled as declarations) — either sets ``has_link``. Similarity
-    ``proposed`` edges are listed under ``unverified_proposals``, labelled
-    unverified, and never set ``has_link``.
-
-    The result also carries ``dual_document``: the dual-document payload for
-    the addressed requirement (the standard's normative Parts and the
-    operator's document set, priced and guarded like
-    ``compliance_context(mode=material)``), so a coverage question reads the
-    material it reports on.
-    """
+    """Index recorded links by requirement; call compliance_read for text or opt in to full material."""
     from portal.modules.compliance.core import reading_assembly, section_index
 
     repo = _repo()
@@ -1718,7 +1707,7 @@ def compliance_coverage(
             target = requirement  # already a full address: prefixing the standard doubled it
         else:
             target = f"{standard} {requirement}".strip() if requirement else standard
-        parsed = reading_assembly.parse_ref(target) or reading_assembly.parse_ref(standard)
+        parsed = reading_assembly.parse_ref(target)
         if parsed is None:
             return {"error": reading_assembly.not_an_address(target)}
         parsed = reading_assembly.canonical_ref(repo, parsed, valid_at)
@@ -1727,13 +1716,15 @@ def compliance_coverage(
             {
                 str(r[0])
                 for r in repo._conn.execute(
-                    "SELECT DISTINCT src_ref FROM relationship_assertions WHERE src_ref LIKE ?",
-                    (f"{parsed.standard}%",),
+                    "SELECT DISTINCT src_ref FROM relationship_assertions "
+                    "WHERE src_ref = ? OR src_ref LIKE ?",
+                    (parsed.standard, f"{parsed.standard} %"),
                 ).fetchall()
             }
         )
-        if requirement:
-            refs = [r for r in refs if f" R{parsed.requirement}" in r]
+        if parsed.requirement or parsed.attachment or parsed.section:
+            address = str(parsed)
+            refs = [r for r in refs if r == address or r.startswith(f"{address} ")]
         rows: list[dict[str, Any]] = []
         for ref in refs:
             edges = repo._conn.execute(
@@ -1755,31 +1746,40 @@ def compliance_coverage(
                     proposals.append(dst)
                 else:
                     approved.append((dst, status))
-            linked = section_index.resolve_sections(repo, [d for d, _ in approved])
-            declared_linked = section_index.resolve_sections(repo, declared)
+            destinations = dict(approved)
+            resolved = section_index.resolve_sections(repo, [*destinations, *declared, *proposals])
+            readable = {sid: entry for sid, entry in resolved.items() if entry.get("resolvable")}
+            linked = {
+                sid: {
+                    **_coverage_pointer(entry, include_dual_document),
+                    "status": destinations[sid],
+                }
+                for sid, entry in readable.items()
+                if sid in destinations
+            }
+            declared_linked = {
+                sid: {
+                    **_coverage_pointer(entry, include_dual_document),
+                    "standing": "the operator's own traceability declaration",
+                }
+                for sid, entry in readable.items()
+                if sid in declared
+            }
             rows.append(
                 {
                     "requirement": ref,
-                    "linked_sections": [
-                        {
-                            **_provenance(entry),
-                            "status": dict(approved).get(sid, ""),
-                        }
-                        for sid, entry in linked.items()
-                    ],
-                    "operator_declared_sections": [
-                        {
-                            **_provenance(entry),
-                            "standing": "the operator's own traceability declaration",
-                        }
-                        for sid, entry in declared_linked.items()
-                    ],
+                    "linked_sections": list(linked.values()),
+                    "operator_declared_sections": list(declared_linked.values()),
                     "unverified_proposals": [
                         {"dst_ref": dst, "standing": "unverified similarity proposal"}
                         for dst in proposals
-                        if dst not in linked
+                        if dst in readable and dst not in linked
                     ],
-                    "unresolvable_links": [str(d) for d, _ in approved if str(d) not in linked],
+                    "unresolvable_links": [
+                        dst
+                        for dst in dict.fromkeys([*destinations, *declared])
+                        if dst not in readable
+                    ],
                     "has_link": bool(linked or declared_linked),
                 }
             )
@@ -1793,14 +1793,22 @@ def compliance_coverage(
             "requirements_with_no_link": [r["requirement"] for r in rows if not r["has_link"]],
             "deterministic": True,
         }
-        from portal.modules.compliance.core import dual_document
+        if include_dual_document:
+            from portal.modules.compliance.core import dual_document
 
-        result["dual_document"] = dual_document.build(
-            repo, requirement_ref=target, **_payload_pricing()
-        )
+            result["dual_document"] = dual_document.build(
+                repo, requirement_ref=target, **_payload_pricing()
+            )
         return result
     finally:
         repo.close()
+
+
+def _coverage_pointer(entry: dict[str, Any], include_dual_document: bool) -> dict[str, Any]:
+    provenance = _provenance(entry)
+    if include_dual_document:
+        return provenance
+    return {key: provenance[key] for key in ("section_id", "cite_as")}
 
 
 @mcp.tool()
@@ -2041,7 +2049,9 @@ def compliance_ask(
     model: str = "",
     store: bool = True,
 ) -> dict[str, Any]:
-    """Ask a question about a requirement, with the whole neighbourhood in front
+    """Ask about one NERC CIP address, e.g. CIP-007-6 R2 Part 2.2; put the question in question and omit model to use the workspace seat.
+
+    Ask a question about a requirement, with the whole neighbourhood in front
     of the reader.
 
     The reader receives ``compliance_context`` output — nothing filtered on its

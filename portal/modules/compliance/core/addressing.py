@@ -202,6 +202,8 @@ def addressed_hits(repo: Any, query: str, max_chars: int) -> list[dict[str, Any]
         return []
     out: list[dict[str, Any]] = []
     for section_id, entry in resolve_by_address(repo, query).items():
+        if not entry.get("text"):
+            continue
         text, note = clip(entry.get("text", ""), max_chars)
         out.append(
             {

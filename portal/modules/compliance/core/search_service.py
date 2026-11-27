@@ -318,12 +318,27 @@ def search(
     from portal.modules.compliance.core import section_index
     from portal.modules.compliance.tools.compliance_retrieval import search as _kb_search
 
+    jurisdiction = jurisdiction.strip()
+    if jurisdiction and jurisdiction not in section_index.CORPUS_FOR_JURISDICTION:
+        return {
+            "jurisdiction": jurisdiction,
+            "jurisdiction_available": False,
+            "detail": "No corpus for the requested jurisdiction is configured in the local store.",
+            "corpora_searched": [],
+            "num_results": 0,
+            "results": [],
+        }
+
     # An exact address is an ADDRESS, not a search. Resolving it directly
     # beats hoping the sparse arm ranks it first: a requirements-table row's
     # verbatim text is "2.2 | High Impact ... " and never contains the
     # string "CIP-007-6 R2 Part 2.2", so lexical matching on the full
     # address is luck. Addressed hits lead, labelled as addressed.
-    addressed = _addressed_hits(repo, query, max_chars)
+    addressed = [
+        hit
+        for hit in _addressed_hits(repo, query, max_chars)
+        if not jurisdiction or hit.get("jurisdiction") == jurisdiction
+    ]
     addressed, addressed_excluded = clock_addressed(addressed, valid_at, known_at)
 
     requirement_entry, requirement_sections, blocked = (None, [], None)
@@ -379,11 +394,11 @@ def search(
     for hit in hits:
         section_id = section_index.parent_section_id(str(hit.get("chunk_id", "")))
         entry = resolved.get(section_id)
-        if entry is None:
+        if entry is None or not entry["resolvable"]:
             excluded.append(
                 {
                     "chunk_id": hit.get("chunk_id"),
-                    "why": "does not resolve in the canonical store",
+                    "why": "does not resolve to captured text in the canonical store",
                 }
             )
             continue
