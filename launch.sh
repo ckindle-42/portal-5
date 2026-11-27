@@ -307,10 +307,13 @@ case "${1:-up}" in
 
   prune)
     # Remove unused Docker resources to reclaim disk space.
-    # Removes: dangling images, stopped containers, unused networks.
+    # Removes: dangling images, stopped containers, unused networks, superseded
+    #   Portal images, build cache above DOCKER_BUILD_CACHE_CAP (host + dind).
     # Does NOT remove: named volumes (model weights, OW data), images in use.
+    set -a; source "$ENV_FILE" 2>/dev/null || true; set +a
     echo "[portal-5] Pruning unused Docker resources..."
     docker system prune -f
+    _disk_hygiene
     echo ""
     echo "[portal-5] Current Docker disk usage:"
     docker system df
@@ -597,7 +600,7 @@ case "${1:-up}" in
     # `help` (also -h, --help) prints this list and exits without touching the
     # stack, so a lane worktree has a safe way to discover the commands.
     help|-h|--help|*)
-    echo "Usage: ./launch.sh [help|up|down|clean|clean-all|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-omlx|install-music|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
+    echo "Usage: ./launch.sh [help|up|down|clean|clean-all|prune|seed|reseed|logs|status|sync-config|update|pull-models|refresh-models|import-gguf|test|promptfoo|add-user|list-users|backup|restore|up-telegram|up-slack|up-channels|install-ollama|install-omlx|install-music|install-mflux|start-mflux|stop-mflux|pull-mflux-models|install-video-mlx|start-video-mlx|stop-video-mlx|pull-video-mlx-models|pull-asr-models|start-speech|stop-speech|start-transcribe|stop-transcribe|install-powermetrics|uninstall-powermetrics|rebuild|workspace-init|workspace-status|workspace-show|apply-mtp-drafts|build-lab-attack|build-binresearch]"
     echo ""
     echo "  help                  Show this command list (touches nothing; safe from a worktree)"
     echo "  up                    Start all services (first run auto-generates secrets)"
@@ -644,6 +647,8 @@ case "${1:-up}" in
     echo "  test                  Run end-to-end smoke tests against the live stack"
     echo "  promptfoo [area]      Run LLM quality evals (coding|daily|reasoning|security|document|media|strategic|all)"
     echo "  down                  Stop all services (data preserved)"
+    echo "  prune                 Reclaim disk: stopped containers, dangling + superseded Portal"
+    echo "                          images, build cache over DOCKER_BUILD_CACHE_CAP (never volumes)"
     echo "  clean                 Stop + wipe Open WebUI data (Ollama models preserved)"
     echo "  clean-all             Stop + wipe everything including Ollama models"
     echo "  sync-config           Regenerate derived artifacts from config/portal.yaml"

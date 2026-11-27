@@ -609,20 +609,23 @@ _ensure_sandbox_images() {
 }
 
 # ── Disk hygiene: prune what the started stack no longer uses, report savings ─
-# Runs at the end of `up`/`rebuild` (a failed start keeps the old images for
-# rollback — the same rule weekly_rebuild.py prunes by). Removes superseded
-# Portal images (Portal-owned tags no compose service declares, no container
-# references and no sandbox role names — e.g. a retired MCP image), dangling
-# images and dangling build cache on the host, and inside portal5-dind the
-# same, except the images its services and sandbox roles need. Then fstrim in
+# Runs at the end of `up`/`rebuild` and from `./launch.sh prune` (a failed start
+# keeps the old images for rollback — the same rule weekly_rebuild.py prunes
+# by, via the `up` it calls). Removes superseded Portal images (Portal-owned
+# tags no compose service declares, no container references and no sandbox
+# role names — e.g. a retired MCP image), dangling images, and build cache
+# above DOCKER_BUILD_CACHE_CAP (default 20GB; newest kept) on the host, and
+# inside portal5-dind the same, except the images its services and sandbox
+# roles need. Then fstrim in
 # the Docker Desktop VM returns the freed blocks to the host. Never touches
 # volumes or models, never `docker compose down -v`; `docker rmi`/`prune`
 # refuse anything a container still references. The emergency levers stay
 # manual: `docker system prune -af` and `docker exec portal5-dind docker system
 # prune -af`.
 _disk_hygiene() {
-    local raw_path free_before free_after raw_before raw_after declared in_use keep ref repo removed
+    local raw_path free_before free_after raw_before raw_after declared in_use keep ref repo removed cache_cap
     raw_path="$HOME/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw"
+    cache_cap="${DOCKER_BUILD_CACHE_CAP:-20GB}"
     free_before=0; raw_before=0
     free_before="$(df -k / 2>/dev/null | awk 'NR==2 {print $4}')"
     [ -f "$raw_path" ] && raw_before="$(du -k "$raw_path" 2>/dev/null | awk '{print $1}')"
@@ -658,7 +661,7 @@ _disk_hygiene() {
 
     docker image prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
         | sed 's/^Total reclaimed space: /[portal-5] 🧹 host dangling images: /' || true
-    docker builder prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+    docker builder prune -f --keep-storage "$cache_cap" 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
         | sed 's/^Total reclaimed space: /[portal-5] 🧹 host build cache: /' || true
 
     # Inside portal5-dind: dangling generations + build cache, then tagged images
@@ -670,7 +673,7 @@ _disk_hygiene() {
             "$PORTAL_ROOT/deploy/portal-5/docker-compose.yml" 2>/dev/null | sort -u | tr '\n' ' ') "
         docker exec portal5-dind docker image prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
             | sed 's/^Total reclaimed space: /[portal-5] 🧹 dind dangling images: /' || true
-        docker exec portal5-dind docker builder prune -f 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
+        docker exec portal5-dind docker builder prune -f --keep-storage "$cache_cap" 2>/dev/null | grep -oE 'Total reclaimed space: .*' \
             | sed 's/^Total reclaimed space: /[portal-5] 🧹 dind build cache: /' || true
         while IFS= read -r ref; do
             [ -n "$ref" ] || continue
