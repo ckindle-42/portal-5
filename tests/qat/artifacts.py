@@ -212,8 +212,16 @@ def validate_artifact(kind: str, data: bytes) -> str | None:
     return result if isinstance(result, str) else None
 
 
+# The Pipeline appends its own <details>Tool results</details> receipt (router/tools.py
+# format_tool_result_carry, on by default); that block is product design, not model output.
+_TOOL_RESULT_CARRY_RE = re.compile(
+    r"<details><summary>Tool results</summary>.*?(?:</details>|\Z)", flags=re.DOTALL
+)
+
+
 def raw_tool_error_leak(text: str) -> str | None:
-    """First leak marker found in model-visible text, or None."""
+    """First leak marker found in model-authored text, or None."""
+    text = _TOOL_RESULT_CARRY_RE.sub("", text)
     visible = re.sub(r"```.*?(?:```|\Z)", "", text, flags=re.DOTALL).lower()
     for marker in _LEAK_MARKERS:
         if marker.lower() in visible:
