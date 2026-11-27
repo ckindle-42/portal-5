@@ -426,6 +426,22 @@ def _trace_tool_completed(
     trace_span("tool.completed", **fields)
 
 
+def _apply_tool_model_default(workspace_id: str, tool_name: str, arguments: dict[str, Any]) -> None:
+    """Fill a workspace-declared nested-tool seat when the model omitted or defaulted ``model``."""
+    from portal.platform.inference.router.workspaces import WORKSPACES
+
+    ws = WORKSPACES.get(workspace_id) or WORKSPACES.get(workspace_id.partition("::")[0]) or {}
+    defaults = ws.get("tool_model_defaults")
+    if not isinstance(defaults, dict):
+        return
+    target = defaults.get(tool_name)
+    if not isinstance(target, str) or not target:
+        return
+    current = str(arguments.get("model") or "").strip()
+    if not current or current.casefold() == "default":
+        arguments["model"] = target
+
+
 async def _dispatch_tool_call(
     tool_call: dict[str, Any],
     effective_tools: set[str],
@@ -518,6 +534,7 @@ async def _dispatch_tool_call(
             "content": json.dumps({"error": f"Invalid JSON arguments: {arguments_str[:200]}"}),
         }
     arguments = _unwrap_tool_name_envelope(arguments)
+    _apply_tool_model_default(workspace_id, tool_name, arguments)
     trace_capture(tool_arguments={tool_name: arguments})
 
     # Whitelist enforcement

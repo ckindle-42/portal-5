@@ -191,6 +191,8 @@ class WorkspaceSpec(BaseModel):
 
     # --- Tool whitelist ---
     tools: list[str] = Field(default_factory=list)
+    # Optional per-tool default model/workspace when a nested tool call omits model.
+    tool_model_defaults: dict[str, str] | None = None
 
     # --- Output budget / context ---
     predict_limit: int | None = None
@@ -293,6 +295,13 @@ class WorkspaceAlias(BaseModel):
     to: str
     remove_after: date
     reason: str = Field(min_length=1)
+
+
+class WorkingSetSpec(BaseModel):
+    """Declared workspace group whose members run together or yield to each other."""
+
+    workspaces: list[str] = Field(min_length=2)
+    mode: Literal["co_resident", "yield"] = "co_resident"
 
 
 class PersonaSpec(BaseModel):
@@ -480,6 +489,29 @@ class PortalConfig(BaseModel):
         default_factory=list,
         description="HuggingFace → Ollama pull registry (consumed by portal models pull)",
     )
+    working_sets: dict[str, WorkingSetSpec] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _known_working_set_and_tool_default_targets(self) -> PortalConfig:
+        def _known(ref: str) -> bool:
+            base, sep, variant = ref.partition("::")
+            ws = self.workspaces.get(base)
+            return ws is not None and (not sep or variant in ws.variants)
+
+        for ws_id, spec in self.workspaces.items():
+            for tool_name, target in (spec.tool_model_defaults or {}).items():
+                if not _known(target):
+                    raise ValueError(
+                        f"workspace {ws_id!r} tool_model_defaults[{tool_name!r}] targets "
+                        f"unknown workspace {target!r}"
+                    )
+        for set_id, wset in self.working_sets.items():
+            for member in wset.workspaces:
+                if not _known(member):
+                    raise ValueError(
+                        f"working_sets[{set_id!r}] references unknown workspace {member!r}"
+                    )
+        return self
 
     @model_validator(mode="after")
     def _no_port_collision(self) -> PortalConfig:

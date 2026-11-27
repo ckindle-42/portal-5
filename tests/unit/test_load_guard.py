@@ -1833,7 +1833,9 @@ async def test_an_omlx_cold_load_frees_idle_residents_before_any_shield():
             "shield": {"size": 20 * GIB, "loaded": True, "last": 2},
             "mlx": {"size": 14 * GIB, "loaded": False},
         },
-        ceiling=int(40 * GIB),
+        # 45 GiB ceiling -> 45*0.8 - 2 = 34 GiB prefill-safe room: fits shield (20) + mlx (14)
+        # once idle (16) is freed, without touching the shield.
+        ceiling=int(45 * GIB),
     )
     g = guard(e)
     g.protect(lg.OMLX, "shield", failover=True)
@@ -1865,3 +1867,43 @@ async def test_a_busy_failover_shield_is_untouchable():
     assert e.unload_calls == {}
     assert QWEN_GGUF in e.ollama
     assert "(3.0 GiB, busy)" in str(err.value)
+
+
+async def test_omlx_cold_load_respects_prefill_zone_and_yields_busy_parallel_seat(monkeypatch):
+    """QAT #2 hunt canary: 16.5 GiB Inkling must not co-admit beside 15.3 GiB busy Gemma
+    at a 40 GiB ceiling (true prefill-safe room is 14.7 GiB, not 17.8 GiB); it must arm
+    parallel-seat yield, wait for Gemma to finish, cleanly evict Gemma, and admit on oMLX."""
+    from portal.platform.inference.router import parallel_seat
+
+    monkeypatch.setattr(
+        parallel_seat,
+        "seat_for_loaded_model",
+        lambda mid: "hunt-reasoning" if mid == "gemma-4-26b-a4b-it-QAT-4bit" else None,
+    )
+    e = Engines(
+        omlx={
+            "gemma-4-26b-a4b-it-QAT-4bit": {"size": int(15.3 * GIB), "loaded": True},
+            "Inkling-2-Mini-oQ4e-mtp": {"size": int(16.5 * GIB), "loaded": False},
+        },
+        ceiling=int(40 * GIB),
+    )
+    g = guard(e)
+    lg.set_load_wait("5")
+    end_hunt = g.begin(lg.OMLX, "gemma-4-26b-a4b-it-QAT-4bit")
+    held_during_wait: list[bool] = []
+
+    async def finish_hunt() -> None:
+        await asyncio.sleep(0.05)
+        held_during_wait.append(parallel_seat.YIELD.holding("hunt-reasoning"))
+        end_hunt()
+
+    task = asyncio.create_task(finish_hunt())
+    release = await g.admit_omlx("Inkling-2-Mini-oQ4e-mtp")
+    await task
+
+    assert release is not None
+    assert held_during_wait == [True]
+    assert e.unloaded == ["gemma-4-26b-a4b-it-QAT-4bit"]
+    release()
+    await asyncio.sleep(0)
+    assert not parallel_seat.YIELD.holding("hunt-reasoning")

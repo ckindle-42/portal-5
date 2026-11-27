@@ -641,10 +641,10 @@ def _never_fit_basis(never_budget: float | None) -> str:
     return "not asserted: oMLX final_ceiling follows host free memory (P5-OMLX-CEILING-001)"
 
 
-def _omlx_available(headroom: float) -> float:
-    """oMLX headroom a cold load may use: the engine's prefill-safe share, less the margin."""
-    budget = headroom * _OMLX_PREFILL_ZONE if _OMLX_PREFILL_ZONE else headroom
-    return budget - _MARGIN
+def _omlx_available(ceiling: float, used: float = 0.0) -> float:
+    """oMLX headroom a cold load may use inside the prefill-safe share, less loaded models."""
+    budget = ceiling * _OMLX_PREFILL_ZONE if _OMLX_PREFILL_ZONE else ceiling
+    return budget - used - _MARGIN
 
 
 def _omlx_prefill_reserve(status: dict[str, Any], used: float) -> float:
@@ -2954,6 +2954,54 @@ class LoadGuard:
             return holding + [(name, size, "foreign traffic") for name, size in unexplained]
         return holding + [(name, size, "pinned") for name, size in unexplained]
 
+    async def _wait_for_omlx_release(self, deadline: float, models: list[str]) -> bool:
+        """Wait while named oMLX residents are serving work that can free memory."""
+        if not models:
+            return False
+        logger.info("load_guard: waiting for active oMLX model(s) to release: %s", models)
+        while any(
+            self.busy(OMLX, model) or self._active_elsewhere(OMLX, model) for model in models
+        ):
+            wait = load_wait_s()
+            if wait > 0:
+                deadline = max(deadline, time.monotonic() + wait)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            _admit_waited.set(True)
+            started = time.monotonic()
+            await self._wait_change(min(remaining, max(_POLL_S, 0.01)))
+            _record_wait(OMLX, "in_flight", time.monotonic() - started)
+        return True
+
+    async def _wait_or_yield_omlx_blockers(
+        self,
+        client: httpx.AsyncClient,
+        omlx_holding: list[tuple[str, int, str]],
+        need: float,
+        available: float,
+        deadline: float,
+        yield_models: set[str],
+    ) -> bool:
+        """Yield declared parallel seats and wait while busy oMLX blockers cover the shortage."""
+        active_reasons = ("busy", "active elsewhere", "loading")
+        waiting = [name for name, _, reason in omlx_holding if reason in active_reasons]
+        releasable = float(
+            sum(size for _, size, reason in omlx_holding if reason in active_reasons)
+        )
+        if not waiting or available + releasable < need:
+            return False
+        if not yield_models and not _ADMIT_JOB_WORKSPACE.get():
+            held = await self._arm_parallel_yield(client, need - available)
+            if held:
+                yield_models.update(held)
+                if not _ADMIT_YIELD_PIN.get():
+                    from portal.platform.inference.router.parallel_seat import YIELD
+
+                    YIELD.pin()
+                    _ADMIT_YIELD_PIN.set(True)
+        return await self._wait_for_omlx_release(deadline, waiting)
+
     async def _check_omlx_ollama_capacity(
         self, client: httpx.AsyncClient, model: str, deadline: float
     ) -> None:
@@ -2966,6 +3014,7 @@ class LoadGuard:
         pending_omlx: dict[str, _Free] = {}
         attempted_omlx: set[str] = set()
         pending_omlx_used = 0.0
+        yield_models: set[str] = set()
         while True:
             status = await self._omlx_status(client)
             entry = _omlx_entry(status, model)
@@ -2981,7 +3030,7 @@ class LoadGuard:
             except Exception as e:
                 logger.warning("load_guard: could not inspect Ollama before oMLX load: %s", e)
                 return
-            available = _omlx_available(self._ollama_available(headroom, resident, 0))
+            available = _omlx_available(self._ollama_available(headroom + used, resident, 0), used)
             _record_headroom(available)
             if need <= available:
                 logger.info(
@@ -3006,6 +3055,10 @@ class LoadGuard:
             )
             if progress:
                 continue
+            if await self._wait_or_yield_omlx_blockers(
+                client, omlx_holding, need, available, deadline, yield_models
+            ):
+                continue
             await self._advance_omlx_ollama_capacity(
                 client,
                 base,
@@ -3027,10 +3080,14 @@ class LoadGuard:
         """Serialise the cold load; free idle oMLX residents, then Ollama's, when short."""
         if not self.enabled() or not model:
             return None
+        from portal.platform.inference.router.parallel_seat import YIELD
+
         deadline = time.monotonic() + load_wait_s()
         _admit_waited.set(False)
         release: _Release | None = None
+        defer_yield = False
         job_token = _ADMIT_JOB_WORKSPACE.set(_configured_job_workspace(workspace_id))
+        yield_token = _ADMIT_YIELD_PIN.set(False)
         activity = self._shared_process_lock("admissions.lock")
         try:
             try:
@@ -3048,9 +3105,13 @@ class LoadGuard:
                         return None
                     await self._check_omlx_ollama_capacity(client, model, deadline)
                 _record_admission(OMLX, _admit_waited.get())
-                asyncio.get_running_loop().create_task(
-                    self._release_when_resident(OMLX, "", model, release)
+                defer_yield = _ADMIT_YIELD_PIN.get()
+                done = (
+                    self._release_resident_and_yield(OMLX, "", model, release)
+                    if defer_yield
+                    else self._release_when_resident(OMLX, "", model, release)
                 )
+                asyncio.get_running_loop().create_task(done)
                 return release
             except LoadRefusedError as e:
                 if release is not None:
@@ -3062,6 +3123,10 @@ class LoadGuard:
                     release()
                 raise
         finally:
+            pinned = _ADMIT_YIELD_PIN.get()
+            _ADMIT_YIELD_PIN.reset(yield_token)
+            if pinned and not defer_yield:
+                YIELD.release()
             if activity is not None:
                 self._release_activity_lock(activity)
             _ADMIT_JOB_WORKSPACE.reset(job_token)
@@ -3237,6 +3302,7 @@ class LoadGuard:
             "idle_ollama_gib": idle_ollama / _GIB,
             "freeable_omlx_gib": freeable_omlx / _GIB,
             "margin_gib": _MARGIN / _GIB,
+            "omlx_prefill_zone": _OMLX_PREFILL_ZONE,
             "available_gib": None if available is None else available / _GIB,
             "never_fit_basis": _never_fit_basis(never_budget),
             "never_fit_budget_gib": None if never_budget is None else never_budget / _GIB,

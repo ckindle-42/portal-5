@@ -110,3 +110,46 @@ def test_seat_fit_route_is_registered() -> None:
     from portal.platform.inference.router_pipe import app
 
     assert any(getattr(r, "path", "") == "/admin/seat-fit" for r in app.routes)
+
+
+async def test_working_set_fit_deduplicates_shared_model_and_flags_co_resident_over_budget() -> (
+    None
+):
+    e = Engines(
+        omlx={
+            "Qwen3.8-27B-oQ4e-mtp": {"size": int(16.6 * GIB), "loaded": False},
+            "Inkling-2-Mini-oQ4e-mtp": {"size": int(16.5 * GIB), "loaded": False},
+            "gemma-4-26b-a4b-it-QAT-4bit": {"size": int(15.3 * GIB), "loaded": False},
+        },
+        ceiling=int(40 * GIB),
+    )
+    seats = [
+        _seat("auto-compliance", "qwen-tag", "Qwen3.8-27B-oQ4e-mtp"),
+        _seat("compliance-council-qwen38", "qwen-tag-32k", "Qwen3.8-27B-oQ4e-mtp"),
+        _seat("security-reviewer", "inkling-tag", "Inkling-2-Mini-oQ4e-mtp"),
+        _seat("hunt-reasoning", "gemma-tag", "gemma-4-26b-a4b-it-QAT-4bit"),
+    ]
+    working_sets = {
+        "compliance-interactive": {
+            "mode": "co_resident",
+            "workspaces": ["auto-compliance", "compliance-council-qwen38"],
+        },
+        "hunt-forced": {
+            "mode": "co_resident",
+            "workspaces": ["security-reviewer", "hunt-reasoning"],
+        },
+        "security-hunt": {
+            "mode": "yield",
+            "workspaces": ["security-reviewer", "hunt-reasoning"],
+        },
+    }
+    report = annotate(await guard(e).seat_fit(OLLAMA_URL, seats), working_sets=working_sets)
+    by_ws = {row["working_set"]: row for row in report["working_sets"]}
+    # Shared Qwen3.8 weights count once: 16.6 GiB <= 40 * 0.8 - 2 = 30.0 GiB.
+    assert by_ws["compliance-interactive"]["projected_gib"] == pytest.approx(16.6, abs=0.1)
+    assert by_ws["compliance-interactive"]["fits"] is True
+    # Distinct 16.5 + 15.3 = 31.8 GiB > 30.0 GiB prefill-safe budget.
+    assert by_ws["hunt-forced"]["projected_gib"] == pytest.approx(31.8, abs=0.1)
+    assert by_ws["hunt-forced"]["fits"] is False
+    assert by_ws["security-hunt"]["fits"] is False
+    assert report["over_budget_working_sets"] == ["hunt-forced"]

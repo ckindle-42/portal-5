@@ -48,6 +48,45 @@ def validate_config(path: str | Path = "config/portal.yaml") -> list[str]:
             for bk in _BOOL_KEYS:
                 if bk in wcfg and not isinstance(wcfg[bk], bool):
                     errors.append(f"workspace {wid}: `{bk}` must be a bool")
+            defaults = wcfg.get("tool_model_defaults")
+            if defaults is not None:
+                if not isinstance(defaults, dict):
+                    errors.append(f"workspace {wid}: `tool_model_defaults` must be a mapping")
+                else:
+                    for tool_name, target in defaults.items():
+                        base, sep, variant = str(target or "").partition("::")
+                        ws_target = workspaces.get(base)
+                        if not isinstance(ws_target, dict) or (
+                            sep and variant not in (ws_target.get("variants") or {})
+                        ):
+                            errors.append(
+                                f"workspace {wid}: tool_model_defaults[{tool_name!r}] targets "
+                                f"unknown workspace {target!r}"
+                            )
+
+    working_sets = doc.get("working_sets")
+    if working_sets is not None:
+        if not isinstance(working_sets, dict):
+            errors.append("`working_sets:` present but not a mapping")
+        elif isinstance(workspaces, dict):
+            for set_id, spec in working_sets.items():
+                if not isinstance(spec, dict):
+                    errors.append(f"working_sets.{set_id}: not a mapping")
+                    continue
+                mode = spec.get("mode", "co_resident")
+                if mode not in {"co_resident", "yield"}:
+                    errors.append(f"working_sets.{set_id}: invalid mode {mode!r}")
+                members = spec.get("workspaces")
+                if not isinstance(members, list) or len(members) < 2:
+                    errors.append(f"working_sets.{set_id}: `workspaces` needs at least 2 entries")
+                    continue
+                for member in members:
+                    base, sep, variant = str(member or "").partition("::")
+                    ws_target = workspaces.get(base)
+                    if not isinstance(ws_target, dict) or (
+                        sep and variant not in (ws_target.get("variants") or {})
+                    ):
+                        errors.append(f"working_sets.{set_id}: unknown workspace {member!r}")
 
     servers = doc.get("mcp_servers")
     if servers is None:

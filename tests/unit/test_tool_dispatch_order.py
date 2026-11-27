@@ -233,3 +233,38 @@ def test_tool_error_head_is_capped_and_redacted() -> None:
     assert len(fields["error_head"]) == trace.TOOL_RESULT_HEAD_CHARS
     assert fields["error_truncated"] is True
     assert fields["stdout_head"] == "" and fields["stderr_head"] == ""
+
+
+@pytest.mark.asyncio
+async def test_dispatch_applies_workspace_tool_model_default_when_omitted_or_default(monkeypatch):
+    from portal.platform.inference import tool_registry
+    from portal.platform.inference.router import tools as router_tools
+
+    seen: list[dict[str, object]] = []
+
+    async def dispatch(_name, arguments, request_id="", workspace_id=""):
+        del request_id, workspace_id
+        seen.append(dict(arguments))
+        return {"ok": True}
+
+    monkeypatch.setattr(tool_registry.tool_registry, "dispatch", dispatch)
+    for args in (
+        '{"question":"q","ref":"CIP-007-6 R2.2"}',
+        '{"question":"q","ref":"CIP-007-6 R2.2","model":""}',
+        '{"question":"q","ref":"CIP-007-6 R2.2","model":"default"}',
+        '{"question":"q","ref":"CIP-007-6 R2.2","model":"compliance-mapping"}',
+    ):
+        await router_tools._dispatch_tool_call(
+            {"id": "c1", "function": {"name": "compliance_ask", "arguments": args}},
+            {"compliance_ask"},
+            "auto-compliance",
+            "",
+            "rid",
+        )
+
+    assert [item["model"] for item in seen] == [
+        "compliance-council-qwen38",
+        "compliance-council-qwen38",
+        "compliance-council-qwen38",
+        "compliance-mapping",
+    ]

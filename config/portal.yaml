@@ -3040,6 +3040,10 @@ workspaces:
     # deadline. Same fix as auto-research (a79933204): cap, then one answer.
     max_tool_hops: 5
     max_tool_calls: 8
+    # Reuse the resident Qwen3.8-27B weights (tools: [], think: false) for nested
+    # compliance_ask calls so interactive turns never swap 16.6+15.0 GiB per hop.
+    tool_model_defaults:
+      compliance_ask: compliance-council-qwen38
     owui_system_prompt: |-
       You are a NERC CIP compliance analyst with deep expertise in the CIP-002 through CIP-015 reliability standards.
 
@@ -3512,6 +3516,17 @@ workspaces:
     tools: []
     expose_to_owui: false
     enable_web_search: false
+working_sets:
+  compliance-interactive:
+    mode: co_resident
+    workspaces:
+      - auto-compliance
+      - compliance-council-qwen38
+  security-hunt:
+    mode: yield
+    workspaces:
+      - security-reviewer
+      - hunt-reasoning
 models:
   - hf_id: segolilylabs/Lily-Cybersecurity-7B-v0.2-GGUF
     filename: Lily-7B-Instruct-v0.2.Q4_K_M.gguf
