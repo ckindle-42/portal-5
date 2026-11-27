@@ -109,4 +109,36 @@ def test_reading_workspace_prompt_covers_vsl_and_quote_discipline() -> None:
         "system_prompt_append"
     ]
     assert "Violation Severity Levels" in prompt and "compliance_search" in prompt
+    assert "even if you find no gaps" in prompt
+    assert "tool payloads are NOT retained" in prompt
     assert "Reserve double quotes strictly for verbatim source quotes" in prompt
+
+
+def test_tool_result_preserves_unicode_and_bullet_fold_rejects_fabrication() -> None:
+    from portal.modules.compliance.core.candidate_links import _norm_for_verbatim
+    from portal.platform.inference.router.tools import _guard_tool_result
+
+    raw = (
+        "Where technically feasible, either: \uf0b7 Limit the number of "
+        "unsuccessful authentication attempts; or \u2022 Generate alerts."
+    )
+    serialized = _guard_tool_result({"text": raw})
+    assert "\\uf0b7" not in serialized and "\\u2022" not in serialized
+    assert "\uf0b7" in serialized and "\u2022" in serialized
+
+    folded_src = _norm_for_verbatim(raw)
+    assert (
+        _norm_for_verbatim(
+            "Where technically feasible, either: Limit the number of "
+            "unsuccessful authentication attempts; or Generate alerts."
+        )
+        in folded_src
+    )
+    # Real fabrication/alteration still fails verbatim containment.
+    assert (
+        _norm_for_verbatim(
+            "Where technically feasible, either: Limit the number of "
+            "failed login attempts; or Generate alerts."
+        )
+        not in folded_src
+    )

@@ -54,3 +54,30 @@ def test_budget_truncates_new_tool_results_to_remaining_bytes(
     hits = [r for r in caplog.records if "result truncated" in r.message]
     assert len(hits) == 1
     assert "accumulated=1200" in hits[0].message and "budget=1000" in hits[0].message
+
+
+def test_budget_preserves_self_budgeted_dual_document_within_3x_cap() -> None:
+    import json
+
+    payload = json.dumps(
+        {
+            "mode": "dual_document",
+            "window": {"fits": True, "budget_tokens": 1000, "bytes_per_token": 3.17},
+            "text": "x" * 2500,
+        }
+    )
+    msg = {"role": "tool", "content": payload}
+    used = apply_tool_byte_budget(0, [msg], 1000, "auto-compliance::reading")
+    assert used == len(payload.encode("utf-8"))
+    assert "truncated" not in msg["content"]
+
+    oversized = json.dumps(
+        {
+            "mode": "dual_document",
+            "window": {"fits": True, "budget_tokens": 10000, "bytes_per_token": 3.17},
+            "text": "y" * 4000,
+        }
+    )
+    capped = {"role": "tool", "content": oversized}
+    assert apply_tool_byte_budget(0, [capped], 1000, "auto-compliance::reading") == 3000
+    assert "truncated" in capped["content"]

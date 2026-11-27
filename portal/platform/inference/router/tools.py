@@ -46,7 +46,7 @@ _TOOL_RESULT_CARRY_MAX_CHARS = 2048
 
 def _guard_tool_result(result: Any) -> str:
     if isinstance(result, (dict, list)):
-        return json.dumps(result)
+        return json.dumps(result, ensure_ascii=False)
     return str(result)
 
 

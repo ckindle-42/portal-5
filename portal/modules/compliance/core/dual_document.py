@@ -180,10 +180,18 @@ def _build_from_ids(
     deferred: list[dict[str, Any]] = []
     # (a)+(c)+(d) always travel; the walk adds whole documents until the budget
     used = _estimate(standard_text + notes + facts)
-    # traceability-named documents first, then the folder's remainder
+    # same-standard folder documents first (then traceability-named), keeping
+    # operator notes and traceability facts immediately after the standard text
+    folder_prefixes = tuple(
+        f"{s.rsplit('-', 1)[0] if s.count('-') >= 2 else s}/" for s in standards
+    )
     ordered = sorted(
         documents,
-        key=lambda doc: (0 if doc["origin"] == "traceability" else 1, doc["logical_id"]),
+        key=lambda doc: (
+            0 if doc["logical_id"].startswith(folder_prefixes) else 1,
+            0 if doc["origin"] == "traceability" else 1,
+            doc["logical_id"],
+        ),
     )
     blocks: list[str] = []
     for doc in ordered:
@@ -197,7 +205,7 @@ def _build_from_ids(
             )
         else:
             deferred.append({"logical_id": doc["logical_id"], "title": doc["title"]})
-    text = "\n\n".join(block for block in (standard_text, *blocks, notes, facts) if block)
+    text = "\n\n".join(block for block in (standard_text, notes, facts, *blocks) if block)
     return {
         "mode": "dual_document",
         "resolved": True,

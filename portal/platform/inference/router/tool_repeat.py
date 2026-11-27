@@ -389,6 +389,27 @@ def _truncate_tool_content(content: Any, max_bytes: int) -> str:
     return head_bytes.decode("utf-8", errors="ignore") + marker
 
 
+def _effective_tool_budget(content: Any, budget: int) -> int:
+    """Allow self-budgeted dual_document payloads their declared window bytes, capped at 3x."""
+    if budget <= 0 or not isinstance(content, str) or "dual_document" not in content[:256]:
+        return budget
+    try:
+        parsed = json.loads(content)
+    except ValueError:
+        return budget
+    if not isinstance(parsed, dict) or parsed.get("mode") != "dual_document":
+        return budget
+    window = parsed.get("window")
+    if not isinstance(window, dict) or window.get("fits") is not True:
+        return budget
+    budget_tokens = window.get("budget_tokens")
+    bytes_per_token = window.get("bytes_per_token")
+    if not isinstance(budget_tokens, int) or not isinstance(bytes_per_token, (int, float)):
+        return budget
+    declared = int(budget_tokens * float(bytes_per_token)) + 32_768
+    return max(budget, min(declared, budget * 3))
+
+
 def apply_tool_byte_budget(
     accumulated: int,
     results: list[dict[str, Any]],
@@ -400,14 +421,15 @@ def apply_tool_byte_budget(
     for msg in results:
         if msg.get("role") == "tool":
             size = _content_bytes(msg.get("content"))
-            remaining = max(0, budget - total) if budget > 0 else size
-            if budget > 0 and size > remaining:
+            eff_budget = _effective_tool_budget(msg.get("content"), budget)
+            remaining = max(0, eff_budget - total) if eff_budget > 0 else size
+            if eff_budget > 0 and size > remaining:
                 msg["content"] = _truncate_tool_content(msg.get("content"), remaining)
                 logger.info(
                     "Tool-loop result truncated: workspace=%s accumulated=%d budget=%d",
                     workspace_id,
                     total + size,
-                    budget,
+                    eff_budget,
                 )
                 size = _content_bytes(msg.get("content"))
             total += size

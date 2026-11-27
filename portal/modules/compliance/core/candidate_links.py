@@ -708,6 +708,8 @@ def _norm_for_verbatim(text: str) -> str:
                     "'": '"',
                     '"': '"',
                     "\u00a0": " ",
+                    "\u2022": " ",
+                    "\uf0b7": " ",
                 },
             )
         )
