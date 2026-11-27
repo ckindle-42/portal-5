@@ -2984,7 +2984,7 @@ class LoadGuard:
         yield_models: set[str],
     ) -> bool:
         """Yield declared parallel seats and wait while busy oMLX blockers cover the shortage."""
-        active_reasons = ("busy", "active elsewhere", "loading")
+        active_reasons = ("busy", "active elsewhere")
         waiting = [name for name, _, reason in omlx_holding if reason in active_reasons]
         releasable = float(
             sum(size for _, size, reason in omlx_holding if reason in active_reasons)
