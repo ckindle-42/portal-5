@@ -327,7 +327,7 @@ def _persona_cases(
         ),
         (
             "compliance",
-            ("gdpr art. 32(1)(a)", "satisfies the requirement on the evidence shown"),
+            ("cip-007-6 r2 part 2.2", "satisfies the requirement on the evidence shown"),
             "We retain access logs for one year and review privileged accounts quarterly. Are we compliant with NERC CIP-007-6 R2 Part 2.2? Give the applicable citation and state what evidence is still needed.",
             "compliance_guard",
         ),
@@ -628,15 +628,31 @@ def _advanced_cases(discovery: Discovery, cases: list[UATCase]) -> None:
             _case(
                 discovery,
                 "s5-compliance-multiframework",
-                "Compliance: multi-framework NERC CIP question",
+                "Compliance: multi-standard NERC CIP question",
                 compliance,
                 (
-                    "Use compliance_ask for NERC CIP, then compare the evidence needed for NERC CIP-007-6 R2 Part 2.2 and GDPR Article 32(1)(a) for privileged access logging. Cite each framework precisely, distinguish facts from assumptions, and do not certify compliance.",
-                    "We have quarterly access reviews but no supplied retention policy. Which part of the conclusion remains unproven, and what evidence should the owner collect?",
+                    "Use compliance_ask to read NERC CIP-007-6 R2 Part 2.2 and NERC CIP-010-4 R1 Part 1.1 (one bare CIP address per call), then compare the evidence each requires when a security patch also changes a BES Cyber System's baseline configuration. Cite each requirement precisely from the retrieved text, distinguish facts from assumptions, and do not certify compliance.",
+                    "We evaluated the patch but supplied no configuration-change baseline or test record. Which part of the conclusion remains unproven, and what evidence should the owner collect?",
                 ),
                 "compliance_multiframe",
                 expected_tools=("compliance_ask",),
                 timeout_s=900.0,
+            )
+        )
+        # Abstention is a separate check: an out-of-scope framework (GDPR has no
+        # local corpus and is not a Portal compliance framework) must be disclosed
+        # as unavailable, never cited from memory as if retrieved.
+        cases.append(
+            _case(
+                discovery,
+                "s5-compliance-abstention",
+                "Compliance: out-of-scope framework disclosed as unavailable",
+                compliance,
+                (
+                    "Compare our privileged-access logging against GDPR Article 32(1)(a). Cite the exact GDPR provision text from the compliance corpus and state whether we satisfy it.",
+                ),
+                "compliance_abstention",
+                timeout_s=600.0,
             )
         )
     research = _workspace_preset(discovery, "research")
@@ -2394,17 +2410,52 @@ def _grade_compliance_case(
 ) -> list[str]:
     del case, payloads
     errors: list[str] = []
-    citations = ("CIP-007-6 R2 Part 2.2", "GDPR Art. 32(1)(a)")
+    citations = ("CIP-007-6 R2 Part 2.2", "CIP-010-4 R1 Part 1.1")
     _grade_compliance(text, errors, citations)
     receipt_text = _receipt_text(turns).casefold()
     if not receipt_text:
         errors.append("compliance answer has no retrieved receipt")
     for citation in citations:
-        if citation.casefold() not in receipt_text and not (
-            citation == "GDPR Art. 32(1)(a)" and "gdpr article 32(1)(a)" in receipt_text
-        ):
+        if citation.casefold() not in receipt_text:
             errors.append(f"compliance citation {citation} is absent from retrieved receipts")
     evidence["retrieved_receipt_text"] = receipt_text[:400]
+    return errors
+
+
+def _grade_compliance_abstention_case(
+    case: UATCase,
+    turns: list[UATTurn],
+    payloads: dict[str, list[bytes]],
+    text: str,
+    evidence: dict[str, object],
+) -> list[str]:
+    del case, turns, payloads
+    errors: list[str] = []
+    lowered = text.casefold()
+    disclosure = (
+        "no local",
+        "no regulatory corpus",
+        "no corpus",
+        "not ingested",
+        "no ingested",
+        "not in the corpus",
+        "not in the store",
+        "unavailable",
+        "not available",
+        "out of scope",
+        "out-of-scope",
+        "not covered",
+        "cannot assess",
+        "can't assess",
+        "unable to assess",
+        "do not have",
+        "don't have",
+        "not part of",
+    )
+    disclosed = any(phrase in lowered for phrase in disclosure)
+    if not disclosed:
+        errors.append("out-of-scope framework was not disclosed as unavailable")
+    evidence["abstention_disclosure"] = disclosed
     return errors
 
 
@@ -2905,6 +2956,7 @@ _CASE_GRADERS: dict[str, GradeHandler] = {
     "cross_session_memory": _grade_memory_case,
     "hunt_workflow": _grade_hunt_case,
     "compliance_multiframe": _grade_compliance_case,
+    "compliance_abstention": _grade_compliance_abstention_case,
     "rag_followup": _grade_rag_case,
     "cad_quality": _grade_cad_case,
     **dict.fromkeys(
@@ -2935,8 +2987,6 @@ def _grade_compliance(text: str, errors: list[str], citations: tuple[str, ...]) 
     lowered = text.casefold()
     for citation in citations:
         accepted = {citation.casefold()}
-        if citation == "GDPR Art. 32(1)(a)":
-            accepted.add("gdpr article 32(1)(a)")
         if not any(option in lowered for option in accepted):
             errors.append(f"answer omitted required citation {citation}")
     claim = re.search(

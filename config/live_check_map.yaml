@@ -198,10 +198,15 @@ rules:
     description: "Compliance reasoning engine and compliance MCP (IN_SERVICE=False)"
     globs:
       - "portal/modules/compliance/**"
+      - "config/personas/complianceanalyst.yaml"
+      - "config/personas/nerccipcomplianceanalyst.yaml"
+      - "config/personas/cippolicywriter.yaml"
+      - "config/inference/routing_compliance_keywords.json"
     qat_phases:
       - "compliance_smoke"
     qat_scenarios:
       - "s5-compliance-multiframework"
+      - "s5-compliance-abstention"
       - "s5-compliance-policy-conversation"
 
   - id: module-orchestration-and-general
