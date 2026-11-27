@@ -891,7 +891,9 @@ def _file_window(
 
 
 def read_card_sample(executor: HuntExecutor, facts: SourceFacts, *, kind: str) -> RowSet:
-    """The card's sample: per-file heads across hosts — a pooled `head` is arrival order."""
+    """The card's sample: per-file heads across hosts — a pooled `head` is arrival order.
+
+    No `sort` leads the `head`, for the reason `read_files` gives."""
     files = sample_files(facts)
     windows = [bounds for bounds in sample_windows(facts) if bounds[1] > bounds[0]]
     if len(files) <= 1 or not windows:
@@ -907,7 +909,7 @@ def read_card_sample(executor: HuntExecutor, facts: SourceFacts, *, kind: str) -
     requests = [(item, _file_window(facts, item, windows)) for item in files]
     found.query = (
         f"search index={_quoted(facts.index)} {file_route(facts, files[0].path)}"
-        f" | sort - _time | head {SAMPLE_FILE_LINES}"
+        f" | head {SAMPLE_FILE_LINES}"
     )
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
     with ThreadPoolExecutor(max_workers=min(len(requests), concurrency)) as pool:
@@ -916,7 +918,7 @@ def read_card_sample(executor: HuntExecutor, facts: SourceFacts, *, kind: str) -
                 _read_range,
                 executor,
                 f"search index={_quoted(facts.index)} {file_route(facts, item.path)}"
-                f" | sort - _time | head {SAMPLE_FILE_LINES}",
+                f" | head {SAMPLE_FILE_LINES}",
                 bounds[0],
                 bounds[1],
                 kind=kind,
@@ -983,7 +985,10 @@ def read_files(
     sub_windows: int = 1,
     max_files: int = READ_FILES_MAX,
 ) -> RowSet:
-    """One read per indexed file with its own `head`: a pooled `head` returns arrival order."""
+    """One read per indexed file with its own `head`: a pooled `head` returns arrival order.
+
+    No `sort` leads the `head`: it scans the whole window before its first row, so a wide
+    window on a high-volume source is censored where `head` streams the newest rows."""
     if not facts.files:
         return read_windows(
             executor,
@@ -1046,7 +1051,7 @@ def read_files(
         item, file_host, _start, _end, head = requests[0]
         found.query = (
             f"search index={_quoted(facts.index)} {file_route(facts, item.path, file_host)}"
-            f" | sort - _time | head {head}"
+            f" | head {head}"
         )
     concurrency = getattr(getattr(executor, "budget", None), "concurrency", 1)
     with ThreadPoolExecutor(max_workers=min(len(requests) or 1, concurrency)) as pool:
@@ -1055,7 +1060,7 @@ def read_files(
                 _read_range,
                 executor,
                 f"search index={_quoted(facts.index)} {file_route(facts, item.path, file_host)}"
-                f" | sort - _time | head {head}",
+                f" | head {head}",
                 start,
                 end,
                 kind=kind,

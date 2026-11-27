@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -16,6 +17,12 @@ from portal.modules.security.core.hunt.jobs import (
 )
 from portal.modules.security.core.hunt.notables.__main__ import main as notables_main
 from portal.modules.security.core.hunt.notables.run import behaviours_stage
+from portal.modules.security.core.hunt.notables.sample import (
+    IndexFile,
+    SourceFacts,
+    read_card_sample,
+    read_files,
+)
 from portal.modules.security.core.review.window import (
     JobCancel,
     SplunkWindowSource,
@@ -144,3 +151,37 @@ def test_a_notables_run_after_an_expired_stage_starts_its_own_clock(tmp_path: Pa
     assert code == 0
     assert reasons and set(reasons) == {None}
     assert budget.exhausted is None
+
+
+def test_per_file_reads_stream_the_newest_rows_without_a_leading_sort() -> None:
+    """A `sort` before `head` scans the whole window first: on a wide window of a
+    high-volume source the read is censored with no rows, where `head` streams."""
+    executor = HuntExecutor(
+        _results_source("sid-head", [{"count": "1000", "_time": "5.0", "host": "h", "_raw": "x"}]),
+        _budget(),
+    )
+    queries: list[str] = []
+    executor.read_observer = lambda query, *_args: queries.append(query)
+    files = tuple(
+        IndexFile(path=path, events=1000, hosts=("h",), first=0.0, last=100.0)
+        for path in ("a", "b")
+    )
+    facts = SourceFacts(
+        index="i",
+        sourcetype="s",
+        events=1000,
+        first=0.0,
+        last=100.0,
+        hosts=("h",),
+        host_count=1,
+        sources=("a", "b"),
+        source_count=2,
+        files=files,
+    )
+
+    read_files(executor, facts, [(0.0, 100.0)], per_window=400, kind="behavior_events")
+    read_card_sample(executor, facts, kind="sample")
+
+    raw = [query for query in queries if query.startswith("search ")]
+    assert len(raw) >= 4
+    assert all(re.fullmatch(r'search index="i" source="[ab]" \| head \d+', query) for query in raw)
