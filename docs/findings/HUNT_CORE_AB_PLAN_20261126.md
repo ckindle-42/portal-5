@@ -284,11 +284,11 @@ rerun. A control failure is never scored against Inkling. Two setup voids on the
 method is wrong, not the candidate.
 
 **Inkling wins** (patch stays, then the 2–3 day trial) if every labelled run is valid, the workflow
-acceptance holds, and
+acceptance holds, and it is at **parity** with gemma. The benefit is memory (one resident model frees ~15 GiB for a
+specialist), so Inkling has to match gemma, not beat it (orchestrator integration, 2026-11-26):
 
-- `min(i1,i2) >= max(c1,c2)` — its worse run covers at least as many labelled steps at @50 as the
-  control's best run (strict separation, no averaging over a regression), **and**
-- `min(a_i) >= max(a_c) - 0.05` — judge separation does not regress beyond noise, **and**
+- `min(i1,i2) >= min(c1,c2) - 1` and `mean(i) >= mean(c) - 1`: no labelled @50 coverage loss beyond one step, **and**
+- `min(a_i) >= min(a_c) - 0.05`: judge separation within noise, **and**
 - the council arm, if measured, is not worse than the control council by more than 1 case in
   `council decisions`/`abstain` counts.
 
@@ -310,6 +310,11 @@ source placement and parsing. A lower `C0 ceiling reachable` in the Inkling arm 
 cards-quality loss, not only read noise; a higher one is a real gain. Quote `reachable`, `labelled
 lines read verbatim` and `cost searches` beside the @50 number in the verdict so the diff can be
 attributed to cards, ranking, or budget.
+
+## 7b. After the outcome screen (from the parallel Codex plan, lane/hunt-core-ab 292c82c1b)
+
+If Inkling wins, test hunt concurrency at 1, 2, then 4 active hunts. Record the interactive reviewer's p95 TTFT and the hunt outcomes. Select the highest
+tested level whose p95 is ≤ 2× solo and whose outcomes stay correct. No expert offload in this A/B.
 
 ## 8. Not done by this lane
 
