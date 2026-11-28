@@ -113,7 +113,7 @@ def test_reading_workspace_prompt_covers_vsl_and_quote_discipline() -> None:
     assert "Reserve double quotes strictly for verbatim source quotes" in prompt
 
 
-def test_reading_workspace_enforces_tool_call_deterministic_sampling_and_vsl_note() -> None:
+def test_reading_workspace_enforces_tool_call_card_sampling_and_vsl_note() -> None:
     import inspect
 
     import yaml
@@ -124,9 +124,15 @@ def test_reading_workspace_enforces_tool_call_deterministic_sampling_and_vsl_not
     portal = yaml.safe_load(open("config/portal.yaml", encoding="utf-8"))
     ws = effective_workspace(portal["workspaces"], "auto-compliance::reading")
     assert ws.get("tool_choice") == "required"
-    assert float(ws.get("temperature")) <= 0.3
-    override = ws.get("sampling_override") or {}
-    assert override.get("reason") and override.get("evidence")
+    # 2026-11-28: the seat moved to Qwen3.6-35B-A3B and serves the instruct
+    # card's own row (above the compliance lane's 0.3 ceiling, which the card
+    # outranks — settings_audit sampling_card_over_lane). The guard is now that
+    # the served values ARE the card's, not that they are deterministic.
+    cards = yaml.safe_load(open("config/model_card_expectations.yaml", encoding="utf-8"))
+    instruct = cards["models"]["qwen3.6"]["recommended_sampling_modes"]["instruct"]
+    assert float(ws.get("temperature")) == float(instruct["temperature"])
+    assert float(ws.get("top_p")) == float(instruct["top_p"])
+    assert int(ws.get("top_k")) == int(instruct["top_k"])
     src = inspect.getsource(dual_document._build_from_ids)
     assert "VSL" in src and "compliance_search" in src
 

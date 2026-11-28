@@ -1,0 +1,19 @@
+# hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k — the compliance
+# reading seat's Ollama fallback (auto-compliance::reading, compliance-mapping).
+#
+# The seat is oMLX-served (unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit, aliased in
+# omlx-general / omlx-reasoning); this tag is what the seat falls back to when
+# oMLX is unhealthy, so it must hold the seat's own 131072-token window. The
+# registered GGUF tags stop at ctx96k, which would truncate the seat's
+# dual-document payload (standard + operator set, 6k-86k tokens).
+#
+# Same weights as the ctx96k parent — 0 extra bytes; only num_ctx changes.
+# Qwen3.6-35B-A3B is a hybrid linear-attention qwen3_5_moe: 10 of 40 layers
+# keep a growing KV cache (kvh 2, head_dim 256), so KV at 131072 is ~1.3 GiB
+# at Ollama's q8_0 cache type on top of ~22 GiB of UD-Q4_K_XL weights.
+#
+# Create with:
+#   ollama create hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k \
+#     -f config/modelfiles/qwen3.6-35b-a3b-ud-q4_k_xl-ctx128k.Modelfile
+FROM hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
+PARAMETER num_ctx 131072

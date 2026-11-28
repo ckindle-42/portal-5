@@ -6613,10 +6613,17 @@
       "kind": "ollama_manifest",
       "exact_identity": "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k",
       "observed_present": false,
-      "final_disposition": "REMOVED_CLOSED",
-      "decision_reason": "unused by any workspace/persona/router; removed 2026-11-13",
-      "closed_at": "removed 2026-11-13 (operator removal round: parsed-config usage analysis, weights deleted from disk)",
-      "closure_record_refs": []
+      "final_disposition": "INTEGRATED",
+      "decision_reason": "routed: model_hint (auto-compliance::reading + compliance-mapping, 2026-11-28 READING_SEAT_SWAP_QWEN36; re-registered after the 2026-11-13 removal)",
+      "purpose_or_replacement": "routed: model_hint",
+      "known_nonbench_config_references": [
+        "auto-compliance::reading.model_hint",
+        "compliance-mapping.model_hint"
+      ],
+      "closed_at": "2026-11-28",
+      "closure_record_refs": [
+        "docs/MODEL_SEAT_PROCESS.md"
+      ]
     },
     {
       "item_id": "ollama:hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx48k",

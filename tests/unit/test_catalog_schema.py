@@ -122,18 +122,22 @@ def test_hunt_reasoning_has_a_batching_seat_and_a_gguf_fallback() -> None:
     assert "PARAMETER temperature 0" in modelfile
 
 
-def test_compliance_reading_seat_tag_bakes_the_lane_temperature() -> None:
-    """The reading seat's Ollama fallback bakes the compliance lane's 0.0 (a
-    deterministic decode, within the 0.3 ceiling) so settings_audit
-    sampling_baked_hot stays clear when a request omits the workspace
-    override; the oMLX alias keeps the seat on its checkpoint."""
+def test_compliance_reading_seat_serves_qwen36_with_an_ollama_fallback() -> None:
+    """The reading seat serves Qwen3.6-35B-A3B at its 128k window (2026-11-28
+    seat swap): the hint is the GGUF tag, so an oMLX outage falls back to
+    Ollama on the same weights, and the machine-seat twin carries the same hint
+    so machine calls that address the reading tag land in the bare
+    compliance-mapping lane."""
     from portal.platform.inference import model_addressing
     from portal.platform.inference.cluster_backends import BackendRegistry
 
     workspaces = model_addressing.workspaces()
     reading = workspaces["auto-compliance::reading"]
     hint = reading["model_hint"]
-    assert float(reading["temperature"]) == 0.0
+    assert hint == "hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k"
+    # The Qwen3.6 instruct card row, above the compliance lane's 0.3 ceiling and
+    # recorded as the card's own value (settings_audit sampling_card_over_lane).
+    assert float(reading["temperature"]) == 0.7
     # The machine-seat twin must carry the same hint so machine calls that
     # address the reading tag land in the bare compliance-mapping lane.
     assert workspaces["compliance-mapping"]["model_hint"] == hint
@@ -141,10 +145,12 @@ def test_compliance_reading_seat_tag_bakes_the_lane_temperature() -> None:
     serving = {b.type for b in registry.list_backends() if b.resolve_model(hint or "")}
     assert {"omlx", "ollama"} <= serving
     modelfile = (
-        REPO / "config/modelfiles/gemma4-26b-a4b-it-q4_K_M-t0p0-ctx128k.Modelfile"
+        REPO / "config/modelfiles/qwen3.6-35b-a3b-ud-q4_k_xl-ctx128k.Modelfile"
     ).read_text()
-    assert "FROM gemma4:26b-a4b-it-q4_K_M-ctx128k" in modelfile
-    assert "PARAMETER temperature 0.0" in modelfile
+    assert "FROM hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k" in modelfile
+    assert "PARAMETER num_ctx 131072" in modelfile
+    # The retired arm's variant is gone; the seat is the only reading variant.
+    assert "reading-qwen36" not in workspaces["auto-compliance"]["variants"]
 
 
 def test_resolve_preset_tools_typed_path() -> None:
