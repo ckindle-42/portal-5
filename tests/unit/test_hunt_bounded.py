@@ -216,3 +216,56 @@ def test_read_many_censors_remaining_requests_on_request_budget_exhaustion() -> 
     assert (
         sum(1 for _q, is_c, reason in observed if is_c and reason == REQUEST_BUDGET_EXHAUSTED) == 3
     )
+
+
+def test_inventory_source_probe_prefers_observed_search_sourcetype_on_raw_path() -> None:
+    """Raw | head 1 name probe tries card-observed search sourcetypes before the tsidx name."""
+    from portal.modules.security.core.hunt.notables.cards import SourceCard
+    from portal.modules.security.core.hunt.notables.inventory import _Prober
+
+    queries: list[str] = []
+
+    class _RenamedSource:
+        def iter_post_bounded(
+            self,
+            query: str,
+            start: float,
+            end: float,
+            *,
+            timeout_seconds: float,
+            max_results: int,
+            cancel: object,
+        ) -> list[dict[str, str]]:
+            del start, end, timeout_seconds, max_results, cancel
+            queries.append(query)
+            if query.startswith("| tstats ") and 'sourcetype="idx_st"' in query:
+                return [{"count": "500"}]
+            if query.startswith("search ") and 'sourcetype="search_st"' in query:
+                return [{"_raw": "ok"}]
+            return []
+
+    executor = HuntExecutor(_RenamedSource(), _budget())  # type: ignore[arg-type]
+    card = SourceCard(
+        index="i",
+        sourcetype="idx_st",
+        kind="activity",
+        roles={},
+        understood=True,
+        reason=None,
+        fmt="kv",
+        coverage=1.0,
+        fields=(),
+        sample={"search_sourcetypes": ["search_st"]},
+        facts={"events": 500},
+        model={},
+        cache_key="k1",
+    )
+
+    paths = _Prober(executor, "i", 0.0, 100.0).source(card)
+
+    assert paths.tstats_name == "idx_st"
+    assert paths.search_name == "search_st"
+    assert paths.two_names is True
+    assert paths.failed is False
+    raw_probes = [q for q in queries if q.startswith("search ")]
+    assert raw_probes == ['search index="i" sourcetype="search_st" | head 1']

@@ -516,8 +516,11 @@ class _Prober:
         *,
         source_id: str | None = None,
     ) -> tuple[list[dict[str, Any]], str]:
-        self.probe_queries += 1
-        return self.read(query, row_cap, source_id=source_id)
+        before = self.queries
+        rows, problem = self.read(query, row_cap, source_id=source_id)
+        if self.queries > before:
+            self.probe_queries += 1
+        return rows, problem
 
     def source(self, card: SourceCard) -> SourcePaths:
         key = (card.index, card.sourcetype)
@@ -547,7 +550,9 @@ class _Prober:
                 tstats_name, tstats_events = name, events
                 break
         search_name = ""
-        for name in names:
+        # Raw searches see search-time renames; probe observed names before the tsidx name.
+        search_names = tuple(dict.fromkeys((*observed, card.sourcetype)))
+        for name in search_names:
             rows, problem = self.probe(
                 f"search {self._name_route(name)} | head 1", source_id=card.source_id
             )
