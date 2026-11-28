@@ -264,6 +264,10 @@ def test_list_separator_normalization_and_qat_quote_fidelity(tmp_path) -> None:
             "actions shall be taken: a. RFC approval and installation of applicable patches; "
             'b. Creation of a dated mitigation plan; c. Revision of an existing mitigation plan"',
             '- "1. RFC approval and installation of applicable patches; 2. Creation of a dated mitigation plan"',
+            '- "For all identified applicable security or potential security patches, '
+            "within thirty-five (35) calendar days of the evaluation, one of the following "
+            "actions shall be taken: 3.5.1.1 RFC approval and installation of applicable patches; "
+            '3.5.1.2 Creation of a dated mitigation plan; 3.5.1.3 Revision of an existing mitigation plan."',
         ):
             ok = integrity(repo, joined)
             assert ok["grounded"], (joined, ok)

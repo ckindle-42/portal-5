@@ -58,7 +58,7 @@ _PAGE_FURNITURE = re.compile(
     r"private\s*[-\u2013\u2014]\s*for internal use only\s*page \d+ of \d+", re.I
 )
 _LIST_MARKER_LINE = re.compile(r"(?m)^\s*(?:\d+(?:\.\d+)+\.?|[•\uf0b7])\s+")
-_INLINE_ENUM = re.compile(r"(?:^|(?<=[:;]))\s*(?:\d+|[a-z])[.)]\s+")
+_INLINE_ENUM = re.compile(r"(?:^|(?<=[:;]))\s*(?:\d+(?:\.\d+)+\.?|\d+[.)]|[a-z][.)])\s+")
 _LIST_SEP = re.compile(r"\s*;\s*")
 _FURNITURE_INDEX_ATTR = "_citation_integrity_furniture_index"
 _LIST_SEP_INDEX_ATTR = "_citation_integrity_list_sep_index"
