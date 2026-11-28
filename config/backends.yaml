@@ -33,6 +33,13 @@ backends:
   # shadows them via the omlx-general aliases. Matched-context rule: both 96k (64k start, upgraded by W5 data).
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k
     supports_tools: true
+  # auto-compliance::reading's Ollama fallback (2026-11-28 seat swap): the
+  # registered tags stop at 96k, which would truncate the seat's 131072-token
+  # dual-document payload. Same weights as the ctx96k parent, num_ctx 131072
+  # baked (config/modelfiles/qwen3.6-35b-a3b-ud-q4_k_xl-ctx128k.Modelfile);
+  # omlx-general / omlx-reasoning alias it to the oMLX checkpoint.
+  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k
+    supports_tools: true
   # s8 intake (2026-10-29): screen challenger, baked num_ctx; tool call probed clean
   # via /api/chat on Ollama 0.40.13. Replace in place: the loser is deleted after the screen.
   - id: hf.co/unsloth/LFM2.5-24B-A2B-GGUF:UD-Q4_K_XL-ctx96k
@@ -567,6 +574,11 @@ backends:
   # for reasoning-group lineage diversity.
   - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k
     supports_tools: true
+  # auto-compliance::reading's Ollama fallback (2026-11-28): the seat routes to
+  # [reasoning, general], so the 128k tag it falls back to must be registered in
+  # both groups. Same weights as the ctx32k/ctx96k tags, num_ctx 131072 baked.
+  - id: hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k
+    supports_tools: true
   - id: phi4-mini-reasoning:latest-ctx24k
     supports_tools: false
   - id: hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL-ctx64k
@@ -945,6 +957,9 @@ backends:
     # general-fast / general-deep (matched 96k; oMLX serves the native window)
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: Qwen3.8-27B-oQ4e-mtp
     hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+    # 2026-11-28: auto-compliance::reading moved to the 128k tag (the seat's own
+    # window); same oMLX checkpoint serves it, so the seat still batches on oMLX.
+    hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
     # auto-general-uncensored::creative — the GGUF twin of the conversion above.
     fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
     fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx24k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
@@ -1030,6 +1045,9 @@ backends:
     # resolves via the omlx-general alias block).
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: Qwen3.8-27B-oQ4e-mtp
     hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
+    # 2026-11-28: auto-compliance::reading's 128k fallback — the reasoning group
+    # resolves the seat's hint on oMLX (it already resolves via omlx-general).
+    hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}
 - group: security

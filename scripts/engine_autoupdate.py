@@ -12,6 +12,12 @@ Runs daily from launchd (``deploy/launchd/com.portal5.engine-update.plist``):
                  check that cannot run) rolls the engine back to the previous
                  version, re-verifies that version, records the rejected
                  release so it is not retried, and alerts (Pushover, high).
+                 After an oMLX upgrade the repo's forced tool_choice patch
+                 (`scripts/omlx/tool_choice_required_<ver>.patch`) is re-applied
+                 when one matches the new version; one that no longer applies
+                 refuses the upgrade and keeps the old version. Once upstream
+                 fixes jundot/omlx#2877 the contract's `tool_choice: required`
+                 probe passes without a patch, so the patch can be dropped.
   * sooner:      when ``check_updates`` flags a security fix or advisory for an
                  engine that is behind, or when run with ``--now``.
 
@@ -26,7 +32,9 @@ oMLX:    installs GitHub release wheels into a staged copy of ``~/omlx-live/venv
          when ``com.portal5.omlx`` is loaded; the Homebrew service remains a
          fallback until cutover. ``~/.omlx/settings.json`` + ``model_settings.json``
          are backed up first. Rollback reinstalls the previous wheel and restores
-         those settings.
+         those settings. A repo patch in ``scripts/omlx/`` is re-applied to the
+         new install's site-packages (and the service restarted) before the
+         contract runs.
 
 Usage:
   uv run python scripts/engine_autoupdate.py            # the daily job
@@ -88,6 +96,10 @@ OMLX_VENV = venv_path()
 OMLX_VENV_LABEL = "com.portal5.omlx"
 OMLX_BREW_LABEL = "sh.brew.omlx"
 OMLX_SETTINGS = [HOME / ".omlx" / "settings.json", HOME / ".omlx" / "model_settings.json"]
+# Repo-maintained forced tool_choice patches, one per oMLX version they apply to
+# (scripts/omlx/tool_choice_required_<ver>.patch). oMLX 0.8.4 ignores
+# tool_choice="required" (jundot/omlx#2877); the reading seat needs it on hop 1.
+OMLX_PATCH_DIR = REPO / "scripts" / "omlx"
 WEEK = dt.timedelta(days=7)
 # wfe_campaign.sh / wfe_supervise cover the seconds between arms (only bash is alive then) and
 # the gap between a chained screen and its confirm.
@@ -366,31 +378,87 @@ def omlx_model_count() -> int:
     return int(pool.get("model_count") or 0)
 
 
-def omlx_upgrade(version: str, expected_models: int) -> str:
-    """Install a release wheel or use brew fallback; return update outcome."""
+def omlx_patch_for(version: str) -> Path | None:
+    """The repo's forced tool_choice patch for an oMLX version, if one exists."""
+    patch = OMLX_PATCH_DIR / f"tool_choice_required_{version}.patch"
+    return patch if patch.is_file() else None
+
+
+def _omlx_site_packages() -> Path | None:
+    """The site-packages the active oMLX imports from (venv wheel, else the keg)."""
+    if omlx_venv_active():
+        r = _run(
+            [
+                str(OMLX_VENV / "bin" / "python"),
+                "-c",
+                "import site; print(site.getsitepackages()[0])",
+            ],
+            timeout=20,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return Path(r.stdout.strip())
+        log(f"omlx: could not read venv site-packages: {r.stderr.strip()[-200:]}")
+        return None
+    hits = [p for p in OMLX_OPT.rglob("site-packages") if (p / "omlx").is_dir()]
+    return hits[0] if hits else None
+
+
+def omlx_apply_tool_choice_patch(version: str) -> tuple[str, str]:
+    """Re-apply the forced tool_choice patch to a freshly installed oMLX.
+
+    Returns (status, detail): "applied", "absent" (no patch for this version —
+    upstream may have fixed jundot/omlx#2877, and the contract's
+    tool_choice:required probe is what proves it) or "failed" (the patch no
+    longer applies, which the caller treats as a refusal and rolls back).
+    """
+    patch = omlx_patch_for(version)
+    if patch is None:
+        return "absent", f"no tool_choice patch for {version}"
+    site = _omlx_site_packages()
+    if site is None:
+        return "failed", f"could not locate site-packages for oMLX {version}"
+    dry = _run(["patch", "--dry-run", "-p1", "-d", str(site), "-i", str(patch)], timeout=120)
+    if dry.returncode != 0:
+        return "failed", f"patch does not apply: {(dry.stdout + dry.stderr).strip()[-400:]}"
+    real = _run(["patch", "-p1", "-d", str(site), "-i", str(patch)], timeout=120)
+    if real.returncode != 0:
+        return "failed", f"patch failed: {(real.stdout + real.stderr).strip()[-400:]}"
+    return "applied", f"applied {patch.name} to {site}"
+
+
+def _omlx_finish(version: str, expected_models: int, restart) -> tuple[str, str]:
+    """Restart into `version`, re-apply the tool_choice patch, and re-check visibility."""
+    if not restart():
+        return "failed", "service restart failed"
+    status, detail = omlx_apply_tool_choice_patch(version)
+    if status == "failed":
+        log(f"omlx: tool_choice patch refused: {detail}")
+        return "patch_failed", detail
+    if status == "applied":
+        log(f"omlx: {detail}")
+        if not restart():
+            return "failed", "service restart failed after patching"
+    visible = _await_visible("omlx", omlx_model_count, expected_models, version, restart)
+    return ("ok" if visible else "tcc"), detail
+
+
+def omlx_upgrade(version: str, expected_models: int) -> tuple[str, str]:
+    """Install a release wheel or use brew fallback; return (outcome, detail)."""
     if omlx_venv_active():
         stage = stage_venv_upgrade(version, OMLX_VENV, _run)
         activate_venv(stage, OMLX_VENV)
-        if not _omlx_restart():
-            return "failed"
-        visible = _await_visible("omlx", omlx_model_count, expected_models, version, _omlx_restart)
-        return "ok" if visible else "tcc"
+        return _omlx_finish(version, expected_models, _omlx_restart)
     r = _run(
         ["brew", "upgrade", OMLX_FORMULA], timeout=1800, env={"HOMEBREW_NO_INSTALL_CLEANUP": "1"}
     )
     if r.returncode != 0:
         log(f"omlx: brew upgrade failed: {r.stderr.strip()[-400:]}")
-        return "failed"
+        return "failed", r.stderr.strip()[-400:]
     installed = omlx_running()
     if installed != version:
         log(f"omlx: Homebrew has {installed}; GitHub release {version} is not in the tap yet")
-        return "unavailable"
-    if not _omlx_restart():
-        return "failed"
-    visible = _await_visible(
-        "omlx", omlx_model_count, expected_models, omlx_running(), _omlx_restart
-    )
-    return "ok" if visible else "tcc"
+        return "unavailable", f"Homebrew has {installed}"
+    return _omlx_finish(version, expected_models, _omlx_restart)
 
 
 def omlx_prune(keep: set[str]) -> None:
@@ -489,8 +557,12 @@ def _attempt_update(engine: str, old: str, new: str, tag: str) -> tuple[str, boo
             switched, tcc = outcome == "ok", outcome == "tcc"
         else:
             omlx_backup(tag)
-            outcome = omlx_upgrade(new, omlx_model_count())
+            outcome, detail = omlx_upgrade(new, omlx_model_count())
             switched, tcc = outcome == "ok", outcome == "tcc"
+            if outcome == "patch_failed":
+                # The new wheel is live but its tool_choice patch no longer
+                # applies: refuse the upgrade and keep the old version.
+                error = detail
             new = omlx_running() if switched else new
     except Exception as e:
         switched, outcome = False, "failed"
@@ -593,6 +665,31 @@ def update_engine(engine: str, state: dict, dry_run: bool, allow_prerelease: boo
     outcome, switched, tcc, new, error = _attempt_update(engine, old, new, tag)
     if _defer_failed_update(engine, outcome, switched, tcc, state, old, new, tag, error):
         return True
+    if outcome == "patch_failed":
+        # The wheel installed but the repo's tool_choice patch no longer applies
+        # (jundot/omlx#2877): refuse the upgrade, keep the old version, and do
+        # not retry until a matching scripts/omlx/tool_choice_required_<ver>.patch
+        # exists or the contract's tool_choice:required probe passes upstream.
+        log(f"{engine}: refusing {new} — {error}")
+        rc_old = _rollback_engine(engine, old, new, tag)
+        state.setdefault("rejected", {}).setdefault(engine, []).append(new)
+        state.setdefault("history", []).append(
+            {
+                "utc": tag,
+                "from": old,
+                "to": new,
+                "result": "patch_rejected",
+                "detail": error[:400],
+                "rollback_rc": rc_old,
+            }
+        )
+        _alert(
+            f"{engine} {new} REJECTED — tool_choice patch no longer applies; kept {old}",
+            f"{error[:400]}\nRefresh scripts/omlx/tool_choice_required_{new}.patch (or drop it "
+            f"once upstream fixes #2877), then clear {new} from {STATE} to retry.",
+            high=True,
+        )
+        return False
     log(f"{engine}: switched={switched}" + (" (waited on data01 approval)" if tcc else ""))
     rc = contract(engine) if switched else 2
     entry = {"utc": tag, "from": old, "to": new, "contract_rc": rc}

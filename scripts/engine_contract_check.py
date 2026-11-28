@@ -23,6 +23,10 @@ seen the difference:
   gemma4_tools                                    -> a Gemma-4 tools turn comes back as a
      structured tool_calls entry; raw <|tool_call> markup in content is the leak that
      reached an OWUI user on 2026-11-19 (p2-wave34)
+  tool_choice: required (oMLX)                    -> the reply is a tool call, not prose.
+     oMLX 0.8.4 ignores the field (jundot/omlx#2877); scripts/engine_autoupdate.py
+     re-applies scripts/omlx/tool_choice_required_<ver>.patch after an upgrade, and a
+     pass here without a patch means upstream fixed it and the patch can be retired.
 Ollama additionally proves the adapter answers exactly as /v1 would (content,
 tool calls, finish_reason, prompt_tokens — equal prompt tokens mean the
 messages rendered identically) for text, tools, a tool-result turn, a
@@ -218,6 +222,52 @@ async def _gemma4_tool_format(send: Send, model: str) -> Result:
         ok = first.get("name") == "get_weather"
         detail = f"parsed {first.get('name')!r} args={first.get('arguments')!r}"
     return Result("gemma4 native tool call parsed", ok, detail)
+
+
+async def _omlx_tool_choice_required(send: Send, model: str) -> Result:
+    """oMLX must turn ``tool_choice: "required"`` into a call (jundot/omlx#2877).
+
+    Upstream 0.8.4 accepts the field and ignores it, so the reply is prose; the
+    repo's patch is what enforces it and engine_autoupdate re-applies it after an
+    upgrade. A pass here with no patch installed means upstream fixed #2877 and
+    the patch can be dropped.
+    """
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "description": "Get the current weather for a city.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            },
+        }
+    ]
+    body = {
+        "model": model,
+        "messages": [
+            {"role": "user", "content": "What is the weather in Paris right now? Use the tool."}
+        ],
+        "tools": tools,
+        "tool_choice": "required",
+        "temperature": 0,
+        "seed": 1,
+        "max_tokens": 300,
+    }
+    r = await send(body)
+    msg = (r.get("choices") or [{}])[0].get("message") or {}
+    calls = msg.get("tool_calls") or []
+    content = str(msg.get("content") or "")
+    first = (calls[0].get("function") or {}) if calls else {}
+    if not calls:
+        ok, detail = False, f"no tool_calls; content head {content[:120]!r}"
+    else:
+        ok = first.get("name") == "get_weather"
+        detail = f"parsed {first.get('name')!r} args={first.get('arguments')!r}"
+    return Result("tool_choice:required enforced", ok, detail)
 
 
 # ── Ollama ──────────────────────────────────────────────────────────────────
@@ -458,6 +508,7 @@ async def check_omlx(models: dict[str, str]) -> list[Result]:
 
         results = await _delivery(send, build)
         results.append(await _gemma4_tool_format(send, models["gemma4_tools"]))
+        results.append(await _omlx_tool_choice_required(send, models["thinking_tools"]))
         return results
 
 

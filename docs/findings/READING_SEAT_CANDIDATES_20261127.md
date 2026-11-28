@@ -6,6 +6,8 @@
 - **Voided challenger:** `auto-compliance::reading-qwen38` (`Qwen3.8-27B-oQ4e-mtp`, dense 27B, oMLX prefill 86.9 tok/s at 100k → 1,100s TTFT, exceeds 900s bar) — `docs/findings/READING_QWEN38_VOID_20261127.md`.
 - **Verdict (research only):** Two candidates plausibly clear the prefill bar; top 1 staged as `auto-compliance::reading-qwen36`. Incumbent stays until the orchestrator's probes land.
 
+> **Superseded 2026-11-28:** the staged arm was promoted. `auto-compliance::reading` now serves Qwen3.6-35B-A3B (`hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx128k` on oMLX, aliased) and the `reading-qwen36` variant is retired — see `READING_SEAT_SWAP_QWEN36` and the seat ledger in `docs/MODEL_SEAT_PROCESS.md`. Everything below is the 2026-11-27 snapshot.
+
 ## 1. Requirements (from brief, hard)
 
 1. Prefill fast enough to finish a ~100k-token material payload + answer inside 900s on this M4 Pro 64GB host with the stack up. Dense 27B = 87 tok/s → void. Required floor: 100,000/900 = 111 tok/s before any decode; measured Gemma 4 26B-A4B (4B active) = ~420 tok/s at ~100k.
