@@ -56,8 +56,16 @@ backends:
   # DATA_TRUTH Amendment 1 (2026-10-04, operator-approved): compliance-reading's
   # seat — same weights, PARAMETER num_ctx 131072 baked so the Ollama fallback
   # holds the dual-document payload without silent truncation. Tool-call
-  # probed live before registration.
+  # probed live before registration. compliance-mapping (the machine-seat
+  # twin that catches this tag) still serves its declared 1.0 through the
+  # pipeline; direct calls without options get 1.0 here.
   - id: gemma4:26b-a4b-it-q4_K_M-ctx128k
+    supports_tools: true
+  # compliance-reading seat tag (2026-11-27). Bakes temperature 0.3 (the
+  # compliance lane ceiling) over the shared ctx128k parent — settings_audit
+  # sampling_baked_hot. Same weights and num_ctx, 0 extra bytes. Catches the
+  # reading tag for compliance-mapping's machine calls.
+  - id: gemma4:26b-a4b-it-q4_K_M-t0p3-ctx128k
     supports_tools: true
   - id: hf.co/mradermacher/gemma-4-E4B-it-OBLITERATED-GGUF:Q4_K_M-ctx2k
     supports_tools: false
@@ -930,6 +938,8 @@ backends:
     # DATA_TRUTH Amendment 1: the 128k seat tag, same MLX conversion (124.7k-
     # token real-document read measured 2026-10-04).
     gemma4:26b-a4b-it-q4_K_M-ctx128k: mlx-community--gemma-4-26b-a4b-it-4bit
+    # The reading seat's baked-0.3 tag (2026-11-27), same MLX conversion.
+    gemma4:26b-a4b-it-q4_K_M-t0p3-ctx128k: mlx-community--gemma-4-26b-a4b-it-4bit
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
     # general-fast / general-deep (matched 96k; oMLX serves the native window)
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: Qwen3.8-27B-oQ4e-mtp

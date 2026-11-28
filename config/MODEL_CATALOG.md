@@ -2441,12 +2441,22 @@ The overflow FALLBACK's window is not academic: `dfa08c0d` made capacity-specifi
 
 ### `gemma4:26b-a4b-it-q4_K_M-ctx128k`
 
-`gemma4:26b-a4b-it-q4_K_M-ctx128k` is the 128K-context derived tag of the same Gemma 4 26B-A4B weights (`FROM gemma4:26b-a4b-it-q4_K_M`, `PARAMETER num_ctx 131072`; renderer, parser and sampling identical to the 32k/64k tags; trained ceiling 262,144), baked 2026-10-04 for TASK_COMPLIANCE_DATA_TRUTH_V1 Amendment 1 and bound to `compliance-reading` (operator-approved PROMOTE_POLICY=confirm). Registered in the `general` group, `supports_tools: true` (direct `/api/chat` probe: a clean typed `compliance_read` call, `think: false`). Aliased on omlx-general to `mlx-community--gemma-4-26b-a4b-it-4bit`. Measured on a 124.7k-token real operator document set: oMLX 211 s, 59% memory free; Ollama fallback `/api/ps` context_length 131072, 124,660 prompt tokens evaluated with no truncation, 17.3 GB, 585 s, 55% memory free, `done_reason stop`; both routes quoted the deep facts exactly.
+`gemma4:26b-a4b-it-q4_K_M-ctx128k` is the 128K-context derived tag of the same Gemma 4 26B-A4B weights (`FROM gemma4:26b-a4b-it-q4_K_M`, `PARAMETER num_ctx 131072`; renderer, parser and sampling identical to the 32k/64k tags; trained ceiling 262,144), baked 2026-10-04 for TASK_COMPLIANCE_DATA_TRUTH_V1 Amendment 1 and bound to `compliance-reading` (operator-approved PROMOTE_POLICY=confirm). Registered in the `general` group, `supports_tools: true` (direct `/api/chat` probe: a clean typed `compliance_read` call, `think: false`). Aliased on omlx-general to `mlx-community--gemma-4-26b-a4b-it-4bit`. Measured on a 124.7k-token real operator document set: oMLX 211 s, 59% memory free; Ollama fallback `/api/ps` context_length 131072, 124,660 prompt tokens evaluated with no truncation, 17.3 GB, 585 s, 55% memory free, `done_reason stop`; both routes quoted the deep facts exactly. The compliance-reading binding moved to the derived `gemma4:26b-a4b-it-q4_K_M-t0p3-ctx128k` tag on 2026-11-27; this tag stays registered as its parent and the direct-call tag for compliance-mapping's pre-rebinding history.
 
 ## Why
 
 The reading seat now receives a dual-document payload — the standard's normative text plus the operator's whole document set for that standard (6k-86k tokens). The 32k seat refused it, and the Ollama fallback must hold the same window as the oMLX route, or a capacity cascade truncates silently.
 
+
+---
+
+### `gemma4:26b-a4b-it-q4_K_M-t0p3-ctx128k`
+
+`gemma4:26b-a4b-it-q4_K_M-t0p3-ctx128k` is the compliance-reading seat tag (weights shared with `gemma4:26b-a4b-it-q4_K_M-ctx128k` — 0 extra bytes) that bakes `PARAMETER temperature 0.3` — the compliance lane's LANE_SAMPLING ceiling — over the parent's 131072-token window. Modelfile: `config/modelfiles/gemma4-26b-a4b-it-q4_K_M-t0p3-ctx128k.Modelfile`. Created 2026-11-27 because settings audit `sampling_baked_hot` warned on the parent, which bakes temperature 1, while the seat serves 0.3. Registered in `general` (`supports_tools: true`) and aliased on omlx-general to `mlx-community--gemma-4-26b-a4b-it-4bit`, so the seat still batches on oMLX (which serves the request's sampling — the conversion has no baked sampling entry) and falls back to this tag. `auto-compliance::reading` and its machine-seat twin `compliance-mapping` are the only `model_hint` carriers; the parent tag stays in place for every other use.
+
+## Why
+
+The audit treats a hot baked tag as a gap even when the workspace pins a compliant temperature. A derived tag with the same weights removes that gap without moving the seat off its oMLX checkpoint.
 
 ---
 
