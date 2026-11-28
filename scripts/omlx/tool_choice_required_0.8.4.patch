@@ -1,0 +1,442 @@
+# Minimal upstreamable oMLX 0.8.4 patch: enforce OpenAI tool_choice="required" and named function
+#
+# Upstream issue: https://github.com/jundot/omlx/issues/2877 (open as of v0.8.4)
+# Upstream PR:    https://github.com/jundot/omlx/pull/4891 (unmerged; auto-closed stale 2026-11-26)
+# Rebased cleanly (0 fuzz) onto oMLX 0.8.4 site-packages.
+#
+# Install into ~/omlx-live/venv (read-only dry-run first):
+#   SITE=$(~/omlx-live/venv/bin/python -c 'import site; print(site.getsitepackages()[0])')
+#   patch --dry-run -p1 -d "$SITE" < scripts/omlx/tool_choice_required_0.8.4.patch
+#   patch -p1 -d "$SITE" < scripts/omlx/tool_choice_required_0.8.4.patch
+#   launchctl kickstart -k "gui/$(id -u)/com.portal5.omlx"
+#
+# Rollback:
+#   patch -R -p1 -d "$SITE" < scripts/omlx/tool_choice_required_0.8.4.patch
+#   launchctl kickstart -k "gui/$(id -u)/com.portal5.omlx"
+#
+# Note: site-packages is replaced on oMLX upgrades; re-check #2877 after upgrading past 0.8.4.
+--- /dev/null
++++ b/omlx/api/tool_choice.py
+@@ -0,0 +1,229 @@
++# SPDX-License-Identifier: Apache-2.0
++"""Forced tool calls for OpenAI ``tool_choice`` (#2877).
++
++``"required"`` and a named function make the reply a call. The reply is
++started with the opening of a call in the model's own format, as its chat
++template renders an assistant turn with calls, and the model writes the rest.
++No grammar is needed, so this works without xgrammar and on every engine that
++renders oMLX's partial assistant turns.
++"""
++
++from __future__ import annotations
++
++import logging
++from collections.abc import AsyncIterator
++from contextlib import aclosing
++from dataclasses import dataclass, replace
++from typing import Any
++
++from ..exceptions import InvalidRequestError
++
++logger = logging.getLogger(__name__)
++
++# The opening of a call per tool parser, as the chat templates render it.
++# Named: through the name, cut where the template's next token starts.
++# Required: cut before the name, so the name's own tokens stay the model's
++# (Qwen tokenizes "<function=get_weather" as "<function", "=get", "_weather").
++# No opening ends in whitespace: templates trim the content of the partial
++# assistant turn that carries it. Gemma 4 is left out: its partial turn lacks
++# the empty thought channel of its generation prompt, and with several tools,
++# or with thinking on, the model does not continue the call reliably.
++_OPENINGS = {
++    "qwen3_coder": ("<tool_call>\n<function={name}>", "<tool_call>\n<function"),
++    "json_tools": (
++        '<tool_call>\n{{"name": "{name}", "arguments":',
++        '<tool_call>\n{"name": "',
++    ),
++}
++
++
++@dataclass(frozen=True)
++class ForcedToolCall:
++    """A reply that must be a call.
++
++    ``opening`` is the text the reply starts with: through the function's
++    name when one is named or only one tool is offered. ``close`` is the
++    marker that ends a call in this format. ``single``: a named function is
++    called once, so the reply ends with its call; ``"required"`` lets the
++    model make more calls after the first.
++
++    ``thinks``: the prompt opens the reasoning block, so the model reasons
++    before the call.
++    """
++
++    opening: str
++    close: str
++    single: bool
++    thinks: bool = False
++
++
++def _tool_names(tools: list[dict] | None) -> list[str]:
++    names = []
++    for tool in tools or []:
++        function = tool.get("function") if isinstance(tool, dict) else None
++        name = function.get("name") if isinstance(function, dict) else None
++        if isinstance(name, str) and name and name not in names:
++            names.append(name)
++    return names
++
++
++def _parser_format(tokenizer: Any) -> str | None:
++    parser = getattr(tokenizer, "tool_parser", None)
++    module = getattr(parser, "__module__", None) or ""
++    kind = module.rsplit(".", 1)[-1]
++    return kind if kind in _OPENINGS else None
++
++
++def resolve_forced_tool_call(
++    tool_choice: Any, tools: list[dict] | None, tokenizer: Any
++) -> ForcedToolCall | None:
++    """Return the call a ``"required"`` or named ``tool_choice`` forces.
++
++    None for ``"auto"``, ``"none"`` and anything else, which keep today's
++    behaviour, and for tool-call formats this module does not know (logged).
++    Raises InvalidRequestError when the choice cannot be met by ``tools``.
++    """
++    if tool_choice == "required":
++        name = None
++    elif isinstance(tool_choice, dict) and tool_choice.get("type") == "function":
++        function = tool_choice.get("function")
++        name = function.get("name") if isinstance(function, dict) else None
++        if not isinstance(name, str) or not name:
++            raise InvalidRequestError(
++                "tool_choice: a named choice needs function.name",
++                field="tool_choice",
++            )
++    else:
++        return None
++    names = _tool_names(tools)
++    if not names:
++        raise InvalidRequestError(
++            "tool_choice: a required or named choice needs tools", field="tools"
++        )
++    if name is not None and name not in names:
++        raise InvalidRequestError(
++            f"tool_choice: function {name!r} is not in tools", field="tool_choice"
++        )
++    kind = _parser_format(tokenizer)
++    if kind is None:
++        logger.warning(
++            "tool_choice %r is not enforced: this model's tool-call format has "
++            'no known call opening; the model chooses as with "auto"',
++            tool_choice if name is None else name,
++        )
++        return None
++    single = name is not None
++    if name is None and len(names) == 1:
++        name = names[0]
++    named, required = _OPENINGS[kind]
++    opening = named.format(name=name) if name is not None else required
++    close = getattr(tokenizer, "tool_call_end", None) or "</tool_call>"
++    return ForcedToolCall(opening=opening, close=close, single=single)
++
++
++def forced_call_messages(
++    messages: list[dict], forced: ForcedToolCall, reasoning: str | None = None
++) -> list[dict]:
++    """``messages`` plus the partial assistant turn that starts the reply.
++
++    ``reasoning`` goes in the turn's ``reasoning_content``, which the chat
++    templates of models that reason in the prompt's thinking block read (and
++    Qwen3.8's is the only place it reads it from).
++    """
++    turn = {"role": "assistant", "content": forced.opening}
++    if reasoning is not None:
++        turn["reasoning_content"] = reasoning
++    return [*messages, turn]
++
++
++def _token_count(tokenizer: Any, text: str) -> int:
++    try:
++        return len(tokenizer.encode(text, add_special_tokens=False))
++    except TypeError:
++        return len(tokenizer.encode(text))
++
++
++async def forced_tool_call_outputs(
++    engine: Any,
++    messages: list[dict],
++    forced: ForcedToolCall,
++    **kwargs: Any,
++) -> AsyncIterator[Any]:
++    """Stream a reply that is the forced call, as ``engine.stream_chat`` does.
++
++    When the prompt opens the reasoning block (``forced.thinks``), the model
++    reasons first: generation stops at the end of its reasoning, and a second
++    request continues the same prompt with the reasoning, its close and the
++    call's opening (the prefix cache holds the shared prompt). Otherwise
++    ``messages`` already end with the partial turn holding the opening.
++
++    The texts are those the model would have written, so the thinking and
++    tool-call parsers downstream see the whole call. Usage counts the
++    client's prompt as prompt tokens and the reasoning, the opening and the
++    call as completion tokens; without reasoning the opening is part of the
++    prompt.
++    """
++    tokenizer = engine.tokenizer
++    stop = list(kwargs.get("stop") or [])
++    if forced.single:
++        # A named function is called once: the reply ends after its call.
++        stop.append(forced.close)
++    head = forced.opening  # text before the engine's own output
++    base = None  # phase 1's last output when the model reasoned first
++    if forced.thinks:
++        think_end = getattr(tokenizer, "think_end", None) or "</think>"
++        phase1 = {**kwargs, "stop": [think_end], "stop_skips_reasoning": False}
++        last = None
++        async with aclosing(engine.stream_chat(messages=messages, **phase1)) as outputs:
++            async for output in outputs:
++                if last is not None:
++                    yield replace(last, finished=False, finish_reason=None)
++                last = output
++        if last is None:
++            return
++        if last.finish_reason != "stop":
++            yield last  # out of tokens (or failed) while reasoning: no call
++            return
++        yield replace(last, finished=False, finish_reason=None)
++        reasoning = last.text
++        head = f"{think_end}\n\n{forced.opening}"
++        base = replace(
++            last,
++            text=reasoning,
++            completion_tokens=last.completion_tokens + _token_count(tokenizer, head),
++        )
++        messages = forced_call_messages(messages, forced, reasoning.strip())
++        kwargs = {**kwargs, "is_partial": True}
++        kwargs.pop("_prepared_prompt", None)
++        kwargs.pop("thinking_budget", None)
++        kwargs["max_tokens"] = max(
++            1, kwargs.get("max_tokens", 256) - base.completion_tokens
++        )
++        if kwargs.get("_request_id"):
++            kwargs["_request_id"] = f"{kwargs['_request_id']}-call"
++    kwargs["stop"] = stop
++    prefix = (base.text if base is not None else "") + head
++    pending = head
++    async with aclosing(engine.stream_chat(messages=messages, **kwargs)) as outputs:
++        async for output in outputs:
++            text = prefix + output.text
++            new_text = pending + (output.new_text or "")
++            pending = ""
++            if (
++                output.finished
++                and forced.single
++                and output.finish_reason == "stop"
++                and not text.rstrip().endswith(forced.close)
++            ):
++                # The stop string that ended the call is not in the text.
++                text += forced.close
++                new_text += forced.close
++            if base is not None:
++                output = replace(
++                    output,
++                    prompt_tokens=base.prompt_tokens,
++                    completion_tokens=base.completion_tokens + output.completion_tokens,
++                    cached_tokens=base.cached_tokens,
++                    first_token_at=base.first_token_at,
++                )
++            yield replace(output, text=text, new_text=new_text)
+--- a/omlx/engine/splash.py
++++ b/omlx/engine/splash.py
+@@ -1289,6 +1289,8 @@
+     _prefill_memory_guard_managed_externally = True
+     # Splash validates and enforces response_format in its own engine.
+     supports_native_response_format = True
++    # And a required or named tool_choice, with its own grammar.
++    handles_tool_choice = True
+ 
+     def __init__(
+         self,
+@@ -1614,6 +1616,7 @@
+             "seed",
+             "response_format",
+             "ignore_eos",
++            "tool_choice",
+         ):
+             if kwargs.get(key) is not None:
+                 body[key] = kwargs[key]
+--- a/omlx/server.py
++++ b/omlx/server.py
+@@ -51,7 +51,7 @@
+ import uuid
+ from collections.abc import AsyncIterator, Awaitable, Callable
+ from contextlib import asynccontextmanager, suppress
+-from dataclasses import asdict, dataclass, field
++from dataclasses import asdict, dataclass, field, replace
+ from datetime import UTC, datetime
+ from enum import Enum
+ from pathlib import Path
+@@ -208,6 +208,12 @@
+     restore_gemma4_param_names,
+     sanitize_tool_call_markup,
+ )
++from .api.tool_choice import (
++    ForcedToolCall,
++    forced_call_messages,
++    forced_tool_call_outputs,
++    resolve_forced_tool_call,
++)
+ from .api.utils import (
+     clean_special_tokens,
+     detect_and_strip_partial,
+@@ -5066,6 +5072,46 @@
+     return tools_for_template
+ 
+ 
++async def _resolve_forced_tool_call(
++    request: ChatCompletionRequest,
++    engine: BaseEngine,
++    tools: list[dict] | None,
++    is_partial: bool,
++) -> ForcedToolCall | None:
++    """The call a ``required`` or named ``tool_choice`` forces (#2877).
++
++    Engines that enforce ``tool_choice`` themselves (Splash) get it as is.
++    """
++    choice = request.tool_choice
++    if choice != "required" and not isinstance(choice, dict):
++        return None
++    if getattr(engine, "handles_tool_choice", False):
++        return None
++    if getattr(engine, "tokenizer", None) is None:
++        await engine.start()
++    forced = resolve_forced_tool_call(choice, tools, engine.tokenizer)
++    if forced is not None and is_partial:
++        # The client continues its own partial assistant turn.
++        logger.warning("tool_choice is not enforced on a partial assistant turn")
++        return None
++    return forced
++
++
++def _generation_prompt_opens_thinking(
++    engine: BaseEngine, chat_template_kwargs: dict | None
++) -> bool:
++    """Whether the template's generation prompt opens the reasoning block."""
++    probe = getattr(engine, "_generation_prompt_text", None)
++    if not callable(probe):
++        return False
++    try:
++        suffix, _ = probe(chat_template_kwargs or None, False)
++        return bool(suffix) and prompt_opens_thinking(engine.tokenizer, suffix)[0]
++    except Exception as exc:
++        logger.debug("Could not detect the generation prompt's thinking: %s", exc)
++        return False
++
++
+ def _is_chat_template_error(e: Exception) -> bool:
+     # Jinja2 TemplateError, AssertionError from strict role validation,
+     # ValueError, etc.
+@@ -5173,6 +5219,11 @@
+         is_partial = chat_messages.is_partial
+         native_reasoning = chat_messages.native_reasoning
+ 
++        tools_for_template = _resolve_template_tools(request, engine, resolved_model)
++        forced_call = await _resolve_forced_tool_call(
++            request, engine, tools_for_template, is_partial
++        )
++
+         # Compile grammar for structured output (logit-level enforcement).
+         # Grammar compilation needs the tokenizer, so ensure the engine is loaded.
+         response_format = request.response_format
+@@ -5186,6 +5237,9 @@
+             request.structured_outputs,
+             guided_grammar,
+         )
++        if forced_call is not None:
++            # The reply is a call; structured output shapes text replies.
++            response_format = structured_outputs = guided_grammar = None
+         _reject_diffusion_structured_outputs(
+             engine,
+             response_format=response_format,
+@@ -5231,7 +5285,6 @@
+             if json_instruction:
+                 messages = _inject_json_instruction(messages, json_instruction)
+ 
+-        tools_for_template = _resolve_template_tools(request, engine, resolved_model)
+         # Resolve template defaults before preparing the prompt for reuse.
+         _apply_preserve_thinking_default(resolved_model, merged_ct_kwargs)
+         await _ensure_tokenizer_for_system_probe(engine, messages)
+@@ -5243,6 +5296,15 @@
+             is_partial=is_partial,
+             unsupported_mid_system_policy=_unsupported_mid_system_policy(),
+         )
++        if forced_call is not None:
++            forced_call = replace(
++                forced_call,
++                thinks=_generation_prompt_opens_thinking(engine, merged_ct_kwargs),
++            )
++            if not forced_call.thinks:
++                # The reply starts with the call's opening, a partial turn.
++                messages = forced_call_messages(messages, forced_call)
++                is_partial = True
+         # Validate context window before sending to model
+         try:
+             num_prompt_tokens, prepared_prompt = await _prepare_prompt_off_loop(
+@@ -5343,6 +5405,11 @@
+         # Add tools if provided (includes MCP tools)
+         if tools_for_template:
+             chat_kwargs["tools"] = tools_for_template
++        # Splash enforces a required or named tool_choice itself.
++        if getattr(engine, "handles_tool_choice", False) and (
++            request.tool_choice == "required" or isinstance(request.tool_choice, dict)
++        ):
++            chat_kwargs["tool_choice"] = request.tool_choice
+ 
+         # Add chat template kwargs
+         if merged_ct_kwargs:
+@@ -5410,6 +5477,7 @@
+                                 model_load_duration=model_load_duration,
+                                 resolved_model=resolved_model,
+                                 response_id=response_id,
++                                forced_call=forced_call,
+                                 **chat_kwargs,
+                             ),
+                             http_request=http_request,
+@@ -5430,7 +5498,13 @@
+             await _raise_if_llm_lease_abort_requested(lease)
+             start_time = time.perf_counter()
+ 
+-            output = await engine.chat(messages=messages, **chat_kwargs)
++            if forced_call is not None:
++                async for chunk in forced_tool_call_outputs(
++                    engine, messages, forced_call, **chat_kwargs
++                ):
++                    output = chunk
++            else:
++                output = await engine.chat(messages=messages, **chat_kwargs)
+ 
+             elapsed = time.perf_counter() - start_time
+             tokens_per_sec = output.completion_tokens / elapsed if elapsed > 0 else 0
+@@ -6713,6 +6787,7 @@
+     model_load_duration: float = 0.0,
+     resolved_model: Optional[str] = None,
+     response_id: Optional[str] = None,
++    forced_call: ForcedToolCall | None = None,
+     **kwargs,
+ ) -> AsyncIterator[str]:
+     """Stream chat completion response.
+@@ -6816,7 +6891,12 @@
+     if request.return_progress:
+         # The engine keys the prefill tracker by this id.
+         progress_request_id = kwargs.setdefault("_request_id", str(uuid.uuid4()))
+-    engine_stream = engine.stream_chat(messages=messages, **kwargs)
++    if forced_call is not None:
++        engine_stream = forced_tool_call_outputs(
++            engine, messages, forced_call, **kwargs
++        )
++    else:
++        engine_stream = engine.stream_chat(messages=messages, **kwargs)
+     if progress_request_id is not None:
+         engine_stream = _with_prompt_progress(engine_stream, progress_request_id)
+     try:
