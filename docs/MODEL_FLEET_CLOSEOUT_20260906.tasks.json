@@ -6633,8 +6633,8 @@
       "kind": "ollama_manifest",
       "exact_identity": "hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k",
       "observed_present": false,
-      "final_disposition": "INTEGRATED",
-      "decision_reason": "re-created 2026-11-27 as the Ollama fallback of auto-compliance::reading-qwen38 (BRIEF_READING_QWEN38_128K_20261127); the 2026-11-13 retirement reason was the absence of a consumer",
+      "final_disposition": "REMOVED_CLOSED",
+      "decision_reason": "retired 2026-11-27 after auto-compliance::reading-qwen38 probe void (docs/findings/READING_QWEN38_VOID_20261127.md); incumbent gemma4 stays",
       "closed_at": "2026-11-27",
       "closure_record_refs": []
     },

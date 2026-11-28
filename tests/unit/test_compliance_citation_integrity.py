@@ -159,3 +159,156 @@ def test_tool_result_preserves_unicode_and_bullet_fold_rejects_fabrication() -> 
         )
         not in folded_src
     )
+
+
+def test_list_separator_normalization_and_qat_quote_fidelity(tmp_path) -> None:
+    from portal.modules.compliance.core.models import SourceDocument, SourceSection
+    from portal.modules.compliance.core.repository import Repository
+    from scripts.compliance.truth.citation_integrity import integrity
+    from tests.qat.uat_behavioral import UATCase, UATTurn, _grade_compliance_policy_case
+
+    repo = Repository(tmp_path / "store.db")
+    try:
+        lspg_text = (
+            "3.5.1 \n"
+            "For all identified applicable security or potential security patches, within thirty-five (35) \n"
+            "calendar days of the evaluation, one of the following actions shall be taken:  \n"
+            "3.5.1.1 \n"
+            "RFC approval and installation of applicable patches \n"
+            "3.5.1.2 \n"
+            "Creation of a dated mitigation plan \n"
+            "3.5.1.3 \n"
+            "Revision of an existing mitigation plan \n"
+        )
+        reg_text = (
+            "At least once every 35 calendar days, evaluate security patches for applicability "
+            "that have been released since the last evaluation from the source or sources identified in Part 2.1."
+        )
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id="CIP-007/LSPG WI.pdf",
+                title="LSPG WI",
+                issuer="LSPG",
+                source_kind="work_instruction",
+                jurisdiction="internal",
+            )
+        )
+        rev_op = repo.add_document_revision(
+            "CIP-007/LSPG WI.pdf",
+            "LSPG WI.pdf",
+            lspg_text.encode(),
+            binding_effect="internally_mandatory",
+        )
+        repo.put_document_text(
+            rev_op.revision_id, lspg_text, page_count=1, extractor="test", extractor_version="1"
+        )
+        repo.add_source_section(
+            SourceSection(
+                section_id="isection-11111111111111111111",
+                revision_id=rev_op.revision_id,
+                path="3.5.1",
+                heading_path="3.5.1",
+                title="3.5.1",
+                char_start=0,
+                char_end=len(lspg_text),
+                ordinal=1,
+            )
+        )
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id="NERC/CIP-007-6.pdf",
+                title="CIP-007-6",
+                issuer="NERC",
+                source_kind="regulatory_standard",
+                jurisdiction="US",
+            )
+        )
+        rev_reg = repo.add_document_revision(
+            "NERC/CIP-007-6.pdf",
+            "CIP-007-6.pdf",
+            reg_text.encode(),
+            binding_effect="regulatory",
+        )
+        repo.put_document_text(
+            rev_reg.revision_id, reg_text, page_count=1, extractor="test", extractor_version="1"
+        )
+        repo.add_source_section(
+            SourceSection(
+                section_id="csection-22222222222222222222",
+                revision_id=rev_reg.revision_id,
+                path="R2 Part 2.2",
+                heading_path="R2 Part 2.2",
+                title="Part 2.2",
+                char_start=0,
+                char_end=len(reg_text),
+                ordinal=1,
+            )
+        )
+
+        # Class (b): verbatim words with PDF outline markers replaced by '; ' resolve.
+        joined = (
+            '- "For all identified applicable security or potential security patches, '
+            "within thirty-five (35) calendar days of the evaluation, one of the following "
+            "actions shall be taken: RFC approval and installation of applicable patches; "
+            'Creation of a dated mitigation plan; Revision of an existing mitigation plan."'
+        )
+        ok = integrity(repo, joined)
+        assert ok["grounded"], ok
+        assert ok["quotes"][0].get("fold") == "list_separators"
+
+        # Class (c): garbled numbers/words and inline number changes MUST still fail.
+        for bad in (
+            '- "For all identified applicable security or potential security patches, within thirty-five (35s) calendar days of the evaluation, one of the following actions shall be taken: RFC approval and installation of applicable patches; Creation of a dated mitigation plan; Revision of an existing mitigation plan."',
+            '- "At least once every TS5 calendar days, evaluate security patches for applicability that have been released since the last evaluation..."',
+            '- "At least once every 35 calendar days, evaluate security patches for applicability that have which have been released since the last evaluation from the source or sources identified in Part 2.1."',
+            '- "At least once every 35 calendar days, evaluate security patches for applicability that have been released since the last evaluation from the source or sources identified in Part 2.9."',
+        ):
+            res = integrity(repo, bad)
+            assert not res["grounded"], f"must reject altered quote: {bad}"
+    finally:
+        repo.close()
+
+    # QAT s5-compliance-policy-conversation grader: typography/newline fold passes, alteration fails.
+    case = UATCase(
+        "s5-compliance-policy-conversation", "t", "auto-compliance", ("q",), "compliance_policy_gap"
+    )
+    turns = [
+        UATTurn(
+            prompt="q",
+            text="",
+            trace={},
+            tool_names=("compliance_read", "nerc_cip_requirement"),
+            artifact_urls=(),
+            tool_results=(
+                {
+                    "tool": "compliance_read",
+                    "result": {
+                        "success": True,
+                        "receipt": {
+                            "text": "OT-PROC-007: LSPG\u2019s patch evaluation runs within thirty-five (35)\ncalendar days of release."
+                        },
+                    },
+                },
+                {
+                    "tool": "nerc_cip_requirement",
+                    "result": {
+                        "success": True,
+                        "receipt": {
+                            "text": "CIP-007-6 R2 Part 2.2: At least once every 35 calendar days, evaluate security patches."
+                        },
+                    },
+                },
+            ),
+        )
+    ]
+    good_ans = (
+        "Comparing OT-PROC-007 against CIP-007-6 R2 Parts 2.1, 2.3, and 2.4 in the ingested corpus: "
+        'missing explicit cadence. "LSPG\'s patch evaluation runs within thirty-five (35) calendar days of release." '
+        'and "At least once every 35 calendar days, evaluate security patches."'
+    )
+    errs = _grade_compliance_policy_case(case, turns, {}, good_ans, {})
+    assert "quoted compliance clause is absent from retrieved receipts" not in errs, errs
+
+    bad_ans = good_ans.replace("every 35 calendar days", "every TS5 calendar days")
+    bad_errs = _grade_compliance_policy_case(case, turns, {}, bad_ans, {})
+    assert "quoted compliance clause is absent from retrieved receipts" in bad_errs, bad_errs

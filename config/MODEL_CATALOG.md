@@ -1448,15 +1448,15 @@ The window is a seat property on the pipeline path — this tag is the mechanism
 
 ---
 
-### `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k`
+### `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k` — RETIRED (2026-11-27)
 
-`hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k` — The 128K-context derived tag of unsloth's Qwen3.8-27B Q4_K_M (baked `num_ctx 131072`, weights shared with the base tag — 0 extra bytes), registered in `group: general` with `supports_tools: true`. It is the Ollama fallback of the compliance reading A/B arm `auto-compliance::reading-qwen38` (BRIEF_READING_QWEN38_128K_20261127), whose declared `context_limit: 131072` the 96K tag could not hold: the CIP-007-6 R2 dual-document payload measured 86,969 real prompt tokens against the 96K tag's 71,728-token budget. Independent AA-LCR puts Qwen3.8-27B at 82.0 against 65.7 for the seated gemma4-26b (docs/WFE_LANDSCAPE_FLEET_20261018.md). `omlx-general` and `omlx-reasoning` alias it to `Qwen3.8-27B-oQ4e-mtp`, which serves the checkpoint's native 262,144-token window.
+**Retired 2026-11-27:** The staged A/B arm `auto-compliance::reading-qwen38` was voided (`docs/findings/READING_QWEN38_VOID_20261127.md`: oMLX 100k prefill exceeded the 900s turn budget; incumbent `gemma4:26b-a4b-it-q4_K_M-t0p0-ctx128k` stays), so this `ctx128k` tag and its oMLX aliases are retired again. The rest of this section is retained history.
 
-**Retired 2026-11-13 and re-created 2026-11-27:** the operator removal round retired it as "unused by any workspace/persona/router" and deleted the tag manifest; the base `Q4_K_M` weights it shares were never removed, so the re-creation is an `ollama create` from those local blobs with no download (`config/modelfiles/qwen38-27b.Q4_K_M-ctx128k.Modelfile`). The retirement reason was the absence of a consumer, and the reading arm is that consumer.
+`hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k` — The 128K-context derived tag of unsloth's Qwen3.8-27B Q4_K_M (baked `num_ctx 131072`, weights shared with the base tag — 0 extra bytes), previously registered as the Ollama fallback of `auto-compliance::reading-qwen38`.
 
 ## Why
 
-The window is a seat property on the pipeline path — Ollama's chat completions ignore request-time `num_ctx`, so the declared 131072 is only real on a tag that bakes it, and the oMLX alias gives the same seat the MTP checkpoint's measured decode.
+Retired after the reading seat decision closed in favour of the gemma4 incumbent.
 
 ### `hf.co/bartowski/K2-Horizon-MoVA-36B-A4B-GGUF:Q4_K_M-ctx64k`
 

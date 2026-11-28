@@ -2874,6 +2874,20 @@ def _grade_cad_measure_convert_case(
     return errors
 
 
+def _quote_in_receipt(quote: str, folded_receipt: str) -> bool:
+    """Match a quoted clause against retrieved receipts after separator/typography folding."""
+    from portal.modules.compliance.core.candidate_links import _norm_for_verbatim
+    from portal.modules.compliance.core.citation_by_quote import (
+        _ELLIPSIS,
+        _MIN_PART_CHARS,
+        _TRAILING_ABSORBED,
+    )
+
+    folded = _TRAILING_ABSORBED.sub("", _norm_for_verbatim(quote))
+    parts = [p for p in _ELLIPSIS.split(folded) if len(p) >= _MIN_PART_CHARS]
+    return bool(parts) and all(part in folded_receipt for part in parts)
+
+
 def _grade_compliance_policy_case(
     case: UATCase,
     turns: list[UATTurn],
@@ -2881,11 +2895,13 @@ def _grade_compliance_policy_case(
     text: str,
     evidence: dict[str, object],
 ) -> list[str]:
+    from portal.modules.compliance.core.candidate_links import _norm_for_verbatim
+
     del case, payloads
     errors: list[str] = []
     lowered = text.casefold()
     _grade_compliance(text, errors, ("CIP-007-6 R2",))
-    receipt_text = _receipt_text(turns).casefold()
+    receipt_text = _norm_for_verbatim(_receipt_text(turns))
     if not receipt_text:
         errors.append("compliance gap answer has no retrieved receipt")
     for part in ("2.1", "2.3", "2.4"):
@@ -2897,7 +2913,7 @@ def _grade_compliance_policy_case(
     quotes = re.findall(r'"([^"]{15,})"', text) + re.findall(r"\u201c([^\u201d]{15,})\u201d", text)
     if len(quotes) < 2:
         errors.append("gap analysis did not quote both sides verbatim")
-    elif any(quote.casefold() not in receipt_text for quote in quotes):
+    elif any(not _quote_in_receipt(quote, receipt_text) for quote in quotes):
         errors.append("quoted compliance clause is absent from retrieved receipts")
     gap = ("missing", "loose", "gap", "does not", "no explicit", "absent", "weaker", "not specify")
     if not any(marker in lowered for marker in gap):

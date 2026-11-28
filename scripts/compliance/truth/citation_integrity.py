@@ -57,7 +57,10 @@ _MARKDOWN_EMPHASIS = re.compile(r"\*+")
 _PAGE_FURNITURE = re.compile(
     r"private\s*[-\u2013\u2014]\s*for internal use only\s*page \d+ of \d+", re.I
 )
+_LIST_MARKER_LINE = re.compile(r"(?m)^\s*(?:\d+(?:\.\d+)+\.?|[•\uf0b7])\s+")
+_LIST_SEP = re.compile(r"\s*;\s*")
 _FURNITURE_INDEX_ATTR = "_citation_integrity_furniture_index"
+_LIST_SEP_INDEX_ATTR = "_citation_integrity_list_sep_index"
 _VOCABULARY_ATTR = "_citation_integrity_vocabulary"
 #: the persona's literal example tokens (both sides): copying one is never a
 #: citation. ``R-a1b2c3`` survived P1's scrub of the operator-side example and
@@ -199,6 +202,9 @@ def _quote_record(store: Any, quote: str, min_quote_words: int, question_fold: s
     hits = _resolve_without_furniture(store, stripped)
     if hits:
         return {"quote": quote, "status": "resolved", "sections": hits, "fold": "page_furniture"}
+    hits = _resolve_without_list_separators(store, stripped)
+    if hits:
+        return {"quote": quote, "status": "resolved", "sections": hits, "fold": "list_separators"}
     return _near_quote_record(store, quote)
 
 
@@ -304,6 +310,60 @@ def _resolve_without_furniture(store: Any, quote: str) -> list[str]:
         setattr(store, _FURNITURE_INDEX_ATTR, index)
     folded = " ".join(_fold(quote).split())
     return [sid for sid, text in index.items() if folded and folded in text]
+
+
+def _norm_list_sep(text: str) -> str:
+    """Fold list-item separators only (never words or inline numbers)."""
+    from portal.modules.compliance.core.citation_by_quote import _fold
+
+    return " ".join(_LIST_SEP.sub(" ", _fold(text)).split())
+
+
+def _resolve_without_list_separators(store: Any, quote: str) -> list[str]:
+    """Sections matching after stripping line-leading outline markers and ';' separators."""
+    from portal.modules.compliance.core.citation_by_quote import (
+        _ELLIPSIS,
+        _MIN_PART_CHARS,
+        _TRAILING_ABSORBED,
+        _fold,
+    )
+    from portal.modules.compliance.core.section_index import resolve_sections
+
+    index = getattr(store, _LIST_SEP_INDEX_ATTR, None)
+    if index is None:
+        ids = [
+            str(row[0])
+            for row in store._conn.execute("SELECT section_id FROM source_sections").fetchall()
+        ]
+        index = {}
+        for sid, entry in resolve_sections(store, ids).items():
+            raw = str(entry.get("text", ""))
+            if not raw:
+                continue
+            cleaned = _norm_list_sep(_LIST_MARKER_LINE.sub(" ", raw))
+            if cleaned:
+                index[sid] = (cleaned, _fold(str(entry.get("logical_id", ""))))
+        setattr(store, _LIST_SEP_INDEX_ATTR, index)
+
+    folded = _norm_list_sep(_TRAILING_ABSORBED.sub("", _fold(str(quote or ""))))
+    if not folded:
+        return []
+    parts = [p for p in _ELLIPSIS.split(folded) if len(p) >= _MIN_PART_CHARS]
+    if not parts:
+        return []
+    if len(parts) == 1:
+        return [sid for sid, (text, _doc) in index.items() if parts[0] in text]
+    part_docs: list[set[str]] = []
+    part_sections: set[str] = set()
+    for part in parts:
+        docs: set[str] = set()
+        for sid, (text, doc) in index.items():
+            if part in text:
+                docs.add(doc)
+                part_sections.add(sid)
+        part_docs.append(docs)
+    hosting = set.intersection(*part_docs)
+    return [sid for sid, (_t, doc) in index.items() if doc in hosting and sid in part_sections]
 
 
 def _forgive_mistyped(lines: list[dict]) -> None:
