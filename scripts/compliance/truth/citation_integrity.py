@@ -63,6 +63,7 @@ _LIST_SEP = re.compile(r"\s*;\s*")
 _FURNITURE_INDEX_ATTR = "_citation_integrity_furniture_index"
 _LIST_SEP_INDEX_ATTR = "_citation_integrity_list_sep_index"
 _VOCABULARY_ATTR = "_citation_integrity_vocabulary"
+_DOC_NAMES_ATTR = "_citation_integrity_doc_names"
 #: the persona's literal example tokens (both sides): copying one is never a
 #: citation. ``R-a1b2c3`` survived P1's scrub of the operator-side example and
 #: B0 measured it copied into answers.
@@ -186,12 +187,57 @@ def _is_question_quote(quote: str, question_fold: str) -> bool:
     return bool(question_fold and folded and folded in question_fold)
 
 
+def _doc_names(store: Any) -> frozenset[str]:
+    """Folded logical_ids and their basenames from ``source_documents``."""
+    from portal.modules.compliance.core.citation_by_quote import _fold
+
+    names = getattr(store, _DOC_NAMES_ATTR, None)
+    if names is not None:
+        return names
+    collected: set[str] = set()
+    try:
+        rows = store._conn.execute("SELECT logical_id FROM source_documents").fetchall()
+    except Exception:  # noqa: BLE001 - minimal test doubles may omit the table
+        rows = []
+    for row in rows:
+        lid = str(row[0] or "").strip()
+        if not lid:
+            continue
+        folded = _fold(lid)
+        if folded:
+            collected.add(folded)
+        if "/" in lid:
+            base = _fold(lid.rsplit("/", 1)[-1])
+            if base:
+                collected.add(base)
+    names = frozenset(collected)
+    setattr(store, _DOC_NAMES_ATTR, names)
+    return names
+
+
+def _is_doc_name_or_ref(store: Any, quote: str) -> bool:
+    """Quoted store logical_id/filename or bare regulatory ref is not evidence."""
+    from portal.modules.compliance.core.citation_by_quote import _fold
+    from portal.modules.compliance.core.reading_assembly import parse_ref
+
+    cleaned = str(quote or "").strip().rstrip(".,;:")
+    if not cleaned:
+        return False
+    if parse_ref(cleaned) is not None:
+        return True
+    folded = _fold(quote)
+    if not folded:
+        return False
+    names = _doc_names(store)
+    return folded in names or folded.rstrip(".,;:") in names
+
+
 def _quote_record(store: Any, quote: str, min_quote_words: int, question_fold: str = "") -> dict:
     from portal.modules.compliance.core.citation_by_quote import resolve_quote
 
     if _is_question_quote(quote, question_fold):
         return {"quote": quote, "status": "question_quote", "sections": []}
-    if len(quote.split()) < min_quote_words:
+    if len(quote.split()) < min_quote_words or _is_doc_name_or_ref(store, quote):
         return {"quote": quote, "status": "not_evidence", "sections": []}
     hits = resolve_quote(store, quote)
     if hits:
@@ -409,7 +455,9 @@ def _measure_line(
     if not tokens_here and not quotes_here:
         return None
     if not tokens_here and all(
-        len(q.split()) < min_quote_words or _is_question_quote(q, question_fold)
+        len(q.split()) < min_quote_words
+        or _is_question_quote(q, question_fold)
+        or _is_doc_name_or_ref(store, q)
         for q in quotes_here
     ):
         return {

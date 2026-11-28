@@ -264,7 +264,18 @@ def _resolve_by_address(repo: Any, ref: str) -> dict[str, Any]:
     standard = str(canonical_ref(repo, parsed))
     standard_only = _standard_of(standard)
     register = _register_ids(repo)
+    register_set = set(register)
     if parsed.part:
+        if standard not in register_set:
+            matches = [rid for rid in register if rid.endswith(f" Part {parsed.part}")]
+            hint = f"; matching register refs: {', '.join(matches)}" if matches else ""
+            return {
+                "error": f"{standard!r} is not in the register{hint}",
+                "resolved": False,
+                "requirement_ids": [],
+                "standards": [],
+                "matching_refs": matches,
+            }
         # the Part, and its parent requirement's lead sentence when the
         # register anchors one — every Part depends on it grammatically
         # ("…each of the following"); unanchored ids render nothing
@@ -276,13 +287,32 @@ def _resolve_by_address(repo: Any, ref: str) -> dict[str, Any]:
             "standards": [standard_only],
             "detail": "addressed Part",
         }
+    if parsed.section:
+        if standard not in register_set:
+            return {
+                "error": f"{standard!r} is not in the register",
+                "resolved": False,
+                "requirement_ids": [],
+                "standards": [],
+            }
+        return {
+            "requirement_ids": [standard],
+            "standards": [standard_only],
+            "detail": "addressed Section",
+        }
     if parsed.requirement:
+        parts = sorted(rid for rid in register if rid.startswith(f"{standard} "))
+        if standard not in register_set and not parts:
+            return {
+                "error": f"{standard!r} is not in the register",
+                "resolved": False,
+                "requirement_ids": [],
+                "standards": [],
+            }
         # the addressed requirement itself — its own governing anchor is the
         # requirement's lead sentence ("R1. Each Responsible Entity shall…"),
         # normative text Amendment 2 F-A2-1 found missing — then its Parts
-        requirement_ids = [standard] + sorted(
-            rid for rid in register if rid.startswith(f"{standard} ")
-        )
+        requirement_ids = [standard] + parts
         return {
             "requirement_ids": requirement_ids,
             "standards": [standard_only],
@@ -290,6 +320,13 @@ def _resolve_by_address(repo: Any, ref: str) -> dict[str, Any]:
         }
     # a whole standard: every register id under it
     requirement_ids = sorted(rid for rid in register if rid.startswith(f"{standard} "))
+    if not requirement_ids:
+        return {
+            "error": f"{standard!r} is not in the register",
+            "resolved": False,
+            "requirement_ids": [],
+            "standards": [],
+        }
     return {
         "requirement_ids": requirement_ids,
         "standards": [standard_only],

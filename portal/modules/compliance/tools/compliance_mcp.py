@@ -1946,8 +1946,8 @@ def compliance_context(
 
             payload = dual_document.build(repo, requirement_ref=ref, **_payload_pricing())
             if payload.get("error"):
-                payload.pop("error", None)
-                payload.update({"mode": "material", "ref": ref, "resolved": False})
+                reason = payload.pop("error", None)
+                payload.update({"mode": "material", "ref": ref, "resolved": False, "note": reason})
                 return payload
             if not payload["window"]["fits"] and not payload["documents_included"]:
                 # the guard's last line: even (a)+(c)+(d) exceed the smallest

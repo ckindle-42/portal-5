@@ -329,3 +329,120 @@ def test_list_separator_normalization_and_qat_quote_fidelity(tmp_path) -> None:
     bad_ans = good_ans.replace("every 35 calendar days", "every TS5 calendar days")
     bad_errs = _grade_compliance_policy_case(case, turns, {}, bad_ans, {})
     assert "quoted compliance clause is absent from retrieved receipts" in bad_errs, bad_errs
+
+
+def test_doc_names_and_refs_are_not_evidence_and_unknown_part_rejected(tmp_path) -> None:
+    from portal.modules.compliance.core import dual_document
+    from portal.modules.compliance.core.models import SourceDocument, SourceSection
+    from portal.modules.compliance.core.repository import Repository
+    from scripts.compliance.truth.citation_integrity import integrity
+
+    repo = Repository(tmp_path / "store.db")
+    try:
+        reg_text = (
+            "A patch management process for tracking, evaluating, and installing cyber security "
+            "patches for applicable Cyber Assets. The tracking portion shall include the "
+            "identification of a source or sources that the Responsible Entity tracks for the "
+            "release of cyber security patches. Apply the applicable patches; or Create a dated "
+            "mitigation plan; or Revise an existing mitigation plan. "
+            "Where technically feasible, either: Limit the number of unsuccessful authentication "
+            "attempts; or Generate alerts after a threshold of unsuccessful authentication attempts."
+        )
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id="CIP-007/LSPG Security Patch Management Procedure V11.pdf",
+                title="LSPG Security Patch Management Procedure",
+                issuer="LSPG",
+                source_kind="procedure",
+                jurisdiction="internal",
+            )
+        )
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id="NERC/CIP-007-6",
+                title="CIP-007-6",
+                issuer="NERC",
+                source_kind="regulatory_standard",
+                jurisdiction="US",
+            )
+        )
+        rev_reg = repo.add_document_revision(
+            "NERC/CIP-007-6",
+            "CIP-007-6.pdf",
+            reg_text.encode(),
+            binding_effect="regulatory",
+        )
+        repo.put_document_text(
+            rev_reg.revision_id, reg_text, page_count=1, extractor="test", extractor_version="1"
+        )
+        part_start = reg_text.index("Where technically feasible")
+        repo.add_source_section(
+            SourceSection(
+                section_id="csection-57575757575757575757",
+                revision_id=rev_reg.revision_id,
+                path="R5 Part 5.7",
+                heading_path="R5 Part 5.7",
+                title="Part 5.7",
+                char_start=0,
+                char_end=len(reg_text),
+                ordinal=1,
+            )
+        )
+        repo._conn.execute(
+            "INSERT INTO requirement_sections "
+            "(requirement_id, section_id, revision_id, relation, char_start, char_end, anchored_at) "
+            "VALUES (?, ?, ?, 'governing', ?, ?, '2026-01-01T00:00:00Z')",
+            (
+                "CIP-007-6 R5 Part 5.7",
+                "csection-57575757575757575757",
+                rev_reg.revision_id,
+                part_start,
+                len(reg_text),
+            ),
+        )
+        repo._conn.commit()
+
+        # Quoted document names and bare requirement refs classify as not_evidence, never quotes.
+        doc_and_ref_answer = "\n".join(
+            [
+                '- "LSPG Security Patch Management Procedure V11.pdf" (operator procedure)',
+                '- "CIP-007/LSPG Security Patch Management Procedure V11.pdf"',
+                'The ref "CIP-003-6 R5" does not own Part 5.7; "CIP-007-6 R5 Part 5.7" does.',
+                'It requires "Where technically feasible, either: Limit the number of unsuccessful authentication attempts".',
+            ]
+        )
+        ok = integrity(repo, doc_and_ref_answer)
+        assert ok["grounded"], ok
+        by_quote = {q["quote"]: q["status"] for q in ok["quotes"]}
+        assert by_quote["LSPG Security Patch Management Procedure V11.pdf"] == "not_evidence"
+        assert (
+            by_quote["CIP-007/LSPG Security Patch Management Procedure V11.pdf"] == "not_evidence"
+        )
+        assert by_quote["CIP-003-6 R5"] == "not_evidence"
+        assert by_quote["CIP-007-6 R5 Part 5.7"] == "not_evidence"
+
+        # Real faults (editorial [including] insertion; summarized quote) must keep failing.
+        for bad_line in (
+            '* Standard: Requires "A patch management process for tracking, evaluating, and installing cyber security patches... [including] the identification of a source or sources that the Responsible Entity tracks..."',
+            'The standard\'s order is also "Apply; or Create; or Revise," so the sequence matches.',
+        ):
+            bad = integrity(repo, bad_line)
+            assert not bad["grounded"], (bad_line, bad)
+
+        # Unregistered Part / requirement / standard must not resolve as addressed Part.
+        bad_part = dual_document.build(repo, requirement_ref="CIP-003-6 R5 Part 5.7")
+        assert bad_part["resolved"] is False
+        assert "CIP-007-6 R5 Part 5.7" in bad_part.get("matching_refs", [])
+        assert dual_document.build(repo, requirement_ref="CIP-003-6 R5")["resolved"] is False
+        assert dual_document.build(repo, requirement_ref="CIP-003-6")["resolved"] is False
+        assert dual_document.build(repo, requirement_ref="CIP-007-6 R99")["resolved"] is False
+
+        # Valid Part and parent requirement still resolve.
+        good_part = dual_document.build(repo, requirement_ref="CIP-007-6 R5 Part 5.7")
+        assert good_part["resolved"] is True
+        assert "CIP-007-6 R5 Part 5.7" in good_part["requirement_refs"]
+        good_req = dual_document.build(repo, requirement_ref="CIP-007-6 R5")
+        assert good_req["resolved"] is True
+        assert "CIP-007-6 R5 Part 5.7" in good_req["requirement_refs"]
+    finally:
+        repo.close()
