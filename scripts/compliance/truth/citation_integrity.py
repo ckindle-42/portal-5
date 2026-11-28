@@ -57,10 +57,12 @@ _MARKDOWN_EMPHASIS = re.compile(r"\*+")
 _PAGE_FURNITURE = re.compile(
     r"private\s*[-\u2013\u2014]\s*for internal use only\s*page \d+ of \d+", re.I
 )
-_LIST_MARKER_LINE = re.compile(r"(?m)^\s*(?:\d+(?:\.\d+)+\.?|[•\uf0b7])\s+")
-_INLINE_ENUM = re.compile(r"(?:^|(?<=[:;]))\s*(?:\d+(?:\.\d+)+\.?|\d+[.)]|[a-z][.)])\s+")
+_LIST_MARKER_LINE = re.compile(r"(?m)^\s*(?:\d+(?:\.\d+)+\.?|[•\uf0b7\u25e6\u25cb]|o)\s+")
+_INLINE_ENUM = re.compile(
+    r"(?:^|(?<=[:;.]))\s*\d+(?:\.\d+)+\.?\s+|(?:^|(?<=[:;]))\s*(?:\d+[.)]|[a-z][.)])\s+"
+)
 _LIST_SEP = re.compile(r"\s*;\s*")
-_LITERAL_ESC_AND_BULLET = re.compile(r"\\[nt]|[•\uf0b7]")
+_LITERAL_ESC_AND_BULLET = re.compile(r"\\[nt]|[•\uf0b7\u25e6\u25cb]")
 _INLINE_DASH_BULLET = re.compile(r"(?:^|(?<=\s))[-\u2010-\u2015\u2212\uff0d]\s+")
 _TOOL_MESSAGE_KEYS = ("detail", "note", "error", "message", "resolution", "warning")
 _FURNITURE_INDEX_ATTR = "_citation_integrity_furniture_index"

@@ -719,3 +719,129 @@ def test_inline_dash_bullet_fold_and_unregistered_ref_guidance(tmp_path) -> None
     ]
     assert "matching_refs" in prompt
     assert "Never narrate planned or failed tool calls" in prompt
+
+
+def test_post_period_outline_and_open_circle_bullet_fold(tmp_path) -> None:
+    from portal.modules.compliance.core.models import SourceDocument, SourceSection
+    from portal.modules.compliance.core.repository import Repository
+    from scripts.compliance.truth.citation_integrity import integrity
+
+    repo = Repository(tmp_path / "store.db")
+    try:
+        reg_lines = [
+            "5.2 For Transient Cyber Asset(s) managed by a party other than the Responsible Entity, if any:\n",
+            "5.2.1 Use one or a combination of the following prior to connecting the Transient Cyber Asset:\n",
+            "Review of antivirus update level;\n",
+            "Review of system hardening used by the party; or\n",
+            "Other method(s) to mitigate the introduction of malicious code.\n",
+            "5.2.2 For any method used pursuant to 5.2.1, Responsible Entities shall determine whether any additional mitigation actions are necessary.\n",
+            "At least once every 35 calendar days, evaluate security patches for applicability. "
+            "Apply the applicable patches; or Create a dated mitigation plan; or Revise an existing mitigation plan.\n",
+        ]
+        reg_text = "".join(reg_lines)
+        op_text = (
+            "For Transient Cyber Assets managed by a party other than LSPG (e.g. vendor) - Use \n"
+            "one or a combination of the following prior to connecting the TCA (Att. 1 Section 5.2): \n"
+            "o \nReview of antivirus update level; \n"
+            "o \nReview of system hardening used by the party; or \n"
+            "o \nOther method(s) to mitigate the introduction of malicious code. \n"
+        )
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id="NERC/CIP-003-8",
+                title="CIP-003-8",
+                issuer="NERC",
+                source_kind="regulatory_standard",
+                jurisdiction="US",
+            )
+        )
+        rev_reg = repo.add_document_revision(
+            "NERC/CIP-003-8", "CIP-003-8.pdf", reg_text.encode(), binding_effect="regulatory"
+        )
+        repo.put_document_text(
+            rev_reg.revision_id, reg_text, page_count=1, extractor="test", extractor_version="1"
+        )
+        offset = 0
+        for idx, line in enumerate(reg_lines, start=1):
+            repo.add_source_section(
+                SourceSection(
+                    section_id=f"csection-r{idx}",
+                    revision_id=rev_reg.revision_id,
+                    path=f"Att1-5.2-{idx}",
+                    heading_path="Attachment 1 Part 5.2",
+                    title="Part 5.2",
+                    char_start=offset,
+                    char_end=offset + len(line),
+                    ordinal=idx,
+                )
+            )
+            offset += len(line)
+
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id="CIP-003/LSPG Policy.pdf",
+                title="LSPG Policy",
+                issuer="LSPG",
+                source_kind="policy",
+                jurisdiction="internal",
+            )
+        )
+        rev_op = repo.add_document_revision(
+            "CIP-003/LSPG Policy.pdf",
+            "LSPG Policy.pdf",
+            op_text.encode(),
+            binding_effect="internally_mandatory",
+        )
+        repo.put_document_text(
+            rev_op.revision_id, op_text, page_count=1, extractor="test", extractor_version="1"
+        )
+        repo.add_source_section(
+            SourceSection(
+                section_id="isection-o1",
+                revision_id=rev_op.revision_id,
+                path="3.7.4.2",
+                heading_path="3.7.4.2",
+                title="3.7.4.2",
+                char_start=0,
+                char_end=len(op_text),
+                ordinal=1,
+            )
+        )
+
+        # Fold gap 1: inline multi-level outline label after sentence-ending period (5.2.2) across contiguous sections.
+        q_reg = (
+            '- "For Transient Cyber Asset(s) managed by a party other than the Responsible Entity, if any: '
+            "5.2.1 Use one or a combination of the following prior to connecting the Transient Cyber Asset: "
+            "• Review of antivirus update level; • Review of system hardening used by the party; or "
+            "• Other method(s) to mitigate the introduction of malicious code. "
+            "5.2.2 For any method used pursuant to 5.2.1, Responsible Entities shall determine whether "
+            'any additional mitigation actions are necessary."'
+        )
+        res_reg = integrity(repo, q_reg)
+        assert res_reg["grounded"], res_reg
+        assert res_reg["quotes"][0].get("fold") == "list_separators"
+
+        # Fold gap 2: Word/PDF line-leading open-circle 'o' sub-bullets stripped from store text.
+        q_op = (
+            '- "For Transient Cyber Assets managed by a party other than LSPG (e.g. vendor) - Use '
+            "one or a combination of the following prior to connecting the TCA (Att. 1 Section 5.2): "
+            "Review of antivirus update level; Review of system hardening used by the party; or "
+            'Other method(s) to mitigate the introduction of malicious code."'
+        )
+        res_op = integrity(repo, q_op)
+        assert res_op["grounded"], res_op
+        assert res_op["quotes"][0].get("fold") == "list_separators"
+
+        # Real faults MUST keep failing: TS5, (35s), [including], summarized quote, traceability line, altered in-prose ref.
+        for bad_line in (
+            '- "At least once every TS5 calendar days, evaluate security patches for applicability."',
+            '- "At least once every (35s) calendar days, evaluate security patches for applicability."',
+            '- "For any method used pursuant to 5.2.1, Responsible Entities shall [including] determine whether any additional mitigation actions are necessary."',
+            '- "Apply; or Create; or Revise,"',
+            '- "your LSPG Security Patch Management Procedure maps CIP-007-6 R2 Part 2.3 to §3.5 Patch Implementation Process"',
+            '- "For any method used pursuant to 5.2.9, Responsible Entities shall determine whether any additional mitigation actions are necessary."',
+        ):
+            bad = integrity(repo, bad_line)
+            assert not bad["grounded"], (bad_line, bad)
+    finally:
+        repo.close()
