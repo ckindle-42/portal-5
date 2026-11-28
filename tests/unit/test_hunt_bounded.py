@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from portal.modules.security.core.hunt.executor import HuntExecutor
+from portal.modules.security.core.hunt.executor import REQUEST_BUDGET_EXHAUSTED, HuntExecutor
 from portal.modules.security.core.hunt.jobs import (
     HuntBudget,
     query_budget_kind,
@@ -185,3 +185,34 @@ def test_per_file_reads_stream_the_newest_rows_without_a_leading_sort() -> None:
     raw = [query for query in queries if query.startswith("search ")]
     assert len(raw) >= 4
     assert all(re.fullmatch(r'search index="i" source="[ab]" \| head \d+', query) for query in raw)
+
+
+def test_read_many_censors_remaining_requests_on_request_budget_exhaustion() -> None:
+    """Budget exhaustion mid-read_many censors remaining reads into the ledger without raising."""
+    budget = HuntBudget(
+        {"query_seconds": 1, "job_seconds": 5, "requests": 2, "cells": 100, "events": 100},
+        concurrency=2,
+    )
+    executor = HuntExecutor(_results_source("sid-many", [{"_raw": "x"}]), budget)
+    observed: list[tuple[str, bool, str | None]] = []
+    executor.read_observer = lambda query, _s, _e, read, _src, _part: observed.append(
+        (query, read.censored, read.reason)
+    )
+    requests = [
+        (f'search index="i" TERM("k{idx}") | head 5', 0.0, 1.0, "relate", 5) for idx in range(5)
+    ]
+
+    outcomes = executor.read_many(requests)
+
+    assert len(outcomes) == 5
+    succeeded = [read for read in outcomes if not read.censored]
+    censored = [read for read in outcomes if read.censored]
+    assert len(succeeded) == 2
+    assert len(censored) == 3
+    assert all(read.rows == [] and read.reason == REQUEST_BUDGET_EXHAUSTED for read in censored)
+    assert budget.queries == 2
+    assert budget.exhausted == REQUEST_BUDGET_EXHAUSTED
+    assert len(observed) == 5
+    assert (
+        sum(1 for _q, is_c, reason in observed if is_c and reason == REQUEST_BUDGET_EXHAUSTED) == 3
+    )

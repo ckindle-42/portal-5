@@ -598,12 +598,31 @@ class HuntExecutor:
         ordered = list(requests)
         if not ordered:
             return []
+        with self.budget.lock:
+            exhausted = self.budget.exhausted
+        if exhausted is not None:
+            return [self._skip_request(request, exhausted) for request in ordered]
         with ThreadPoolExecutor(max_workers=min(len(ordered), self.budget.concurrency)) as pool:
             return list(pool.map(self._read_request, ordered))
 
+    def _skip_request(
+        self, request: tuple[str, float, float, str, int | None], reason: str
+    ) -> Read:
+        query, start, end, _kind, _row_cap = request
+        self.record_skipped_read(query, start, end, reason=reason)
+        return Read([], True, reason, None)
+
     def _read_request(self, request: tuple[str, float, float, str, int | None]) -> Read:
+        with self.budget.lock:
+            exhausted = self.budget.exhausted
+        if exhausted is not None:
+            return self._skip_request(request, exhausted)
         query, start, end, kind, row_cap = request
-        return self.read(query, start, end, kind=kind, row_cap=row_cap)
+        try:
+            return self.read(query, start, end, kind=kind, row_cap=row_cap)
+        except HuntBudgetExceededError as exc:
+            reason = str(exc) or self.budget.exhausted or REQUEST_BUDGET_EXHAUSTED
+            return Read([], True, reason, exc)
 
     def iter_post(self, query: str, start: float, end: float) -> Iterator[Mapping[str, Any]]:
         """Compatibility read for the engine and investigator: censored coverage raises."""
