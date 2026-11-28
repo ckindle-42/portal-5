@@ -885,9 +885,10 @@ def _run_workspace_cell(
     the whole point of measuring here.
     """
     thread_key = f"{record['seat']}::{record['thread']}::{record['run_index']}"
+    record["workspace"] = workspace_for_seat(str(record["seat"]))
     thread = threads.get(thread_key)
     if thread is None:
-        thread = WorkspaceThread(client, workspace_for_seat(str(record["seat"])), router_base_url())
+        thread = WorkspaceThread(client, record["workspace"], router_base_url())
         threads[thread_key] = thread
     turn = thread.turn(str(case["question"]).strip())
     record["turn"] = turn
