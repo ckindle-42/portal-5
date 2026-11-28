@@ -58,6 +58,7 @@ _PAGE_FURNITURE = re.compile(
     r"private\s*[-\u2013\u2014]\s*for internal use only\s*page \d+ of \d+", re.I
 )
 _LIST_MARKER_LINE = re.compile(r"(?m)^\s*(?:\d+(?:\.\d+)+\.?|[•\uf0b7])\s+")
+_INLINE_ENUM = re.compile(r"(?:^|(?<=[:;]))\s*(?:\d+|[a-z])[.)]\s+")
 _LIST_SEP = re.compile(r"\s*;\s*")
 _FURNITURE_INDEX_ATTR = "_citation_integrity_furniture_index"
 _LIST_SEP_INDEX_ATTR = "_citation_integrity_list_sep_index"
@@ -313,10 +314,11 @@ def _resolve_without_furniture(store: Any, quote: str) -> list[str]:
 
 
 def _norm_list_sep(text: str) -> str:
-    """Fold list-item separators only (never words or inline numbers)."""
+    """Fold list-item separators and inline enumerators only (never words or inline numbers)."""
     from portal.modules.compliance.core.citation_by_quote import _fold
 
-    return " ".join(_LIST_SEP.sub(" ", _fold(text)).split())
+    folded = _INLINE_ENUM.sub(" ", _fold(text))
+    return " ".join(_LIST_SEP.sub(" ", folded).split())
 
 
 def _resolve_without_list_separators(store: Any, quote: str) -> list[str]:

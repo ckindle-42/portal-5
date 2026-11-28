@@ -245,16 +245,29 @@ def test_list_separator_normalization_and_qat_quote_fidelity(tmp_path) -> None:
             )
         )
 
-        # Class (b): verbatim words with PDF outline markers replaced by '; ' resolve.
-        joined = (
+        # Class (b): verbatim words with PDF outline markers replaced by '; ' or inline enumerators resolve.
+        for joined in (
             '- "For all identified applicable security or potential security patches, '
             "within thirty-five (35) calendar days of the evaluation, one of the following "
             "actions shall be taken: RFC approval and installation of applicable patches; "
-            'Creation of a dated mitigation plan; Revision of an existing mitigation plan."'
-        )
-        ok = integrity(repo, joined)
-        assert ok["grounded"], ok
-        assert ok["quotes"][0].get("fold") == "list_separators"
+            'Creation of a dated mitigation plan; Revision of an existing mitigation plan."',
+            '- "For all identified applicable security or potential security patches, '
+            "within thirty-five (35) calendar days of the evaluation, one of the following "
+            "actions shall be taken: 1. RFC approval and installation of applicable patches; "
+            '2. Creation of a dated mitigation plan; 3. Revision of an existing mitigation plan"',
+            '- "For all identified applicable security or potential security patches, '
+            "within thirty-five (35) calendar days of the evaluation, one of the following "
+            "actions shall be taken: 1) RFC approval and installation of applicable patches; "
+            '2) Creation of a dated mitigation plan; 3) Revision of an existing mitigation plan"',
+            '- "For all identified applicable security or potential security patches, '
+            "within thirty-five (35) calendar days of the evaluation, one of the following "
+            "actions shall be taken: a. RFC approval and installation of applicable patches; "
+            'b. Creation of a dated mitigation plan; c. Revision of an existing mitigation plan"',
+            '- "1. RFC approval and installation of applicable patches; 2. Creation of a dated mitigation plan"',
+        ):
+            ok = integrity(repo, joined)
+            assert ok["grounded"], (joined, ok)
+            assert ok["quotes"][0].get("fold") == "list_separators"
 
         # Class (c): garbled numbers/words and inline number changes MUST still fail.
         for bad in (
