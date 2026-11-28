@@ -123,14 +123,17 @@ def test_hunt_reasoning_has_a_batching_seat_and_a_gguf_fallback() -> None:
 
 
 def test_compliance_reading_seat_tag_bakes_the_lane_temperature() -> None:
-    """The reading seat's Ollama fallback bakes the compliance lane's 0.3 so
-    settings_audit sampling_baked_hot stays clear when a request omits the
-    workspace override; the oMLX alias keeps the seat on its checkpoint."""
+    """The reading seat's Ollama fallback bakes the compliance lane's 0.0 (a
+    deterministic decode, within the 0.3 ceiling) so settings_audit
+    sampling_baked_hot stays clear when a request omits the workspace
+    override; the oMLX alias keeps the seat on its checkpoint."""
     from portal.platform.inference import model_addressing
     from portal.platform.inference.cluster_backends import BackendRegistry
 
     workspaces = model_addressing.workspaces()
-    hint = workspaces["auto-compliance::reading"]["model_hint"]
+    reading = workspaces["auto-compliance::reading"]
+    hint = reading["model_hint"]
+    assert float(reading["temperature"]) == 0.0
     # The machine-seat twin must carry the same hint so machine calls that
     # address the reading tag land in the bare compliance-mapping lane.
     assert workspaces["compliance-mapping"]["model_hint"] == hint
@@ -138,10 +141,10 @@ def test_compliance_reading_seat_tag_bakes_the_lane_temperature() -> None:
     serving = {b.type for b in registry.list_backends() if b.resolve_model(hint or "")}
     assert {"omlx", "ollama"} <= serving
     modelfile = (
-        REPO / "config/modelfiles/gemma4-26b-a4b-it-q4_K_M-t0p3-ctx128k.Modelfile"
+        REPO / "config/modelfiles/gemma4-26b-a4b-it-q4_K_M-t0p0-ctx128k.Modelfile"
     ).read_text()
     assert "FROM gemma4:26b-a4b-it-q4_K_M-ctx128k" in modelfile
-    assert "PARAMETER temperature 0.3" in modelfile
+    assert "PARAMETER temperature 0.0" in modelfile
 
 
 def test_resolve_preset_tools_typed_path() -> None:
