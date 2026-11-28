@@ -496,7 +496,7 @@ def test_tool_text_not_evidence_and_escaped_bullet_fold(tmp_path) -> None:
         )
         repo.add_source_section(
             SourceSection(
-                section_id="isection-35335335335335335335",
+                section_id="isection-tt",
                 revision_id=rev_op.revision_id,
                 path="3.5.3",
                 heading_path="3.5.3 Authentication Attempts",
