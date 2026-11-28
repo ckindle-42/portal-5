@@ -620,3 +620,102 @@ def test_tool_text_not_evidence_and_escaped_bullet_fold(tmp_path) -> None:
             assert not bad["grounded"], (bad_line, bad)
     finally:
         repo.close()
+
+
+def test_inline_dash_bullet_fold_and_unregistered_ref_guidance(tmp_path) -> None:
+    import yaml
+
+    from portal.modules.compliance.core import dual_document
+    from portal.modules.compliance.core.models import SourceDocument, SourceSection
+    from portal.modules.compliance.core.repository import Repository
+    from portal.platform.inference.config import effective_workspace
+    from scripts.compliance.truth.citation_integrity import integrity
+
+    repo = Repository(tmp_path / "store.db")
+    try:
+        reg_text = (
+            "5.2.1 Use one or a combination of the following prior to connecting the "
+            "Transient Cyber Asset to a low impact BES Cyber System (per Transient Cyber "
+            "Asset capability):\n"
+            "Review of antivirus update level;\n"
+            "Review of antivirus update process used by the party;\n"
+            "Review use of live operating system and software executable only from read-only media;\n"
+            "or\n"
+            "Other method(s) to mitigate the introduction of malicious code.\n"
+        )
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id="NERC/CIP-003-9",
+                title="CIP-003-9",
+                issuer="NERC",
+                source_kind="regulatory_standard",
+                jurisdiction="US",
+            )
+        )
+        rev = repo.add_document_revision(
+            "NERC/CIP-003-9", "CIP-003-9.pdf", reg_text.encode(), binding_effect="regulatory"
+        )
+        repo.put_document_text(
+            rev.revision_id, reg_text, page_count=1, extractor="test", extractor_version="1"
+        )
+        # Split across adjacent sections, matching how CIP-003-9 stores Part 5.2.1 bullets.
+        lines = reg_text.splitlines(keepends=True)
+        offset = 0
+        for idx, line in enumerate(lines, start=1):
+            repo.add_source_section(
+                SourceSection(
+                    section_id=f"csection-p{idx}",
+                    revision_id=rev.revision_id,
+                    path=f"Att1-5.2.1-{idx}",
+                    heading_path="Attachment 1 Part 5.2.1",
+                    title="Part 5.2.1",
+                    char_start=offset,
+                    char_end=offset + len(line),
+                    ordinal=idx,
+                )
+            )
+            offset += len(line)
+        repo._conn.execute(
+            "INSERT INTO requirement_sections "
+            "(requirement_id, section_id, revision_id, relation, char_start, char_end, anchored_at) "
+            "VALUES (?, ?, ?, 'governing', ?, ?, '2026-01-01T00:00:00Z')",
+            (
+                "CIP-003-9 Attachment 1 Part 5.2",
+                "csection-p1",
+                rev.revision_id,
+                0,
+                len(reg_text),
+            ),
+        )
+        repo._conn.commit()
+
+        verbatim_dash_quote = (
+            '- "Use one or a combination of the following prior to connecting the '
+            "Transient Cyber Asset to a low impact BES Cyber System (per Transient Cyber "
+            "Asset capability): - Review of antivirus update level; - Review of antivirus "
+            "update process used by the party; - Review use of live operating system and "
+            "software executable only from read\u2010only media; or - Other method(s) to "
+            'mitigate the introduction of malicious code."'
+        )
+        ok = integrity(repo, verbatim_dash_quote)
+        assert ok["grounded"], ok
+        assert ok["quotes"][0].get("fold") == "list_separators"
+
+        altered_dash_quote = verbatim_dash_quote.replace("antivirus", "malware")
+        bad = integrity(repo, altered_dash_quote)
+        assert not bad["grounded"], bad
+
+        unreg = dual_document.build(repo, requirement_ref="CIP-003-6 R5 Part 5.2")
+        assert unreg["resolved"] is False
+        assert "CIP-003-9 Attachment 1 Part 5.2" in unreg.get("matching_refs", [])
+        assert "compliance_context" in str(unreg.get("error", ""))
+        assert "matching_refs" in str(unreg.get("error", ""))
+    finally:
+        repo.close()
+
+    portal = yaml.safe_load(open("config/portal.yaml", encoding="utf-8"))
+    prompt = effective_workspace(portal["workspaces"], "auto-compliance::reading")[
+        "system_prompt_append"
+    ]
+    assert "matching_refs" in prompt
+    assert "Never narrate planned or failed tool calls" in prompt
