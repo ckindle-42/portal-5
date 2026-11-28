@@ -411,6 +411,30 @@ def _pin_route_templates(tag: str) -> dict[str, Any]:
     return {"tag": tag, "route": entries}
 
 
+def _pin_seat_route(tag: str) -> dict[str, Any]:
+    """One seat's pipeline-era pin: the workspace it resolves to, that
+    workspace's declared window, and the route its model_hint serves.
+
+    The route is looked up by the WORKSPACE's hint, not by the seat string: a
+    variant seat (``auto-compliance::reading-qwen38``) is a workspace id, and
+    `_serving_route` only knows engine tags — reading the route off the seat
+    string reported "no serving route" for every variant and NO-GO'd it.
+    """
+    from portal.platform.inference.model_addressing import (
+        workspace_context_limit,
+        workspace_id_for_model,
+        workspace_model_hint,
+    )
+
+    workspace = workspace_id_for_model(tag)
+    return {
+        "seat": tag,
+        "workspace": workspace,
+        "declared_context_limit": workspace_context_limit(workspace),
+        "serving_route": _pin_route_templates(workspace_model_hint(workspace) or tag),
+    }
+
+
 def pin_v2(seats: list[str]) -> dict[str, Any]:
     """The campaign pin for the PIPELINE era (SETTINGS_PREFLIGHT_V2).
 
@@ -421,26 +445,13 @@ def pin_v2(seats: list[str]) -> dict[str, Any]:
     could exceed the baked window) do not describe the pipeline, and the
     pipeline's applied-settings receipt carries that truth per call instead.
     """
-    from portal.platform.inference.model_addressing import (
-        workspace_context_limit,
-        workspace_id_for_model,
-    )
-
     return {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "git_rev": subprocess.check_output(
             ["git", "-C", str(REPO), "rev-parse", "HEAD"], text=True
         ).strip(),
         "path": "pipeline",
-        "seats": [
-            {
-                "seat": tag,
-                "workspace": workspace_id_for_model(tag),
-                "declared_context_limit": workspace_context_limit(workspace_id_for_model(tag)),
-                "serving_route": _pin_route_templates(tag),
-            }
-            for tag in seats
-        ],
+        "seats": [_pin_seat_route(tag) for tag in seats],
     }
 
 

@@ -831,6 +831,47 @@ def environment(base_url: str) -> dict[str, Any]:
     }
 
 
+#: The deployed reading workspace's own request name. The incumbent's live
+#: reference request was captured with it, so a seat that resolves to that
+#: workspace keeps it — the row's Pipeline-side request must diff clean against
+#: the reference (MODEL_SEAT_PROCESS §4).
+_READING_ALIAS = "compliance-reading"
+_READING_WORKSPACE = "auto-compliance::reading"
+#: The reading conversation lane and its machine-seat twin. The twin
+#: (`compliance-mapping`) is a top-level workspace carrying the same model_hint,
+#: and a top-level hint keeps first-match priority over a variant's, so resolving
+#: the incumbent's tag lands there — a seat with no persona and no tools. The
+#: harness must drive the conversation lane, never the twin.
+_READING_WORKSPACES = {_READING_WORKSPACE, "compliance-mapping"}
+
+
+def workspace_for_seat(seat: str) -> str:
+    """The Pipeline workspace a seat addresses, as the request's ``model`` string.
+
+    A seat that names a variant (``auto-compliance::reading-qwen38``) is driven
+    on that variant, so a candidate arm is measured on its own model, window and
+    sampling; the incumbent's tag resolves to the reading workspace and keeps the
+    deployed alias, so its request is byte-identical to the captured reference.
+    """
+    from portal.platform.inference.model_addressing import workspace_id_for_model
+
+    if "::" in seat:
+        return seat
+    resolved = workspace_id_for_model(seat)
+    return _READING_ALIAS if resolved in _READING_WORKSPACES else resolved
+
+
+def config_workspace_for_seat(seat: str) -> str:
+    """The ``config/portal.yaml`` key of the workspace a seat is served by.
+
+    The request name above is an alias, and the tag's first-match resolution is
+    the machine twin; neither is a key in the config's ``workspaces`` map, so the
+    prompt a cell was served has to be read from the conversation lane itself.
+    """
+    workspace = workspace_for_seat(seat)
+    return _READING_WORKSPACE if workspace == _READING_ALIAS else workspace
+
+
 def _run_workspace_cell(
     client: httpx.Client,
     case: dict[str, Any],
@@ -846,7 +887,7 @@ def _run_workspace_cell(
     thread_key = f"{record['seat']}::{record['thread']}::{record['run_index']}"
     thread = threads.get(thread_key)
     if thread is None:
-        thread = WorkspaceThread(client, "compliance-reading", router_base_url())
+        thread = WorkspaceThread(client, workspace_for_seat(str(record["seat"])), router_base_url())
         threads[thread_key] = thread
     turn = thread.turn(str(case["question"]).strip())
     record["turn"] = turn
@@ -878,9 +919,9 @@ def _campaign_inputs(seat: str) -> dict[str, str]:
 
         portal = _yaml.safe_load((REPO / "config/portal.yaml").read_text())
         ws_prompt = str(
-            effective_workspace(portal.get("workspaces") or {}, "auto-compliance::reading").get(
-                "system_prompt_append", ""
-            )
+            effective_workspace(
+                portal.get("workspaces") or {}, config_workspace_for_seat(seat)
+            ).get("system_prompt_append", "")
         )
         prompt_sha = hashlib.sha256(ws_prompt.encode()).hexdigest()[:12] if ws_prompt else ""
     except Exception:  # noqa: BLE001 - an unreadable prompt sha must never pass a resume check
@@ -1043,9 +1084,10 @@ def _write_manifest(
 
         portal = _yaml.safe_load((REPO / "config/portal.yaml").read_text())
         ws_prompt = str(
-            effective_workspace(portal.get("workspaces") or {}, "auto-compliance::reading").get(
-                "system_prompt_append", ""
-            )
+            effective_workspace(
+                portal.get("workspaces") or {},
+                config_workspace_for_seat(seats[0] if seats else _READING_ALIAS),
+            ).get("system_prompt_append", "")
         )
         prompt_sha = hashlib.sha256(ws_prompt.encode()).hexdigest()[:12] if ws_prompt else ""
     except Exception:  # noqa: BLE001 - a missing sha is recorded as empty, never fatal
