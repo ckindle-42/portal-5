@@ -268,7 +268,12 @@ def _resolve_by_address(repo: Any, ref: str) -> dict[str, Any]:
     if parsed.part:
         if standard not in register_set:
             matches = [rid for rid in register if rid.endswith(f" Part {parsed.part}")]
-            hint = f"; matching register refs: {', '.join(matches)}" if matches else ""
+            hint = (
+                "; retry compliance_context(mode='material', ref=...) with an exact ref from "
+                f"matching_refs: {', '.join(matches)}"
+                if matches
+                else ""
+            )
             return {
                 "error": f"{standard!r} is not in the register{hint}",
                 "resolved": False,

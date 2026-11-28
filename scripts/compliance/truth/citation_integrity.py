@@ -61,9 +61,11 @@ _LIST_MARKER_LINE = re.compile(r"(?m)^\s*(?:\d+(?:\.\d+)+\.?|[•\uf0b7])\s+")
 _INLINE_ENUM = re.compile(r"(?:^|(?<=[:;]))\s*(?:\d+(?:\.\d+)+\.?|\d+[.)]|[a-z][.)])\s+")
 _LIST_SEP = re.compile(r"\s*;\s*")
 _LITERAL_ESC_AND_BULLET = re.compile(r"\\[nt]|[•\uf0b7]")
+_INLINE_DASH_BULLET = re.compile(r"(?:^|(?<=\s))[-\u2010-\u2015\u2212\uff0d]\s+")
 _TOOL_MESSAGE_KEYS = ("detail", "note", "error", "message", "resolution", "warning")
 _FURNITURE_INDEX_ATTR = "_citation_integrity_furniture_index"
 _LIST_SEP_INDEX_ATTR = "_citation_integrity_list_sep_index"
+_LIST_SEP_REV_INDEX_ATTR = "_citation_integrity_list_sep_rev_index"
 _VOCABULARY_ATTR = "_citation_integrity_vocabulary"
 _DOC_NAMES_ATTR = "_citation_integrity_doc_names"
 #: the persona's literal example tokens (both sides): copying one is never a
@@ -442,11 +444,50 @@ def _resolve_without_furniture(store: Any, quote: str) -> list[str]:
 
 
 def _norm_list_sep(text: str) -> str:
-    """Fold literal \\n/\\t, bullet glyphs, inline enumerators, ';' and whitespace runs."""
+    """Fold literal \\n/\\t, bullet glyphs, inline dash bullets, enumerators, ';' and whitespace runs."""
     from portal.modules.compliance.core.citation_by_quote import _fold
 
-    folded = _INLINE_ENUM.sub(" ", _fold(_LITERAL_ESC_AND_BULLET.sub(" ", text)))
+    cleaned = _INLINE_DASH_BULLET.sub(" ", _LITERAL_ESC_AND_BULLET.sub(" ", text))
+    folded = _INLINE_ENUM.sub(" ", _fold(cleaned))
     return " ".join(_LIST_SEP.sub(" ", folded).split())
+
+
+def _build_list_sep_rev_index(
+    by_rev: dict[str, list[tuple[int, str, str]]],
+) -> dict[str, tuple[str, list[tuple[int, int, str]]]]:
+    """Join each revision's ordered sections into contiguous normalized text with spans."""
+    rev_index: dict[str, tuple[str, list[tuple[int, int, str]]]] = {}
+    for rev_id, items in by_rev.items():
+        if len(items) < 2:
+            continue
+        items.sort(key=lambda item: item[0])
+        chunks: list[str] = []
+        spans: list[tuple[int, int, str]] = []
+        pos = 0
+        for _ord, sid, cleaned in items:
+            if chunks:
+                pos += 1
+            start = pos
+            end = start + len(cleaned)
+            chunks.append(cleaned)
+            spans.append((start, end, sid))
+            pos = end
+        rev_index[rev_id] = (" ".join(chunks), spans)
+    return rev_index
+
+
+def _match_contiguous_sections(
+    rev_index: dict[str, tuple[str, list[tuple[int, int, str]]]], needle: str
+) -> list[str]:
+    """Return section ids whose contiguous normalized text in one revision contains ``needle``."""
+    hits: list[str] = []
+    for joined, spans in rev_index.values():
+        pos = joined.find(needle)
+        if pos == -1:
+            continue
+        end = pos + len(needle)
+        hits.extend(sid for s, e, sid in spans if e > pos and s < end)
+    return hits
 
 
 def _resolve_without_list_separators(store: Any, quote: str) -> list[str]:
@@ -460,12 +501,14 @@ def _resolve_without_list_separators(store: Any, quote: str) -> list[str]:
     from portal.modules.compliance.core.section_index import resolve_sections
 
     index = getattr(store, _LIST_SEP_INDEX_ATTR, None)
-    if index is None:
+    rev_index = getattr(store, _LIST_SEP_REV_INDEX_ATTR, None)
+    if index is None or rev_index is None:
         ids = [
             str(row[0])
             for row in store._conn.execute("SELECT section_id FROM source_sections").fetchall()
         ]
         index = {}
+        by_rev: dict[str, list[tuple[int, str, str]]] = {}
         for sid, entry in resolve_sections(store, ids).items():
             raw = str(entry.get("text", ""))
             if not raw:
@@ -473,16 +516,24 @@ def _resolve_without_list_separators(store: Any, quote: str) -> list[str]:
             cleaned = _norm_list_sep(_LIST_MARKER_LINE.sub(" ", raw))
             if cleaned:
                 index[sid] = (cleaned, _fold(str(entry.get("logical_id", ""))))
+                rev_id = str(entry.get("revision_id") or "")
+                if rev_id:
+                    by_rev.setdefault(rev_id, []).append(
+                        (int(entry.get("ordinal") or 0), sid, cleaned)
+                    )
+        rev_index = _build_list_sep_rev_index(by_rev)
         setattr(store, _LIST_SEP_INDEX_ATTR, index)
+        setattr(store, _LIST_SEP_REV_INDEX_ATTR, rev_index)
 
-    folded = _norm_list_sep(_TRAILING_ABSORBED.sub("", _fold(str(quote or ""))))
+    folded = _TRAILING_ABSORBED.sub("", _norm_list_sep(str(quote or "")))
     if not folded:
         return []
     parts = [p for p in _ELLIPSIS.split(folded) if len(p) >= _MIN_PART_CHARS]
     if not parts:
         return []
     if len(parts) == 1:
-        return [sid for sid, (text, _doc) in index.items() if parts[0] in text]
+        hits = [sid for sid, (text, _doc) in index.items() if parts[0] in text]
+        return hits or _match_contiguous_sections(rev_index, parts[0])
     part_docs: list[set[str]] = []
     part_sections: set[str] = set()
     for part in parts:
