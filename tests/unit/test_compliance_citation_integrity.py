@@ -452,3 +452,171 @@ def test_doc_names_and_refs_are_not_evidence_and_unknown_part_rejected(tmp_path)
         assert "CIP-007-6 R5 Part 5.7" in good_req["requirement_refs"]
     finally:
         repo.close()
+
+
+def test_tool_text_not_evidence_and_escaped_bullet_fold(tmp_path) -> None:
+    import json
+
+    from portal.modules.compliance.core.models import SourceDocument, SourceSection
+    from portal.modules.compliance.core.repository import Repository
+    from scripts.compliance.truth.citation_integrity import integrity
+
+    repo = Repository(tmp_path / "store.db")
+    try:
+        op_text = (
+            "3.5.3 Authentication Attempts \n3.5.3.1 \n"
+            "For applicable systems, at a minimum, where technically feasible, systems shall be \n"
+            "configured to:  \n• \nLimit the number of unsuccessful authentication attempts, AND/OR; \n"
+            "• \nGenerate alerts after a threshold of unsuccessful authentication attempts. \n"
+        )
+        reg_text = (
+            "At least once every 35 calendar days, evaluate security patches for applicability "
+            "that have been released since the last evaluation from the source or sources identified in Part 2.1. "
+            "A patch management process for tracking, evaluating, and installing cyber security patches. "
+            "The tracking portion shall include the identification of a source or sources. "
+            "Apply the applicable patches; or Create a dated mitigation plan; or Revise an existing mitigation plan."
+        )
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id="CIP-007/LSPG Account Management Procedure v6.pdf",
+                title="LSPG Account Management",
+                issuer="LSPG",
+                source_kind="procedure",
+                jurisdiction="internal",
+            )
+        )
+        rev_op = repo.add_document_revision(
+            "CIP-007/LSPG Account Management Procedure v6.pdf",
+            "LSPG Account Management Procedure v6.pdf",
+            op_text.encode(),
+            binding_effect="internally_mandatory",
+        )
+        repo.put_document_text(
+            rev_op.revision_id, op_text, page_count=1, extractor="test", extractor_version="1"
+        )
+        repo.add_source_section(
+            SourceSection(
+                section_id="isection-35335335335335335335",
+                revision_id=rev_op.revision_id,
+                path="3.5.3",
+                heading_path="3.5.3 Authentication Attempts",
+                title="Authentication Attempts",
+                char_start=0,
+                char_end=len(op_text),
+                ordinal=1,
+            )
+        )
+        repo.upsert_source_document(
+            SourceDocument(
+                logical_id="NERC/CIP-007-6",
+                title="CIP-007-6",
+                issuer="NERC",
+                source_kind="regulatory_standard",
+                jurisdiction="US",
+            )
+        )
+        rev_reg = repo.add_document_revision(
+            "NERC/CIP-007-6",
+            "CIP-007-6.pdf",
+            reg_text.encode(),
+            binding_effect="regulatory",
+        )
+        repo.put_document_text(
+            rev_reg.revision_id, reg_text, page_count=1, extractor="test", extractor_version="1"
+        )
+        repo.add_source_section(
+            SourceSection(
+                section_id="csection-22222222222222222222",
+                revision_id=rev_reg.revision_id,
+                path="R2",
+                heading_path="R2",
+                title="R2",
+                char_start=0,
+                char_end=len(reg_text),
+                ordinal=1,
+            )
+        )
+
+        tool_outputs = [
+            {
+                "tool": "compliance_read",
+                "arguments": json.dumps({"ref": "LSPG Patch V11.pdf §3.3"}),
+                "output": json.dumps(
+                    {
+                        "resolved": False,
+                        "detail": "no section, address, glossary term or document with that id; accepted forms: 'CIP-007-6 R2 Part 2.2'",
+                    }
+                ),
+            },
+            {
+                "tool": "compliance_context",
+                "arguments": json.dumps({"ref": "CIP-003-6 R5 Part 5.2", "mode": "material"}),
+                "output": json.dumps(
+                    {
+                        "resolved": False,
+                        "note": "'CIP-003-6 R5 Part 5.2' is not in the register; matching register refs: CIP-003-8 Attachment 1 Part 5.2",
+                    }
+                ),
+            },
+            {
+                "tool": "compliance_search",
+                "arguments": json.dumps(
+                    {"query": "CIP-007-6 R2 Violation Severity Levels VSL table"}
+                ),
+                "output": "",
+            },
+            {
+                "tool": "compliance_context",
+                "arguments": json.dumps({"ref": "CIP-007-6 R2", "mode": "material"}),
+                "output": json.dumps(
+                    {
+                        "resolved": True,
+                        "text": "- your LSPG Security Patch Management Procedure maps CIP-007-6 R2 Part 2.1 to §3.1 Security Patch Management Process\n",
+                    }
+                ),
+            },
+        ]
+
+        # Tool errors, tool notes, own search queries -> not_evidence; literal \n/\t/• fold -> resolved.
+        answer = "\n".join(
+            [
+                'The tool returned "no section, address, glossary term or document with that id".',
+                "- \"'CIP-003-6 R5 Part 5.2' is not in the register; matching register refs: CIP-003-8 Attachment 1 Part 5.2\"",
+                'I called `compliance_search` for "CIP-007-6 R2 Violation Severity Levels VSL table".',
+                '> "For applicable systems, at a minimum, where technically feasible, systems shall be configured to:  \\n• \\nLimit the number of unsuccessful authentication attempts, AND/OR; \\t\\n• \\nGenerate alerts after a threshold of unsuccessful authentication attempts."',
+            ]
+        )
+        ok = integrity(repo, answer, tool_outputs=tool_outputs)
+        assert ok["grounded"], ok
+        by_quote = {q["quote"]: q["status"] for q in ok["quotes"]}
+        assert (
+            by_quote["no section, address, glossary term or document with that id"]
+            == "not_evidence"
+        )
+        assert (
+            by_quote[
+                "'CIP-003-6 R5 Part 5.2' is not in the register; matching register refs: CIP-003-8 Attachment 1 Part 5.2"
+            ]
+            == "not_evidence"
+        )
+        assert by_quote["CIP-007-6 R2 Violation Severity Levels VSL table"] == "not_evidence"
+        assert ok["quote_classes"].get("resolved") == 1
+
+        # Without tool_outputs, the same tool error string is NOT excused by word patterns.
+        without = integrity(
+            repo, 'The tool returned "no section, address, glossary term or document with that id".'
+        )
+        assert not without["grounded"]
+
+        # Real faults MUST keep failing: TS5, (35s), [including], summarized quote, and run3 mapping lines.
+        for bad_line in (
+            '- "At least once every TS5 calendar days, evaluate security patches for applicability"',
+            '- "At least once every (35s) calendar days, evaluate security patches for applicability"',
+            '- "A patch management process for tracking, evaluating, and installing cyber security patches... [including] the identification of a source or sources"',
+            '- "Apply; or Create; or Revise,"',
+            '- "The LSPG Security Patch Management Procedure maps CIP-007-6 R2 Part 2.1 to §3.1 Security Patch Management Process"',
+        ):
+            bad = integrity(repo, bad_line, tool_outputs=tool_outputs)
+            assert not bad["grounded"], (bad_line, bad)
+    finally:
+        repo.close()

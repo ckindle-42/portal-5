@@ -60,6 +60,8 @@ _PAGE_FURNITURE = re.compile(
 _LIST_MARKER_LINE = re.compile(r"(?m)^\s*(?:\d+(?:\.\d+)+\.?|[•\uf0b7])\s+")
 _INLINE_ENUM = re.compile(r"(?:^|(?<=[:;]))\s*(?:\d+(?:\.\d+)+\.?|\d+[.)]|[a-z][.)])\s+")
 _LIST_SEP = re.compile(r"\s*;\s*")
+_LITERAL_ESC_AND_BULLET = re.compile(r"\\[nt]|[•\uf0b7]")
+_TOOL_MESSAGE_KEYS = ("detail", "note", "error", "message", "resolution", "warning")
 _FURNITURE_INDEX_ATTR = "_citation_integrity_furniture_index"
 _LIST_SEP_INDEX_ATTR = "_citation_integrity_list_sep_index"
 _VOCABULARY_ATTR = "_citation_integrity_vocabulary"
@@ -122,18 +124,25 @@ def _section_side(store: Any, section_id: str) -> str | None:
 
 
 def integrity(
-    store: Any, answer: str, *, min_quote_words: int = MIN_QUOTE_WORDS, question: str = ""
+    store: Any,
+    answer: str,
+    *,
+    min_quote_words: int = MIN_QUOTE_WORDS,
+    question: str = "",
+    tool_outputs: list[dict[str, Any]] | None = None,
 ) -> dict:
     """Claim-line citation integrity of ``answer`` against ``store``."""
 
     answer = str(answer or "")
+    q_fold = _question_fold(question)
+    tool_texts = _tool_text_folds(tool_outputs)
     quote_records: list[dict] = []
     token_records: list[dict] = []
     fabricated: list[str] = []
     sides: set[str] = set()
     lines: list[dict] = []
     for raw_line in answer.splitlines():
-        measured = _measure_line(store, raw_line, min_quote_words, _question_fold(question))
+        measured = _measure_line(store, raw_line, min_quote_words, q_fold, tool_texts)
         if measured is None:
             continue
         quote_records.extend(measured["quotes"])
@@ -232,7 +241,78 @@ def _is_doc_name_or_ref(store: Any, quote: str) -> bool:
     return folded in names or folded.rstrip(".,;:") in names
 
 
-def _quote_record(store: Any, quote: str, min_quote_words: int, question_fold: str = "") -> dict:
+def _collect_arg_strings(value: Any, out: list[str]) -> None:
+    """Collect string values from parsed tool arguments."""
+    if isinstance(value, str):
+        if value.strip():
+            out.append(value)
+    elif isinstance(value, dict):
+        for v in value.values():
+            _collect_arg_strings(v, out)
+    elif isinstance(value, list):
+        for v in value:
+            _collect_arg_strings(v, out)
+
+
+def _collect_tool_messages(out: Any, texts: list[str]) -> None:
+    """Collect non-document error/note/metadata strings from one tool output."""
+    if isinstance(out, str):
+        if not out.strip():
+            return
+        try:
+            out = json.loads(out)
+        except ValueError:
+            texts.append(out)
+            return
+    if not isinstance(out, dict):
+        return
+    sources = [out, out.get("truncation")]
+    for src in sources:
+        if isinstance(src, dict):
+            texts.extend(
+                v for k in _TOOL_MESSAGE_KEYS if isinstance(v := src.get(k), str) and v.strip()
+            )
+
+
+def _tool_text_folds(tool_outputs: list[dict[str, Any]] | None) -> tuple[str, ...]:
+    """Folded tool arguments and non-document tool messages (errors, notes, metadata)."""
+    from portal.modules.compliance.core.citation_by_quote import _fold
+
+    if not tool_outputs:
+        return ()
+    raw_texts: list[str] = []
+    for entry in tool_outputs:
+        if not isinstance(entry, dict):
+            continue
+        args = entry.get("arguments") if "arguments" in entry else entry.get("args")
+        if isinstance(args, str) and args.strip():
+            try:
+                _collect_arg_strings(json.loads(args), raw_texts)
+            except ValueError:
+                raw_texts.append(args)
+        elif args is not None:
+            _collect_arg_strings(args, raw_texts)
+        _collect_tool_messages(
+            entry.get("output") if "output" in entry else entry.get("result"), raw_texts
+        )
+    return tuple(dict.fromkeys(folded for text in raw_texts if (folded := _fold(text))))
+
+
+def _is_tool_text(quote: str, tool_texts: tuple[str, ...]) -> bool:
+    """True when a quote matches this turn's tool arguments or error/note messages."""
+    from portal.modules.compliance.core.citation_by_quote import _fold
+
+    folded = _fold(quote)
+    return bool(tool_texts and folded and any(folded in text for text in tool_texts))
+
+
+def _quote_record(
+    store: Any,
+    quote: str,
+    min_quote_words: int,
+    question_fold: str = "",
+    tool_texts: tuple[str, ...] = (),
+) -> dict:
     from portal.modules.compliance.core.citation_by_quote import resolve_quote
 
     if _is_question_quote(quote, question_fold):
@@ -252,6 +332,8 @@ def _quote_record(store: Any, quote: str, min_quote_words: int, question_fold: s
     hits = _resolve_without_list_separators(store, stripped)
     if hits:
         return {"quote": quote, "status": "resolved", "sections": hits, "fold": "list_separators"}
+    if _is_tool_text(quote, tool_texts):
+        return {"quote": quote, "status": "not_evidence", "sections": []}
     return _near_quote_record(store, quote)
 
 
@@ -360,10 +442,10 @@ def _resolve_without_furniture(store: Any, quote: str) -> list[str]:
 
 
 def _norm_list_sep(text: str) -> str:
-    """Fold list-item separators and inline enumerators only (never words or inline numbers)."""
+    """Fold literal \\n/\\t, bullet glyphs, inline enumerators, ';' and whitespace runs."""
     from portal.modules.compliance.core.citation_by_quote import _fold
 
-    folded = _INLINE_ENUM.sub(" ", _fold(text))
+    folded = _INLINE_ENUM.sub(" ", _fold(_LITERAL_ESC_AND_BULLET.sub(" ", text)))
     return " ".join(_LIST_SEP.sub(" ", folded).split())
 
 
@@ -430,7 +512,11 @@ def _forgive_mistyped(lines: list[dict]) -> None:
 
 
 def _measure_line(
-    store: Any, raw_line: str, min_quote_words: int, question_fold: str = ""
+    store: Any,
+    raw_line: str,
+    min_quote_words: int,
+    question_fold: str = "",
+    tool_texts: tuple[str, ...] = (),
 ) -> dict | None:
     """One line's integrity, or None when it carries no token and no quote.
 
@@ -454,24 +540,16 @@ def _measure_line(
     quotes_here = quoted_spans(stripped)
     if not tokens_here and not quotes_here:
         return None
+    line_quotes = [
+        _quote_record(store, quote, min_quote_words, question_fold, tool_texts)
+        for quote in quotes_here
+    ]
     if not tokens_here and all(
-        len(q.split()) < min_quote_words
-        or _is_question_quote(q, question_fold)
-        or _is_doc_name_or_ref(store, q)
-        for q in quotes_here
+        q["status"] in ("not_evidence", "question_quote") for q in line_quotes
     ):
-        return {
-            "claim": stripped,
-            "citing": False,
-            "quotes": [
-                _quote_record(store, q, min_quote_words, question_fold) for q in quotes_here
-            ],
-        }
+        return {"claim": stripped, "citing": False, "quotes": line_quotes}
 
     tokens = [_token_record(store, token) for token in tokens_here]
-    line_quotes = [
-        _quote_record(store, quote, min_quote_words, question_fold) for quote in quotes_here
-    ]
     line_ids = [str(t["section_id"]) for t in tokens if t["resolved"]]
     line_ids += [sid for q in line_quotes for sid in q["sections"]]
     line_sides = {side for sid in line_ids if (side := _section_side(store, sid))}
@@ -504,7 +582,12 @@ def recompute(store: Any, run_dirs: list[pathlib.Path], min_quote_words: int) ->
             if not isinstance(data, dict):
                 continue
             result = integrity(
-                store, str(data.get("answer") or ""), min_quote_words=min_quote_words
+                store,
+                str(data.get("answer") or ""),
+                min_quote_words=min_quote_words,
+                question=str(data.get("question") or ""),
+                tool_outputs=data.get("tool_outputs")
+                or (data.get("turn") or {}).get("tool_outputs"),
             )
             result.pop("lines", None)
             rows.append({"run_dir": str(run_dir), "transcript": transcript.name, **result})

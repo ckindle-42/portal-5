@@ -221,7 +221,12 @@ def _sentence_around(answer: str, needle: str) -> str:
     return answer[start : (end + 1 if end >= 0 else len(answer))].strip()
 
 
-def _grounding(store: Repository, answer: str, question: str = "") -> dict:
+def _grounding(
+    store: Repository,
+    answer: str,
+    question: str = "",
+    tool_outputs: list[dict] | None = None,
+) -> dict:
     """Per-claim grounding against the STORE, via the one integrity module.
 
     P5 migration: the per-claim logic (quoted spans resolved by containment,
@@ -234,7 +239,13 @@ def _grounding(store: Repository, answer: str, question: str = "") -> dict:
     carries the one diagnostic."""
     from scripts.compliance.truth.citation_integrity import MIN_QUOTE_WORDS, integrity
 
-    result = integrity(store, answer, min_quote_words=MIN_QUOTE_WORDS, question=question)
+    result = integrity(
+        store,
+        answer,
+        min_quote_words=MIN_QUOTE_WORDS,
+        question=question,
+        tool_outputs=tool_outputs,
+    )
     resolving_raw = [
         t["token"] for line in result["lines"] for t in line.get("tokens", []) if t["resolved"]
     ]
@@ -530,7 +541,7 @@ def _judge(store: Repository, spec: dict, record: dict) -> dict:
         and not record.get("error")
     )
     used_search = (record.get("tool_calls") or {}).get("compliance_search", 0) > 0
-    grounding = _grounding(store, answer, spec.get("question", ""))
+    grounding = _grounding(store, answer, spec.get("question", ""), record.get("tool_outputs"))
 
     # every section a resolving token OR a resolving quote names, one lookup:
     # quotes arrive as section ids already, tokens resolve through
