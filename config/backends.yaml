@@ -39,6 +39,14 @@ backends:
     supports_tools: true
   - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
     supports_tools: true
+  # 2026-11-27: the reading A/B arm's tag (auto-compliance::reading-qwen38).
+  # PARAMETER num_ctx 131072 baked over the shared Q4_K_M weights (0 extra
+  # bytes) so the arm's declared 131072 window is real on the Ollama route; the
+  # tag was retired 2026-11-13 as unused and re-created here. omlx-general and
+  # omlx-reasoning alias it to Qwen3.8-27B-oQ4e-mtp (the arm routes to
+  # [reasoning, general]).
+  - id: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k
+    supports_tools: true
   # WINDOW_AND_SEAT_V1 P4.2: candidate tags registered so the live tool-loop
   # test can address them through compliance-reading's ?model= override. Each
   # was probed (settings_audit.probe_tag) before registration; supports_tools
@@ -944,6 +952,9 @@ backends:
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx32k: Qwen3.8-27B-oQ4e-mtp
     # general-fast / general-deep (matched 96k; oMLX serves the native window)
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: Qwen3.8-27B-oQ4e-mtp
+    # 2026-11-27: the reading A/B arm's 128k tag (auto-compliance::reading-qwen38)
+    # — same MTP checkpoint, which serves the native 262,144 window.
+    hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k: Qwen3.8-27B-oQ4e-mtp
     hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx96k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
     # auto-general-uncensored::creative — the GGUF twin of the conversion above.
     fredrezones55/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4-ctx8k: Qwen3.6-35B-A3B-HauhauCS-Aggressive-4bit
@@ -1029,6 +1040,9 @@ backends:
     # serves it, so the reasoning group resolves the hint on oMLX (it already
     # resolves via the omlx-general alias block).
     hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k: Qwen3.8-27B-oQ4e-mtp
+    # 2026-11-27: the reading A/B arm (auto-compliance::reading-qwen38) routes to
+    # [reasoning, general] and pins the 128k tag; same checkpoint, native window.
+    hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k: Qwen3.8-27B-oQ4e-mtp
     hf.co/unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL-ctx32k: unsloth--Qwen3.6-35B-A3B-UD-MLX-4bit
   type: omlx
   url: ${OMLX_URL:-http://host.docker.internal:8085}

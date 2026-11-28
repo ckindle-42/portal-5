@@ -3205,21 +3205,21 @@ workspaces:
       # harness_policy and base auto-compliance's parity (6e4ec54de);
       # reasoning_effort is deliberately NOT declared, so the oMLX entry's
       # reasoning_effort_default: medium applies (P5-OMLX-QWEN38-MTP-001).
-      # WINDOW: the only registered Qwen3.8-27B long tag is the ctx96k GGUF
-      # (PARAMETER num_ctx 98304) — the 131072 tag was retired 2026-11-13 and its
-      # weights deleted (config/MODEL_CATALOG.md) — so context_limit is the tag's
-      # baked window, not the seat's 131072. The CIP-007-6 R2 dual-document
-      # payload measured 86,969 real prompt tokens (dual_document.py DD4), so this
-      # arm cannot hold it whole: read the report before running the probe.
+      # WINDOW: 131072, the seat's own window (BRIEF_READING_QWEN38_128K_20261127).
+      # The ctx96k GGUF was the only registered long tag until 2026-11-27, when the
+      # 128k tag was re-created from the base weights (PARAMETER num_ctx 131072,
+      # 0 extra bytes — config/modelfiles/qwen38-27b.Q4_K_M-ctx128k.Modelfile); the
+      # 2026-11-13 retirement reason ("unused by any workspace") no longer holds.
+      # The CIP-007-6 R2 dual-document payload measured 86,969 real prompt tokens
+      # (dual_document.py DD4) against this window's 104,496-token budget.
       reading-qwen38:
         module: compliance
         name: ⚖️ Portal Compliance Reading · Qwen3.8
         description: |-
-          A/B candidate arm for the compliance reading seat: the reading prompt, tool list and answer budget unchanged, on Qwen3.8-27B-oQ4e-mtp (oMLX) with the ctx96k GGUF fallback. Not the production seat — auto-compliance::reading stays on gemma4 until the seat decision.
-        model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx96k
-        # the tag's baked window (ctx96k = 98304); NOT the seat's 131072, which no
-        # registered Qwen3.8-27B tag holds.
-        context_limit: 98304
+          A/B candidate arm for the compliance reading seat: the reading prompt, tool list and answer budget unchanged, on Qwen3.8-27B-oQ4e-mtp (oMLX) with the ctx128k GGUF fallback. Not the production seat — auto-compliance::reading stays on gemma4 until the seat decision.
+        model_hint: hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k
+        # the tag's baked window (ctx128k = 131072), which is the seat's own.
+        context_limit: 131072
         predict_limit: 24576
         # The card's instruct row, verbatim (see the header comment). No
         # sampling_override: the served values ARE the card's, so the audit's

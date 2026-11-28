@@ -1,0 +1,11 @@
+# hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k — the compliance reading A/B arm's
+# Ollama fallback (auto-compliance::reading-qwen38, BRIEF_READING_QWEN38_128K_20261127).
+# Bakes num_ctx 131072 over the shared Q4_K_M weights (0 extra bytes) so the seat's
+# declared window is real on the Ollama route, which ignores request-time num_ctx.
+# Re-created 2026-11-27: the tag was retired 2026-11-13 as unused and its manifest
+# deleted; the base weights it shares were never removed.
+# Create with:
+#   ollama create hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M-ctx128k \
+#     -f config/modelfiles/qwen38-27b.Q4_K_M-ctx128k.Modelfile
+FROM hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_K_M
+PARAMETER num_ctx 131072
